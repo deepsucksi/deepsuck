@@ -47,7 +47,11 @@
     romance: '礼貌回应示好，把话题引向对方身份与平台',
     info_stall: '找借口不提供个人信息',
     urgency_stall: '表示自己慢，不要催',
-    generic: '附和并让对方继续说'
+    generic: '附和并让对方继续说',
+    verify_identity: '对自称熟人/领导的对方提出只有真熟人才知道的问题，或坚持要电话/当面核实',
+    task_stall: '假装笨手笨脚地做任务、纠结小额佣金，追问平台名称与收款账户，绝不真正垫付',
+    loan_stall: '对"先交钱后放款""刷流水"表示困惑，追问机构名称、资质与收款账户',
+    campus_stall: '假装搞不清各种网贷平台和额度，拖延并追问对方所谓的"核查账户"'
   };
 
   function systemPrompt(persona, scenario, hint, missing) {

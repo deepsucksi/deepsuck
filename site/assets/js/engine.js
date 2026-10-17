@@ -46,15 +46,33 @@
     this.turn = 0;
   }
 
-  Session.prototype.pick = function (intent) {
-    var list = this.persona.templates[intent] || this.persona.templates.generic;
+  /**
+   * 选模板：同一意图内不重复（用完一轮再重置）。
+   * 模板可以是字符串，或 { t: '文本', re: /触发词/ } —— 后者只在骗子本轮消息命中 re 时可用，且优先使用，
+   * 这样"卡号填错被冻结？"之类的接话不会在对方还没提到时冒出来。
+   */
+  Session.prototype.pick = function (intent, ctx) {
+    var list = this.templateList(intent);
+    ctx = String(ctx || '');
     var used = this.used[intent] = this.used[intent] || [];
-    if (used.length >= list.length) used.length = 0;
-    var pool = [];
-    for (var i = 0; i < list.length; i++) if (used.indexOf(i) < 0) pool.push(i);
+    function ok(i) { var it = list[i]; return typeof it === 'string' || (it.re && it.re.test(ctx)); }
+    var avail = [], ctxHits = [];
+    for (var i = 0; i < list.length; i++) {
+      if (!ok(i)) continue;
+      avail.push(i);
+      if (used.indexOf(i) < 0 && typeof list[i] !== 'string') ctxHits.push(i);
+    }
+    if (!avail.length) { list = this.persona.templates.generic; return list[Math.floor(this.rng() * list.length)]; }
+    var pool = ctxHits.length ? ctxHits : avail.filter(function (i) { return used.indexOf(i) < 0; });
+    if (!pool.length) { used.length = 0; pool = avail; }
     var idx = pool[Math.floor(this.rng() * pool.length)];
     used.push(idx);
-    return list[idx];
+    var it = list[idx];
+    return typeof it === 'string' ? it : it.t;
+  };
+
+  Session.prototype.templateList = function (intent) {
+    return this.persona.templates[intent] || this.persona.templates.generic;
   };
 
   Session.prototype.fill = function (tpl, vars) {
@@ -126,6 +144,10 @@
     var r = this.rng();
     if (a.newIntel.length) return 'confirm_intel';
     if (has.otp) return 'otp_stall';
+    if (has.acquaintance && !has.transfer && (this.used.verify_count || 0) < 2) {
+      this.used.verify_count = (this.used.verify_count || 0) + 1;
+      return 'verify_identity';
+    }
     if (has.safe_account || has.transfer) {
       if (has.crypto && !this.haveGoal('wallet')) return 'elicit_wallet';
       if (!this.haveGoal('bank') && !this.haveGoal('wallet')) return 'elicit_account';
@@ -133,6 +155,8 @@
     }
     if (has.crypto && !this.haveGoal('wallet')) return 'elicit_wallet';
     if (has.app_download) return this.haveGoal('url') ? 'tech_trouble' : 'elicit_url';
+    var flavor = has.task_rebate ? 'task_stall' : has.loan_fraud ? 'loan_stall' : has.campus_loan ? 'campus_stall' : null;
+    if (flavor && this.lastIntent !== flavor) return flavor;
     if ((has.authority || has.threat) && !this.used.scared_once) { this.used.scared_once = true; return 'scared'; }
     if (has.secrecy) return 'secrecy';
     if (has.high_return) return this.haveGoal('url') ? 'greedy' : 'elicit_url';
@@ -153,13 +177,14 @@
   /** 规则引擎回复 */
   Session.prototype.ruleReply = function (analysis) {
     var intent = this.chooseIntent(analysis);
+    this.lastIntent = intent;
     var vars = {};
     if (intent === 'confirm_intel') {
       vars.intel = analysis.newIntel.map(function (i) { return i.label + ' ' + i.masked; }).join('，');
       var missing = this.missingGoals();
       vars.ask = this.persona.asks[missing[0]] || this.persona.asks.none;
     }
-    var text = this.fill(this.pick(intent), vars);
+    var text = this.fill(this.pick(intent, analysis.redacted), vars);
     return this.recordBot(text, intent);
   };
 

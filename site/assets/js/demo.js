@@ -119,7 +119,8 @@
       if (gen !== state.gen) return;
       var intentLabel = { opening: '开场', ask_repeat: '请求重复', misunderstand: '故意误解', tech_trouble: '假装技术故障', slow_walk: '拖延', otp_stall: '验证码拖延',
         elicit_account: '诱导暴露账户', elicit_wallet: '诱导暴露钱包', elicit_contact: '诱导留联系方式', elicit_url: '诱导发链接', confirm_intel: '复述并追问',
-        fake_progress: '假装转账受阻', scared: '装害怕', secrecy: '假意保密', greedy: '装心动', romance: '周旋示好', info_stall: '拒给个人信息', urgency_stall: '反催促', generic: '附和' }[msg.intent] || msg.intent;
+        fake_progress: '假装转账受阻', scared: '装害怕', secrecy: '假意保密', greedy: '装心动', romance: '周旋示好', info_stall: '拒给个人信息', urgency_stall: '反催促', generic: '附和',
+        verify_identity: '反向核验身份', task_stall: '刷单周旋', loan_stall: '贷款周旋', campus_stall: '校园贷周旋' }[msg.intent] || msg.intent;
       addMsg('bot', esc(msg.text), '<span class="note">策略：' + esc(intentLabel) + (msg.engine ? ' · ' + esc(msg.engine) : '') + '</span>');
       renderPanel();
     });
