@@ -121,6 +121,15 @@ mark.intel{background:rgba(143,207,134,.16);color:var(--green);border-radius:4px
 .intel-item .t{color:var(--dim);white-space:nowrap}
 .intel-item .v{font-family:var(--mono);color:var(--green);text-align:right;word-break:break-all}
 .intel-item.new{animation:flash 1.4s}
+.intel-item.hit{border-color:rgba(236,106,82,.7);background:rgba(236,106,82,.08)}
+.bl{display:inline-block;margin-top:4px;font-family:inherit;font-size:11.5px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--dim);white-space:normal}
+.bl.hit{color:#fff;background:var(--red);border-color:var(--red);font-weight:600}
+.bl.clean{color:var(--green);border-color:rgba(143,207,134,.45)}
+.bl.pending{opacity:.75}
+.intel-item .bl{white-space:nowrap;font-size:11px}
+.bl-note{margin:8px 0 0;font-size:11.5px;color:var(--dim);line-height:1.5}
+.bl-note a{color:var(--muted)}
+.icard.hit{border-color:rgba(236,106,82,.7)}
 @keyframes flash{0%{border-color:var(--green);box-shadow:0 0 0 3px rgba(143,207,134,.2)}100%{}}
 .empty{color:var(--dim);font-size:13px}
 .actions{display:flex;flex-wrap:wrap;gap:8px}
@@ -134,7 +143,7 @@ mark.intel{background:rgba(143,207,134,.16);color:var(--green);border-radius:4px
 .sheet-head{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)}
 .sheet-head h3{margin:0;font-size:20px}
 .sheet-body{padding:20px 22px}
-.dash-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+.dash-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px}
 .dash-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}
 .icard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
 .icard .h{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
@@ -203,6 +212,7 @@ ul.plain li{margin:4px 0}
   .intel-hero h1{font-size:28px}
 }
 .submit-box{background:var(--card);border:1px solid var(--amber);border-radius:12px;padding:12px 14px;margin-bottom:16px;display:grid;gap:8px}
+.submit-box[hidden]{display:none}
 .submit-box h4{margin:0;color:var(--amber2)}
 .submit-box p{margin:0}
 .submit-box textarea{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:9px 11px;font-family:var(--mono);font-size:13px;resize:vertical}

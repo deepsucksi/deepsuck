@@ -1,0 +1,114 @@
+{
+ "comment": "由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。",
+ "fnv": [
+  {
+   "input": "",
+   "hash": 2166136261,
+   "shard": "c5"
+  },
+  {
+   "input": "a",
+   "hash": 3826002220,
+   "shard": "2c"
+  },
+  {
+   "input": "evil-demo.example",
+   "hash": 1221010553,
+   "shard": "79"
+  },
+  {
+   "input": "refund-tb-kefu.example",
+   "hash": 2858346906,
+   "shard": "9a"
+  },
+  {
+   "input": "xn--fiqs8s.example",
+   "hash": 2028109825,
+   "shard": "01"
+  }
+ ],
+ "hosts": [
+  {
+   "input": "https://Login.Refund-TB-Kefu.example/dl?x=1",
+   "host": "login.refund-tb-kefu.example",
+   "candidates": [
+    "login.refund-tb-kefu.example",
+    "refund-tb-kefu.example"
+   ]
+  },
+  {
+   "input": "www.goldwin-vip.example",
+   "host": "www.goldwin-vip.example",
+   "candidates": [
+    "www.goldwin-vip.example",
+    "goldwin-vip.example"
+   ]
+  },
+  {
+   "input": "kefu-jd.example:8080/a",
+   "host": "kefu-jd.example",
+   "candidates": [
+    "kefu-jd.example"
+   ]
+  },
+  {
+   "input": "abc@mail.scam-demo.example",
+   "host": "mail.scam-demo.example",
+   "candidates": [
+    "mail.scam-demo.example",
+    "scam-demo.example"
+   ]
+  },
+  {
+   "input": "http://192.168.1.10/admin",
+   "host": null,
+   "candidates": null
+  },
+  {
+   "input": "例子.中国",
+   "host": null,
+   "candidates": null
+  },
+  {
+   "input": "a.b.c.d.evil-demo.example",
+   "host": "a.b.c.d.evil-demo.example",
+   "candidates": [
+    "a.b.c.d.evil-demo.example",
+    "b.c.d.evil-demo.example",
+    "c.d.evil-demo.example",
+    "d.evil-demo.example",
+    "evil-demo.example"
+   ]
+  },
+  {
+   "input": "evil-demo.example.",
+   "host": "evil-demo.example",
+   "candidates": [
+    "evil-demo.example"
+   ]
+  },
+  {
+   "input": "localhost",
+   "host": null,
+   "candidates": null
+  }
+ ],
+ "wallets": [
+  {
+   "input": "0xAbCdEf0123456789aBcDeF0123456789AbCdEf01",
+   "key": "0xabcdef0123456789abcdef0123456789abcdef01"
+  },
+  {
+   "input": "TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe",
+   "key": "TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe"
+  },
+  {
+   "input": "BC1QAR0SRRR7XFKVY5L643LYDNW9RE59GTZZWF5MDQ",
+   "key": "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"
+  },
+  {
+   "input": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+   "key": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+  }
+ ]
+}

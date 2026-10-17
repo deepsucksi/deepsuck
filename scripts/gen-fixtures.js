@@ -16,6 +16,7 @@ const E = require('../site/assets/js/engine.js');
 const S = require('../site/assets/js/scenarios.js');
 const P = require('../site/assets/js/personas.js');
 const { mulberry32 } = require('./lib/rng.js');
+const BL = require('../site/assets/js/blocklist.js');
 
 const DIR = path.join(__dirname, '..', 'tests', 'fixtures');
 const HEADER = '由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。';
@@ -38,7 +39,7 @@ const TEXTS = [
   '卡号 六二二二 零二零二 零零一一 二二三三 四四五', '支付寶 13900112233', '卡号 六二二二 零二零二 零零一一 二二三三 四四五，户名王建国',
   '把钱转到 六二二二 零二零二 零零一一 二二三三 四四五，有问题打 幺三九 零零幺幺 二二三三',
   '收款人是张伟，开户行招商银行 6225 8812 3456 7891', 'http://192.168.1.10:8080/admin 登录', '访问 HTTPS://Example-Refund.CN/a?b=1。',
-  '客服电话 800 123 4567，邮箱 kefu.vip@example.com', '“金盾理财”平台 日赚 500 元，下载金盾理财APP'
+  '客服电话 800 123 4567，邮箱 kefu.vip@example.com', '我记一下：网址/域名 re***fu.top，钱包 0x12ab...9f3e，对吗', '“金盾理财”平台 日赚 500 元，下载金盾理财APP'
 ];
 for (const sc of S.SCENARIOS) for (const line of sc.samples) TEXTS.push(line);
 
@@ -100,6 +101,16 @@ function build() {
       const st = s.stats();
       return Object.assign({}, c, { turns, intel: s.intelList(), stats: { estimatedScammerSeconds: st.estimatedScammerSeconds, intelCount: st.intelCount, riskScore: st.riskScore } });
     })
+  };
+  // 黑名单：FNV 分片、主机名解析、父域候选、钱包规范化（域名均为 .example / 虚构）
+  const HOSTS = ['https://Login.Refund-TB-Kefu.example/dl?x=1', 'www.goldwin-vip.example', 'kefu-jd.example:8080/a', 'abc@mail.scam-demo.example',
+    'http://192.168.1.10/admin', '例子.中国', 'a.b.c.d.evil-demo.example', 'evil-demo.example.', 'localhost'];
+  out.blocklist = {
+    comment: HEADER,
+    fnv: ['', 'a', 'evil-demo.example', 'refund-tb-kefu.example', 'xn--fiqs8s.example'].map((d) => ({ input: d, hash: BL.fnv1a(d), shard: BL.shardOf(d) })),
+    hosts: HOSTS.map((v) => { const h = BL.hostOf(v); return { input: v, host: h, candidates: h ? BL.candidates(h) : null }; }),
+    wallets: ['0xAbCdEf0123456789aBcDeF0123456789AbCdEf01', 'TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe', 'BC1QAR0SRRR7XFKVY5L643LYDNW9RE59GTZZWF5MDQ', '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa']
+      .map((a) => ({ input: a, key: BL.walletKey(a) }))
   };
   return out;
 }

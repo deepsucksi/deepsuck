@@ -136,6 +136,7 @@
       (a.newIntel.length ? '<span class="tag amber">+' + a.newIntel.length + ' 条情报</span>' : '');
     addMsg('scammer', highlight(a.redacted, a.newIntel), meta);
     renderPanel(a.newIntel);
+    checkBlocklists(s);
     state.queue = state.queue.then(function () {
       if (gen !== state.gen || s.endedAt) return;
       return produceReply(s, a).then(function (msg) { if (msg) return showBot(msg, gen); });
@@ -162,6 +163,29 @@
     });
   }
 
+  /* ---------- 黑名单比对（网址 / 钱包；本地分片 + 运行时公开列表，仅供参考） ---------- */
+  var BL = D.blocklist ? D.blocklist.createClient({ base: 'data/blocklist/' }) : null;
+  function checkBlocklists(s) {
+    if (!BL) return;
+    s.pendingBlocklist().forEach(function (p) {
+      s.annotate(p.key, { status: 'pending' });
+      BL.check(p.type, p.raw).then(function (r) {
+        if (r.status === 'skip') r = { status: 'unavailable' };
+        s.annotate(p.key, r);
+        if (state.session === s) { renderPanel(); if ($('summaryModal').classList.contains('open')) openSummary(); }
+      });
+    });
+  }
+  var BL_TEXT = { hit: '⚠ 命中公开黑名单', clean: '✓ 未命中黑名单', unavailable: '黑名单暂不可用', pending: '比对黑名单中…' };
+  var BL_SHORT = { hit: '⚠ 黑名单', clean: '✓ 未命中黑名单', unavailable: '黑名单不可用', pending: '比对中…' };
+  function blBadge(b, compact) {
+    if (!b) return '';
+    var title = b.status === 'hit' ? '来源：' + (b.sources || []).join('、') + (b.how === 'parent' ? '（父域名命中）' : '') + ' · 仅供参考，不能作为认定依据'
+      : b.status === 'clean' ? '已比对公开黑名单，未命中（不代表安全）' : '';
+    return '<span class="bl ' + b.status + '" title="' + esc(title) + '">' + esc((compact ? BL_SHORT : BL_TEXT)[b.status] || b.status) +
+      (b.status === 'hit' ? ' · ' + esc((b.sources || []).join(' / ')) : '') + '</span>';
+  }
+
   /* ---------- 侧栏 ---------- */
   function renderStats() {
     if (!state.session) return;
@@ -180,8 +204,8 @@
     (fresh || []).forEach(function (i) { freshSet[i.type + i.masked] = 1; });
     var list = s.intelList();
     $('intelList').innerHTML = list.length ? list.map(function (i) {
-      return '<div class="intel-item' + (freshSet[i.type + i.masked] ? ' new' : '') + '"><span class="t">' + esc(i.label) + '</span><span class="v">' + esc(i.masked) +
-        (i.meta && i.meta.bank ? ' <span class="note">' + esc(i.meta.bank) + '</span>' : '') + '</span></div>';
+      return '<div class="intel-item' + (freshSet[i.type + i.masked] ? ' new' : '') + (i.blocklist && i.blocklist.status === 'hit' ? ' hit' : '') + '"><span class="t">' + esc(i.label) + '</span><span class="v">' + esc(i.masked) +
+        (i.meta && i.meta.bank ? ' <span class="note">' + esc(i.meta.bank) + '</span>' : '') + (i.blocklist ? '<br>' + blBadge(i.blocklist, true) : '') + '</span></div>';
     }).join('') : '<div class="empty">等待骗子露出马脚……</div>';
     var tl = s.tacticList();
     $('tacticList').innerHTML = tl.length ? tl.map(function (t) {
@@ -206,7 +230,7 @@
     $('sumSub').textContent = r.session.scenario.title + ' · ' + r.session.persona.name + ' · 引擎 ' + r.session.engine;
     $('dashStats').innerHTML = [
       ['估算骗子耗时', fmtHuman(st.estimatedScammerSeconds)], ['实际对话时长', fmtHuman(st.wallClockSeconds)],
-      ['消息数', st.messages + '（骗子 ' + st.scammerMessages + '）'], ['情报条数', st.intelCount], ['风险评分', st.riskScore + '/100']
+      ['消息数', st.messages + '（骗子 ' + st.scammerMessages + '）'], ['情报条数', st.intelCount], ['黑名单命中', r.intel.filter(function (i) { return i.blocklist && i.blocklist.status === 'hit'; }).length], ['风险评分', st.riskScore + '/100']
     ].map(function (x) { return '<div class="stat"><div class="v" style="font-size:18px">' + esc(x[1]) + '</div><div class="k">' + esc(x[0]) + '</div></div>'; }).join('');
 
     $('dashIntel').innerHTML = r.intel.length ? r.intel.map(function (i) {
@@ -216,8 +240,8 @@
       if (i.meta.chain) m.push('链：' + i.meta.chain);
       if (i.meta.kind) m.push({ mobile: '手机', hotline: '400/800 热线', landline: '座机' }[i.meta.kind]);
       m.push('首次出现：第 ' + i.firstSeenTurn + ' 轮' + (i.count > 1 ? ' · 重复 ' + i.count + ' 次' : ''));
-      return '<div class="icard"><div class="h"><span>' + (TYPE_ICON[i.type] || '•') + ' ' + esc(i.label) + '</span><span class="tag amber">已脱敏</span></div>' +
-        '<div class="val">' + esc(i.masked) + '</div><div class="m">' + esc(m.join(' · ')) + '</div></div>';
+      return '<div class="icard' + (i.blocklist && i.blocklist.status === 'hit' ? ' hit' : '') + '"><div class="h"><span>' + (TYPE_ICON[i.type] || '•') + ' ' + esc(i.label) + '</span><span class="tag amber">已脱敏</span></div>' +
+        '<div class="val">' + esc(i.masked) + '</div><div class="m">' + esc(m.join(' · ')) + '</div>' + (i.blocklist ? '<div class="m">' + blBadge(i.blocklist) + '</div>' : '') + '</div>';
     }).join('') : '<div class="empty">本次对话未提取到账户/地址类情报。试试样例台词中带卡号、钱包地址的句子。</div>';
 
     var ctx = [];

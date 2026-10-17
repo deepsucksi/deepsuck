@@ -249,12 +249,23 @@ class Session:
         }
 
     def intel_list(self) -> list:
-        return [{"type": i["type"], "label": i["label"], "masked": i["masked"], "meta": i["meta"],
-                 "count": i["count"], "firstSeenTurn": i["firstSeenTurn"]} for i in self.intel.values()]
+        out = []
+        for i in self.intel.values():
+            o = {"type": i["type"], "label": i["label"], "masked": i["masked"], "meta": i["meta"],
+                 "count": i["count"], "firstSeenTurn": i["firstSeenTurn"]}
+            if "blocklist" in i:
+                o["blocklist"] = i["blocklist"]
+            out.append(o)
+        return out
 
     def raw_intel(self) -> list:
         """原始值（仅内存，用于黑名单比对/情报库提交；不要写进报告）。"""
-        return [{"type": i["type"], "raw": self._raw[k], "masked": i["masked"]} for k, i in self.intel.items()]
+        return [{"key": k, "type": i["type"], "raw": self._raw[k], "masked": i["masked"]} for k, i in self.intel.items()]
+
+    def annotate(self, key: str, blocklist: dict) -> None:
+        """记录黑名单比对结果（只含状态与来源名，不含原值）。"""
+        if key in self.intel:
+            self.intel[key]["blocklist"] = blocklist
 
     def tactic_list(self) -> list:
         lst = [{"id": k, "label": T.BY_ID[k]["label"] if k in T.BY_ID else k, "count": c}

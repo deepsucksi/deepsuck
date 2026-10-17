@@ -1045,6 +1045,11 @@
    "redacted": "客服电话 800-***-4567，邮箱 ke***@example.com"
   },
   {
+   "text": "我记一下：网址/域名 re***fu.top，钱包 0x12ab...9f3e，对吗",
+   "entities": [],
+   "redacted": "我记一下：网址/域名 re***fu.top，钱包 0x12ab...9f3e，对吗"
+  },
+  {
    "text": "“金盾理财”平台 日赚 500 元，下载金盾理财APP",
    "entities": [
     {

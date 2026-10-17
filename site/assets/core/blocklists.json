@@ -1,0 +1,81 @@
+{
+  "schema": "deepsuck.core.blocklists/v1",
+  "comment": "公开黑名单数据源。domain 类（MIT）在 GitHub Pages 构建时由 scripts/fetch-blocklists.js 拉取并按 FNV-1a 哈希分成 256 片（不入库）；wallet 类在浏览器/Python 运行时按需拉取（GPL 数据不打包进本仓库）。命中仅供参考，不能作为认定依据。",
+  "domainShards": 256,
+  "domainParentMinLabels": 2,
+  "sources": [
+    {
+      "id": "destroylist",
+      "name": "destroylist",
+      "kind": "domain",
+      "mode": "build",
+      "url": "https://raw.githubusercontent.com/phishdestroy/destroylist/main/list.txt",
+      "homepage": "https://github.com/phishdestroy/destroylist",
+      "license": "MIT"
+    },
+    {
+      "id": "phishing_database",
+      "name": "Phishing.Database",
+      "kind": "domain",
+      "mode": "build",
+      "url": "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt",
+      "homepage": "https://github.com/Phishing-Database/Phishing.Database",
+      "license": "MIT"
+    },
+    {
+      "id": "scamsniffer",
+      "name": "ScamSniffer scam-database",
+      "kind": "wallet",
+      "mode": "runtime",
+      "format": "json-array",
+      "chains": ["crypto_eth"],
+      "url": "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/address.json",
+      "homepage": "https://github.com/scamsniffer/scam-database",
+      "license": "GPL-3.0（运行时拉取，不随本项目分发）"
+    },
+    {
+      "id": "ofac_eth",
+      "name": "OFAC SDN（ETH）",
+      "kind": "wallet",
+      "mode": "runtime",
+      "format": "lines",
+      "chains": ["crypto_eth"],
+      "url": "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_ETH.txt",
+      "homepage": "https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses",
+      "license": "美国财政部 OFAC 公开数据；整理脚本 MIT"
+    },
+    {
+      "id": "ofac_trx",
+      "name": "OFAC SDN（TRON）",
+      "kind": "wallet",
+      "mode": "runtime",
+      "format": "lines",
+      "chains": ["crypto_tron"],
+      "url": "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_TRX.txt",
+      "homepage": "https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses",
+      "license": "美国财政部 OFAC 公开数据；整理脚本 MIT"
+    },
+    {
+      "id": "ofac_usdt",
+      "name": "OFAC SDN（USDT）",
+      "kind": "wallet",
+      "mode": "runtime",
+      "format": "lines",
+      "chains": ["crypto_eth", "crypto_tron"],
+      "url": "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_USDT.txt",
+      "homepage": "https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses",
+      "license": "美国财政部 OFAC 公开数据；整理脚本 MIT"
+    },
+    {
+      "id": "ofac_btc",
+      "name": "OFAC SDN（BTC）",
+      "kind": "wallet",
+      "mode": "runtime",
+      "format": "lines",
+      "chains": ["crypto_btc"],
+      "url": "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt",
+      "homepage": "https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses",
+      "license": "美国财政部 OFAC 公开数据；整理脚本 MIT"
+    }
+  ]
+}

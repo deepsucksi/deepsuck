@@ -17,7 +17,7 @@
   'use strict';
 
   var REPORT_SCHEMA = 'deepsuck.intel-report/v0.1';
-  var VERSION = '0.2.0';
+  var VERSION = '0.3.0';
 
   function goalOf(type) {
     if (type === 'bank_card') return 'bank';
@@ -225,8 +225,29 @@
     var self = this;
     return Object.keys(this.intel).map(function (k) {
       var i = self.intel[k];
-      return { type: i.type, label: i.label, masked: i.masked, meta: i.meta, count: i.count, firstSeenTurn: i.firstSeenTurn };
+      var o = { type: i.type, label: i.label, masked: i.masked, meta: i.meta, count: i.count, firstSeenTurn: i.firstSeenTurn };
+      if (i.blocklist) o.blocklist = i.blocklist;
+      return o;
     });
+  };
+
+  /** 待比对黑名单的情报（含内存中的原值，仅供 blocklist.js 本地/分片比对，不进入报告） */
+  Session.prototype.pendingBlocklist = function () {
+    var self = this;
+    return Object.keys(this.intel).filter(function (k) {
+      var i = self.intel[k];
+      return !i.blocklist && (i.type === 'url' || i.type === 'email' || /^crypto_/.test(i.type));
+    }).map(function (k) { return { key: k, type: self.intel[k].type, raw: self.intel[k].raw }; });
+  };
+
+  /** 记录黑名单比对结果（只保存状态与来源名，不含原值） */
+  Session.prototype.annotate = function (key, r) {
+    if (!this.intel[key]) return;
+    var o = { status: r.status };
+    if (r.how) o.how = r.how;
+    if (r.sources) o.sources = r.sources;
+    if (r.updated) o.updated = r.updated;
+    this.intel[key].blocklist = o;
   };
 
   Session.prototype.tacticList = function () {

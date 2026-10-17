@@ -54,7 +54,7 @@
       "flags": "gi"
     },
     "urlBare": {
-      "source": "(?<![@\\w.-])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:com|cn|net|org|top|xyz|vip|cc|app|io|me|shop|site|online|club|info|link|live|pro|biz|tk|icu|work|fun|asia|hk|tw|example)(?:\\/[^\\s，。！？；、“”\"'<>（）()【】\\u4e00-\\u9fa5]*)?(?![\\w-])",
+      "source": "(?<![@\\w.*-])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:com|cn|net|org|top|xyz|vip|cc|app|io|me|shop|site|online|club|info|link|live|pro|biz|tk|icu|work|fun|asia|hk|tw|example)(?:\\/[^\\s，。！？；、“”\"'<>（）()【】\\u4e00-\\u9fa5]*)?(?![\\w-])",
       "flags": "gi"
     },
     "email": {

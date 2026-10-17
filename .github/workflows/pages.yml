@@ -22,6 +22,9 @@ jobs:
         with:
           node-version: 20
       - run: npm test
+      - name: fetch public domain blocklists (destroylist + Phishing.Database, MIT) → site/data/blocklist/
+        run: node scripts/fetch-blocklists.js
+        continue-on-error: true
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
