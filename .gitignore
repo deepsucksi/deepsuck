@@ -1,0 +1,15 @@
+# secrets
+.env
+.env.*
+!.env.example
+# deps / build
+node_modules/
+dist/
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+# 导出的情报报告（即便脱敏也不建议入库）
+deepsuck-intel-*.json

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DeepSuck · 开源 AI 反诈“拖住”机器人（非官方项目，与 DeepSeek 无关）</title>
+<meta name="description" content="DeepSuck：开源的 AI 反诈机器人，用会聊天的“受害人”人设拖住骗子、提取诈骗情报（脱敏）、用于预防与预警。非官方项目，与 DeepSeek 无关。">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/logo.svg" alt="">DeepSuck</a>
+    <span class="unofficial" data-i18n="badge">非官方项目，与 DeepSeek 无关</span>
+    <nav class="nav">
+      <a class="hide-m" href="#how" data-i18n="nav.how">原理</a>
+      <a class="hide-m" href="#scenarios" data-i18n="nav.sc">场景</a>
+      <a class="hide-m" href="#ethics" data-i18n="nav.ethics">底线</a>
+      <a class="hide-m" href="#oss" data-i18n="nav.oss">开源</a>
+      <button class="btn small ghost" id="langBtn" type="button">EN</button>
+      <a class="btn small primary" href="demo.html" data-i18n="nav.demo">进入沙盒</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <div class="hero-grid">
+    <div>
+      <span class="chip" data-i18n="hero.kicker">开源 · 防御性研究 · 中文场景优先</span>
+      <h1 data-i18n="hero.title">让骗子把时间<br><em>浪费在 AI 身上</em></h1>
+      <p class="lead" data-i18n="hero.lead">DeepSuck 是一个开源的 AI 反诈“拖住”机器人：用糊涂阿姨、耳背大爷、好奇大学生等人设陪骗子聊天，故意误解、反复确认、假装卡顿，同时自动提取对方暴露的收款账户、钱包地址、电话与网址，脱敏后形成情报，用于预防与早期预警。</p>
+      <div class="chips">
+        <span class="chip" data-i18n="chip1">纯静态 · 无需 API Key</span>
+        <span class="chip" data-i18n="chip2">浏览器本地规则引擎</span>
+        <span class="chip" data-i18n="chip3">可选接入通义千问（百炼）</span>
+        <span class="chip" data-i18n="chip4">情报默认脱敏</span>
+        <span class="chip">Apache-2.0</span>
+      </div>
+      <div class="cta">
+        <a class="btn primary" href="demo.html" data-i18n="cta.demo">▶ 扮演骗子，试试能骗到谁</a>
+        <a class="btn" href="#oss" data-i18n="cta.oss">参与开源</a>
+      </div>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <div class="row"><div class="b r">我是公安局张警官，你涉嫌洗钱，马上把钱转到安全账户！</div></div>
+      <div class="tag" style="text-align:right">⚑ 冒充公检法 · 制造紧迫感 · 安全账户</div>
+      <div class="row"><div class="b s">👵 哎呀吓死我了，我心脏不好，你等我吃个速效救心丸……好了，你说吧，我该怎么办？</div></div>
+      <div class="row"><div class="b r">转到 6222 **** **** 3445，户名王**</div></div>
+      <div class="row"><div class="b s">👵 我抄下来了，你看我写的对不对啊？你再留个电话给我，我怕一会找不到你。</div></div>
+      <div class="tag" style="color:var(--green)">✓ 已提取：银行卡 6222 **** **** 3445 · 户名 王**</div>
+    </div>
+  </div>
+</div>
+
+<section id="how">
+  <div class="wrap">
+    <h2 data-i18n="how.title">它如何工作</h2>
+    <p class="sub" data-i18n="how.sub">五个环节，全部在你的浏览器里完成（规则引擎）；接入大模型时，发给模型的内容也已先在本地脱敏。</p>
+    <div class="steps">
+      <div class="step"><div class="n">01</div><h3 data-i18n="s1.t">诱敌</h3><p data-i18n="s1.d">以“潜在受害人”的人设出现：反诈部署方可将其接到诱饵号码或举报转接渠道。机器人从不主动联系任何真实的人。</p></div>
+      <div class="step"><div class="n">02</div><h3 data-i18n="s2.t">周旋</h3><p data-i18n="s2.d">故意误解、请求重复、假装手机卡顿、去找老花镜……每一轮都在消耗骗子的时间与精力。</p></div>
+      <div class="step"><div class="n">03</div><h3 data-i18n="s3.t">提取情报</h3><p data-i18n="s3.d">识别银行卡、手机号、QQ/微信/支付宝、BTC/ETH/TRON 地址、网址，以及“安全账户”“索要验证码”等话术。</p></div>
+      <div class="step"><div class="n">04</div><h3 data-i18n="s4.t">脱敏</h3><p data-i18n="s4.d">所有情报在展示与导出前统一打码，如 6222 **** **** 1234、138****5678、0x12ab...9f3e。</p></div>
+      <div class="step"><div class="n">05</div><h3 data-i18n="s5.t">预警</h3><p data-i18n="s5.d">汇总成结构化情报报告（JSON），未来可对接反诈平台、银行风控与社区预警（规划中）。</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="scenarios">
+  <div class="wrap">
+    <h2 data-i18n="sc.title">三个首发场景</h2>
+    <p class="sub" data-i18n="sc.sub">在沙盒里由你扮演骗子，机器人扮演“受害人”。内置一键样例台词，开箱即玩。</p>
+    <div class="cards3">
+      <div class="card"><div class="ico">📦</div><h3 data-i18n="c1.t">冒充客服 · 退款理赔</h3><p data-i18n="c1.d">“商品质量问题双倍理赔”“会员自动扣费”，诱导下载 APP、共享屏幕、报验证码。</p>
+        <div class="tags"><span class="tag">冒充客服</span><span class="tag">诱导下载APP</span><span class="tag">索要验证码</span></div></div>
+      <div class="card"><div class="ico">🚨</div><h3 data-i18n="c2.t">冒充公检法 · 安全账户</h3><p data-i18n="c2.d">“你涉嫌洗钱”“案件保密”“把钱转到安全账户配合清查”。</p>
+        <div class="tags"><span class="tag">冒充公检法</span><span class="tag">要求保密</span><span class="tag">安全账户</span></div></div>
+      <div class="card"><div class="ico">💔</div><h3 data-i18n="c3.t">杀猪盘 · 投资/感情</h3><p data-i18n="c3.d">先谈感情、再谈“内部平台”“导师带单”，诱导充值 USDT。</p>
+        <div class="tags"><span class="tag">情感操控</span><span class="tag">高收益承诺</span><span class="tag">涉加密货币</span></div></div>
+    </div>
+    <div style="margin-top:18px" class="tags">
+      <span class="tag amber">👵 王阿姨 · 糊涂但热心的退休会计</span>
+      <span class="tag amber">👴 李大爷 · 慢吞吞、耳背</span>
+      <span class="tag amber">🧑‍🎓 小林 · 好奇的大学生</span>
+    </div>
+  </div>
+</section>
+
+<section id="engine">
+  <div class="wrap two">
+    <div>
+      <h2 data-i18n="eng.title">零成本，开箱即用</h2>
+      <p class="sub" data-i18n="eng.sub">默认的规则/模板人设引擎完全运行在浏览器中，无需任何 API Key、无需服务器，可直接托管在 GitHub Pages、Cloudflare Pages 或阿里云 OSS。</p>
+      <p style="color:var(--muted)" data-i18n="eng.llm">想要更自然的对话？可选接入阿里云百炼（通义千问 qwen-plus）或任何 OpenAI 兼容的国产大模型：自带一个零依赖的 Node 小后端做代理，API Key 只放在你自己服务器的 .env 里，不暴露给浏览器。默认关闭。</p>
+    </div>
+    <pre class="code">git clone &lt;repo&gt; deepsuck && cd deepsuck
+# 1) 纯静态（无需 Key）
+cd site && python3 -m http.server 8080
+
+# 2) 可选：接入通义千问（百炼）
+cp .env.example .env
+# 编辑 .env，填入 DASHSCOPE_API_KEY=sk-...
+npm start      # http://127.0.0.1:8787</pre>
+  </div>
+</section>
+
+<section id="ethics">
+  <div class="wrap">
+    <h2 data-i18n="eth.title">底线与使用声明</h2>
+    <p class="sub" data-i18n="eth.sub">DeepSuck 只用于防御、研究与教育。以下底线写进了代码，也写进了贡献规范。</p>
+    <ul class="ethics">
+      <li data-i18n="e1"><b>不主动出击：</b>机器人从不主动联系任何真实的人，只应对主动找上门的诈骗方；演示中由访客自己扮演骗子。</li>
+      <li data-i18n="e2"><b>默认脱敏：</b>所有账户、电话、地址在展示与导出时都经过脱敏模块打码；原文只存在于当前页面内存中，不上传、不落盘。</li>
+      <li data-i18n="e3"><b>不提供真实信息：</b>人设永远不会给出真实的验证码、卡号、密码或身份证号，大模型输出也会经过安全过滤。</li>
+      <li data-i18n="e4"><b>不“以暴制暴”：</b>禁止用于骚扰、人肉、报复、“反向诈骗”或任何违法用途；不攻击、不入侵任何系统。</li>
+      <li data-i18n="e5"><b>交给专业力量：</b>发现诈骗请拨打 110 或全国反诈专线 96110，并通过“国家反诈中心”APP 举报。情报仅作为线索参考。</li>
+      <li data-i18n="e6"><b>合规优先：</b>接入真实渠道（电话、IM）前，请评估《个人信息保护法》《反电信网络诈骗法》等法律要求，并取得必要授权。</li>
+    </ul>
+  </div>
+</section>
+
+<section id="oss">
+  <div class="wrap two">
+    <div>
+      <h2 data-i18n="oss.title">开源共建</h2>
+      <p class="sub" data-i18n="oss.sub">Apache-2.0 协议。纯 HTML/CSS/JS，模块清晰，欢迎一起完善。</p>
+      <ul style="color:var(--muted);padding-left:18px">
+        <li data-i18n="o1">补充新的诈骗场景与真实（已脱敏）话术样本</li>
+        <li data-i18n="o2">设计更“磨人”的人设与拖延策略</li>
+        <li data-i18n="o3">改进提取器正则与话术分类规则，补充测试用例</li>
+        <li data-i18n="o4">路线图：大模型人设、语音通话（ASR/TTS）、情报共享 API</li>
+      </ul>
+    </div>
+    <pre class="code">site/assets/js/
+├── redact.js      # 脱敏
+├── extractors.js  # 情报提取（银行卡/手机/QQ/微信/支付宝/钱包/URL）
+├── tactics.js     # 话术分类器
+├── personas.js    # 人设与话术模板
+├── scenarios.js   # 场景与样例台词
+├── engine.js      # 规则引擎 + 会话/报告
+└── llm.js         # 可选：OpenAI 兼容大模型
+server/index.js    # 可选：零依赖代理后端
+tests/             # node --test</pre>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="disclaimer" data-i18n="disc"><b>免责声明：</b>DeepSuck 是独立的开源社区项目，<b>非官方项目，与 DeepSeek（深度求索）及其关联公司无任何关联</b>，未获其授权或背书，名称仅为谐音玩梗。本项目按“现状”提供，仅用于防诈研究与公众教育；演示中的所有账号、电话、地址与网址均为虚构测试数据。使用者须自行遵守所在地法律法规，因不当使用产生的后果由使用者自行承担。</div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="unofficial" data-i18n="badge">非官方项目，与 DeepSeek 无关</span>
+    <span>DeepSuck · deepsuck.si <span data-i18n="foot.soon">（尚未上线）</span></span>
+    <span>Apache-2.0</span>
+    <span data-i18n="foot.110">遇到诈骗请拨打 110 / 96110</span>
+    <a href="demo.html" data-i18n="nav.demo">进入沙盒</a>
+  </div>
+</footer>
+<script src="assets/js/i18n.js"></script>
+</body>
+</html>

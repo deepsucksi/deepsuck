@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>沙盒演示 · DeepSuck（非官方项目，与 DeepSeek 无关）</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/logo.svg" alt="">DeepSuck</a>
+    <span class="unofficial">非官方项目，与 DeepSeek 无关</span>
+    <nav class="nav">
+      <a class="hide-m" href="./#ethics">使用底线</a>
+      <button class="btn small" id="settingsBtn" type="button">⚙ 引擎设置</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="demo">
+    <div>
+      <div class="panel setup">
+        <div class="warn" style="font-size:12.5px">🧪 沙盒说明：<b>你扮演骗子</b>，机器人扮演“潜在受害人”。请勿输入真实个人信息；样例台词中的账号、电话、地址均为虚构测试数据。所有情报仅在本页内存中处理并脱敏展示。</div>
+        <div>
+          <div class="lbl">① 选择诈骗场景</div>
+          <div class="opts" id="scenarioOpts"></div>
+        </div>
+        <div>
+          <div class="lbl">② 选择机器人人设</div>
+          <div class="opts" id="personaOpts"></div>
+        </div>
+      </div>
+
+      <div class="panel chat">
+        <div class="chat-head">
+          <span id="botAvatar" style="font-size:20px">👵</span>
+          <span class="who" id="botName">王阿姨</span>
+          <span class="note" id="botTag"></span>
+          <span class="eng" id="engineLabel">引擎：规则引擎（本地）</span>
+        </div>
+        <div class="msgs" id="msgs" aria-live="polite"></div>
+        <div class="samples" id="samples" title="一键填入样例骗子台词"></div>
+        <div class="composer">
+          <textarea id="input" placeholder="以骗子身份输入消息，Enter 发送，Shift+Enter 换行…" maxlength="600"></textarea>
+          <button class="btn primary" id="sendBtn" type="button">发送</button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="panel">
+        <h4>周旋战况 <span id="liveDot" class="note">● 进行中</span></h4>
+        <div class="stats">
+          <div class="stat"><div class="v" id="stWall">0:00</div><div class="k">已拖住时长（实时）</div></div>
+          <div class="stat"><div class="v" id="stEst">0:00</div><div class="k">估算骗子耗时</div></div>
+          <div class="stat"><div class="v" id="stMsgs">0</div><div class="k">消息数</div></div>
+          <div class="stat"><div class="v" id="stIntel">0</div><div class="k">情报条数</div></div>
+        </div>
+        <div style="margin-top:10px;font-size:12.5px;color:var(--dim)">风险评分 <b id="stRisk" style="color:var(--amber)">0</b>/100</div>
+        <div class="risk"><i id="riskBar"></i></div>
+      </div>
+      <div class="panel">
+        <h4>已提取情报（脱敏） <span class="note">仅展示打码结果</span></h4>
+        <div class="intel-list" id="intelList"><div class="empty">等待骗子露出马脚……</div></div>
+      </div>
+      <div class="panel">
+        <h4>识别到的诈骗话术</h4>
+        <div class="tags" id="tacticList"><span class="empty">暂无</span></div>
+      </div>
+      <div class="panel">
+        <div class="actions">
+          <button class="btn primary" id="endBtn" type="button">■ 结束对话 · 生成情报看板</button>
+          <button class="btn small" id="exportBtn" type="button">⇩ 导出脱敏 JSON</button>
+          <button class="btn small ghost" id="resetBtn" type="button">↺ 重新开始</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<!-- 情报看板 -->
+<div class="modal" id="summaryModal" role="dialog" aria-modal="true" aria-labelledby="sumTitle">
+  <div class="sheet">
+    <div class="sheet-head">
+      <img src="assets/logo.svg" alt="" width="30" height="30">
+      <h3 id="sumTitle">情报看板</h3>
+      <span class="note" id="sumSub"></span>
+      <span style="margin-left:auto" class="actions">
+        <button class="btn small" id="sumExport" type="button">⇩ 导出脱敏 JSON</button>
+        <button class="btn small" id="sumNew" type="button">↺ 新会话</button>
+        <button class="btn small ghost" id="sumClose" type="button">✕ 关闭</button>
+      </span>
+    </div>
+    <div class="sheet-body">
+      <div class="dash-stats" id="dashStats"></div>
+      <div class="dash-grid">
+        <div>
+          <h4 style="margin:0 0 10px;color:var(--muted)">情报卡片（已脱敏）</h4>
+          <div id="dashIntel"></div>
+          <h4 style="margin:16px 0 10px;color:var(--muted)">上下文线索</h4>
+          <div class="tags" id="dashContext"></div>
+        </div>
+        <div>
+          <h4 style="margin:0 0 10px;color:var(--muted)">话术画像</h4>
+          <div id="dashTactics"></div>
+          <h4 style="margin:16px 0 10px;color:var(--muted)">完整对话记录（已脱敏）</h4>
+          <div class="transcript" id="dashTranscript"></div>
+        </div>
+      </div>
+      <p class="note" style="margin-top:16px">本看板由沙盒演示生成，仅用于防诈研究与教育。真实遇到诈骗请拨打 110 或 96110。DeepSuck 为非官方项目，与 DeepSeek 无关。</p>
+    </div>
+  </div>
+</div>
+
+<!-- 引擎设置 -->
+<div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+  <div class="sheet" style="max-width:640px">
+    <div class="sheet-head"><h3 id="setTitle">引擎设置</h3><button class="btn small ghost" style="margin-left:auto" id="setClose" type="button">✕</button></div>
+    <div class="sheet-body form">
+      <label><span><input type="radio" name="engine" value="rule" checked> <b>规则引擎（默认，推荐）</b> —— 纯浏览器运行，无需 Key，零成本</span></label>
+      <label><span><input type="radio" name="engine" value="proxy"> <b>本地代理 · 大模型</b> —— 通过本项目自带的 server（npm start）调用通义千问，Key 只存在服务器 .env</span>
+        <span class="note" id="proxyStatus">检测中…</span></label>
+      <label><span><input type="radio" name="engine" value="direct"> <b>浏览器直连 · 大模型（高级，可选）</b> —— 仅适合本机自用</span></label>
+      <div id="directBox" class="form" style="padding-left:22px">
+        <label>Base URL（OpenAI 兼容）<input type="text" id="cfgBase" value="https://dashscope.aliyuncs.com/compatible-mode/v1"></label>
+        <label>模型<input type="text" id="cfgModel" value="qwen-plus"></label>
+        <label>API Key<input type="password" id="cfgKey" placeholder="sk-…（仅保存在本浏览器）" autocomplete="off"></label>
+        <label><span><input type="checkbox" id="cfgRemember"> 记住在本浏览器 localStorage（公共电脑请勿勾选）</span></label>
+        <div class="warn">⚠ 直连模式下 Key 位于浏览器中，任何能访问此页面的人/插件都可能读取；部分服务商不允许跨域调用。更推荐使用“本地代理”。发送给模型的对话会先在本地脱敏。</div>
+      </div>
+      <p class="note">大模型调用失败时会自动回退到规则引擎。情报提取与脱敏始终在本地完成，与所选引擎无关。</p>
+      <div><button class="btn primary" id="setSave" type="button">保存</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<footer>
+  <div class="wrap">
+    <span class="unofficial">非官方项目，与 DeepSeek 无关</span>
+    <span>DeepSuck · Apache-2.0 · 仅用于防诈研究与教育</span>
+    <span>遇到诈骗请拨打 110 / 96110</span>
+    <a href="./">返回首页</a>
+  </div>
+</footer>
+
+<script src="assets/js/redact.js"></script>
+<script src="assets/js/extractors.js"></script>
+<script src="assets/js/tactics.js"></script>
+<script src="assets/js/scenarios.js"></script>
+<script src="assets/js/personas.js"></script>
+<script src="assets/js/engine.js"></script>
+<script src="assets/js/llm.js"></script>
+<script src="assets/js/demo.js"></script>
+</body>
+</html>
