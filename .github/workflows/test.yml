@@ -20,3 +20,12 @@ jobs:
       - run: pip install pytest
       - name: core parity tests (shared tests/fixtures)
         run: cd python && python -m pytest -q
+  voice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r voice/requirements.txt
+      - name: voice unit tests (mocked DashScope websocket, no key needed)
+        run: python -m pytest voice/tests -q

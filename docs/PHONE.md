@@ -28,8 +28,8 @@
 
 | 阶段 | 内容 | 需要硬件？ |
 |---|---|---|
-| **V1 浏览器语音 Demo（第一步）** | 在网页里用麦克风扮演骗子，AI 阿姨/大爷用语音回你；Pipecat SmallWebRTC transport | ❌ 不需要，只要百炼 Key |
-| V2 拖延策略层 | 把现有 20+ 种拖延意图映射为 Pipecat Flows 节点和“插播音频”（咳嗽、电视声、“喂？喂？听不清”、长时间沉默）；预合成音频缓存 | ❌ |
+| ✅ **V1 浏览器语音 Demo**（v0.3 已完成，见 [voice/](../voice/README.md)） | 在网页里用麦克风扮演骗子，AI 阿姨/大爷用语音回你；Pipecat SmallWebRTC transport；`python -m voice.app` | ❌ 不需要，只要百炼 Key |
+| V2 拖延策略层（部分完成） | v0.3 已有：规则引擎每轮选策略并改写系统提示词、预合成填充音（“哎……你等一下啊”）缓存与插播。待做：Pipecat Flows 节点、咳嗽/电视声等环境音、长时间沉默 | ❌ |
 | V3 EC20 直连接电话 | AT 状态机（RING → ATA，`AT+CLCC` 取来电号码）+ UAC 音频桥，包装成 Pipecat transport | ✅ 一块 EC20/EG25 + 副卡 |
 | V4 短信诱骗通道 | 旧安卓机装 SmsForwarder，把诈骗短信 webhook 给 DeepSuck，用文字引擎处理 | ✅ 一台旧安卓机 |
 | V5（可选）多线路 | Asterisk + chan_quectel + `pipecat-asterisk` | ✅ 多块模组 |
@@ -90,11 +90,11 @@ iOS 不允许第三方 App 接听或转接蜂窝来电（CallKit 在中国区也
 | TTS | **DashScope CosyVoice 流式**（可做“老人音色”声音复刻） | 本地 CosyVoice 预合成拖延台词 |
 | 极速模式（可选） | **Qwen-Omni Realtime** 端到端语音（延迟更低，音色和插播控制较弱） | — |
 
-Pipecat 目前没有现成的 Paraformer 和 CosyVoice 服务，需要自己写两个 service（各约 200 行），写好后计划回馈上游。
+Pipecat 没有现成的 Paraformer 和 CosyVoice 服务，v0.3 自己实现了：[`voice/dashscope_ws.py`](../voice/dashscope_ws.py)（DashScope WebSocket 协议，不依赖 SDK）+ [`voice/services.py`](../voice/services.py)（`ParaformerSTTService` / `CosyVoiceTTSService`），带假 WebSocket 单元测试，计划整理后回馈上游。
 
 **延迟**：级联首音约 1–1.5 秒。对“慢吞吞的老人”人设这反而是优点，可以用“嗯……”“啊？”等填充音掩盖。
 
-**零成本兜底**（借鉴经典的 Lenny 机器人）：LLM 或网络不可用时，退化为“对方一停顿就播下一句预合成台词”的循环模式。台词音频用 CosyVoice 自己合成，**不使用 Lenny 原音频**（版权不明）。
+**零成本兜底**（借鉴经典的 Lenny 机器人）：LLM 或网络不可用时，退化为“对方一停顿就播下一句预合成台词”的循环模式（`python -m voice.app --engine rule` 已能不调大模型、用规则引擎出话，但仍需 ASR/TTS）。台词音频用 CosyVoice 自己合成，**不使用 Lenny 原音频**（版权不明）。
 
 ---
 

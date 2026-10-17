@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>语音演示 · DeepSuck（非官方项目，与 DeepSeek 无关）</title>
+<link rel="icon" href="/static/logo.svg">
+<style>
+:root{--bg:#120f0c;--card:#1d1813;--card2:#241e18;--line:#352b22;--text:#f3e9dc;--muted:#b4a491;--dim:#857563;
+--amber:#f5a524;--amber2:#ffd27a;--ink:#2a1c05;--red:#ec6a52;--green:#8fcf86;
+--font:"PingFang SC","Hiragino Sans GB","Noto Sans CJK SC","Microsoft YaHei",system-ui,sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6}
+body{background-image:radial-gradient(900px 500px at 85% -10%,rgba(245,165,36,.10),transparent 60%)}
+header{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line)}
+header img{width:30px;height:30px}header b{font-size:18px}
+.tag{font-size:12px;font-weight:600;color:var(--ink);background:var(--amber2);padding:2px 9px;border-radius:999px}
+.status{margin-left:auto;font-size:13px;color:var(--muted)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dim);margin-right:6px}
+.dot.ok{background:var(--green)}.dot.bad{background:var(--red)}.dot.live{background:var(--amber);animation:p 1s infinite}
+@keyframes p{50%{opacity:.35}}
+main{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;max-width:1180px;margin:18px auto;padding:0 22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+h2{font-size:15px;margin:0 0 10px;color:var(--amber2)}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+select,button{font:inherit;font-size:14px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);padding:8px 12px}
+button{cursor:pointer}button.primary{background:var(--amber);border-color:var(--amber);color:var(--ink);font-weight:700}
+button.hang{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+button:disabled{opacity:.5;cursor:not-allowed}
+#log{height:430px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+.msg{max-width:86%;padding:8px 12px;border-radius:12px;font-size:14.5px}
+.msg.scammer{align-self:flex-end;background:#3a2a1c;border:1px solid #4a3626}
+.msg.bot{align-self:flex-start;background:var(--card2);border:1px solid var(--line)}
+.msg.interim{align-self:flex-end;color:var(--dim);font-style:italic;background:none;border:1px dashed var(--line)}
+.meta{font-size:12px;color:var(--dim);margin-top:2px}
+.chip{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:999px;background:#3b2414;color:#ffb48f;margin:2px 4px 0 0}
+.chip.intent{background:#2a2a14;color:#e3dc8a}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.stat{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}
+.stat b{display:block;font-size:20px;color:var(--amber)}.stat span{font-size:12px;color:var(--muted)}
+.intel{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.item{display:flex;justify-content:space-between;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:13.5px}
+.item.hit{border-color:var(--red);box-shadow:0 0 0 1px rgba(236,106,82,.4) inset}
+.item code{font-family:var(--mono);color:var(--amber2)}.bl{font-size:11.5px;color:var(--dim)}.bl.hit{color:var(--red);font-weight:700}
+.empty{color:var(--dim);font-size:13px}
+.note{font-size:12.5px;color:var(--dim);max-width:1180px;margin:0 auto 24px;padding:0 22px}
+#err{color:var(--red);font-size:13px;min-height:1.2em}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <img src="/static/logo.svg" alt="">
+  <b>DeepSuck 语音演示</b><span class="tag">非官方项目，与 DeepSeek 无关</span>
+  <span class="status"><span id="dot" class="dot"></span><span id="st">加载中…</span></span>
+</header>
+<main>
+  <section class="card">
+    <h2>通话（你扮演骗子，对着麦克风说话）</h2>
+    <div class="controls">
+      <label>人设 <select id="persona"></select></label>
+      <label>场景 <select id="scenario"></select></label>
+      <button id="call" class="primary">开始通话</button>
+      <button id="hang" class="hang" hidden>挂断</button>
+    </div>
+    <div id="err"></div>
+    <div id="log"><div class="empty">点「开始通话」并允许麦克风。机器人会先开口，然后你可以试着用退款、冒充公检法、刷单等话术"诈骗"它。</div></div>
+    <audio id="audio" autoplay></audio>
+  </section>
+  <aside class="card">
+    <h2>实时看板</h2>
+    <div class="stats">
+      <div class="stat"><b id="sTurns">0</b><span>骗子发言</span></div>
+      <div class="stat"><b id="sMin">0</b><span>估算拖住（分钟）</span></div>
+      <div class="stat"><b id="sIntel">0</b><span>情报条数</span></div>
+      <div class="stat"><b id="sRisk">0</b><span>风险分</span></div>
+    </div>
+    <h2>情报（已脱敏）</h2>
+    <div id="intel" class="intel"><div class="empty">尚未抽取到情报</div></div>
+    <h2>话术识别</h2>
+    <div id="tactics" class="empty">—</div>
+    <h2 style="margin-top:14px">本轮策略</h2>
+    <div id="intent" class="empty">—</div>
+  </aside>
+</main>
+<p class="note">语音链路：浏览器麦克风 → SmallWebRTC → Paraformer 实时识别 → 情报抽取/话术识别 → qwen-plus → 输出守卫 → CosyVoice。需要 DASHSCOPE_API_KEY。音频不落盘；看板只显示脱敏值。仅供防诈研究与教育，请勿用于拨打任何真实电话。DeepSuck 为非官方项目，与 DeepSeek 无关。</p>
+<script src="/static/voice.js"></script>
+</body>
+</html>

@@ -31,7 +31,7 @@
 
 DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会聊天的“潜在受害人”人设（糊涂的王阿姨、耳背的李大爷、好奇的大学生小林……）陪骗子周旋——故意误解、请求重复、假装手机卡顿、慢吞吞去找老花镜——消耗骗子的时间，同时自动提取对方暴露的**收款银行卡、支付宝/微信/QQ、手机号、BTC/ETH/TRON 钱包地址、网址**以及**诈骗话术模式**，脱敏后生成结构化情报，用于预防与早期预警。
 
-当前版本 v0.2：**中文场景优先、文字聊天优先**；新增 4 个高发场景、公开诈骗情报库与中文“去武装”写法识别。语音/电话见 [docs/PHONE.md](docs/PHONE.md)。
+当前版本 v0.3：在 v0.2（7 个场景、公开情报库、去武装写法识别）基础上新增 **Python 核心（与 JS 逐字节一致）**、**域名/钱包黑名单比对**、**骗子模拟器评测**（[docs/EVAL.md](docs/EVAL.md)）与**浏览器麦克风语音演示**（[voice/](voice/README.md)，需要 DashScope Key）。电话接入见 [docs/PHONE.md](docs/PHONE.md)。
 
 ---
 
@@ -45,6 +45,10 @@ DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会�
 - **话术分类器**：制造紧迫感、冒充公检法、冒充客服、索要验证码、安全账户、诱导下载 APP/屏幕共享、高收益承诺、要求保密、威胁恐吓、情感操控、套取个人信息、加密货币、引流私聊、刷单返佣、虚假贷款、冒充熟人、注销校园贷等 19 类，带 0–100 风险评分。
 - **默认脱敏**：`6222 **** **** 1234`、`138****5678`、`0x12ab...9f3e`、`https://re***fu.top/***`……展示、导出、甚至发给大模型的内容都先脱敏。
 - **情报看板**：“结束对话”后生成迷你情报看板——完整（脱敏）对话记录、情报卡片、话术画像、拖延时长；可导出脱敏 JSON 报告。
+- **黑名单比对**：网址/邮箱域名比对 [destroylist](https://github.com/phishdestroy/destroylist) + [Phishing.Database](https://github.com/Phishing-Database/Phishing.Database)（部署时构建为 256 个分片，约 60 万域名，按需加载）；钱包地址运行时比对 OFAC 制裁地址与 ScamSniffer 列表（不入库）。命中会标在侧栏、看板和报告里。
+- **Python 核心**（[python/](python/README.md)）：提取/脱敏/话术/规则引擎的 Python 移植，零依赖；与 JS 共用 `core/*.json` 与 `tests/fixtures/` 黄金用例，同一随机种子下会话回放完全一致。附 `deepsuck-blocklist` 命令行。
+- **骗子模拟器 + 评测**：脚本化骗子（带耐心值、话术混淆、会起疑挂断）批量跑 7 场景 × 3 人设，统计拖延轮数、情报诱出率、复读率、泄露率；另用 TeleAntiFraud 文本对话评测话术分类器。结果见 [docs/EVAL.md](docs/EVAL.md)。
+- **语音演示**（[voice/](voice/README.md)）：Pipecat 级联管线，浏览器麦克风 → SmallWebRTC → Paraformer 实时 ASR → 实时情报抽取 + 策略选择 → qwen-plus → 输出守卫 → CosyVoice（王阿姨用“龙老姨”老年音色）；插播拖延填充音，看板实时更新。`python -m voice.app` 一条命令启动，**需要 `DASHSCOPE_API_KEY`**。
 - **可选大模型引擎（默认关闭）**：OpenAI 兼容协议，默认对接**阿里云百炼 DashScope（通义千问 qwen-plus）**，也可换成其他国产大模型；自带零依赖 Node 代理，Key 只留在服务器 `.env`。
 
 ## 📸 截图
@@ -52,6 +56,12 @@ DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会�
 | 沙盒：冒充领导熟人 | 公开诈骗情报库 | 手机端首页 |
 |---|---|---|
 | <img src="screenshots/demo-boss.png" width="320" alt="冒充领导场景对话"> | <img src="screenshots/intel.png" width="320" alt="情报库页面"> | <img src="screenshots/landing-mobile.png" width="160" alt="手机端首页"> |
+
+| 语音演示（真实 ASR/LLM/TTS 通话） | 黑名单命中（destroylist / OFAC） | 情报看板 |
+|---|---|---|
+| <img src="screenshots/voice-call.png" width="320" alt="语音演示"> | <img src="screenshots/demo-blocklist.png" width="320" alt="黑名单命中"> | <img src="screenshots/summary-blocklist.png" width="320" alt="看板中的黑名单命中"> |
+
+王阿姨语音样例：[screenshots/wangayi-sample.wav](screenshots/wangayi-sample.wav)（CosyVoice `longlaoyi_v3`）
 
 ## 🚀 快速开始
 
@@ -91,10 +101,23 @@ npm start
 > 也可以在演示页“⚙ 引擎设置”中选择“浏览器直连”，填入 Key 直接从浏览器调用（仅适合本机自用，Key 会存在浏览器里，部分服务商不支持跨域）。推荐使用代理方式。
 > 无论选哪种引擎，**情报提取与脱敏始终在本地完成**；大模型失败时自动回退规则引擎。
 
+### 方式 C：语音演示（浏览器麦克风，需要 DashScope Key）
+
+```bash
+pip install -r voice/requirements.txt   # Python ≥ 3.11
+cp voice/.env.example voice/.env        # 填 DASHSCOPE_API_KEY（也会读取根目录 .env）
+python -m voice.app                     # 打开 http://localhost:7860
+```
+
+详见 [voice/README.md](voice/README.md)。只在浏览器里自己扮演骗子，不接电话网络。
+
 ### 运行测试
 
 ```bash
-npm test        # 等同于 node --test tests/
+npm test                                  # node --test tests/
+cd python && python -m pytest -q          # Python 核心（与 JS 共用 tests/fixtures）
+python -m pytest voice/tests -q           # 语音（假 WebSocket，不联网、不需要 Key）
+python -m deepsuck.sim --seeds 30         # 在 python/ 目录下：骗子模拟器评测
 ```
 
 修改 `site/assets/core/*.json`（规则、台词、场景）后运行 `npm run build:core` 重新生成浏览器用的 `core-data.js`（测试会检查是否同步）。
@@ -122,13 +145,16 @@ deepsuck/
 │           ├── llm.js        # 可选：OpenAI 兼容大模型
 │           └── demo.js / intel-page.js / hero-chat.js / i18n.js  # 页面脚本
 ├── server/index.js           # 可选：零依赖 Node 后端（静态托管 + /api/chat 代理 + 限流）
-├── scripts/build-core.js     # core/*.json → core-data.js
-├── tests/                    # node:test 单元测试（40+ 用例）
-├── docs/                     # ETHICS.md · INTEL.md · PHONE.md
+├── python/deepsuck/          # Python 核心移植 + 黑名单客户端 + 骗子模拟器（零依赖）
+├── voice/                    # 语音演示：Pipecat + DashScope（Paraformer / qwen-plus / CosyVoice）+ SmallWebRTC
+├── eval/                     # 骗子剧本、TeleAntiFraud 评测脚本、评测结果 JSON
+├── scripts/                  # build-core.js（core/*.json → core-data.js）· gen-fixtures.js · fetch-blocklists.js
+├── tests/                    # node:test 单元测试 + fixtures/（JS 生成、Python 复用的黄金用例）
+├── docs/                     # ETHICS.md · INTEL.md · EVAL.md · PHONE.md
 └── .github/                  # Pages 部署工作流 + 情报提交 / 下架申诉 Issue 模板
 ```
 
-`core/*.json` 中的正则只用 JS 与 Python `re` 都支持的语法，后续 Python 语音端（Pipecat）可直接复用同一套规则与台词。
+`core/*.json` 中的正则只用 JS 与 Python `re` 都支持的语法（`\d`/`\w` 在 Python 端自动收窄为 ASCII，回顾断言定长），Python 核心与语音端直接复用同一套规则与台词。
 
 数据流：
 
@@ -189,12 +215,13 @@ deepsuck/
 
 - [x] **v0.1** 纯静态沙盒、规则人设引擎、提取器/分类器/脱敏、情报看板、可选百炼代理
 - [x] **v0.2** 7 个场景（+刷单返利、虚假贷款/征信修复、冒充领导熟人、注销校园贷）、情境台词与反向核验、**公开诈骗情报库** + 提交/申诉流程、规则数据抽成 `core/*.json`、中文去武装写法识别、首页动画与 OG 图
-- [ ] **v0.3 语音（浏览器麦克风 Demo，无需硬件）**：[Pipecat](https://github.com/pipecat-ai/pipecat) 级联管线 —— DashScope Paraformer 实时 ASR → qwen-plus/turbo → CosyVoice TTS；可选 Qwen-Omni Realtime 低延迟模式；拖延策略映射为 Pipecat Flows + 插播音频
+- [x] **v0.3** Python 核心（共享 fixtures，CI 跑 pytest）、destroylist / Phishing.Database 域名黑名单 + OFAC / ScamSniffer 钱包黑名单、骗子模拟器与 TeleAntiFraud 评测（[docs/EVAL.md](docs/EVAL.md)）、**语音演示**（Pipecat 级联：Paraformer 实时 ASR → qwen-plus → CosyVoice，SmallWebRTC 浏览器麦克风，填充音插播，实时情报看板）、语音输出守卫
+- [ ] **v0.3.x 语音打磨**：真实麦克风/回声场景调参、老人人设的打断策略、Paraformer 数字规整导致的姓名漏抽、可选 Qwen-Omni Realtime 低延迟模式、拖延策略映射为 Pipecat Flows
 - [ ] **v0.4 电话**：iPhone 静音未知来电 + 无应答转移 `**61*` → 本人实名副卡 → **EC20/EG25 4G 模组直连**（AT 指令 + USB 声卡，复用 [callpilot](https://github.com/tianye1999/callpilot) 硬件层）；多线路才用 Asterisk + chan_quectel + pipecat-asterisk。详见 [docs/PHONE.md](docs/PHONE.md)
 - [ ] **短信诱骗通道**：旧安卓机 + SmsForwarder 把诈骗短信转给 DeepSuck（旧安卓机无法拿到通话音频，不用于接电话）
-- [ ] **情报增强**：URL 比对 destroylist / Phishing.Database；钱包地址比对公开黑名单（运行时拉取）；银行卡 BIN 与号码归属地；STIX 2.1 导出
-- [ ] **评测**：用 TeleAntiFraud-28k 文本评测话术分类器；“骗子模拟器”批量跑人设，统计拖延轮数 / 情报提取率 / 露馅率
-- [ ] **大模型人设加固**：提示词注入检测、输出守卫（PolicyGuard）、本地模型（Ollama 等）
+- [ ] **情报增强**：银行卡 BIN 与号码归属地；STIX 2.1 导出
+- [ ] **评测扩展**：用 TeleAntiFraud 音频走一遍完整语音链路；LLM 扮演的骗子（目前是脚本骗子）
+- [ ] **大模型人设加固**：提示词注入检测、本地模型（Ollama 等）
 - 底线不变：只接不拨、单卡自用、默认脱敏、不冒充真实机构或个人
 
 ## 🤝 参与贡献
@@ -216,8 +243,9 @@ DeepSuck 站在这些开源项目与研究的肩膀上（仅借鉴思路或计�
 - [pipecat-ai/pipecat](https://github.com/pipecat-ai/pipecat)（BSD-2-Clause）—— 语音阶段的管线框架；[NikolayShakin/pipecat-asterisk](https://github.com/NikolayShakin/pipecat-asterisk)（BSD-2）—— 多线路 Asterisk transport
 - [tianye1999/callpilot](https://github.com/tianye1999/callpilot)（Apache-2.0）—— EC20/EG25 4G 模组 AI 电话：AT 状态机、UAC 音频桥、DTMF，计划复用其硬件层
 - [laugiov/scambuster](https://github.com/laugiov/scambuster)（MIT）—— 多 Agent 诱骗流水线、提示词注入检测、人设自适应选择等设计思路
-- [JimmyMa99/TeleAntiFraud](https://github.com/JimmyMa99/TeleAntiFraud)（TeleAntiFraud-28k）—— 中文电信诈骗音频-文本数据集，计划用于评测（数据许可以原项目为准）
-- [phishdestroy/destroylist](https://github.com/phishdestroy/destroylist)、[Phishing-Database/Phishing.Database](https://github.com/Phishing-Database/Phishing.Database)（MIT）—— 钓鱼/诈骗域名黑名单，计划用于网址比对
+- [JimmyMa99/TeleAntiFraud](https://github.com/JimmyMa99/TeleAntiFraud)（TeleAntiFraud-28k）—— 中文电信诈骗数据集；评测使用其 GitHub 仓库中的文本对话（Apache-2.0，运行时拉取，不入库）
+- [phishdestroy/destroylist](https://github.com/phishdestroy/destroylist)、[Phishing-Database/Phishing.Database](https://github.com/Phishing-Database/Phishing.Database)（MIT）—— 钓鱼/诈骗域名黑名单，部署时构建分片用于网址比对
+- [0xB10C/ofac-sanctioned-digital-currency-addresses](https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses)、[scamsniffer/scam-database](https://github.com/scamsniffer/scam-database) —— 钱包地址黑名单，浏览器/客户端运行时拉取，不入库
 - [pppscn/SmsForwarder](https://github.com/pppscn/SmsForwarder)（BSD-2）—— 旧安卓机短信转发
 - 经典的 “Lenny” 电话机器人与 [apate.ai](https://apate.ai) —— “拖住骗子”的产品灵感
 
