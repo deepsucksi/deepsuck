@@ -71,3 +71,8 @@ test('所有样例台词中的敏感信息都已脱敏（masked 不含原文）'
 test('已打码的情报不会被二次提取/打码（机器人复述时）', () => {
   assert.deepEqual(types('收到，网址/域名 bi***tc.top，银行卡 6222 **** **** 3445'), []);
 });
+
+test('收款户名：去掉"写/填"等动词与句尾语气词', () => {
+  assert.equal(one('户名写钱伟就行', 'name').value, '钱伟');
+  assert.equal(one('收款人是吴刚吧', 'name').value, '吴刚');
+});

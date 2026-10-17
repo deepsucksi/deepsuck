@@ -262,6 +262,16 @@
    "changed": true
   },
   {
+   "text": "户名写钱伟就行",
+   "expected": "户名写钱伟就行",
+   "changed": false
+  },
+  {
+   "text": "收款人是吴刚吧",
+   "expected": "收款人是吴刚吧",
+   "changed": false
+  },
+  {
    "text": "我记一下：网址/域名 re***fu.top，钱包 0x12ab...9f3e，对吗",
    "expected": "我记一下:网址/域名 re***fu.top,钱包 0x12ab...9f3e,对吗",
    "changed": true

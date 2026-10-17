@@ -1,0 +1,181 @@
+{
+ "config": {
+  "seeds": 30,
+  "maxTurns": 40
+ },
+ "byPolicy": {
+  "rule": {
+   "sessions": 630,
+   "avgTurns": 16.62857142857143,
+   "avgEstMinutes": 27.987116402116403,
+   "elicitRate": 0.8726190476190476,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.002672775868652157,
+   "nearRepeatRate": 0.002672775868652157,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.009523809523809525,
+   "maxTurnsHit": 0.0
+  },
+  "random": {
+   "sessions": 630,
+   "avgTurns": 13.78888888888889,
+   "avgEstMinutes": 22.765925925925927,
+   "elicitRate": 0.7253968253968254,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.057672384022101994,
+   "nearRepeatRate": 0.057672384022101994,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.3047619047619048,
+   "maxTurnsHit": 0.0
+  },
+  "parrot": {
+   "sessions": 630,
+   "avgTurns": 5.266666666666667,
+   "avgEstMinutes": 4.718095238095238,
+   "elicitRate": 0.26666666666666666,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.810126582278481,
+   "nearRepeatRate": 0.810126582278481,
+   "leakRate": 0.0,
+   "suspiciousQuit": 1.0,
+   "maxTurnsHit": 0.0
+  }
+ },
+ "byPersona": {
+  "wang": {
+   "sessions": 210,
+   "avgTurns": 16.79047619047619,
+   "avgEstMinutes": 28.438968253968255,
+   "elicitRate": 0.8845238095238095,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.0002836074872376631,
+   "nearRepeatRate": 0.0002836074872376631,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.0,
+   "maxTurnsHit": 0.0
+  },
+  "li": {
+   "sessions": 210,
+   "avgTurns": 16.347619047619048,
+   "avgEstMinutes": 27.446269841269842,
+   "elicitRate": 0.8535714285714285,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.0066996795805418004,
+   "nearRepeatRate": 0.0066996795805418004,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.023809523809523808,
+   "maxTurnsHit": 0.0
+  },
+  "lin": {
+   "sessions": 210,
+   "avgTurns": 16.747619047619047,
+   "avgEstMinutes": 28.07611111111111,
+   "elicitRate": 0.8797619047619047,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.0011373329542223485,
+   "nearRepeatRate": 0.0011373329542223485,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.004761904761904762,
+   "maxTurnsHit": 0.0
+  }
+ },
+ "byScenario": {
+  "refund": {
+   "sessions": 90,
+   "avgTurns": 15.622222222222222,
+   "avgEstMinutes": 26.217407407407407,
+   "elicitRate": 0.7888888888888889,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.006401137980085348,
+   "nearRepeatRate": 0.006401137980085348,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.011111111111111112,
+   "maxTurnsHit": 0.0
+  },
+  "police": {
+   "sessions": 90,
+   "avgTurns": 16.633333333333333,
+   "avgEstMinutes": 26.23537037037037,
+   "elicitRate": 0.8444444444444444,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.0013360053440213762,
+   "nearRepeatRate": 0.0013360053440213762,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.022222222222222223,
+   "maxTurnsHit": 0.0
+  },
+  "pig": {
+   "sessions": 90,
+   "avgTurns": 18.555555555555557,
+   "avgEstMinutes": 30.112777777777776,
+   "elicitRate": 0.9805555555555555,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.003592814371257485,
+   "nearRepeatRate": 0.003592814371257485,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.011111111111111112,
+   "maxTurnsHit": 0.0
+  },
+  "task": {
+   "sessions": 90,
+   "avgTurns": 17.07777777777778,
+   "avgEstMinutes": 31.217777777777776,
+   "elicitRate": 0.8694444444444445,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.0006506180871828237,
+   "nearRepeatRate": 0.0006506180871828237,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.011111111111111112,
+   "maxTurnsHit": 0.0
+  },
+  "loan": {
+   "sessions": 90,
+   "avgTurns": 17.288888888888888,
+   "avgEstMinutes": 27.56685185185185,
+   "elicitRate": 0.9694444444444444,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.002570694087403599,
+   "nearRepeatRate": 0.002570694087403599,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.0,
+   "maxTurnsHit": 0.0
+  },
+  "boss": {
+   "sessions": 90,
+   "avgTurns": 14.71111111111111,
+   "avgEstMinutes": 25.81962962962963,
+   "elicitRate": 0.7805555555555556,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.0007552870090634441,
+   "nearRepeatRate": 0.0007552870090634441,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.011111111111111112,
+   "maxTurnsHit": 0.0
+  },
+  "campus": {
+   "sessions": 90,
+   "avgTurns": 16.511111111111113,
+   "avgEstMinutes": 28.74,
+   "elicitRate": 0.875,
+   "extractRate": 1.0,
+   "falseIntelPerSession": 0.0,
+   "repeatRate": 0.0033647375504710633,
+   "nearRepeatRate": 0.0033647375504710633,
+   "leakRate": 0.0,
+   "suspiciousQuit": 0.0,
+   "maxTurnsHit": 0.0
+  }
+ }
+}

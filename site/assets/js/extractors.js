@@ -45,7 +45,7 @@
   var NOT_NAMES = /^(?:姓名|是谁|写清|发我|多少|什么|哪个|一下|清楚)/;
   function cleanName(n) {
     if (NOT_NAMES.test(n)) return null;
-    var cut = n.search(/[开卡银账的是在和与，]/);
+    var cut = n.search(/[开卡银账的是在和与就吧了啊呢哦，]/);
     if (cut >= 2) n = n.slice(0, cut);
     return n.length >= 2 ? n : null;
   }

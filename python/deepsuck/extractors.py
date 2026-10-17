@@ -46,7 +46,7 @@ _NOT_NAMES = re.compile(r"^(?:姓名|是谁|写清|发我|多少|什么|哪个|�
 def _clean_name(n: str, *_):
     if _NOT_NAMES.search(n):
         return None
-    m = re.search(r"[开卡银账的是在和与，]", n)
+    m = re.search(r"[开卡银账的是在和与就吧了啊呢哦，]", n)
     if m and m.start() >= 2:
         n = n[: m.start()]
     return n if len(n) >= 2 else None

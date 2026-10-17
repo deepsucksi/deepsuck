@@ -71,6 +71,29 @@
     return typeof it === 'string' ? it : it.t;
   };
 
+  // 拖延类意图的"兄弟"顺序：某个意图的台词用完时换一种拖法，而不是立刻重复同一句（评测发现重复是骗子起疑挂断的主因）
+  var STALL_FAMILY = ['urgency_stall', 'tech_trouble', 'slow_walk', 'ask_repeat', 'misunderstand', 'info_stall', 'generic'];
+
+  /** 该意图的无条件台词是否都已用过（本轮） */
+  Session.prototype.exhausted = function (intent) {
+    var list = this.persona.templates[intent];
+    if (!list) return true;
+    var used = this.used[intent] || [];
+    for (var i = 0; i < list.length; i++) if (typeof list[i] === 'string' && used.indexOf(i) < 0) return false;
+    return true;
+  };
+
+  /** 拖延意图台词用完时，轮换到仍有新台词的兄弟意图 */
+  Session.prototype.freshIntent = function (intent) {
+    if (STALL_FAMILY.indexOf(intent) < 0 || !this.exhausted(intent)) return intent;
+    var start = STALL_FAMILY.indexOf(intent);
+    for (var k = 1; k < STALL_FAMILY.length; k++) {
+      var alt = STALL_FAMILY[(start + k) % STALL_FAMILY.length];
+      if (!this.exhausted(alt)) return alt;
+    }
+    return intent;
+  };
+
   Session.prototype.templateList = function (intent) {
     return this.persona.templates[intent] || this.persona.templates.generic;
   };
@@ -178,7 +201,7 @@
 
   /** 规则引擎回复 */
   Session.prototype.ruleReply = function (analysis) {
-    var intent = this.chooseIntent(analysis);
+    var intent = this.freshIntent(this.chooseIntent(analysis));
     this.lastIntent = intent;
     var vars = {};
     if (intent === 'confirm_intel') {

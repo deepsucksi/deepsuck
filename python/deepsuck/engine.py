@@ -65,6 +65,27 @@ class Session:
         self.turn = 0
         self.last_intent = None
 
+    # 拖延类意图的"兄弟"顺序：某个意图的台词用完时换一种拖法，而不是立刻重复同一句
+    STALL_FAMILY = ["urgency_stall", "tech_trouble", "slow_walk", "ask_repeat", "misunderstand", "info_stall", "generic"]
+
+    def exhausted(self, intent: str) -> bool:
+        lst = self.persona["templates"].get(intent)
+        if not lst:
+            return True
+        used = self.used.get(intent) or []
+        return all(not isinstance(it, str) or i in used for i, it in enumerate(lst))
+
+    def fresh_intent(self, intent: str) -> str:
+        fam = self.STALL_FAMILY
+        if intent not in fam or not self.exhausted(intent):
+            return intent
+        start = fam.index(intent)
+        for k in range(1, len(fam)):
+            alt = fam[(start + k) % len(fam)]
+            if not self.exhausted(alt):
+                return alt
+        return intent
+
     # ---- 模板 ----
     def template_list(self, intent):
         return self.persona["templates"].get(intent) or self.persona["templates"]["generic"]
@@ -205,7 +226,7 @@ class Session:
         return stalls[math.floor(r * len(stalls))]
 
     def rule_reply(self, analysis: dict) -> dict:
-        intent = self.choose_intent(analysis)
+        intent = self.fresh_intent(self.choose_intent(analysis))
         self.last_intent = intent
         vars = {}
         if intent == "confirm_intel":

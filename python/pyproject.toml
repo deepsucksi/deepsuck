@@ -16,6 +16,7 @@ test = ["pytest>=7"]
 
 [project.scripts]
 deepsuck-blocklist = "deepsuck.blocklist:main"
+deepsuck-sim = "deepsuck.sim:main"
 
 [tool.setuptools]
 packages = ["deepsuck"]

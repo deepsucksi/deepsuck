@@ -1045,6 +1045,36 @@
    "redacted": "客服电话 800-***-4567，邮箱 ke***@example.com"
   },
   {
+   "text": "户名写钱伟就行",
+   "entities": [
+    {
+     "type": "name",
+     "value": "钱伟",
+     "masked": "钱*",
+     "start": 3,
+     "end": 5,
+     "sensitive": true,
+     "meta": {}
+    }
+   ],
+   "redacted": "户名写钱*就行"
+  },
+  {
+   "text": "收款人是吴刚吧",
+   "entities": [
+    {
+     "type": "name",
+     "value": "吴刚",
+     "masked": "吴*",
+     "start": 4,
+     "end": 6,
+     "sensitive": true,
+     "meta": {}
+    }
+   ],
+   "redacted": "收款人是吴*吧"
+  },
+  {
    "text": "我记一下：网址/域名 re***fu.top，钱包 0x12ab...9f3e，对吗",
    "entities": [],
    "redacted": "我记一下：网址/域名 re***fu.top，钱包 0x12ab...9f3e，对吗"
