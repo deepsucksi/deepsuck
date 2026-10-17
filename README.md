@@ -8,21 +8,41 @@
   <b>⚠️ 非官方项目，与 DeepSeek 无关</b> · Apache-2.0 · 纯静态可运行 · 无需 API Key
 </p>
 
+<p align="center">
+  <a href="https://github.com/deepsucksi/deepsuck/actions/workflows/pages.yml"><img alt="Pages" src="https://github.com/deepsucksi/deepsuck/actions/workflows/pages.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-f5a524"></a>
+  <a href="https://deepsuck.si/"><img alt="Website" src="https://img.shields.io/badge/site-deepsuck.si-f5a524"></a>
+  <a href="https://deepsuck.si/demo.html"><img alt="Demo" src="https://img.shields.io/badge/demo-7%20scenarios-8fcf86"></a>
+  <a href="https://deepsuck.si/intel.html"><img alt="Intel library" src="https://img.shields.io/badge/intel-public%20library-ec6a52"></a>
+  <a href="https://github.com/deepsucksi/deepsuck/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/deepsucksi/deepsuck?style=social"></a>
+</p>
+
+<p align="center">
+  <a href="https://deepsuck.si/"><b>官网</b></a> ·
+  <a href="https://deepsuck.si/demo.html"><b>沙盒演示</b></a> ·
+  <a href="https://deepsuck.si/intel.html"><b>公开诈骗情报库</b></a> ·
+  <a href="docs/PHONE.md">电话接入方案</a>
+</p>
+
+<p align="center"><img src="screenshots/landing.png" width="820" alt="DeepSuck 首页截图"></p>
+
 > **非官方项目，与 DeepSeek 无关。** DeepSuck 是独立的开源社区项目，与 DeepSeek（深度求索）及其关联公司没有任何关联，未获其授权或背书；名称仅为谐音玩梗，项目不使用其商标、标志或视觉风格。
 > *Unofficial project, not affiliated with or endorsed by DeepSeek.*
 
 DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会聊天的“潜在受害人”人设（糊涂的王阿姨、耳背的李大爷、好奇的大学生小林……）陪骗子周旋——故意误解、请求重复、假装手机卡顿、慢吞吞去找老花镜——消耗骗子的时间，同时自动提取对方暴露的**收款银行卡、支付宝/微信/QQ、手机号、BTC/ETH/TRON 钱包地址、网址**以及**诈骗话术模式**，脱敏后生成结构化情报，用于预防与早期预警。
 
-首个版本：**中文场景优先、文字聊天优先**（语音/电话在路线图中）。
+当前版本 v0.2：**中文场景优先、文字聊天优先**；新增 4 个高发场景、公开诈骗情报库与中文“去武装”写法识别。语音/电话见 [docs/PHONE.md](docs/PHONE.md)。
 
 ---
 
 ## ✨ 功能
 
-- **沙盒演示**：访客扮演骗子，机器人扮演受害人；3 个场景 × 3 个人设，内置一键样例台词。
-- **规则/模板人设引擎（默认）**：纯浏览器运行，零成本、零依赖、无需 Key；带打字延迟与 19 种拖延/诱导策略。
+- **沙盒演示**：访客扮演骗子，机器人扮演受害人；**7 个场景**（冒充客服、冒充公检法、杀猪盘、刷单返利、虚假贷款/征信修复、冒充领导熟人、注销校园贷）× 3 个人设，内置一键样例台词与话术标签。
+- **规则/模板人设引擎（默认）**：纯浏览器运行，零成本、零依赖、无需 Key；带打字延迟与 23 种拖延/诱导策略（含“反向核验身份”：*单位那盆君子兰是谁养死的？*），台词按情境触发、同一意图不重复。
+- **公开诈骗情报库**（[intel.html](https://deepsuck.si/intel.html)）：诈骗电话、钱包地址、网址/APP、话术**完整公开**，银行卡与姓名**部分打码**；可按类型/场景检索，导出 JSON/CSV；沙盒一键生成提交内容 → GitHub Issue 模板；支持下架申诉。详见 [docs/INTEL.md](docs/INTEL.md)。当前仅有**示例数据**。
+- **中文“去武装”写法识别**：`微 信`/`V信`/`薇信`/`绿泡泡`、`扣扣`/`企鹅`、`xxx点com`/`[.]`、`幺三九…`汉字数字、全角数字、`1 3 9 …`空格分隔——先规范化再提取，脱敏仍精确替换原文片段。
 - **情报提取**：银行卡（16–19 位，开户行识别 + Luhn 校验）、手机号/400 热线/座机、QQ、微信号、支付宝账号、BTC/ETH/TRON 地址、URL/裸域名、邮箱、身份证、收款户名；以及金额、APP 名称、渠道等上下文线索。
-- **话术分类器**：制造紧迫感、冒充公检法、冒充客服、索要验证码、安全账户、诱导下载 APP/屏幕共享、高收益承诺、要求保密、威胁恐吓、情感操控、套取个人信息、加密货币、引流私聊等 15 类，带 0–100 风险评分。
+- **话术分类器**：制造紧迫感、冒充公检法、冒充客服、索要验证码、安全账户、诱导下载 APP/屏幕共享、高收益承诺、要求保密、威胁恐吓、情感操控、套取个人信息、加密货币、引流私聊、刷单返佣、虚假贷款、冒充熟人、注销校园贷等 19 类，带 0–100 风险评分。
 - **默认脱敏**：`6222 **** **** 1234`、`138****5678`、`0x12ab...9f3e`、`https://re***fu.top/***`……展示、导出、甚至发给大模型的内容都先脱敏。
 - **情报看板**：“结束对话”后生成迷你情报看板——完整（脱敏）对话记录、情报卡片、话术画像、拖延时长；可导出脱敏 JSON 报告。
 - **可选大模型引擎（默认关闭）**：OpenAI 兼容协议，默认对接**阿里云百炼 DashScope（通义千问 qwen-plus）**，也可换成其他国产大模型；自带零依赖 Node 代理，Key 只留在服务器 `.env`。
@@ -71,32 +91,38 @@ npm start
 npm test        # 等同于 node --test tests/
 ```
 
+修改 `site/assets/core/*.json`（规则、台词、场景）后运行 `npm run build:core` 重新生成浏览器用的 `core-data.js`（测试会检查是否同步）。
+
 ## 🧱 架构
 
 ```
 deepsuck/
-├── site/                     # 纯静态站点（可直接部署到任意静态托管）
+├── site/                     # 纯静态站点（GitHub Pages 自动部署）
 │   ├── index.html            # 首页（中文，支持 EN 切换）
-│   ├── demo.html             # 沙盒演示 + 情报看板
+│   ├── demo.html             # 沙盒演示 + 情报看板 + 情报库提交
+│   ├── intel.html            # 公开诈骗情报库（检索 / 筛选 / JSON·CSV 导出）
+│   ├── data/intel.json       # 情报库数据（当前为示例数据）+ intel.schema.json
 │   └── assets/
-│       ├── logo.svg          # 原创标志：对话气泡 + 沙漏
-│       ├── css/style.css     # 暖琥珀 + 深炭色主题
+│       ├── core/*.json       # ★ 规则与台词的单一事实来源：extractors / tactics / personas / scenarios
 │       └── js/
+│           ├── core-data.js  # 由 scripts/build-core.js 从 core/*.json 生成（浏览器同步加载）
+│           ├── normalize.js  # 中文去武装写法规范化（带原文位置映射）
 │           ├── redact.js     # 脱敏模块（所有展示/导出必经）
-│           ├── extractors.js # 情报提取器（正则 + 上下文 + 区间去重）
+│           ├── extractors.js # 情报提取器
 │           ├── tactics.js    # 话术分类器 + 风险评分
-│           ├── scenarios.js  # 场景定义与样例台词（虚构数据）
-│           ├── personas.js   # 人设与话术模板
-│           ├── engine.js     # 会话状态机 / 规则引擎 / 报告生成
-│           ├── llm.js        # 可选：OpenAI 兼容大模型（提示词、脱敏、输出过滤）
-│           ├── demo.js       # 演示页 UI
-│           └── i18n.js       # 首页中英切换
+│           ├── scenarios.js / personas.js  # 场景与人设（数据来自 core/*.json）
+│           ├── engine.js     # 会话状态机 / 规则引擎 / 报告 / 情报库提交
+│           ├── intel.js      # 情报库发布策略、校验、CSV、提交格式
+│           ├── llm.js        # 可选：OpenAI 兼容大模型
+│           └── demo.js / intel-page.js / hero-chat.js / i18n.js  # 页面脚本
 ├── server/index.js           # 可选：零依赖 Node 后端（静态托管 + /api/chat 代理 + 限流）
-├── tests/                    # node:test 单元测试
-├── docs/ETHICS.md            # 伦理与使用规范
-├── .env.example              # 大模型配置模板
-└── LICENSE                   # Apache-2.0
+├── scripts/build-core.js     # core/*.json → core-data.js
+├── tests/                    # node:test 单元测试（40+ 用例）
+├── docs/                     # ETHICS.md · INTEL.md · PHONE.md
+└── .github/                  # Pages 部署工作流 + 情报提交 / 下架申诉 Issue 模板
 ```
+
+`core/*.json` 中的正则只用 JS 与 Python `re` 都支持的语法，后续 Python 语音端（Pipecat）可直接复用同一套规则与台词。
 
 数据流：
 
@@ -140,7 +166,7 @@ deepsuck/
 - **阿里云 OSS 静态网站托管**：上传 `site/` 内容并开启静态页面（默认首页 `index.html`），可配合 CDN；按量计费、流量很小时几乎零成本。注意：中国大陆地域绑定自定义域名需要 ICP 备案。
 - **小型云服务器（阿里云 ECS/轻量应用服务器）**：需要大模型代理时，用 `npm start`（建议 systemd/pm2 守护），前面放 Nginx + HTTPS，`HOST` 保持 `127.0.0.1` 由 Nginx 反代；务必设置 `RATE_LIMIT_PER_MIN` 并在百炼控制台设置费用告警。
 
-> `.si` 域名（deepsuck.si）目前尚未上线，本仓库不包含任何部署或 DNS 操作。
+> 官方站点 <https://deepsuck.si/> 由 `.github/workflows/pages.yml` 在推送到 `main` 时自动部署（先跑 `npm test`）。
 
 ## 🛡️ 伦理与使用声明（底线）
 
@@ -155,27 +181,39 @@ deepsuck/
 
 ## 🗺️ 路线图
 
-- [x] v0.1 纯静态沙盒、规则人设引擎、提取器/分类器/脱敏、情报看板、可选百炼代理
-- [ ] **大模型人设引擎**：多轮记忆、人设一致性评测、提示词注入防护、本地模型（Ollama 等）支持
-- [ ] **更多场景与人设**：刷单返利、虚假贷款/征信修复、冒充熟人/领导、游戏交易、网络购物
-- [ ] **情报共享 API**（规划中）：统一 schema、只共享脱敏或哈希化指标（加盐、可撤回）、来源可信度评分；优先对接官方反诈渠道而非公开曝光
-- [ ] **蜜罐集成**（规划中，需伦理评审）：仅接入**自有/授权**的诱饵号码与诱饵账号；不冒用他人身份、不诱导第三方、不留存无关个人信息；保留审计日志
-- [ ] **电话接入**（规划中，详细方案另行研究）：
-  - 语音：流式 ASR（语音转文字）+ TTS（人设音色）+ 打断/延迟控制
-  - 呼叫转移：将陌生/疑似诈骗来电转接给 AI 接听
-  - SIP/VoIP 网关对接
-  - 需满足电信与录音合规要求，默认告知与最小化留存
+- [x] **v0.1** 纯静态沙盒、规则人设引擎、提取器/分类器/脱敏、情报看板、可选百炼代理
+- [x] **v0.2** 7 个场景（+刷单返利、虚假贷款/征信修复、冒充领导熟人、注销校园贷）、情境台词与反向核验、**公开诈骗情报库** + 提交/申诉流程、规则数据抽成 `core/*.json`、中文去武装写法识别、首页动画与 OG 图
+- [ ] **v0.3 语音（浏览器麦克风 Demo，无需硬件）**：[Pipecat](https://github.com/pipecat-ai/pipecat) 级联管线 —— DashScope Paraformer 实时 ASR → qwen-plus/turbo → CosyVoice TTS；可选 Qwen-Omni Realtime 低延迟模式；拖延策略映射为 Pipecat Flows + 插播音频
+- [ ] **v0.4 电话**：iPhone 静音未知来电 + 无应答转移 `**61*` → 本人实名副卡 → **EC20/EG25 4G 模组直连**（AT 指令 + USB 声卡，复用 [callpilot](https://github.com/tianye1999/callpilot) 硬件层）；多线路才用 Asterisk + chan_quectel + pipecat-asterisk。详见 [docs/PHONE.md](docs/PHONE.md)
+- [ ] **短信诱骗通道**：旧安卓机 + SmsForwarder 把诈骗短信转给 DeepSuck（旧安卓机无法拿到通话音频，不用于接电话）
+- [ ] **情报增强**：URL 比对 destroylist / Phishing.Database；钱包地址比对公开黑名单（运行时拉取）；银行卡 BIN 与号码归属地；STIX 2.1 导出
+- [ ] **评测**：用 TeleAntiFraud-28k 文本评测话术分类器；“骗子模拟器”批量跑人设，统计拖延轮数 / 情报提取率 / 露馅率
+- [ ] **大模型人设加固**：提示词注入检测、输出守卫（PolicyGuard）、本地模型（Ollama 等）
+- 底线不变：只接不拨、单卡自用、默认脱敏、不冒充真实机构或个人
 
 ## 🤝 参与贡献
 
 欢迎 Issue 与 PR！详见 [CONTRIBUTING.md](CONTRIBUTING.md)。几个好上手的方向：
 
-- 在 `scenarios.js` 增加场景与**虚构**样例台词；
-- 在 `personas.js` 增加更“磨人”的人设或模板；
-- 在 `extractors.js` / `tactics.js` 改进规则，并在 `tests/` 补充用例；
+- 在 `site/assets/core/scenarios.json` 增加场景与**虚构**样例台词；
+- 在 `site/assets/core/personas.json` 增加更“磨人”的人设或台词（支持 `when` 情境触发）；
+- 在 `site/assets/core/extractors.json` / `tactics.json` 改进规则与去武装写法，并在 `tests/` 补充用例；
+- 通过 Issue 模板向[公开诈骗情报库](https://deepsuck.si/intel.html)提交你真实遇到的诈骗情报；
 - 改进无障碍、移动端体验与英文翻译。
 
 提交前请运行 `npm test`。请勿在 Issue/PR 中提交任何真实、未脱敏的个人信息或账户。
+
+## 🙏 致谢 / Prior art
+
+DeepSuck 站在这些开源项目与研究的肩膀上（仅借鉴思路或计划作为依赖，许可证以各项目为准）：
+
+- [pipecat-ai/pipecat](https://github.com/pipecat-ai/pipecat)（BSD-2-Clause）—— 语音阶段的管线框架；[NikolayShakin/pipecat-asterisk](https://github.com/NikolayShakin/pipecat-asterisk)（BSD-2）—— 多线路 Asterisk transport
+- [tianye1999/callpilot](https://github.com/tianye1999/callpilot)（Apache-2.0）—— EC20/EG25 4G 模组 AI 电话：AT 状态机、UAC 音频桥、DTMF，计划复用其硬件层
+- [laugiov/scambuster](https://github.com/laugiov/scambuster)（MIT）—— 多 Agent 诱骗流水线、提示词注入检测、人设自适应选择等设计思路
+- [JimmyMa99/TeleAntiFraud](https://github.com/JimmyMa99/TeleAntiFraud)（TeleAntiFraud-28k）—— 中文电信诈骗音频-文本数据集，计划用于评测（数据许可以原项目为准）
+- [phishdestroy/destroylist](https://github.com/phishdestroy/destroylist)、[Phishing-Database/Phishing.Database](https://github.com/Phishing-Database/Phishing.Database)（MIT）—— 钓鱼/诈骗域名黑名单，计划用于网址比对
+- [pppscn/SmsForwarder](https://github.com/pppscn/SmsForwarder)（BSD-2）—— 旧安卓机短信转发
+- 经典的 “Lenny” 电话机器人与 [apate.ai](https://apate.ai) —— “拖住骗子”的产品灵感
 
 ## ⚖️ 免责声明
 

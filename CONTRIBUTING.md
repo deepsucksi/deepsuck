@@ -8,6 +8,9 @@
 - 可选后端：`cp .env.example .env && npm start`（Node ≥ 18，零依赖）。
 - 测试：`npm test`（Node 内置 `node:test`）。请为新的提取规则/话术规则补充测试。
 - 模块为 UMD 风格：浏览器挂在 `window.DeepSuck.*`，Node 中 `require` 使用。请保持零依赖。
+- **规则与台词在 `site/assets/core/*.json`**（提取正则、话术关键词、人设台词、场景样例）。改完运行 `npm run build:core` 生成 `core-data.js`；正则请只用 JS 与 Python `re` 都支持的语法（不用命名分组、`\p{}`）。
+- 台词可以写成 `{"when": "流水|冻结", "t": "……"}`：只在骗子本轮提到相关词时才会出现，避免答非所问。
+- 情报库数据在 `site/data/intel.json`，必须通过 `intel.js` 的校验（`npm test` 会检查）。真实情报请走 Issue 模板提交，由维护者审核收录。
 
 ## 规则
 
