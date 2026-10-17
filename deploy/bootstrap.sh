@@ -99,7 +99,7 @@ log "7/7 构建并启动容器（首次约 3–6 分钟）"
 profiles=""; [ "${WITH_TURN:-0}" = 1 ] && profiles="--profile turn"
 docker compose $profiles up -d --build
 for i in $(seq 1 60); do
-  if curl -fsS --max-time 3 http://127.0.0.1:8787/api/health >/dev/null && curl -fsS --max-time 3 http://127.0.0.1:7860/api/voice/health >/dev/null; then
+  if curl -fsS --max-time 3 http://127.0.0.1:8787/api/health >/dev/null 2>&1 && curl -fsS --max-time 3 http://127.0.0.1:7860/api/voice/health >/dev/null 2>&1; then
     log "服务已就绪 ✓"; break
   fi
   sleep 3
