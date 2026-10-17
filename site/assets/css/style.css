@@ -24,7 +24,7 @@ code,kbd,.mono{font-family:var(--mono)}
 .unofficial{font-size:12px;font-weight:600;color:var(--amber-ink);background:var(--amber2);padding:3px 9px;border-radius:999px;white-space:nowrap}
 .nav{display:flex;gap:16px;margin-left:auto;align-items:center;font-size:14.5px}
 .nav a{color:var(--muted)} .nav a:hover{color:var(--text);text-decoration:none}
-.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--text);padding:9px 16px;border-radius:10px;font:inherit;font-size:14.5px;cursor:pointer;transition:.15s}
+.btn{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border:1px solid var(--line);background:var(--card);color:var(--text);padding:9px 16px;border-radius:10px;font:inherit;font-size:14.5px;cursor:pointer;transition:.15s}
 .btn:hover{border-color:var(--amber);text-decoration:none}
 .btn.primary{background:var(--amber);border-color:var(--amber);color:var(--amber-ink);font-weight:700}
 .btn.primary:hover{background:var(--amber2)}
@@ -34,7 +34,7 @@ code,kbd,.mono{font-family:var(--mono)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* 首页 */
-.hero{padding:76px 0 46px}
+.hero{padding-top:76px;padding-bottom:46px}
 .hero h1{font-size:46px;line-height:1.2;margin:14px 0 16px;letter-spacing:.5px}
 .hero h1 em{font-style:normal;color:var(--amber)}
 .hero p.lead{font-size:18.5px;color:var(--muted);max-width:760px}
@@ -206,3 +206,46 @@ ul.plain li{margin:4px 0}
 .submit-box h4{margin:0;color:var(--amber2)}
 .submit-box p{margin:0}
 .submit-box textarea{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:9px 11px;font-family:var(--mono);font-size:13px;resize:vertical}
+
+/* 首页：动画示例对话 / GitHub 按钮 / 场景卡片 */
+.hero-chat{display:flex;flex-direction:column;gap:8px;height:470px}
+.hc-head{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:8px}
+.hc-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(143,207,134,.18)}
+.hc-timer{margin-left:auto;font-family:var(--mono);color:var(--amber)}
+.hc-body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.hc-in{animation:hcIn .35s ease-out}
+@keyframes hcIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.hc-intel{font-size:12.5px;color:var(--dim);font-family:var(--mono);border-top:1px dashed var(--line);padding-top:8px;min-height:2.6em}
+.hc-intel.got{color:var(--green)}
+.gh-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px 9px;font-size:13px;color:var(--text)!important;background:var(--card)}
+.gh-btn:hover{border-color:var(--amber);text-decoration:none}
+.gh-count{font-weight:700;color:var(--amber2);border-left:1px solid var(--line);padding-left:6px}
+a.card{display:block;color:inherit;transition:.15s}
+a.card:hover{border-color:var(--amber);text-decoration:none;transform:translateY(-2px)}
+.cards-sc{grid-template-columns:repeat(4,1fr)}
+.card-intel{background:linear-gradient(160deg,rgba(245,165,36,.12),var(--card) 60%);border-color:rgba(245,165,36,.4)}
+@media (max-width:1100px){.cards-sc{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:980px){
+  .hero{padding-top:40px;padding-bottom:30px}
+  .hero-chat{height:420px}
+
+}
+@media (max-width:640px){
+  .topbar .wrap{gap:10px;height:56px;padding-left:14px;padding-right:14px}
+  .brand{font-size:17px}.brand img{width:28px;height:28px}
+  .topbar .unofficial{font-size:10.5px;padding:2px 7px}
+  .nav{gap:8px}
+  .hide-xs{display:none}
+  .nav .btn.small{padding:4px 9px;font-size:12.5px}
+  .wrap{padding-left:16px;padding-right:16px}
+  .hero h1{font-size:30px}
+  .hero p.lead{font-size:16px}
+  .steps,.cards-sc{grid-template-columns:1fr}
+  section h2{font-size:24px}
+  .dash-stats{grid-template-columns:1fr 1fr}
+  .demo .chat{height:70vh}
+}
+@media (max-width:640px){
+  .nav .gh-btn,#langBtn{display:none}
+  .topbar .unofficial{white-space:normal;line-height:1.25;max-width:150px;text-align:center}
+}
