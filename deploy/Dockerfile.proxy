@@ -5,8 +5,9 @@ WORKDIR /app
 COPY package.json ./
 COPY server/ server/
 COPY site/ site/
-ENV NODE_ENV=production HOST=127.0.0.1 PORT=8787 SERVE_STATIC=0 TRUST_PROXY=1 DATA_DIR=/data
-# 预算账本写在 /data（compose 挂卷）；以非 root 运行
+ENV NODE_ENV=production HOST=127.0.0.1 PORT=8787 SERVE_STATIC=0 TRUST_PROXY=1 DATA_DIR=/data \
+    CHAT_DAILY_BUDGET_CNY=2 ALLOWED_ORIGINS=https://deepsuck.si,https://www.deepsuck.si
+# 镜像内置安全默认值（预算封顶、CORS 白名单）；.env 可覆盖。预算账本写在 /data（compose 挂卷）；以非 root 运行
 RUN mkdir -p /data && chown node:node /data
 USER node
 CMD ["node", "--max-old-space-size=96", "server/index.js"]

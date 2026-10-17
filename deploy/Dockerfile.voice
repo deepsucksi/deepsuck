@@ -3,7 +3,8 @@
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
     XDG_CACHE_HOME=/cache DATA_DIR=/data VOICE_HOST=127.0.0.1 VOICE_PORT=7860 TRUST_PROXY=1 \
-    OMP_NUM_THREADS=1 MALLOC_ARENA_MAX=2 LOGURU_LEVEL=INFO
+    OMP_NUM_THREADS=1 MALLOC_ARENA_MAX=2 LOGURU_LEVEL=INFO \
+    VOICE_DAILY_BUDGET_CNY=5 VOICE_UDP_PORTS=40000-40199 VOICE_ALLOWED_ORIGINS=https://live.deepsuck.si,https://deepsuck.si
 WORKDIR /app
 COPY voice/requirements.txt voice/requirements.txt
 RUN grep -vE '^(pytest|httpx)\b' voice/requirements.txt > /tmp/req.txt && pip install -r /tmp/req.txt && \

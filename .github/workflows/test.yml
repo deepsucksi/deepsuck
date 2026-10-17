@@ -44,7 +44,7 @@ jobs:
         run: docker compose -f deploy/docker-compose.yml build
       - name: smoke (no key → rule-only health)
         run: |
-          docker run -d --name p --network host -e ALLOWED_ORIGINS=https://deepsuck.si deepsuck-proxy
-          docker run -d --name v --network host -e VOICE_DAILY_BUDGET_CNY=1 deepsuck-voice
+          docker run -d --name ds-proxy --network host -e ALLOWED_ORIGINS=https://deepsuck.si deepsuck-proxy
+          docker run -d --name ds-voice --network host -e VOICE_DAILY_BUDGET_CNY=1 deepsuck-voice
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8787/api/health && curl -fsS http://127.0.0.1:7860/api/voice/health && exit 0; sleep 2; done
-          docker logs p; docker logs v; exit 1
+          docker logs ds-proxy; docker logs ds-voice; exit 1
