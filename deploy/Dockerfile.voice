@@ -1,0 +1,17 @@
+# DeepSuck 语音演示（voice/，Pipecat + SmallWebRTC + DashScope）。非官方项目，与 DeepSeek 无关。
+# 构建上下文：仓库根目录。只装运行时依赖（不含 pytest/httpx）。
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    XDG_CACHE_HOME=/cache DATA_DIR=/data VOICE_HOST=127.0.0.1 VOICE_PORT=7860 TRUST_PROXY=1 \
+    OMP_NUM_THREADS=1 MALLOC_ARENA_MAX=2 LOGURU_LEVEL=INFO
+WORKDIR /app
+COPY voice/requirements.txt voice/requirements.txt
+RUN grep -vE '^(pytest|httpx)\b' voice/requirements.txt > /tmp/req.txt && pip install -r /tmp/req.txt && \
+    find /usr/local/lib/python3.12 -name '__pycache__' -prune -exec rm -rf {} + || true
+COPY python/ python/
+COPY voice/ voice/
+COPY site/assets/core/ site/assets/core/
+COPY site/assets/logo.svg site/assets/logo.svg
+RUN useradd -r -u 1000 app && mkdir -p /data /cache && chown app:app /data /cache
+USER app
+CMD ["python", "-m", "voice.app"]

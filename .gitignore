@@ -22,3 +22,5 @@ __pycache__/
 python/deepsuck/_core/
 uv.lock
 site/data/blocklist/
+# deploy secrets
+deploy/.env

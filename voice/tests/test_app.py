@@ -36,3 +36,61 @@ def test_main_help(capsys):
     with pytest.raises(SystemExit):
         A.main(["--help"])
     assert "--engine" in capsys.readouterr().out
+
+
+def test_offer_guards(monkeypatch, tmp_path):
+    from voice import guard as G
+    monkeypatch.setenv("VOICE_ALLOWED_ORIGINS", "https://live.deepsuck.si")
+    lim = G.Limits(max_sessions=1)
+    b = G.VoiceBudget(cap_cny=0.5, data_dir=str(tmp_path))
+    app = A.create_app("rule", limits=lim, budget=b)
+    c = TestClient(app)
+    offer = {"sdp": "v=0", "type": "offer"}
+    assert c.post("/api/offer", json=offer, headers={"Origin": "https://evil.example"}).status_code == 403
+    assert c.post("/api/offer", json=offer).status_code == 403  # 缺 Origin
+    H = {"Origin": "https://live.deepsuck.si"}
+    assert c.post("/api/offer", json={"sdp": 1, "type": "offer"}, headers=H).status_code == 400
+    app.state.gate.active["busy"] = "9.9.9.9"
+    r = c.post("/api/offer", json=offer, headers=H)
+    assert r.status_code == 503 and "同时通话" in r.json()["detail"]
+    app.state.gate.active.clear()
+    tk = b.reserve(0.1); tk.asr(3000)  # 0.72 元 > 0.5 上限
+    r = c.post("/api/offer", json=offer, headers=H)
+    assert r.status_code == 429 and "额度" in r.json()["detail"]
+    cfg = c.get("/api/config").json()
+    assert cfg["budget"]["exhausted"] is True and cfg["limits"]["maxSessions"] == 1
+    assert c.get("/api/voice/health").json()["budget"]["exhausted"] is True
+
+
+def test_offer_slot_released_after_connect_timeout(monkeypatch):
+    """浏览器从未连上（ICE 失败）时，看门狗在 VOICE_CONNECT_TIMEOUT 后释放并发名额与预占额度。"""
+    from voice import guard as G
+    monkeypatch.delenv("VOICE_ALLOWED_ORIGINS", raising=False)
+    monkeypatch.setenv("VOICE_CONNECT_TIMEOUT", "1")
+    from voice import dashscope_ws as ds, processors as P
+
+    async def no_net(*a, **k):
+        raise OSError("offline test")
+
+    async def no_fillers(*a, **k):
+        return {}
+    monkeypatch.setattr(ds, "_connect", no_net)
+    monkeypatch.setattr(P, "synth_fillers", no_fillers)
+    b = G.VoiceBudget(cap_cny=5)
+    app = A.create_app("rule", limits=G.Limits(max_sessions=1), budget=b)
+    c = TestClient(app, raise_server_exceptions=False)
+    c.post("/api/offer", json={"sdp": "garbage", "type": "offer"})  # TestClient 会等后台通话任务结束
+    assert not app.state.gate.active and b.status()["active"] == 0
+
+
+def test_browser_ice_servers_turn(monkeypatch):
+    import base64, hashlib, hmac
+    monkeypatch.setenv("VOICE_BROWSER_STUN", "stun:stun.example:3478")
+    monkeypatch.setenv("TURN_SECRET", "s3cret")
+    monkeypatch.setenv("TURN_URLS", "turn:live.example:3478?transport=udp,turn:live.example:3478?transport=tcp")
+    ice = A.browser_ice_servers()
+    assert ice[0] == {"urls": ["stun:stun.example:3478"]}
+    t = ice[1]
+    assert len(t["urls"]) == 2
+    exp = base64.b64encode(hmac.new(b"s3cret", t["username"].encode(), hashlib.sha1).digest()).decode()
+    assert t["credential"] == exp and "s3cret" not in str(ice)

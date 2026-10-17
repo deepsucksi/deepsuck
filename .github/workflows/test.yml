@@ -29,3 +29,22 @@ jobs:
       - run: pip install -r voice/requirements.txt
       - name: voice unit tests (mocked DashScope websocket, no key needed)
         run: python -m pytest voice/tests -q
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bootstrap.sh syntax + shellcheck
+        run: bash -n deploy/bootstrap.sh && shellcheck -S error deploy/bootstrap.sh
+      - name: compose config + Caddyfile validate
+        run: |
+          cp deploy/.env.example deploy/.env
+          docker compose -f deploy/docker-compose.yml --profile turn config -q
+          docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e LIVE_DOMAIN=live.example.com -e ACME_EMAIL=ops@example.com caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+      - name: build images
+        run: docker compose -f deploy/docker-compose.yml build
+      - name: smoke (no key → rule-only health)
+        run: |
+          docker run -d --name p --network host -e ALLOWED_ORIGINS=https://deepsuck.si deepsuck-proxy
+          docker run -d --name v --network host -e VOICE_DAILY_BUDGET_CNY=1 deepsuck-voice
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8787/api/health && curl -fsS http://127.0.0.1:7860/api/voice/health && exit 0; sleep 2; done
+          docker logs p; docker logs v; exit 1

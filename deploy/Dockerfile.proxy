@@ -1,0 +1,12 @@
+# DeepSuck 大模型对话代理（server/，零依赖 Node）。非官方项目，与 DeepSeek 无关。
+# 构建上下文：仓库根目录（docker compose -f deploy/docker-compose.yml build）
+FROM node:20-alpine
+WORKDIR /app
+COPY package.json ./
+COPY server/ server/
+COPY site/ site/
+ENV NODE_ENV=production HOST=127.0.0.1 PORT=8787 SERVE_STATIC=0 TRUST_PROXY=1 DATA_DIR=/data
+# 预算账本写在 /data（compose 挂卷）；以非 root 运行
+RUN mkdir -p /data && chown node:node /data
+USER node
+CMD ["node", "--max-old-space-size=96", "server/index.js"]

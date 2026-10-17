@@ -23,6 +23,7 @@ from pipecat.frames.frames import (
     LLMFullResponseEndFrame,
     LLMFullResponseStartFrame,
     LLMTextFrame,
+    MetricsFrame,
     OutputAudioRawFrame,
     TranscriptionFrame,
     TTSSpeakFrame,
@@ -73,6 +74,9 @@ class IntelProcessor(FrameProcessor):
         self.rng = rng or random.random
         self.intent = "opening"
         self._bl_tasks: List[asyncio.Task] = []
+        self.meter = None        # voice.guard.Ticket（LLM token 记账）
+        self.on_heard = None     # 回调：听到骗子说话（看门狗用来判断静默）
+        self.closing = False     # 护栏触发挂断后不再处理新转写（不再调用大模型）
 
     # ---- 对外 ----
     def snapshot(self) -> dict:
@@ -97,12 +101,16 @@ class IntelProcessor(FrameProcessor):
     # ---- 管线 ----
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
+        if isinstance(frame, (InterimTranscriptionFrame, TranscriptionFrame)) and self.on_heard:
+            self.on_heard()
         if isinstance(frame, InterimTranscriptionFrame) and direction == FrameDirection.DOWNSTREAM:
             await self.notify({"type": "interim", "text": guard_output(frame.text)})
             await self.push_frame(frame, direction)
             return
         if not (isinstance(frame, TranscriptionFrame) and direction == FrameDirection.DOWNSTREAM):
             await self.push_frame(frame, direction)
+            return
+        if self.closing:
             return
         text = (frame.text or "").strip()
         if not text:
@@ -153,6 +161,11 @@ class BotTextTap(FrameProcessor):
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
+        if isinstance(frame, MetricsFrame) and self.intel.meter is not None:
+            for d in frame.data or []:
+                v = getattr(d, "value", None)
+                if v is not None and hasattr(v, "prompt_tokens") and hasattr(v, "completion_tokens"):
+                    self.intel.meter.llm(int(v.prompt_tokens or 0), int(v.completion_tokens or 0))
         if isinstance(frame, LLMFullResponseStartFrame):
             self._buf = []
         elif isinstance(frame, LLMTextFrame):
@@ -167,26 +180,38 @@ class BotTextTap(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
-async def synth_fillers(persona_id: str, voice: str, sample_rate: int, synth=None, cache_dir=None) -> Dict[str, bytes]:
-    """开场前把该人设的填充音合成好（每条一次 TTS 调用，缓存到 ~/.cache/deepsuck/voice）。失败则返回已有部分。"""
+async def synth_fillers(persona_id: str, voice: str, sample_rate: int, synth=None, cache_dir=None,
+                        meter=None, out: Optional[Dict[str, bytes]] = None,
+                        cached_only: bool = False) -> Dict[str, bytes]:
+    """把该人设的填充音合成好（每条一次 TTS 调用，缓存到 ~/.cache/deepsuck/voice）。失败则返回已有部分。
+    out：就地填充的字典（通话中后台补齐时，IntelProcessor 持有同一个字典，合成好一条就能用一条）。
+    cached_only：只读缓存、不调用 TTS（开场不等待）。"""
     from . import dashscope_ws as ds
 
     synth = synth or ds.synthesize
-    out: Dict[str, bytes] = {}
+    out = {} if out is None else out
     cdir = cache_dir or (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "deepsuck" / "voice")
     for line in FILLERS.get(persona_id, []):
         f = Path(cdir) / f"{voice}-{sample_rate}-{hashlib.sha1(line.encode()).hexdigest()[:12]}.pcm"
         if f.exists():
             out[line] = f.read_bytes()
             continue
+        if cached_only:
+            continue
         try:
             buf = bytearray()
+            if meter is not None:
+                meter.tts(len(line))
             async for chunk in synth(line, voice=voice, sample_rate=sample_rate):
                 buf.extend(chunk)
-            out[line] = bytes(buf)
             f.parent.mkdir(parents=True, exist_ok=True)
-            f.write_bytes(out[line])
+            f.write_bytes(bytes(buf))
+            out[line] = bytes(buf)
         except Exception as e:
             logger.warning(f"filler synth failed ({line}): {e}")
             break
     return out
+
+
+def fillers_missing(persona_id: str, voice: str, sample_rate: int, have: Dict[str, bytes]) -> bool:
+    return any(line not in have for line in FILLERS.get(persona_id, []))

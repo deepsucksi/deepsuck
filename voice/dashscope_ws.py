@@ -40,7 +40,7 @@ def api_key() -> str:
 async def _connect(key: str, url: str = WS_URL):
     import websockets  # 延迟导入：单测可注入假连接
 
-    headers = {"Authorization": f"Bearer {key}", "user-agent": "deepsuck-voice/0.3", "X-DashScope-DataInspection": "enable"}
+    headers = {"Authorization": f"Bearer {key}", "user-agent": "deepsuck-voice/0.4", "X-DashScope-DataInspection": "enable"}
     try:
         return await websockets.connect(url, additional_headers=headers, max_size=None)
     except TypeError:  # websockets<13

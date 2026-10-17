@@ -1,0 +1,40 @@
+# DeepSuck 实时服务反向代理（自动 HTTPS，Let's Encrypt / ZeroSSL）。非官方项目，与 DeepSeek 无关。
+# 静态站仍在 GitHub Pages（deepsuck.si）；这里只服务 {$LIVE_DOMAIN}（默认 live.deepsuck.si）：
+#   /api/chat、/api/health → Node 大模型代理（127.0.0.1:8787）
+#   其余（语音演示页面、/api/config、/api/offer）→ 语音服务（127.0.0.1:7860）
+{
+	email {$ACME_EMAIL:admin@deepsuck.si}
+	servers {
+		timeouts {
+			read_body 15s
+			idle 2m
+		}
+	}
+}
+
+{$LIVE_DOMAIN:live.deepsuck.si} {
+	encode zstd gzip
+	request_body {
+		max_size 64KB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "microphone=(self), camera=()"
+		-Server
+	}
+	handle /api/chat {
+		reverse_proxy 127.0.0.1:8787
+	}
+	handle /api/health {
+		reverse_proxy 127.0.0.1:8787
+	}
+	handle {
+		reverse_proxy 127.0.0.1:7860
+	}
+	log {
+		output stdout
+		format console
+	}
+}

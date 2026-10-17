@@ -267,6 +267,16 @@
    "changed": false
   },
   {
+   "text": "户名写张3就行",
+   "expected": "户名写张3就行",
+   "changed": false
+  },
+  {
+   "text": "收款人李4，工商银行 6222020200112233445",
+   "expected": "收款人李4,工商银行 6222020200112233445",
+   "changed": true
+  },
+  {
    "text": "收款人是吴刚吧",
    "expected": "收款人是吴刚吧",
    "changed": false

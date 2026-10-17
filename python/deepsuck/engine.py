@@ -19,7 +19,7 @@ from . import tactics as T
 from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS
 
 REPORT_SCHEMA = "deepsuck.intel-report/v0.1"
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 
 
 def goal_of(type_: str) -> Optional[str]:

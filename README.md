@@ -31,7 +31,7 @@
 
 DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会聊天的“潜在受害人”人设（糊涂的王阿姨、耳背的李大爷、好奇的大学生小林……）陪骗子周旋——故意误解、请求重复、假装手机卡顿、慢吞吞去找老花镜——消耗骗子的时间，同时自动提取对方暴露的**收款银行卡、支付宝/微信/QQ、手机号、BTC/ETH/TRON 钱包地址、网址**以及**诈骗话术模式**，脱敏后生成结构化情报，用于预防与早期预警。
 
-当前版本 v0.3：在 v0.2（7 个场景、公开情报库、去武装写法识别）基础上新增 **Python 核心（与 JS 逐字节一致）**、**域名/钱包黑名单比对**、**骗子模拟器评测**（[docs/EVAL.md](docs/EVAL.md)）与**浏览器麦克风语音演示**（[voice/](voice/README.md)，需要 DashScope Key）。电话接入见 [docs/PHONE.md](docs/PHONE.md)。
+当前版本 v0.4：在 v0.3（**Python 核心**、**域名/钱包黑名单比对**、**骗子模拟器评测** [docs/EVAL.md](docs/EVAL.md)、**浏览器麦克风语音演示** [voice/](voice/README.md)）基础上新增**公开部署包**（[deploy/](deploy) + [docs/DEPLOY.md](docs/DEPLOY.md)：Docker Compose + Caddy 自动 HTTPS，带每日预算/限流/并发/时长护栏，一条命令部署到香港轻量服务器）。电话接入见 [docs/PHONE.md](docs/PHONE.md)。
 
 ---
 
@@ -110,6 +110,17 @@ python -m voice.app                     # 打开 http://localhost:7860
 ```
 
 详见 [voice/README.md](voice/README.md)。只在浏览器里自己扮演骗子，不接电话网络。
+
+### 方式 D：公开部署（大模型对话 + 语音，带费用护栏）
+
+```bash
+# 全新 Ubuntu/Debian 服务器（推荐阿里云轻量 香港 2C2G），root：
+curl -fsSL https://raw.githubusercontent.com/deepsucksi/deepsuck/main/deploy/bootstrap.sh -o bootstrap.sh
+DASHSCOPE_API_KEY='sk-...' bash bootstrap.sh
+```
+
+Caddy 自动 HTTPS（`live.deepsuck.si`），文字代理每日 2 元、语音每日 5 元预算封顶，同时最多 2 路通话、每局 5 分钟。端口、TURN、费用估算见 [docs/DEPLOY.md](docs/DEPLOY.md)；
+主站通过 `site/assets/js/live-config.js` 接入（为空时纯静态，规则引擎）。
 
 ### 运行测试
 
@@ -216,8 +227,9 @@ deepsuck/
 - [x] **v0.1** 纯静态沙盒、规则人设引擎、提取器/分类器/脱敏、情报看板、可选百炼代理
 - [x] **v0.2** 7 个场景（+刷单返利、虚假贷款/征信修复、冒充领导熟人、注销校园贷）、情境台词与反向核验、**公开诈骗情报库** + 提交/申诉流程、规则数据抽成 `core/*.json`、中文去武装写法识别、首页动画与 OG 图
 - [x] **v0.3** Python 核心（共享 fixtures，CI 跑 pytest）、destroylist / Phishing.Database 域名黑名单 + OFAC / ScamSniffer 钱包黑名单、骗子模拟器与 TeleAntiFraud 评测（[docs/EVAL.md](docs/EVAL.md)）、**语音演示**（Pipecat 级联：Paraformer 实时 ASR → qwen-plus → CosyVoice，SmallWebRTC 浏览器麦克风，填充音插播，实时情报看板）、语音输出守卫
-- [ ] **v0.3.x 语音打磨**：真实麦克风/回声场景调参、老人人设的打断策略、Paraformer 数字规整导致的姓名漏抽、可选 Qwen-Omni Realtime 低延迟模式、拖延策略映射为 Pipecat Flows
-- [ ] **v0.4 电话**：iPhone 静音未知来电 + 无应答转移 `**61*` → 本人实名副卡 → **EC20/EG25 4G 模组直连**（AT 指令 + USB 声卡，复用 [callpilot](https://github.com/tianye1999/callpilot) 硬件层）；多线路才用 Asterisk + chan_quectel + pipecat-asterisk。详见 [docs/PHONE.md](docs/PHONE.md)
+- [x] **v0.4 公开部署包**：Docker Compose（Caddy 自动 HTTPS + Node 代理 + Pipecat 语音 + 可选 coturn）、一键 bootstrap、费用护栏（每日预算预占记账、每 IP/全站限流、并发/时长/轮数/静默上限、CORS 白名单）、WebRTC UDP 端口段 + 公网 IP 候选、`voice.probe` 端到端探针；修复 Paraformer 数字规整导致的姓名漏抽（`张3` → `张三`）
+- [ ] **语音打磨**：真实麦克风/回声场景调参、老人人设的打断策略、可选 Qwen-Omni Realtime 低延迟模式、拖延策略映射为 Pipecat Flows
+- [ ] **v0.5 电话**：iPhone 静音未知来电 + 无应答转移 `**61*` → 本人实名副卡 → **EC20/EG25 4G 模组直连**（AT 指令 + USB 声卡，复用 [callpilot](https://github.com/tianye1999/callpilot) 硬件层）；多线路才用 Asterisk + chan_quectel + pipecat-asterisk。详见 [docs/PHONE.md](docs/PHONE.md)
 - [ ] **短信诱骗通道**：旧安卓机 + SmsForwarder 把诈骗短信转给 DeepSuck（旧安卓机无法拿到通话音频，不用于接电话）
 - [ ] **情报增强**：银行卡 BIN 与号码归属地；STIX 2.1 导出
 - [ ] **评测扩展**：用 TeleAntiFraud 音频走一遍完整语音链路；LLM 扮演的骗子（目前是脚本骗子）

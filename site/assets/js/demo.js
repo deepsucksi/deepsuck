@@ -9,6 +9,9 @@
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
   var FAST = params.get('fast') === '1';
+  // 公开实时服务（见 live-config.js）；为空时沿用同源 api/（npm start 自托管）
+  var LIVE = String((window.DEEPSUCK_LIVE && window.DEEPSUCK_LIVE.api) || '').replace(/\/+$/, '');
+  var API = LIVE ? LIVE + '/api/' : 'api/';
 
   var state = {
     scenario: params.get('scenario') || 'refund',
@@ -152,7 +155,7 @@
       transcript: s.messages.map(function (m) { return { role: m.role, text: m.text }; })
     };
     var call = state.engine === 'proxy'
-      ? D.llm.viaProxy(payload, 'api/chat')
+      ? D.llm.viaProxy(payload, API + 'chat')
       : D.llm.chatCompletions(state.direct, D.llm.buildMessages(payload));
     return call.then(function (reply) {
       var m = s.recordBot(reply, hint); m.engine = '大模型'; return m;
@@ -342,9 +345,12 @@
     toast('已切换：' + $('engineLabel').textContent);
   }
   function probeProxy() {
-    if (location.protocol === 'file:') { $('proxyStatus').textContent = '本地文件模式，无代理'; return; }
-    fetch('api/health', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-      if (j && j.llmConfigured) {
+    if (location.protocol === 'file:' && !LIVE) { $('proxyStatus').textContent = '本地文件模式，无代理'; return; }
+    fetch(API + 'health', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (j && LIVE && $('liveVoiceLink')) { $('liveVoiceLink').href = LIVE + '/'; $('liveVoiceLink').hidden = false; }
+      if (j && j.llmConfigured && j.budget && j.budget.exhausted) {
+        $('proxyStatus').textContent = '代理在线，但今日大模型体验额度已用完（使用规则引擎）';
+      } else if (j && j.llmConfigured) {
         state.proxyOk = true;
         $('proxyStatus').textContent = '✓ 已检测到代理：' + j.model + ' @ ' + j.provider;
         if (!localStorage.getItem('deepsuck.llm') && !FAST) { state.engine = 'proxy'; state.session.engineName = engineName(); renderPanel(); toast('检测到已配置的大模型代理，已切换到 ' + j.model); }

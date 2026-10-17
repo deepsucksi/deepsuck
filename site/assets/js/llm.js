@@ -94,6 +94,7 @@
       if (!r.ok) return r.text().then(function (t) { throw new Error('LLM HTTP ' + r.status + ': ' + t.slice(0, 200)); });
       return r.json();
     }).then(function (j) {
+      if (typeof cfg.onUsage === 'function') cfg.onUsage((j && j.usage) || null, messages); // 服务端预算记账
       var c = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
       if (!c) throw new Error('LLM 返回为空');
       return sanitizeReply(c);

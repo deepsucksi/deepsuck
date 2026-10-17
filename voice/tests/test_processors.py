@@ -109,3 +109,51 @@ def test_synth_fillers_failure_is_soft(tmp_path):
         yield b""
 
     assert asyncio.run(synth_fillers("wang", "v", 24000, synth=synth, cache_dir=tmp_path)) == {}
+
+
+def test_synth_fillers_cached_only_and_inplace(tmp_path):
+    from voice.guard import VoiceBudget
+    from voice.processors import fillers_missing
+
+    calls = []
+
+    async def synth(text, voice, sample_rate):
+        calls.append(text)
+        yield b"\x01\x00" * 10
+
+    assert asyncio.run(synth_fillers("wang", "v", 24000, synth=synth, cache_dir=tmp_path, cached_only=True)) == {}
+    assert calls == []
+    have = {}
+    tk = VoiceBudget(cap_cny=1).reserve(0.5)
+    asyncio.run(synth_fillers("wang", "v", 24000, synth=synth, cache_dir=tmp_path, out=have, meter=tk))
+    assert have and not fillers_missing("wang", "v", 24000, have)
+    assert tk.usage["tts_chars"] == sum(len(t) for t in calls)  # 填充音合成也计入预算
+
+
+def test_intel_processor_closing_drops_transcripts():
+    from pipecat.frames.frames import TranscriptionFrame
+    from pipecat.processors.frame_processor import FrameDirection
+    from deepsuck.engine import Session
+
+    p = IntelProcessor(Session(scenario="refund", persona="wang"), mode="rule")
+    p.closing = True
+    pushed = []
+
+    async def push(frame, direction=FrameDirection.DOWNSTREAM):
+        pushed.append(frame)
+    p.push_frame = push
+
+    async def go():
+        import pipecat.processors.frame_processor as fp
+        orig = fp.FrameProcessor.process_frame
+
+        async def noop(self, frame, direction):
+            return None
+        fp.FrameProcessor.process_frame = noop
+        try:
+            await p.process_frame(TranscriptionFrame(text="卡号6222020200112233445", user_id="u", timestamp="t"),
+                                  FrameDirection.DOWNSTREAM)
+        finally:
+            fp.FrameProcessor.process_frame = orig
+    asyncio.run(go())
+    assert pushed == [] and p.session.stats()["scammerMessages"] == 0

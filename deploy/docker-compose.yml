@@ -1,0 +1,86 @@
+# DeepSuck 实时服务：Caddy（HTTPS）+ Node 大模型代理 + Pipecat 语音演示（+ 可选 coturn）。非官方项目，与 DeepSeek 无关。
+#   cd deploy && cp .env.example .env && 编辑 .env && docker compose up -d --build
+#   可选 TURN：docker compose --profile turn up -d
+# 全部使用 host 网络：WebRTC 需要服务器真实 UDP 端口（VOICE_UDP_PORTS），host 网络最省内存也最少 NAT 坑。
+# 只有 proxy / voice 读取 .env（含 Key）；caddy、coturn 只拿到各自需要的变量。
+# 应用只监听 127.0.0.1，对外只有 Caddy 的 80/443 和语音的 UDP 端口段。
+name: deepsuck
+
+x-common: &common
+  restart: unless-stopped
+  network_mode: host
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  proxy:
+    <<: *common
+    env_file: .env
+    build: { context: .., dockerfile: deploy/Dockerfile.proxy }
+    image: deepsuck-proxy
+    environment:
+      HOST: 127.0.0.1
+      PORT: "8787"
+      SERVE_STATIC: "0"
+      TRUST_PROXY: "1"
+      DATA_DIR: /data
+    volumes: [ "proxy-data:/data" ]
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8787/api/health"]
+      interval: 30s
+      timeout: 5s
+
+  voice:
+    <<: *common
+    env_file: .env
+    build: { context: .., dockerfile: deploy/Dockerfile.voice }
+    image: deepsuck-voice
+    environment:
+      VOICE_HOST: 127.0.0.1
+      VOICE_PORT: "7860"
+      TRUST_PROXY: "1"
+      DATA_DIR: /data
+      XDG_CACHE_HOME: /cache
+      VOICE_PREWARM: "1"
+    volumes: [ "voice-data:/data", "voice-cache:/cache" ]
+    mem_limit: ${VOICE_MEM_LIMIT:-700m}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:7860/api/voice/health',timeout=4)"]
+      interval: 30s
+      timeout: 6s
+
+  caddy:
+    <<: *common
+    image: caddy:2-alpine
+    environment:
+      LIVE_DOMAIN: ${LIVE_DOMAIN:-live.deepsuck.si}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@deepsuck.si}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    mem_limit: 128m
+    depends_on: [ proxy, voice ]
+
+  # 可选：给 UDP 被封的访客（公司网络等）走 TURN 中继。默认不启动。
+  coturn:
+    <<: *common
+    profiles: [ "turn" ]
+    image: coturn/coturn:4.6-alpine
+    command: >-
+      -n --log-file=stdout --no-cli --no-tls --no-dtls --fingerprint
+      --listening-port=3478 --min-port=${TURN_MIN_PORT:-49160} --max-port=${TURN_MAX_PORT:-49200}
+      --use-auth-secret --static-auth-secret=${TURN_SECRET} --realm=${LIVE_DOMAIN}
+      --external-ip=${VOICE_PUBLIC_IP}/${PRIVATE_IP}
+      --allowed-peer-ip=${PRIVATE_IP} --denied-peer-ip=0.0.0.0-255.255.255.255
+      --total-quota=${TURN_TOTAL_QUOTA:-6} --user-quota=2 --max-bps=${TURN_MAX_BPS:-200000} --stale-nonce=600
+    mem_limit: 64m
+
+volumes:
+  proxy-data: {}
+  voice-data: {}
+  voice-cache: {}
+  caddy-data: {}
+  caddy-config: {}

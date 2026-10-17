@@ -43,7 +43,10 @@
   function trimUrl(u) { return u.replace(/[.,;:!?'"）)\]]+$/, ''); }
 
   var NOT_NAMES = /^(?:姓名|是谁|写清|发我|多少|什么|哪个|一下|清楚)/;
+  // ASR 数字规整（ITN）会把“张三”转成“张3”：单个阿拉伯数字还原为汉字（等长，脱敏区间不变）
+  var NAME_DIGITS = '零一二三四五六七八九';
   function cleanName(n) {
+    n = n.replace(/[0-9]/g, function (d) { return NAME_DIGITS.charAt(+d); });
     if (NOT_NAMES.test(n)) return null;
     var cut = n.search(/[开卡银账的是在和与就吧了啊呢哦，]/);
     if (cut >= 2) n = n.slice(0, cut);

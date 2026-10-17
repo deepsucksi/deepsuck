@@ -3,7 +3,8 @@
  * DeepSuck — 可选的本地后端（零依赖，Node.js >= 18）
  *  - 托管 site/ 静态文件
  *  - POST /api/chat：代理到 OpenAI 兼容大模型（默认阿里云百炼 DashScope / qwen-plus），API Key 只留在服务器端
- *  - GET  /api/health：返回是否已配置大模型（不返回 Key）
+ *  - GET  /api/health：返回是否已配置大模型、限流与当日预算状态（不返回 Key）
+ *  - 公开部署（deploy/）时的费用护栏见 server/guard.js：每 IP/全局限流、每局最大轮数、每日预算上限、CORS 白名单
  * 用法：cp .env.example .env && 填写 DASHSCOPE_API_KEY && npm start
  * Apache-2.0 · 非官方项目，与 DeepSeek 无关
  */
@@ -13,6 +14,7 @@ var fs = require('fs');
 var path = require('path');
 var llm = require('../site/assets/js/llm.js');
 var engine = require('../site/assets/js/engine.js');
+var guard = require('./guard.js');
 
 var ROOT = path.resolve(__dirname, '..');
 var SITE = path.join(ROOT, 'site');
@@ -35,8 +37,22 @@ var CFG = {
   baseUrl: process.env.LLM_BASE_URL || llm.DEFAULTS.baseUrl,
   model: process.env.LLM_MODEL || llm.DEFAULTS.model,
   temperature: process.env.LLM_TEMPERATURE ? parseFloat(process.env.LLM_TEMPERATURE) : llm.DEFAULTS.temperature,
-  rateLimit: parseInt(process.env.RATE_LIMIT_PER_MIN || '20', 10)
+  maxTokens: parseInt(process.env.LLM_MAX_TOKENS || '120', 10),
+  // ---- 费用护栏（公开部署时务必保留默认值或调得更严） ----
+  rateLimit: parseInt(process.env.RATE_LIMIT_PER_MIN || '20', 10),          // 每 IP 每分钟
+  ratePerDay: parseInt(process.env.RATE_LIMIT_PER_DAY || '300', 10),        // 每 IP 每天
+  globalPerMin: parseInt(process.env.GLOBAL_RATE_PER_MIN || '60', 10),      // 全站每分钟
+  maxTurns: parseInt(process.env.CHAT_MAX_TURNS || '40', 10),               // 每局骗子最多发言轮数
+  budgetCny: parseFloat(process.env.CHAT_DAILY_BUDGET_CNY || '0'),          // 每日预算（元），0 = 不限（仅本地）
+  priceInPerM: parseFloat(process.env.PRICE_LLM_IN_PER_M || '0.8'),         // qwen-plus 输入 元/百万 token
+  priceOutPerM: parseFloat(process.env.PRICE_LLM_OUT_PER_M || '2'),         // qwen-plus 输出 元/百万 token
+  dataDir: process.env.DATA_DIR || '',
+  origins: guard.parseOrigins(process.env.ALLOWED_ORIGINS),                // 例：https://deepsuck.si,https://www.deepsuck.si
+  trustProxy: process.env.TRUST_PROXY === '1',                             // 在 Caddy 之后：取 X-Forwarded-For 最右值
+  serveStatic: process.env.SERVE_STATIC !== '0'
 };
+var limiter = guard.createLimiter({ perIpPerMin: CFG.rateLimit, perIpPerDay: CFG.ratePerDay, globalPerMin: CFG.globalPerMin });
+var budget = guard.createBudget({ capCny: CFG.budgetCny, dir: CFG.dataDir, prices: { inPerM: CFG.priceInPerM, outPerM: CFG.priceOutPerM } });
 
 var MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
@@ -44,12 +60,27 @@ var MIME = {
   '.txt': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8'
 };
 
-var hits = {};
-function rateOk(ip) {
-  var now = Date.now(), win = 60000;
-  var arr = (hits[ip] || []).filter(function (t) { return now - t < win; });
-  if (arr.length >= CFG.rateLimit) { hits[ip] = arr; return false; }
-  arr.push(now); hits[ip] = arr; return true;
+function clientIp(req) {
+  if (CFG.trustProxy) {
+    var xff = String(req.headers['x-forwarded-for'] || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    if (xff.length) return xff[xff.length - 1];
+  }
+  return req.socket.remoteAddress || 'unknown';
+}
+
+/** CORS：只给白名单里的 Origin 回头；返回 false 表示应拒绝 */
+function cors(req, res) {
+  if (!CFG.origins.length) return true;
+  var o = String(req.headers.origin || '').replace(/\/+$/, '');
+  res.setHeader('Vary', 'Origin');
+  if (o && CFG.origins.indexOf(o) >= 0) {
+    res.setHeader('Access-Control-Allow-Origin', o);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Max-Age', '600');
+    return true;
+  }
+  return false;
 }
 
 function send(res, code, obj, headers) {
@@ -84,9 +115,11 @@ function serveStatic(req, res) {
 }
 
 function handleChat(req, res) {
-  var ip = req.socket.remoteAddress || 'unknown';
+  var ip = clientIp(req);
   if (!CFG.apiKey) return send(res, 503, { error: '服务器未配置大模型 API Key（.env 中的 DASHSCOPE_API_KEY），前端将回退到规则引擎。' });
-  if (!rateOk(ip)) return send(res, 429, { error: '请求过于频繁，请稍后再试。' });
+  if (budget.status().exhausted) return send(res, 429, { error: '今日大模型体验额度已用完，已切换为规则引擎。', code: 'budget' });
+  var why = limiter.check(ip);
+  if (why) return send(res, 429, { error: why, code: 'rate' });
   readBody(req, 64 * 1024).then(function (raw) {
     var p;
     try { p = JSON.parse(raw); } catch (e) { return send(res, 400, { error: 'JSON 格式错误' }); }
@@ -94,11 +127,24 @@ function handleChat(req, res) {
     var transcript = Array.isArray(p.transcript) ? p.transcript.filter(function (m) {
       return m && (m.role === 'scammer' || m.role === 'bot') && typeof m.text === 'string';
     }) : [];
+    var turns = transcript.filter(function (m) { return m.role === 'scammer'; }).length;
+    if (CFG.maxTurns > 0 && turns > CFG.maxTurns) return send(res, 429, { error: '本局已达 ' + CFG.maxTurns + ' 轮上限，请结束对话查看情报看板。', code: 'max_turns' });
     var missing = Array.isArray(p.missing) ? p.missing.filter(function (g) { return typeof g === 'string'; }).slice(0, 5) : [];
     // 系统提示词由服务端生成，不接受客户端自定义，避免被当作通用代理滥用
     var messages = llm.buildMessages({ persona: String(p.persona || ''), scenario: String(p.scenario || ''), hint: hint, missing: missing, transcript: transcript });
-    return llm.chatCompletions(CFG, messages).then(function (reply) {
+    var estIn = guard.estimateTokens(messages);
+    var resv = budget.reserve(estIn, CFG.maxTokens);
+    if (resv === null) return send(res, 429, { error: '今日大模型体验额度已用完，已切换为规则引擎。', code: 'budget' });
+    var used = null;
+    var cfg = Object.assign({}, CFG, { onUsage: function (u) {
+      used = u ? { in: +u.prompt_tokens || 0, out: +u.completion_tokens || 0 } : null;
+    } });
+    return llm.chatCompletions(cfg, messages).then(function (reply) {
+      budget.commit(resv, used || { in: estIn, out: guard.estimateTokens([{ content: reply }]) });
       send(res, 200, { reply: reply, model: CFG.model });
+    }, function (e) {
+      budget.commit(resv, used); // 失败调用通常不计费；若有 usage 仍按实际记账
+      throw e;
     });
   }).catch(function (e) {
     console.error('[chat]', e.message);
@@ -106,15 +152,31 @@ function handleChat(req, res) {
   });
 }
 
+function health() {
+  var b = budget.status();
+  return {
+    ok: true, version: engine.VERSION, llmConfigured: !!CFG.apiKey, model: CFG.apiKey ? CFG.model : null,
+    provider: CFG.apiKey ? CFG.baseUrl.replace(/^https?:\/\//, '').split('/')[0] : null,
+    limits: { perIpPerMin: CFG.rateLimit, perIpPerDay: CFG.ratePerDay, globalPerMin: CFG.globalPerMin, maxTurns: CFG.maxTurns },
+    budget: { capCny: b.capCny, usedPct: b.capCny ? Math.min(100, Math.round(b.spentCny / b.capCny * 100)) : null, exhausted: b.exhausted }
+  };
+}
+
 var server = http.createServer(function (req, res) {
   var u = req.url.split('?')[0];
-  if (u === '/api/health') {
-    return send(res, 200, { ok: true, version: engine.VERSION, llmConfigured: !!CFG.apiKey, model: CFG.apiKey ? CFG.model : null, provider: CFG.apiKey ? CFG.baseUrl.replace(/^https?:\/\//, '').split('/')[0] : null });
+  if (u.indexOf('/api/') === 0) {
+    var allowed = cors(req, res);
+    if (req.method === 'OPTIONS') { res.writeHead(allowed ? 204 : 403); return res.end(); }
+    if (u === '/api/health') return send(res, 200, health());
+    if (u === '/api/chat') {
+      if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
+      // 配置了白名单时，/api/chat 必须带合法 Origin（挡住跨站滥用；非浏览器客户端仍受限流与预算约束）
+      if (!allowed) return send(res, 403, { error: 'origin not allowed' });
+      return handleChat(req, res);
+    }
+    return send(res, 404, { error: 'not found' });
   }
-  if (u === '/api/chat') {
-    if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
-    return handleChat(req, res);
-  }
+  if (!CFG.serveStatic) return send(res, 404, { error: 'not found' });
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'method not allowed' });
   serveStatic(req, res);
 });
@@ -122,8 +184,12 @@ var server = http.createServer(function (req, res) {
 if (require.main === module) {
   server.listen(CFG.port, CFG.host, function () {
     console.log('DeepSuck（非官方项目，与 DeepSeek 无关）已启动: http://' + CFG.host + ':' + CFG.port + '/');
+    console.log('护栏：每 IP ' + CFG.rateLimit + '/分钟、' + CFG.ratePerDay + '/天；全站 ' + CFG.globalPerMin + '/分钟；每局 ' + CFG.maxTurns + ' 轮；每日预算 ' + (CFG.budgetCny > 0 ? CFG.budgetCny + ' 元' : '不限') + (CFG.origins.length ? '；CORS ' + CFG.origins.join(',') : ''));
     console.log(CFG.apiKey ? '大模型引擎：已配置 ' + CFG.model + ' @ ' + CFG.baseUrl : '大模型引擎：未配置（仅规则引擎）。如需启用，请在 .env 中填写 DASHSCOPE_API_KEY');
   });
 }
 
-module.exports = { server: server, CFG: CFG };
+function shutdown() { budget.flush(); process.exit(0); }
+if (require.main === module) { process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown); }
+
+module.exports = { server: server, CFG: CFG, budget: budget, limiter: limiter };

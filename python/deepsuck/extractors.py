@@ -43,7 +43,12 @@ def _trim_url(u: str, *_):
 _NOT_NAMES = re.compile(r"^(?:姓名|是谁|写清|发我|多少|什么|哪个|一下|清楚)")
 
 
+_NAME_DIGITS = "零一二三四五六七八九"
+
+
 def _clean_name(n: str, *_):
+    # ASR 数字规整（ITN）会把“张三”转成“张3”：单个阿拉伯数字还原为汉字（等长，脱敏区间不变）
+    n = re.sub(r"[0-9]", lambda m: _NAME_DIGITS[int(m.group(0))], n)
     if _NOT_NAMES.search(n):
         return None
     m = re.search(r"[开卡银账的是在和与就吧了啊呢哦，]", n)

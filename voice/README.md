@@ -47,6 +47,9 @@ python -m voice.app                 # 打开 http://localhost:7860
 | `persona.py` | 由 `site/assets/core/personas.json` 生成系统提示词；填充音台词；输出守卫 |
 | `app.py` | FastAPI + SmallWebRTC 信令（`/api/offer`）+ 管线组装；`python -m voice.app` |
 | `static/` | 浏览器端（原生 WebRTC，无构建步骤） |
+| `guard.py` | 费用护栏：每日预算（预占 + 实时记账 + 持久化）、并发/每 IP 限制、时长/轮数/静默看门狗 |
+| `netpatch.py` | UDP 端口段限制、公网 IP 候选（服务器部署用） |
+| `probe.py` | `python -m voice.probe`：aiortc 端到端探针（部署后验证 UDP/ICE） |
 | `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用 qwen-plus → CosyVoice → Paraformer 的冒烟测试 |
 
 人设音色：王阿姨 `longlaoyi_v3`（龙老姨），李大爷 `longlaobo_v3`（龙老伯），小林 `longanyang`。
@@ -58,6 +61,23 @@ python -m voice.app                 # 打开 http://localhost:7860
 - 输出守卫会去掉括号动作 / Markdown，抹掉 5 位以上数字串，防止机器人编造"验证码""卡号"。
 - 黑名单比对默认读 `https://deepsuck.si/data/blocklist/`（destroylist、Phishing.Database、OFAC 等，见 `docs/INTEL.md`）。
 
+## 公开部署与费用护栏
+
+部署到服务器见 [docs/DEPLOY.md](../docs/DEPLOY.md)（`deploy/` 下 Docker Compose + Caddy）。护栏（`guard.py`，全部可用环境变量调）：
+每日预算 `VOICE_DAILY_BUDGET_CNY`（按 ASR 秒数 / TTS 字符 / LLM token 实时记账，开局按最坏花费预占）、
+同时通话 `VOICE_MAX_SESSIONS=2`、每局 `VOICE_MAX_MINUTES=5` / `VOICE_MAX_TURNS=30`、静默 `VOICE_IDLE_SECONDS=60`、
+每 IP `VOICE_PER_IP_PER_HOUR=4` / `VOICE_PER_IP_PER_DAY=10`、`/api/offer` Origin 白名单 `VOICE_ALLOWED_ORIGINS`。
+本地开发不设这些变量时不限额。触发上限时机器人会说一句告别语再挂断，浏览器看板显示原因。
+
+WebRTC 网络（`netpatch.py`）：`VOICE_UDP_PORTS=40000-40199` 把 aioice 的 UDP 端口限制在一段内（防火墙只开这段）；
+`VOICE_PUBLIC_IP` 在应答 SDP 里追加“公网 IP + 同端口”候选（云服务器 1:1 NAT 下不依赖 STUN/TURN）。
+
+端到端探针（aiortc 充当浏览器，真实调用、计费）：
+
+```bash
+python -m voice.probe --url http://127.0.0.1:7860 --wav scammer16k.wav --seconds 30
+```
+
 ## 测试
 
 ```bash
@@ -67,7 +87,7 @@ python -m pytest voice/tests -q    # 全部用假 WebSocket，不联网、不需
 
 ## 已知限制
 
-- Paraformer 的数字规整（ITN）有时会把"张三"转成"张3"，导致姓名抽取漏掉。
+- ~~Paraformer 的数字规整（ITN）会把"张三"转成"张3"，导致姓名抽取漏掉~~：v0.4 起收款户名里的单个阿拉伯数字会还原为汉字（`张3` → `张三`，JS/Python 一致）。
 - 打断（barge-in）依赖 Silero VAD 与 Pipecat 默认轮次策略，没有针对老人人设专门调过。
 - 只在 Linux + Chrome（伪造麦克风输入）下做过端到端测试；真实麦克风、回声消除、移动端浏览器未测。
 - 使用 Pipecat 1.12 的 `PipelineTask` / 上下文内 system 消息（2.0 将移除），已在 requirements 中锁 `<2`。

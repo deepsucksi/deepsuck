@@ -8,7 +8,7 @@ from .extractors import extract, extract_sensitive, luhn
 from .tactics import classify, risk_score
 from .engine import Session
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __all__ = [
     "normalize", "mask", "redact_text", "extract", "extract_sensitive", "luhn",
     "classify", "risk_score", "Session", "__version__",

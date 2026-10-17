@@ -2,14 +2,18 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  let pc = null, dc = null, pcId = null, mic = null, interimEl = null;
+  let pc = null, dc = null, pcId = null, mic = null, interimEl = null, iceServers = [];
 
   function setStatus(cls, text) { $("dot").className = "dot " + cls; $("st").textContent = text; }
   function err(t) { $("err").textContent = t || ""; }
 
   async function loadConfig() {
     try {
-      const c = await (await fetch("/api/config")).json();
+      const c = await (await fetch("/api/config", { cache: "no-store" })).json();
+      iceServers = c.iceServers || [];
+      if (c.limits) $("limits").textContent = `公开体验限制：每局最长 ${c.limits.maxMinutes} 分钟 / ${c.limits.maxTurns} 轮，同时最多 ${c.limits.maxSessions} 路通话` +
+        (c.budget && c.budget.capCny ? `；今日额度已用 ${c.budget.usedPct}%` : "") + "。";
+      if (c.budget && c.budget.exhausted) { setStatus("bad", "今日语音体验额度已用完"); $("call").disabled = true; return; }
       $("persona").innerHTML = c.personas.map((p) => `<option value="${p.id}">${esc(p.name)}（${esc(p.voice || "")}）</option>`).join("");
       $("scenario").innerHTML = c.scenarios.map((s) => `<option value="${s.id}">${esc(s.title)}</option>`).join("");
       if (c.keyConfigured) setStatus("ok", `就绪 · ${c.engine === "rule" ? "规则引擎" : c.models.llm} · ${c.models.asr} · ${c.models.tts}`);
@@ -54,6 +58,7 @@
     } else if (m.type === "bot") {
       addMsg("bot", m.text, `<div class="meta"><span class="chip intent">${esc(m.intent)}</span></div>`);
     } else if (m.type === "state") renderState(m);
+    else if (m.type === "limit") { addMsg("interim", "⏱ " + m.text + "，通话即将结束"); setStatus("ok", m.text); }
   }
 
   async function negotiate(extra) {
@@ -79,7 +84,7 @@
     err(""); $("call").disabled = true;
     try {
       mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-      pc = new RTCPeerConnection();
+      pc = new RTCPeerConnection({ iceServers });
       pc.addTransceiver(mic.getAudioTracks()[0], { direction: "sendrecv" });
       pc.addTransceiver("video", { direction: "sendrecv" }); // SmallWebRTC 期望有视频收发器；不发送画面
       pc.ontrack = (e) => { if (e.track.kind === "audio") $("audio").srcObject = new MediaStream([e.track]); };

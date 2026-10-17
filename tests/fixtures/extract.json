@@ -1060,6 +1060,62 @@
    "redacted": "户名写钱*就行"
   },
   {
+   "text": "户名写张3就行",
+   "entities": [
+    {
+     "type": "name",
+     "value": "张三",
+     "masked": "张*",
+     "start": 3,
+     "end": 5,
+     "sensitive": true,
+     "meta": {}
+    }
+   ],
+   "redacted": "户名写张*就行"
+  },
+  {
+   "text": "收款人李4，工商银行 6222020200112233445",
+   "entities": [
+    {
+     "type": "name",
+     "value": "李四",
+     "masked": "李*",
+     "start": 3,
+     "end": 5,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": true
+    },
+    {
+     "type": "bank_name",
+     "value": "工商银行",
+     "masked": "工商银行",
+     "start": 6,
+     "end": 10,
+     "sensitive": false,
+     "meta": {},
+     "raw": "工商银行"
+    },
+    {
+     "type": "bank_card",
+     "value": "6222020200112233445",
+     "masked": "6222 **** **** 3445",
+     "start": 11,
+     "end": 30,
+     "sensitive": true,
+     "meta": {
+      "digits": 19,
+      "luhn": false,
+      "unionpay": true,
+      "bank": "工商银行"
+     },
+     "obfuscated": false
+    }
+   ],
+   "redacted": "收款人李*，工商银行 6222 **** **** 3445"
+  },
+  {
    "text": "收款人是吴刚吧",
    "entities": [
     {

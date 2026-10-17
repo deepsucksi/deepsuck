@@ -40,10 +40,11 @@ class ParaformerSTTService(STTService):
     _settings: Settings
 
     def __init__(self, *, model: str = "paraformer-realtime-v2", key: Optional[str] = None,
-                 connect=None, sample_rate: int = 16000, **kwargs):
+                 connect=None, sample_rate: int = 16000, meter=None, **kwargs):
         super().__init__(sample_rate=sample_rate,
                          settings=self.Settings(model=model, language="zh"), **kwargs)
         self._key, self._connect = key, connect
+        self._meter = meter  # voice.guard.Ticket：按发送的音频秒数记账（Paraformer 按音频时长计费）
         self._stream: Optional[ds.ParaformerStream] = None
         self._reader: Optional[asyncio.Task] = None
         self._lock = asyncio.Lock()
@@ -110,6 +111,8 @@ class ParaformerSTTService(STTService):
         if self._stream is not None:
             try:
                 await self._stream.send_audio(audio)
+                if self._meter is not None:
+                    self._meter.asr(len(audio) / (2.0 * (self.sample_rate or 16000)))
             except Exception as e:
                 logger.warning(f"{self}: 发送音频失败: {e}")
                 self._stream = None
@@ -128,10 +131,11 @@ class CosyVoiceTTSService(TTSService):
     _settings: Settings
 
     def __init__(self, *, voice: str = "longlaoyi_v3", model: str = "cosyvoice-v3-flash",
-                 rate: float = 1.0, key: Optional[str] = None, connect=None, **kwargs):
+                 rate: float = 1.0, key: Optional[str] = None, connect=None, meter=None, **kwargs):
         super().__init__(push_start_frame=True, push_stop_frames=True,
                          settings=self.Settings(model=model, voice=voice, language="zh"), **kwargs)
         self._rate, self._key, self._connect = rate, key, connect
+        self._meter = meter  # 按字符记账（CosyVoice 按字符计费）
 
     def can_generate_metrics(self) -> bool:
         return True
@@ -140,6 +144,8 @@ class CosyVoiceTTSService(TTSService):
         sr = self.sample_rate
         try:
             await self.start_tts_usage_metrics(text)
+            if self._meter is not None:
+                self._meter.tts(len(text))
             pcm = ds.synthesize(text, voice=self._settings.voice, model=self._settings.model,
                                 sample_rate=sr, rate=self._rate, key=self._key, connect=self._connect)
             async for frame in self._stream_audio_frames_from_iterator(pcm, in_sample_rate=sr,

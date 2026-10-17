@@ -44,6 +44,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .empty{color:var(--dim);font-size:13px}
 .note{font-size:12.5px;color:var(--dim);max-width:1180px;margin:0 auto 24px;padding:0 22px}
 #err{color:var(--red);font-size:13px;min-height:1.2em}
+.limits{color:var(--muted,#999);font-size:12px;margin:-4px 0 8px}
 @media(max-width:860px){main{grid-template-columns:1fr}}
 </style>
 </head>
@@ -63,6 +64,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <button id="hang" class="hang" hidden>挂断</button>
     </div>
     <div id="err"></div>
+    <div id="limits" class="limits"></div>
     <div id="log"><div class="empty">点「开始通话」并允许麦克风。机器人会先开口，然后你可以试着用退款、冒充公检法、刷单等话术"诈骗"它。</div></div>
     <audio id="audio" autoplay></audio>
   </section>
