@@ -28,31 +28,8 @@
     maxTokens: 200
   };
 
-  var INTENT_HINTS = {
-    opening: '自然开场，表现出好奇或困惑',
-    ask_repeat: '假装没听清，请对方重复',
-    misunderstand: '故意误解对方意思',
-    tech_trouble: '假装手机/网络出了技术故障',
-    slow_walk: '找借口拖延（去拿东西、做家务等）',
-    otp_stall: '假装找不到/念错验证码，绝不给出任何真实或看似真实的验证码',
-    elicit_account: '假装愿意配合，请对方把收款卡号、户名、开户行写清楚',
-    elicit_wallet: '请对方发送钱包地址和链类型',
-    elicit_contact: '请对方留下电话/微信/QQ',
-    elicit_url: '请对方发送下载链接或网址',
-    confirm_intel: '复述刚拿到的信息（只能用已打码的形式），并追问下一项信息',
-    fake_progress: '假装正在转账但遇到各种阻碍',
-    scared: '表现害怕、慌张，但并不真的照做',
-    secrecy: '答应保密但话里透着犹豫',
-    greedy: '表现心动，追问平台名称与操作细节',
-    romance: '礼貌回应示好，把话题引向对方身份与平台',
-    info_stall: '找借口不提供个人信息',
-    urgency_stall: '表示自己慢，不要催',
-    generic: '附和并让对方继续说',
-    verify_identity: '对自称熟人/领导的对方提出只有真熟人才知道的问题，或坚持要电话/当面核实',
-    task_stall: '假装笨手笨脚地做任务、纠结小额佣金，追问平台名称与收款账户，绝不真正垫付',
-    loan_stall: '对"先交钱后放款""刷流水"表示困惑，追问机构名称、资质与收款账户',
-    campus_stall: '假装搞不清各种网贷平台和额度，拖延并追问对方所谓的"核查账户"'
-  };
+    // 每个拖延意图给大模型的提示（与 Python voice 端共用，见 core/personas.json 的 intentHints）
+  var INTENT_HINTS = D.personas.INTENT_HINTS;
 
   function systemPrompt(persona, scenario, hint, missing) {
     var call = (persona.call && persona.call[scenario.id]) || '';

@@ -26,5 +26,7 @@
   PERSONAS.forEach(function (p) { BY_ID[p.id] = p; });
   // 拖延类意图在"骗子侧"估算会额外耗费的等待时间（秒）
   var STALL_SECONDS = C.stallSeconds;
-  return { PERSONAS: PERSONAS, BY_ID: BY_ID, STALL_SECONDS: STALL_SECONDS };
+  // 每个意图给大模型的策略提示（llm.js 与 Python voice 端共用）
+  var INTENT_HINTS = C.intentHints;
+  return { PERSONAS: PERSONAS, BY_ID: BY_ID, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS };
 });
