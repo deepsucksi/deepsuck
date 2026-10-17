@@ -5,65 +5,22 @@
  * Apache-2.0 · 非官方项目，与 DeepSeek 无关
  */
 (function (root, factory) {
-  var R = (typeof module === 'object' && module.exports) ? require('./redact.js') : root.DeepSuck.redact;
-  var mod = factory(R);
-  if (typeof module === 'object' && module.exports) module.exports = mod;
+  var isNode = typeof module === 'object' && module.exports;
+  var R = isNode ? require('./redact.js') : root.DeepSuck.redact;
+  var N = isNode ? require('./normalize.js') : root.DeepSuck.normalize;
+  var C = isNode ? require('../core/extractors.json') : root.DeepSuck.coreData.extractors;
+  var mod = factory(R, N, C);
+  if (isNode) module.exports = mod;
   else { root.DeepSuck = root.DeepSuck || {}; root.DeepSuck.extractors = mod; }
-})(typeof self !== 'undefined' ? self : this, function (R) {
+})(typeof self !== 'undefined' ? self : this, function (R, N, C) {
   'use strict';
 
-  var LABELS = {
-    bank_card: '银行卡号',
-    phone: '电话号码',
-    crypto_btc: 'BTC 地址',
-    crypto_eth: 'ETH/ERC20 地址',
-    crypto_tron: 'TRON/TRC20 地址',
-    url: '网址/域名',
-    email: '邮箱',
-    qq: 'QQ 号',
-    wechat: '微信号',
-    alipay: '支付宝账号',
-    id_card: '身份证号',
-    name: '收款户名',
-    bank_name: '开户银行',
-    amount: '涉及金额',
-    channel: '支付/联络渠道',
-    app_name: 'APP/平台名称'
-  };
-
-  var BANKS = ['工商银行', '工行', '建设银行', '建行', '农业银行', '农行', '中国银行', '中行', '交通银行', '交行',
-    '招商银行', '招行', '邮储银行', '邮政储蓄', '浦发银行', '民生银行', '兴业银行', '光大银行', '中信银行',
-    '华夏银行', '平安银行', '广发银行', '北京银行', '上海银行', '农商银行', '农村信用社', '信用社'];
-
-  var CHANNELS = ['支付宝', '微信', '银行卡', 'USDT', '泰达币', '比特币', '以太坊', '数字人民币', '云闪付',
-    'Telegram', 'telegram', '飞机', 'TG', '抖音', 'QQ', 'WhatsApp', 'Zoom', '腾讯会议'];
-
-  // 统一的"字符边界"：避免从更长的字母数字串中截出一段
-  var NB = '(?<![0-9A-Za-z])';
-  var NA = '(?![0-9A-Za-z])';
-  var URL_STOP = '\\s，。！？；、“”"\'<>（）()【】\\u4e00-\\u9fa5';
-  var TLDS = 'com|cn|net|org|top|xyz|vip|cc|app|io|me|shop|site|online|club|info|link|live|pro|biz|tk|icu|work|fun|asia|hk|tw';
-
-  var RE = {
-    urlFull: new RegExp('(?:https?:\\/\\/|www\\.)[^' + URL_STOP + ']+', 'gi'),
-    urlBare: new RegExp('(?<![@\\w.-])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:' + TLDS + ')(?:\\/[^' + URL_STOP + ']*)?(?![\\w-])', 'gi'),
-    email: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
-    eth: new RegExp(NB + '0x[a-fA-F0-9]{40}' + NA, 'g'),
-    tron: new RegExp(NB + 'T[1-9A-HJ-NP-Za-km-z]{33}' + NA, 'g'),
-    btc: new RegExp(NB + '(?:bc1[ac-hj-np-z02-9]{11,71}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})' + NA, 'g'),
-    idCard: /(?<!\d)[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?![\dA-Za-z])/g,
-    bankCard: /(?<![\dA-Za-z])\d{4}(?:[ -]?\d{4}){3}(?:[ -]?\d{1,3})?(?![\dA-Za-z])/g,
-    alipay: /(?:支付宝|zfb|ZFB)(?:账号|账户|号)?\s*(?:是|为|叫)?\s*[:：]?\s*([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|(?:\+?86)?1[3-9]\d{9})(?!\d)/g,
-    qq: /(?:QQ|qq|Qq|扣扣|企鹅)(?:号|群)?(?:码)?\s*(?:是|为|叫)?\s*[:：]?\s*([1-9]\d{4,11})(?!\d)/g,
-    wechat: /(?:微信|VX|vx|Vx|V信|v信|wx|WX|薇信|威信|徽信)(?:号)?\s*(?:是|为|叫)?\s*[:：]?\s*([a-zA-Z][-_a-zA-Z0-9]{5,19})(?![-_a-zA-Z0-9])/g,
-    hotline: /(?<!\d)(?:400|800)[\s-]?\d{3}[\s-]?\d{4}(?!\d)/g,
-    landline: /(?<!\d)0\d{2,3}-\d{7,8}(?!\d)/g,
-    mobile: /(?<!\d)(?:\+?86[\s-]?)?1[3-9]\d[\s-]?\d{4}[\s-]?\d{4}(?!\d)/g,
-    name: /(?:户名|收款人|开户名|收款户名|账户名|持卡人)\s*(?:是|为|叫)?\s*[:：]?\s*([\u4e00-\u9fa5]{2,4})/g,
-    amount: /(\d+(?:\.\d+)?)\s*(万元|万|元|块钱|块|USDT|U(?![A-Za-z])|美元)/g,
-    appQuoted: /[“"「『]([\u4e00-\u9fa5A-Za-z0-9]{2,12})[”"」』]\s*(?:APP|app|App|软件|客户端|平台)/g,
-    appName: /(?:下载|安装|打开)(?:一个|一下|个)?[“"「『]?([\u4e00-\u9fa5A-Za-z0-9]{2,12}?)[”"」』]?(?:APP|app|App|软件|客户端)/g
-  };
+  // 规则数据（标签、银行、渠道、正则）统一维护在 site/assets/core/extractors.json，JS 与未来的 Python 实现共用
+  var LABELS = C.labels;
+  var BANKS = C.banks;
+  var CHANNELS = C.channels;
+  var RE = {};
+  Object.keys(C.patterns).forEach(function (k) { RE[k] = new RegExp(C.patterns[k].source, C.patterns[k].flags); });
 
   function luhn(num) {
     var d = String(num).replace(/\D/g, '');
@@ -99,7 +56,9 @@
    * value 只保存在内存中，用于去重；任何展示/导出都应使用 masked。
    */
   function extract(text) {
-    var s = String(text || '');
+    var raw = String(text || '');
+    var norm = N.normalize(raw);
+    var s = norm.text;
     var out = [];
     var claimed = [];
 
@@ -191,6 +150,15 @@
       }
     });
 
+    if (norm.changed) {
+      // 映射回原文位置（脱敏时替换原文片段）；value 保留规范化后的值，便于去重与比对
+      out.forEach(function (e) {
+        var sp = norm.span(e.start, e.end);
+        if (e.sensitive === false) e.raw = raw.slice(sp[0], sp[1]);
+        e.start = sp[0]; e.end = sp[1];
+        if (e.sensitive) e.obfuscated = raw.slice(sp[0], sp[1]) !== e.value;
+      });
+    }
     out.sort(function (a, b) { return a.start - b.start; });
     return out;
   }
@@ -200,5 +168,5 @@
     return extract(text).filter(function (e) { return e.sensitive; });
   }
 
-  return { extract: extract, extractSensitive: extractSensitive, luhn: luhn, LABELS: LABELS, BANKS: BANKS, RE: RE };
+  return { extract: extract, extractSensitive: extractSensitive, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
 });

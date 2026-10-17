@@ -1,14 +1,25 @@
 {
   "name": "deepsuck",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "开源 AI 反诈“拖住”机器人：拖延骗子时间并提取脱敏诈骗情报。非官方项目，与 DeepSeek 无关。",
   "license": "Apache-2.0",
   "private": true,
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server/index.js",
     "static": "cd site && python3 -m http.server 8080",
-    "test": "node --test tests/"
+    "test": "node --test tests/",
+    "build:core": "node scripts/build-core.js"
   },
-  "keywords": ["anti-scam", "anti-fraud", "反诈", "scambaiting", "honeypot", "qwen", "dashscope"]
+  "keywords": [
+    "anti-scam",
+    "anti-fraud",
+    "反诈",
+    "scambaiting",
+    "honeypot",
+    "qwen",
+    "dashscope"
+  ]
 }

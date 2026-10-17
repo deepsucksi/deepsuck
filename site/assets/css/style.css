@@ -82,7 +82,7 @@ footer .unofficial{font-size:12.5px}
 .setup{padding:14px 16px;display:grid;gap:12px}
 .setup .lbl{font-size:12.5px;color:var(--dim);margin-bottom:6px}
 .opts{display:flex;flex-wrap:wrap;gap:8px}
-.opt{border:1px solid var(--line);background:var(--bg2);color:var(--text);border-radius:11px;padding:8px 12px;cursor:pointer;font:inherit;font-size:14px;text-align:left}
+.opt{border:1px solid var(--line);background:var(--bg2);color:var(--text);border-radius:10px;padding:6px 10px;cursor:pointer;font:inherit;font-size:13.5px;text-align:left}
 .opt small{display:block;color:var(--dim);font-size:12px}
 .opt.on{border-color:var(--amber);background:rgba(245,165,36,.10)}
 .chat{display:flex;flex-direction:column;height:calc(100vh - 330px);min-height:420px;margin-top:14px}

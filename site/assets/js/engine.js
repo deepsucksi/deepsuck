@@ -17,7 +17,7 @@
   'use strict';
 
   var REPORT_SCHEMA = 'deepsuck.intel-report/v0.1';
-  var VERSION = '0.1.0';
+  var VERSION = '0.2.0';
 
   function goalOf(type) {
     if (type === 'bank_card') return 'bank';
