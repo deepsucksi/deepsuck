@@ -32,7 +32,7 @@ DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会�
 ### 方式 A：纯静态（无需任何 Key）
 
 ```bash
-git clone https://github.com/<your-org>/deepsuck.git
+git clone https://github.com/deepsucksi/deepsuck.git
 cd deepsuck/site
 python3 -m http.server 8080
 # 打开 http://127.0.0.1:8080/  与  http://127.0.0.1:8080/demo.html
@@ -43,7 +43,7 @@ python3 -m http.server 8080
 需要 Node.js ≥ 18，**无需 `npm install`**（零依赖）。
 
 ```bash
-git clone https://github.com/<your-org>/deepsuck.git
+git clone https://github.com/deepsucksi/deepsuck.git
 cd deepsuck
 cp .env.example .env
 # 编辑 .env，填写：DASHSCOPE_API_KEY=sk-xxxxxxxx
