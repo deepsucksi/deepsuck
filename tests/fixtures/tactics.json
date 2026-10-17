@@ -1,0 +1,981 @@
+{
+ "comment": "由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。",
+ "cases": [
+  {
+   "text": "把钱转到 6217 0012 3456 7890 123，户名李强，建设银行",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "转到"
+    }
+   ]
+  },
+  {
+   "text": "打我 139-0011-2233 或 400-820-1234 或 021-61234567",
+   "expected": []
+  },
+  {
+   "text": "卡号6222020200112233445",
+   "expected": [
+    {
+     "id": "info_harvest",
+     "match": "卡号"
+    }
+   ]
+  },
+  {
+   "text": "我的 QQ 是 2876543210",
+   "expected": []
+  },
+  {
+   "text": "加我微信 kefu_tb2026",
+   "expected": [
+    {
+     "id": "off_platform",
+     "match": "加我微信"
+    }
+   ]
+  },
+  {
+   "text": "支付宝账号：abc.def@163.com",
+   "expected": []
+  },
+  {
+   "text": "支付宝 13912345678",
+   "expected": []
+  },
+  {
+   "text": "单纯的数字 2876543210",
+   "expected": []
+  },
+  {
+   "text": "ERC20：0x12ab34cd56ef7890abcdef1234567890abcd9f3e",
+   "expected": [
+    {
+     "id": "crypto",
+     "match": "ERC20"
+    }
+   ]
+  },
+  {
+   "text": "TRC20 地址：TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe",
+   "expected": [
+    {
+     "id": "crypto",
+     "match": "TRC20"
+    }
+   ]
+  },
+  {
+   "text": "BTC 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+   "expected": [
+    {
+     "id": "crypto",
+     "match": "BTC"
+    }
+   ]
+  },
+  {
+   "text": "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+   "expected": []
+  },
+  {
+   "text": "网址 https://refund-tb-kefu.top/dl ，下载",
+   "expected": [
+    {
+     "id": "app_download",
+     "match": "下载"
+    }
+   ]
+  },
+  {
+   "text": "平台 www.goldwin-vip.top 注册",
+   "expected": []
+  },
+  {
+   "text": "登录 kefu-jd.vip 查看",
+   "expected": []
+  },
+  {
+   "text": "邮箱 abc@163.com",
+   "expected": []
+  },
+  {
+   "text": "身份证号110101199001011234",
+   "expected": [
+    {
+     "id": "info_harvest",
+     "match": "身份证"
+    }
+   ]
+  },
+  {
+   "text": "户名：王建国，工商银行",
+   "expected": []
+  },
+  {
+   "text": "下载“安心退”APP，先交 2000 元保证金，用支付宝或 USDT",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "保证金"
+    },
+    {
+     "id": "app_download",
+     "match": "下载"
+    },
+    {
+     "id": "crypto",
+     "match": "USDT"
+    }
+   ]
+  },
+  {
+   "text": "转到 6222020200112233445 户名王建国，电话 13900112233",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "转到"
+    }
+   ]
+  },
+  {
+   "text": "+86 138-1234-5678 是我的号",
+   "expected": []
+  },
+  {
+   "text": "充值 1.5 万 USDT 到 TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "充值"
+    },
+    {
+     "id": "crypto",
+     "match": "USDT"
+    }
+   ]
+  },
+  {
+   "text": "版本 1.5 更新了",
+   "expected": []
+  },
+  {
+   "text": "三三两两地走过来",
+   "expected": []
+  },
+  {
+   "text": "我点了一下就好了",
+   "expected": []
+  },
+  {
+   "text": "今天下午三点开会",
+   "expected": []
+  },
+  {
+   "text": "App点开没反应",
+   "expected": [
+    {
+     "id": "app_download",
+     "match": "App"
+    }
+   ]
+  },
+  {
+   "text": "普通的一句话",
+   "expected": []
+  },
+  {
+   "text": "访问 abc.com。然后",
+   "expected": []
+  },
+  {
+   "text": "加我 微 信 kefu_tb2026 详聊",
+   "expected": []
+  },
+  {
+   "text": "V信：abc12345",
+   "expected": []
+  },
+  {
+   "text": "薇信号 scam_demo01",
+   "expected": []
+  },
+  {
+   "text": "绿泡泡 hello_world88",
+   "expected": []
+  },
+  {
+   "text": "扣扣 2876543210",
+   "expected": []
+  },
+  {
+   "text": "企鹅号码：1000012345",
+   "expected": []
+  },
+  {
+   "text": "Q Q：1000012345",
+   "expected": []
+  },
+  {
+   "text": "网址 refund-tb 点 com 下载",
+   "expected": [
+    {
+     "id": "app_download",
+     "match": "下载"
+    }
+   ]
+  },
+  {
+   "text": "打开 goldwin-vip。top 注册",
+   "expected": []
+  },
+  {
+   "text": "refund-tb[.]top/dl",
+   "expected": []
+  },
+  {
+   "text": "w w w . goldwin-vip . top",
+   "expected": []
+  },
+  {
+   "text": "打 幺三九 零零幺幺 二二三三",
+   "expected": []
+  },
+  {
+   "text": "电话一三九零零一一二二三三",
+   "expected": []
+  },
+  {
+   "text": "１３９００１１２２３３",
+   "expected": []
+  },
+  {
+   "text": "1 3 9 0 0 1 1 2 2 3 3 联系",
+   "expected": []
+  },
+  {
+   "text": "卡号 六二二二 零二零二 零零一一 二二三三 四四五",
+   "expected": [
+    {
+     "id": "info_harvest",
+     "match": "卡号"
+    }
+   ]
+  },
+  {
+   "text": "支付寶 13900112233",
+   "expected": []
+  },
+  {
+   "text": "卡号 六二二二 零二零二 零零一一 二二三三 四四五，户名王建国",
+   "expected": [
+    {
+     "id": "info_harvest",
+     "match": "卡号"
+    }
+   ]
+  },
+  {
+   "text": "把钱转到 六二二二 零二零二 零零一一 二二三三 四四五，有问题打 幺三九 零零幺幺 二二三三",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "转到"
+    }
+   ]
+  },
+  {
+   "text": "收款人是张伟，开户行招商银行 6225 8812 3456 7891",
+   "expected": [
+    {
+     "id": "info_harvest",
+     "match": "开户行"
+    }
+   ]
+  },
+  {
+   "text": "http://192.168.1.10:8080/admin 登录",
+   "expected": []
+  },
+  {
+   "text": "访问 HTTPS://Example-Refund.CN/a?b=1。",
+   "expected": []
+  },
+  {
+   "text": "客服电话 800 123 4567，邮箱 kefu.vip@example.com",
+   "expected": [
+    {
+     "id": "cs_impersonation",
+     "match": "客服"
+    }
+   ]
+  },
+  {
+   "text": "“金盾理财”平台 日赚 500 元，下载金盾理财APP",
+   "expected": [
+    {
+     "id": "app_download",
+     "match": "下载"
+    },
+    {
+     "id": "high_return",
+     "match": "日赚"
+    }
+   ]
+  },
+  {
+   "text": "您好，我是淘宝官方客服，您上周购买的商品检测出质量问题，我们这边要给您双倍理赔 380 元。",
+   "expected": [
+    {
+     "id": "cs_impersonation",
+     "match": "淘宝"
+    }
+   ]
+  },
+  {
+   "text": "理赔需要您下载我们的\"安心退\"APP，网址是 https://refund-tb-kefu.top/dl ，下载后加入会议号 886 221 共享屏幕。",
+   "expected": [
+    {
+     "id": "cs_impersonation",
+     "match": "理赔"
+    },
+    {
+     "id": "app_download",
+     "match": "下载"
+    }
+   ]
+  },
+  {
+   "text": "您的支付宝有借呗额度吗？理赔款需要先走一下流水验证，系统会给您发个验证码，您报给我就行。",
+   "expected": [
+    {
+     "id": "cs_impersonation",
+     "match": "理赔"
+    },
+    {
+     "id": "otp",
+     "match": "验证码"
+    },
+    {
+     "id": "transfer",
+     "match": "流水"
+    }
+   ]
+  },
+  {
+   "text": "系统显示您的账户异常，需要您先转 2000 元保证金到我们的理赔专用账户 6217 0012 3456 7890 123，户名李强，建设银行。",
+   "expected": [
+    {
+     "id": "cs_impersonation",
+     "match": "理赔"
+    },
+    {
+     "id": "safe_account",
+     "match": "专用账户"
+    },
+    {
+     "id": "transfer",
+     "match": "保证金"
+    }
+   ]
+  },
+  {
+   "text": "阿姨您抓紧时间，今天 18 点前不处理，您的征信会受影响的。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "抓紧"
+    },
+    {
+     "id": "threat",
+     "match": "征信"
+    }
+   ]
+  },
+  {
+   "text": "有问题您可以直接打我工号专线 400-820-1234，或者加我微信 kefu_tb2026。",
+   "expected": [
+    {
+     "id": "off_platform",
+     "match": "加我微信"
+    }
+   ]
+  },
+  {
+   "text": "你好，这里是上海市公安局经侦支队，我是张警官，警号 029381。你名下一张银行卡涉嫌一起洗钱案件。",
+   "expected": [
+    {
+     "id": "authority",
+     "match": "公安局"
+    },
+    {
+     "id": "threat",
+     "match": "涉嫌"
+    },
+    {
+     "id": "info_harvest",
+     "match": "名下"
+    }
+   ]
+  },
+  {
+   "text": "现在案件处于保密阶段，你不要告诉任何人，包括你的家人，否则后果自负。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "否则"
+    },
+    {
+     "id": "secrecy",
+     "match": "保密"
+    },
+    {
+     "id": "threat",
+     "match": "后果自负"
+    }
+   ]
+  },
+  {
+   "text": "为了证明你的清白，你需要配合我们做资金清查，把卡里的钱全部转到国家安全账户 6222 0202 0011 2233 445，户名王建国，工商银行。",
+   "expected": [
+    {
+     "id": "safe_account",
+     "match": "资金清查"
+    },
+    {
+     "id": "transfer",
+     "match": "转到"
+    }
+   ]
+  },
+  {
+   "text": "你登录这个网址查看你的通缉令：http://gaj-sh-gov.cc/case/8872 ，输入你的身份证号。",
+   "expected": [
+    {
+     "id": "authority",
+     "match": "通缉"
+    },
+    {
+     "id": "info_harvest",
+     "match": "身份证"
+    }
+   ]
+  },
+  {
+   "text": "我现在把电话转给检察院的刘检察官，你记一下他的手机 139-0011-2233，马上联系他。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "马上"
+    },
+    {
+     "id": "authority",
+     "match": "检察院"
+    },
+    {
+     "id": "transfer",
+     "match": "转给"
+    }
+   ]
+  },
+  {
+   "text": "你还有几张卡？卡里余额有多少？必须在 2 小时内完成清查，不然我们就要对你发逮捕令了。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "2 小时内"
+    },
+    {
+     "id": "authority",
+     "match": "逮捕令"
+    },
+    {
+     "id": "threat",
+     "match": "逮捕"
+    },
+    {
+     "id": "info_harvest",
+     "match": "几张卡"
+    }
+   ]
+  },
+  {
+   "text": "亲爱的，早安～认识你真的是缘分，我想和你一起规划我们的未来。",
+   "expected": [
+    {
+     "id": "romance",
+     "match": "亲爱的"
+    }
+   ]
+  },
+  {
+   "text": "我舅舅在投资公司做数据分析，发现了一个平台的漏洞，稳赚不赔，我上周刚赚了 8 万。",
+   "expected": [
+    {
+     "id": "high_return",
+     "match": "漏洞"
+    }
+   ]
+  },
+  {
+   "text": "平台网址是 www.goldwin-vip.top ，你先注册，我带你操作，收益率每天 15%。",
+   "expected": [
+    {
+     "id": "high_return",
+     "match": "收益率"
+    }
+   ]
+  },
+  {
+   "text": "充值要用 USDT，你先充 5000U 试试，打到这个 TRC20 地址：TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "充值"
+    },
+    {
+     "id": "crypto",
+     "match": "USDT"
+    }
+   ]
+  },
+  {
+   "text": "要是 TRC20 不方便，用 ERC20 也行：0x12ab34cd56ef7890abcdef1234567890abcd9f3e",
+   "expected": [
+    {
+     "id": "crypto",
+     "match": "TRC20"
+    }
+   ]
+  },
+  {
+   "text": "这个是内部机会，名额有限，宝贝你不要跟别人说哦，我们加 Telegram 私聊，我的 QQ 是 2876543210。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "名额有限"
+    },
+    {
+     "id": "secrecy",
+     "match": "不要跟别人说"
+    },
+    {
+     "id": "romance",
+     "match": "宝贝"
+    },
+    {
+     "id": "off_platform",
+     "match": "Telegram"
+    }
+   ]
+  },
+  {
+   "text": "您好，我们是抖音官方合作商家，招聘点赞员，在家动动手指日结 200-500 元，名额有限。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "名额有限"
+    },
+    {
+     "id": "cs_impersonation",
+     "match": "商家"
+    },
+    {
+     "id": "task_rebate",
+     "match": "点赞员"
+    }
+   ]
+  },
+  {
+   "text": "先加我们接待员的 QQ 1000012345，进群领第一单，点赞一个视频截图返 5 元，马上到账。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "马上"
+    },
+    {
+     "id": "off_platform",
+     "match": "进群"
+    }
+   ]
+  },
+  {
+   "text": "恭喜您完成新手任务！下一步是福利单：先垫付 300 元，完成后返本金加 30% 佣金。",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "垫付"
+    },
+    {
+     "id": "reward_bait",
+     "match": "福利"
+    },
+    {
+     "id": "task_rebate",
+     "match": "新手任务"
+    }
+   ]
+  },
+  {
+   "text": "请下载我们的任务平台\"星辰任务\"APP：https://xingchen-task-demo.top/app ，注册填邀请码 8866。",
+   "expected": [
+    {
+     "id": "app_download",
+     "match": "下载"
+    },
+    {
+     "id": "task_rebate",
+     "match": "任务平台"
+    }
+   ]
+  },
+  {
+   "text": "您触发了三连单，必须连续完成三单才能提现，第二单垫付 2800 元，转到财务账户 6230 5800 0011 2233 445，户名赵小明，农业银行。",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "垫付"
+    },
+    {
+     "id": "task_rebate",
+     "match": "连单"
+    }
+   ]
+  },
+  {
+   "text": "系统检测到您操作超时，账户已冻结，需要再充 5000 元解冻费，否则之前的本金全部清零。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "否则"
+    },
+    {
+     "id": "transfer",
+     "match": "解冻费"
+    },
+    {
+     "id": "threat",
+     "match": "冻结"
+    }
+   ]
+  },
+  {
+   "text": "您好，这边是金融服务中心，您有一笔 20 万的无抵押低息贷款额度，年化 2.8%，今天可以秒批。",
+   "expected": [
+    {
+     "id": "loan_fraud",
+     "match": "无抵押"
+    }
+   ]
+  },
+  {
+   "text": "下载我们的放款 APP\"安易借\"，网址 http://anyijie-loan-demo.cc/dl ，填写身份证和银行卡信息就能申请。",
+   "expected": [
+    {
+     "id": "app_download",
+     "match": "下载"
+    },
+    {
+     "id": "info_harvest",
+     "match": "身份证"
+    },
+    {
+     "id": "loan_fraud",
+     "match": "放款"
+    }
+   ]
+  },
+  {
+   "text": "系统显示您的银行卡号填写错误，款项已被冻结，需要缴纳 3000 元解冻金证明是本人操作，款项会和贷款一起退还。",
+   "expected": [
+    {
+     "id": "threat",
+     "match": "冻结"
+    },
+    {
+     "id": "info_harvest",
+     "match": "银行卡号"
+    },
+    {
+     "id": "loan_fraud",
+     "match": "解冻金"
+    }
+   ]
+  },
+  {
+   "text": "您的征信评分不够，我们可以帮您做征信修复，先交 1500 元服务费，转到 6228 4800 1122 3344 556，户名孙丽，农业银行。",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "转到"
+    },
+    {
+     "id": "threat",
+     "match": "征信"
+    },
+    {
+     "id": "loan_fraud",
+     "match": "征信修复"
+    }
+   ]
+  },
+  {
+   "text": "为了证明还款能力，需要您刷一下流水，往这个账户转 5000 元，10 分钟后原路返回。",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "流水"
+    },
+    {
+     "id": "loan_fraud",
+     "match": "还款能力"
+    }
+   ]
+  },
+  {
+   "text": "有问题打我们的客服专线 400-600-1234，逾期不处理会上征信黑名单，影响子女考公。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "逾期"
+    },
+    {
+     "id": "cs_impersonation",
+     "match": "客服"
+    },
+    {
+     "id": "threat",
+     "match": "征信"
+    }
+   ]
+  },
+  {
+   "text": "在吗？我是你王总，这是我新的微信号，之前那个不用了，你备注一下。",
+   "expected": [
+    {
+     "id": "acquaintance",
+     "match": "我是你王总"
+    }
+   ]
+  },
+  {
+   "text": "我现在在开会，不方便接电话，有个事你帮我处理一下，别跟其他同事说。",
+   "expected": [
+    {
+     "id": "secrecy",
+     "match": "别跟其他同事说"
+    },
+    {
+     "id": "acquaintance",
+     "match": "在开会"
+    }
+   ]
+  },
+  {
+   "text": "我答应给一个合作方打一笔 4.8 万的保证金，我这边额度不够，你先帮我垫一下，明天公司给你报销。",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "保证金"
+    },
+    {
+     "id": "acquaintance",
+     "match": "帮我垫"
+    }
+   ]
+  },
+  {
+   "text": "直接转到对方公司财务的卡：6214 8300 2211 0099 887，户名周志强，招商银行，转完截图给我。",
+   "expected": [
+    {
+     "id": "transfer",
+     "match": "转到"
+    }
+   ]
+  },
+  {
+   "text": "抓紧时间，对方 30 分钟内收不到钱合作就黄了，有问题打我助理电话 136-0000-5678。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "抓紧"
+    },
+    {
+     "id": "acquaintance",
+     "match": "助理电话"
+    }
+   ]
+  },
+  {
+   "text": "别打我电话，我在领导那边汇报，打字说就行。",
+   "expected": [
+    {
+     "id": "acquaintance",
+     "match": "别打我电话"
+    }
+   ]
+  },
+  {
+   "text": "您好，我是京东金融客服，系统显示您在校期间开通过校园贷业务，根据国家规定现在必须注销，否则会影响您的个人征信。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "否则"
+    },
+    {
+     "id": "cs_impersonation",
+     "match": "京东"
+    },
+    {
+     "id": "threat",
+     "match": "征信"
+    },
+    {
+     "id": "campus_loan",
+     "match": "校园贷"
+    }
+   ]
+  },
+  {
+   "text": "注销需要先把您名下各平台的借款额度清空，您打开借呗、微粒贷看看分别有多少额度？",
+   "expected": [
+    {
+     "id": "info_harvest",
+     "match": "名下"
+    },
+    {
+     "id": "campus_loan",
+     "match": "额度清空"
+    }
+   ]
+  },
+  {
+   "text": "为了方便指导，您先下载腾讯会议，会议号 912 334 556，打开屏幕共享。",
+   "expected": [
+    {
+     "id": "app_download",
+     "match": "下载"
+    }
+   ]
+  },
+  {
+   "text": "您把借出来的钱转到银保监指定的核查账户 6217 8800 3344 5566 778，户名吴刚，中国银行，核查完毕后会全额退回。",
+   "expected": [
+    {
+     "id": "authority",
+     "match": "银保监"
+    },
+    {
+     "id": "safe_account",
+     "match": "核查账户"
+    },
+    {
+     "id": "transfer",
+     "match": "转到"
+    },
+    {
+     "id": "campus_loan",
+     "match": "银保监"
+    }
+   ]
+  },
+  {
+   "text": "操作完成后系统会给您发验证码，您报给我，我在后台给您做注销。",
+   "expected": [
+    {
+     "id": "otp",
+     "match": "验证码"
+    }
+   ]
+  },
+  {
+   "text": "今天是注销最后期限，逾期没处理会被列入失信名单，您抓紧，有问题加我 QQ 2000012345。",
+   "expected": [
+    {
+     "id": "urgency",
+     "match": "逾期"
+    },
+    {
+     "id": "campus_loan",
+     "match": "失信名单"
+    }
+   ]
+  },
+  {
+   "text": "加我 微 信 私聊",
+   "expected": [
+    {
+     "id": "off_platform",
+     "match": "私聊"
+    }
+   ]
+  },
+  {
+   "text": "把 验 证 码 发我",
+   "expected": [
+    {
+     "id": "otp",
+     "match": "验证码"
+    }
+   ]
+  },
+  {
+   "text": "转到 安 全 账 户",
+   "expected": [
+    {
+     "id": "safe_account",
+     "match": "安全账户"
+    },
+    {
+     "id": "transfer",
+     "match": "转到"
+    }
+   ]
+  },
+  {
+   "text": "我是你领导，在开会，不方便接电话",
+   "expected": [
+    {
+     "id": "acquaintance",
+     "match": "我是你领导"
+    }
+   ]
+  }
+ ],
+ "risk": [
+  {
+   "counts": {},
+   "expected": 0
+  },
+  {
+   "counts": {
+    "otp": 1
+   },
+   "expected": 20
+  },
+  {
+   "counts": {
+    "safe_account": 2,
+    "otp": 1,
+    "urgency": 5
+   },
+   "expected": 67
+  },
+  {
+   "counts": {
+    "authority": 3,
+    "threat": 3,
+    "secrecy": 1,
+    "transfer": 2
+   },
+   "expected": 79
+  },
+  {
+   "counts": {
+    "romance": 1
+   },
+   "expected": 11
+  }
+ ]
+}

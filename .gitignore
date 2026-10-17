@@ -13,3 +13,10 @@ Thumbs.db
 *.log
 # 导出的情报报告（即便脱敏也不建议入库）
 deepsuck-intel-*.json
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+python/deepsuck/_core/

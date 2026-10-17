@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepsuck"
+version = "0.3.0"
+description = "DeepSuck Python core：中文诈骗情报提取、去武装规范化、话术分类、脱敏与规则人设引擎（与浏览器端共用规则）。非官方项目，与 DeepSeek 无关。"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.setuptools]
+packages = ["deepsuck"]
+
+[tool.setuptools.package-data]
+deepsuck = ["_core/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

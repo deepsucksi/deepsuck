@@ -1,0 +1,165 @@
+{
+ "comment": "由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。",
+ "cases": [
+  {
+   "type": "bank_card",
+   "input": "6222021234561234",
+   "expected": "6222 **** **** 1234"
+  },
+  {
+   "type": "bank_card",
+   "input": "6222 0212 3456 7890 128",
+   "expected": "6222 **** **** 0128"
+  },
+  {
+   "type": "bank_card",
+   "input": "1234",
+   "expected": "****"
+  },
+  {
+   "type": "phone",
+   "input": "13812345678",
+   "expected": "138****5678"
+  },
+  {
+   "type": "phone",
+   "input": "+86 138-1234-5678",
+   "expected": "138****5678"
+  },
+  {
+   "type": "phone",
+   "input": "400-820-1234",
+   "expected": "400-***-1234"
+  },
+  {
+   "type": "phone",
+   "input": "021-61234567",
+   "expected": "021****4567"
+  },
+  {
+   "type": "phone",
+   "input": "123",
+   "expected": "***"
+  },
+  {
+   "type": "crypto_eth",
+   "input": "0x12ab34cd56ef7890abcdef1234567890abcd9f3e",
+   "expected": "0x12ab...9f3e"
+  },
+  {
+   "type": "crypto_tron",
+   "input": "TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe",
+   "expected": "TQ7x...BcDe"
+  },
+  {
+   "type": "crypto_btc",
+   "input": "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+   "expected": "bc1qar...5mdq"
+  },
+  {
+   "type": "crypto_btc",
+   "input": "short",
+   "expected": "sh..."
+  },
+  {
+   "type": "url",
+   "input": "https://refund-taobao-kefu.top/app/download?id=9",
+   "expected": "https://re***fu.top/***"
+  },
+  {
+   "type": "url",
+   "input": "www.goldwin-vip.top",
+   "expected": "www.go***ip.top"
+  },
+  {
+   "type": "url",
+   "input": "http://gaj-sh-gov.cc/case/8872",
+   "expected": "http://ga***ov.cc/***"
+  },
+  {
+   "type": "url",
+   "input": "abc.cn",
+   "expected": "a***.cn"
+  },
+  {
+   "type": "url",
+   "input": "http://192.168.1.10:8080/admin",
+   "expected": "http://192.*.*.10/***"
+  },
+  {
+   "type": "url",
+   "input": "https://www.a.b.example/",
+   "expected": "https://www.a***.example"
+  },
+  {
+   "type": "qq",
+   "input": "2876543210",
+   "expected": "28******10"
+  },
+  {
+   "type": "wechat",
+   "input": "kefu_tb2026",
+   "expected": "ke******26"
+  },
+  {
+   "type": "wechat",
+   "input": "abc",
+   "expected": "a**"
+  },
+  {
+   "type": "alipay",
+   "input": "abc.def@163.com",
+   "expected": "ab***@163.com"
+  },
+  {
+   "type": "alipay",
+   "input": "13912345678",
+   "expected": "139****5678"
+  },
+  {
+   "type": "alipay",
+   "input": "zhangsan_pay",
+   "expected": "zh******ay"
+  },
+  {
+   "type": "email",
+   "input": "abc.def@163.com",
+   "expected": "ab***@163.com"
+  },
+  {
+   "type": "email",
+   "input": "a@b.cn",
+   "expected": "a***@b.cn"
+  },
+  {
+   "type": "id_card",
+   "input": "110101199001011234",
+   "expected": "110101********1234"
+  },
+  {
+   "type": "id_card",
+   "input": "11010119900101123x",
+   "expected": "110101********123X"
+  },
+  {
+   "type": "name",
+   "input": "王建国",
+   "expected": "王**"
+  },
+  {
+   "type": "name",
+   "input": "欧阳娜娜",
+   "expected": "欧***"
+  },
+  {
+   "type": "name",
+   "input": "",
+   "expected": ""
+  },
+  {
+   "type": "unknown_type",
+   "input": "whatever123",
+   "expected": "wh******23"
+  }
+ ]
+}
