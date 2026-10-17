@@ -8,7 +8,7 @@
   var isNode = typeof module === 'object' && module.exports;
   var deps = isNode ? {
     redact: require('./redact.js'), extractors: require('./extractors.js'), tactics: require('./tactics.js'),
-    personas: require('./personas.js'), scenarios: require('./scenarios.js')
+    personas: require('./personas.js'), scenarios: require('./scenarios.js'), intel: require('./intel.js')
   } : root.DeepSuck;
   var mod = factory(deps);
   if (isNode) module.exports = mod;
@@ -115,6 +115,8 @@
         var key = e.type + '|' + String(e.value).replace(/[\s-]/g, '').toLowerCase();
         if (!self.intel[key]) {
           self.intel[key] = { type: e.type, label: e.label, masked: e.masked, meta: e.meta, count: 0, firstSeenTurn: self.turn };
+          // 原始值只保存在内存里（不进 report），仅用于按发布策略生成"情报库提交"内容
+          Object.defineProperty(self.intel[key], 'raw', { value: e.value, enumerable: false });
           newIntel.push(self.intel[key]);
         }
         self.intel[key].count++;
@@ -258,6 +260,21 @@
         return { role: m.role, text: m.text, at: new Date(m.t).toISOString(), intent: m.intent, tactics: m.tactics };
       })
     };
+  };
+
+  /**
+   * 生成"提交到公开情报库"的内容：按 intel.js 的发布策略——电话/钱包/网址/APP 完整，银行卡/姓名/个人账号打码。
+   * 注意：与 report() 不同，这里会包含完整电话、钱包地址与网址（这正是公开情报库要收录的内容）。
+   */
+  Session.prototype.submission = function () {
+    var self = this;
+    if (!D.intel) throw new Error('intel.js 未加载');
+    return D.intel.buildSubmission({
+      scenario: this.scenario.id,
+      tactics: this.tacticList().map(function (t) { return t.id; }),
+      rawIntel: Object.keys(this.intel).map(function (k) { var i = self.intel[k]; return { type: i.type, raw: i.raw, masked: i.masked, meta: i.meta, count: i.count }; }),
+      apps: Object.keys(this.context.app_name || {})
+    });
   };
 
   return { Session: Session, goalOf: goalOf, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION };

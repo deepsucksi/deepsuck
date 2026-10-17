@@ -1,0 +1,92 @@
+name: 情报提交 / Intel submission
+description: 提交你真实遇到的诈骗电话、钱包地址、网址/APP、收款账户与话术，审核后收录到公开情报库。
+title: "[情报提交] "
+labels: ["intel-submission", "needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢提交！**DeepSuck 为非官方项目，与 DeepSeek 无关。**
+
+        ⚠️ **如果你已经转账或正在被骗，请立即拨打 110 报警并联系银行止付。** 本情报库是公益补充，不能替代报警；也欢迎同时在「国家反诈中心」App 中“我要举报”。
+
+        **发布策略**（详见 https://deepsuck.si/intel.html#policy ）：诈骗电话、钱包地址、网址/APP、话术**完整公开**；银行卡号只留前 4 后 4 位，姓名只留姓，支付宝/微信/QQ 等个人账号首尾各留 2 位。
+        推荐先在 [沙盒](https://deepsuck.si/demo.html) 里粘贴骗子原话 → 结束对话 → 「⇪ 提交到情报库」，自动按策略生成下面的内容。
+
+        🚫 请勿提交：受害人（包括你自己）的任何个人信息；未打码的银行卡号/身份证号/全名；沙盒里的虚构样例台词。
+  - type: dropdown
+    id: scenario
+    attributes:
+      label: 诈骗场景
+      options:
+        - 冒充客服 · 退款理赔
+        - 冒充公检法 · 安全账户
+        - 杀猪盘 · 投资/感情
+        - 刷单返利 · 做任务赚佣金
+        - 虚假贷款 · 征信修复
+        - 冒充领导/熟人 · 借钱转账
+        - 注销校园贷 · 清空网贷额度
+        - 其他（请在补充说明中描述）
+    validations:
+      required: true
+  - type: textarea
+    id: indicators
+    attributes:
+      label: 情报指标（按发布策略处理后）
+      description: 每行一条。电话/钱包地址/网址/APP 名称可完整填写；银行卡、姓名、个人账号务必打码。
+      placeholder: |
+        - 诈骗电话：`10000000001`
+        - 加密钱包地址：`T...`（TRON）
+        - 诈骗网址/域名：`https://xxx.example/dl`
+        - 收款银行卡：`6222 **** **** 1234`（工商银行） ［已打码］
+        - 收款户名/姓名：`王*` ［已打码］
+    validations:
+      required: true
+  - type: input
+    id: tactics
+    attributes:
+      label: 话术标签（可选）
+      description: 沙盒会自动填写，例如 authority, safe_account, otp
+  - type: input
+    id: first_seen
+    attributes:
+      label: 遇到的时间（大致即可）
+      placeholder: 2026-10-18
+    validations:
+      required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: 对方联系你的渠道
+      multiple: true
+      options:
+        - 电话
+        - 短信
+        - 微信
+        - QQ
+        - 抖音/快手等短视频平台
+        - 电商/二手平台
+        - Telegram 等境外通讯软件
+        - 邮件
+        - 其他
+  - type: textarea
+    id: script
+    attributes:
+      label: 话术摘录（已脱敏，可选）
+      description: 对方的关键原话，有助于总结话术模式。请删去所有与你本人有关的信息。
+      render: text
+  - type: textarea
+    id: notes
+    attributes:
+      label: 补充说明（可选）
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 提交确认
+      options:
+        - label: 以上信息来自我本人真实遇到的诈骗，不是沙盒中的虚构样例。
+          required: true
+        - label: 我已按发布策略对银行卡号、姓名、个人账号打码，且未包含任何受害人信息。
+          required: true
+        - label: 我理解提交内容将公开发布（Apache-2.0），且情报仅供参考，不作为认定依据。
+          required: true

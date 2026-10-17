@@ -1,0 +1,343 @@
+{
+  "schema": "deepsuck.intel-library/v1",
+  "title": "DeepSuck 公开诈骗情报库",
+  "updatedAt": "2026-10-18",
+  "license": "Apache-2.0（随仓库发布）",
+  "notice": "当前全部为【示例数据】（example: true），号码/地址/域名均为虚构或保留值，不对应任何真实个人或网站。真实情报将在审核后以 example: false 收录。",
+  "policy": {
+    "full": [
+      "phone",
+      "crypto_wallet",
+      "url",
+      "app",
+      "script"
+    ],
+    "masked": [
+      "bank_card",
+      "account",
+      "name",
+      "id_card"
+    ],
+    "why": "诈骗电话、钱包地址、网址/APP 与话术是诈骗基础设施，完整公开有助于识别与拦截；银行卡与个人账号/姓名常属于被冒用、被诱骗出租的普通人，只部分公开以免伤及无辜。"
+  },
+  "entries": [
+    {
+      "id": "EX-0001",
+      "example": true,
+      "type": "phone",
+      "value": "10000000001",
+      "scenario": "police",
+      "tactics": [
+        "authority",
+        "threat",
+        "secrecy"
+      ],
+      "firstSeen": "2026-10-01",
+      "lastSeen": "2026-10-12",
+      "reports": 3,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】自称\"市公安局经侦支队\"，称名下银行卡涉嫌洗钱。号码为不可分配的虚构号段。"
+    },
+    {
+      "id": "EX-0002",
+      "example": true,
+      "type": "phone",
+      "value": "10000000002",
+      "scenario": "refund",
+      "tactics": [
+        "cs_impersonation",
+        "app_download"
+      ],
+      "firstSeen": "2026-10-03",
+      "reports": 1,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】自称电商平台客服，\"商品质量问题双倍理赔\"。"
+    },
+    {
+      "id": "EX-0003",
+      "example": true,
+      "type": "phone",
+      "value": "10000000003",
+      "scenario": "loan",
+      "tactics": [
+        "loan_fraud",
+        "threat"
+      ],
+      "firstSeen": "2026-10-05",
+      "reports": 2,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】自称\"金融服务中心\"，推销无抵押低息贷款，随后索要解冻金。"
+    },
+    {
+      "id": "EX-0004",
+      "example": true,
+      "type": "crypto_wallet",
+      "value": "TDemoExampleAddrDoNotUse0000000001",
+      "chain": "TRON",
+      "scenario": "pig",
+      "tactics": [
+        "high_return",
+        "crypto",
+        "romance"
+      ],
+      "firstSeen": "2026-09-28",
+      "lastSeen": "2026-10-10",
+      "reports": 4,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】杀猪盘\"导师带单\"要求充值 USDT（TRC20）。地址为故意构造的无效地址。"
+    },
+    {
+      "id": "EX-0005",
+      "example": true,
+      "type": "crypto_wallet",
+      "value": "0xdeadbeef00000000000000000000000000000001",
+      "chain": "Ethereum/EVM",
+      "scenario": "pig",
+      "tactics": [
+        "crypto",
+        "urgency"
+      ],
+      "firstSeen": "2026-10-02",
+      "reports": 1,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】ERC20 充值地址示例，仅用于演示。"
+    },
+    {
+      "id": "EX-0006",
+      "example": true,
+      "type": "url",
+      "value": "https://refund-kefu.example/dl",
+      "scenario": "refund",
+      "tactics": [
+        "app_download",
+        "cs_impersonation"
+      ],
+      "firstSeen": "2026-10-04",
+      "reports": 2,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】仿冒\"理赔 APP\"下载页。.example 为 RFC 2606 保留域名，不存在真实网站。"
+    },
+    {
+      "id": "EX-0007",
+      "example": true,
+      "type": "url",
+      "value": "http://gaj-case-query.example/case",
+      "scenario": "police",
+      "tactics": [
+        "authority",
+        "info_harvest"
+      ],
+      "firstSeen": "2026-10-06",
+      "reports": 1,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】仿冒\"通缉令查询\"页面，诱导输入身份证号与银行卡。"
+    },
+    {
+      "id": "EX-0008",
+      "example": true,
+      "type": "url",
+      "value": "https://task-fanli.example/app",
+      "scenario": "task",
+      "tactics": [
+        "task_rebate",
+        "app_download"
+      ],
+      "firstSeen": "2026-10-08",
+      "reports": 2,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】刷单\"任务平台\"下载地址。"
+    },
+    {
+      "id": "EX-0009",
+      "example": true,
+      "type": "app",
+      "value": "示例·安心退",
+      "scenario": "refund",
+      "tactics": [
+        "app_download",
+        "cs_impersonation"
+      ],
+      "firstSeen": "2026-10-04",
+      "reports": 2,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】虚构的仿冒理赔 APP 名称。"
+    },
+    {
+      "id": "EX-0010",
+      "example": true,
+      "type": "app",
+      "value": "示例·星辰任务",
+      "scenario": "task",
+      "tactics": [
+        "task_rebate"
+      ],
+      "firstSeen": "2026-10-08",
+      "reports": 1,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】虚构的刷单任务平台名称。"
+    },
+    {
+      "id": "EX-0011",
+      "example": true,
+      "type": "bank_card",
+      "value": "6222 **** **** 0001",
+      "bank": "工商银行",
+      "scenario": "police",
+      "tactics": [
+        "safe_account",
+        "transfer"
+      ],
+      "firstSeen": "2026-10-01",
+      "reports": 3,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】所谓\"国家安全账户\"。银行卡号仅公开前 4 后 4 位：收款卡常为被冒用或被诱骗出租的普通人账户。"
+    },
+    {
+      "id": "EX-0012",
+      "example": true,
+      "type": "bank_card",
+      "value": "6230 **** **** 0002",
+      "bank": "农业银行",
+      "scenario": "task",
+      "tactics": [
+        "task_rebate",
+        "transfer"
+      ],
+      "firstSeen": "2026-10-09",
+      "reports": 1,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】刷单\"三连单\"垫付收款卡。"
+    },
+    {
+      "id": "EX-0013",
+      "example": true,
+      "type": "name",
+      "value": "王**",
+      "scenario": "police",
+      "tactics": [
+        "safe_account"
+      ],
+      "firstSeen": "2026-10-01",
+      "reports": 3,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】收款户名只保留姓氏。"
+    },
+    {
+      "id": "EX-0014",
+      "example": true,
+      "type": "account",
+      "value": "ke******26",
+      "scenario": "refund",
+      "tactics": [
+        "off_platform"
+      ],
+      "firstSeen": "2026-10-04",
+      "reports": 1,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】\"客服\"引流用的微信号（已打码）。"
+    },
+    {
+      "id": "EX-0015",
+      "example": true,
+      "type": "script",
+      "value": "\"你名下银行卡涉嫌洗钱，案件保密，不要告诉家人；配合资金清查把钱转到安全账户\"",
+      "scenario": "police",
+      "tactics": [
+        "authority",
+        "secrecy",
+        "safe_account",
+        "threat"
+      ],
+      "firstSeen": "2026-09-20",
+      "reports": 12,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】冒充公检法典型话术链：恐吓 → 隔离 → 转账。公检法不会电话办案，更没有\"安全账户\"。"
+    },
+    {
+      "id": "EX-0016",
+      "example": true,
+      "type": "script",
+      "value": "\"新手任务返 5 元 → 福利单垫付返 30% → 触发三连单必须做完才能提现 → 操作超时冻结需交解冻费\"",
+      "scenario": "task",
+      "tactics": [
+        "task_rebate",
+        "transfer",
+        "urgency"
+      ],
+      "firstSeen": "2026-09-22",
+      "reports": 9,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】刷单返利\"先给甜头再套牢\"的标准流程。所有刷单都是诈骗。"
+    },
+    {
+      "id": "EX-0017",
+      "example": true,
+      "type": "script",
+      "value": "\"在校期间开通过校园贷，不注销影响征信 → 把借呗/微粒贷额度借出来转到核查账户 → 共享屏幕、报验证码\"",
+      "scenario": "campus",
+      "tactics": [
+        "campus_loan",
+        "safe_account",
+        "app_download",
+        "otp"
+      ],
+      "firstSeen": "2026-09-25",
+      "reports": 7,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】\"注销校园贷\"话术。正规平台注销账户无需转账、无需借款。"
+    },
+    {
+      "id": "EX-0018",
+      "example": true,
+      "type": "script",
+      "value": "\"我是你领导，这是新号，在开会不方便接电话，帮我先给合作方垫一笔保证金\"",
+      "scenario": "boss",
+      "tactics": [
+        "acquaintance",
+        "secrecy",
+        "transfer",
+        "urgency"
+      ],
+      "firstSeen": "2026-09-26",
+      "reports": 6,
+      "source": "example",
+      "confidence": "example",
+      "status": "active",
+      "notes": "【示例数据】冒充领导/熟人话术：阻止电话核实是关键特征。涉及转账务必电话或当面确认。"
+    }
+  ]
+}

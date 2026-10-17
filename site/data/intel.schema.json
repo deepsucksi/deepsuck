@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deepsuck.si/data/intel.schema.json",
+  "title": "DeepSuck 公开诈骗情报库 (deepsuck.intel-library/v1)",
+  "description": "非官方项目，与 DeepSeek 无关。发布策略：phone/crypto_wallet/url/app/script 完整公开；bank_card/account/name/id_card 必须部分打码。",
+  "type": "object",
+  "required": ["schema", "updatedAt", "policy", "entries"],
+  "properties": {
+    "schema": { "const": "deepsuck.intel-library/v1" },
+    "title": { "type": "string" },
+    "updatedAt": { "type": "string", "format": "date" },
+    "license": { "type": "string" },
+    "notice": { "type": "string" },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "full": { "type": "array", "items": { "type": "string" } },
+        "masked": { "type": "array", "items": { "type": "string" } },
+        "why": { "type": "string" }
+      }
+    },
+    "entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "required": ["id", "type", "value", "scenario", "firstSeen", "source", "status"],
+      "properties": {
+        "id": { "type": "string", "description": "EX-xxxx 为示例；正式条目使用 DS-YYYY-xxxx" },
+        "example": { "type": "boolean", "description": "true = 示例/虚构数据" },
+        "type": { "enum": ["phone", "crypto_wallet", "url", "app", "script", "bank_card", "account", "name", "id_card"] },
+        "value": { "type": "string", "description": "按发布策略处理后的公开值；打码类型不得包含完整号码" },
+        "chain": { "type": "string", "description": "加密地址所在链：TRON / Ethereum/EVM / Bitcoin ..." },
+        "bank": { "type": "string", "description": "开户行（银行卡）" },
+        "scenario": { "type": "string", "description": "场景 id：refund/police/pig/task/loan/boss/campus/other" },
+        "tactics": { "type": "array", "items": { "type": "string" }, "description": "话术标签 id（见 site/assets/js/tactics.js）" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "firstSeen": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "lastSeen": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "reports": { "type": "integer", "minimum": 1 },
+        "source": { "enum": ["example", "sandbox", "community", "honeypot", "public-report"] },
+        "confidence": { "enum": ["example", "low", "medium", "high"] },
+        "status": { "enum": ["active", "disputed", "removed"], "description": "disputed = 申诉处理中；removed = 已下架（默认不展示）" },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

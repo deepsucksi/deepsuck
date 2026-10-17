@@ -61,6 +61,7 @@
     mobile: /(?<!\d)(?:\+?86[\s-]?)?1[3-9]\d[\s-]?\d{4}[\s-]?\d{4}(?!\d)/g,
     name: /(?:户名|收款人|开户名|收款户名|账户名|持卡人)\s*(?:是|为|叫)?\s*[:：]?\s*([\u4e00-\u9fa5]{2,4})/g,
     amount: /(\d+(?:\.\d+)?)\s*(万元|万|元|块钱|块|USDT|U(?![A-Za-z])|美元)/g,
+    appQuoted: /[“"「『]([\u4e00-\u9fa5A-Za-z0-9]{2,12})[”"」』]\s*(?:APP|app|App|软件|客户端|平台)/g,
     appName: /(?:下载|安装|打开)(?:一个|一下|个)?[“"「『]?([\u4e00-\u9fa5A-Za-z0-9]{2,12}?)[”"」』]?(?:APP|app|App|软件|客户端)/g
   };
 
@@ -173,6 +174,9 @@
       return { number: parseFloat(m[1]), unit: m[2] };
     } });
     scan(RE.appName, 'app_name', { group: 1, sensitive: false });
+    var appSeen = {};
+    out.forEach(function (e) { if (e.type === 'app_name') appSeen[e.value] = 1; });
+    scan(RE.appQuoted, 'app_name', { group: 1, sensitive: false, clean: function (raw) { return appSeen[raw] ? null : raw; } });
     BANKS.forEach(function (b) {
       var i = s.indexOf(b);
       if (i >= 0) out.push({ type: 'bank_name', label: LABELS.bank_name, value: b, masked: b, start: i, end: i + b.length, sensitive: false, meta: {} });

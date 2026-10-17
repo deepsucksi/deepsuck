@@ -238,7 +238,9 @@
       return '<div class="line"><span class="tm">+' + fmt(sec) + '</span><span class="r ' + (m.role === 'bot' ? 'b' : 's') + '">' +
         (m.role === 'bot' ? s.persona.avatar + ' ' + esc(s.persona.name) : '🕵️ 骗子') + '</span>' + esc(m.text) + '</div>';
     }).join('');
+    $('submitBox').hidden = true;
     $('summaryModal').classList.add('open');
+    if (params.get('submit') === '1') openSubmit();
   }
 
   function exportJSON() {
@@ -250,6 +252,39 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
     toast('已导出脱敏情报报告');
+  }
+
+  /* ---------- 提交到情报库 ---------- */
+  var SCENARIO_OPTION = { refund: '冒充客服 · 退款理赔', police: '冒充公检法 · 安全账户', pig: '杀猪盘 · 投资/感情', task: '刷单返利 · 做任务赚佣金',
+    loan: '虚假贷款 · 征信修复', boss: '冒充领导/熟人 · 借钱转账', campus: '注销校园贷 · 清空网贷额度' };
+  function openSubmit() {
+    var s = state.session;
+    var sub = s.submission();
+    var box = $('submitBox');
+    if (!sub.indicators.length) {
+      box.hidden = false;
+      $('submitText').value = '本次对话没有提取到可收录的情报（电话、钱包地址、网址、APP、收款账户）。';
+      $('submitOpen').style.display = 'none';
+      return;
+    }
+    var md = D.intel.submissionMarkdown(sub);
+    $('submitText').value = md + '\n\n话术标签：' + sub.tactics.join(', ');
+    var q = new URLSearchParams({
+      template: 'intel-submission.yml',
+      title: '[情报提交] ' + s.scenario.title,
+      indicators: md,
+      tactics: sub.tactics.join(', ')
+    });
+    if (SCENARIO_OPTION[s.scenario.id]) q.set('scenario', SCENARIO_OPTION[s.scenario.id]);
+    $('submitOpen').href = 'https://github.com/deepsucksi/deepsuck/issues/new?' + q.toString();
+    $('submitOpen').style.display = '';
+    box.hidden = false;
+    box.scrollIntoView({ behavior: FAST ? 'auto' : 'smooth', block: 'nearest' });
+  }
+  function copySubmit() {
+    var v = $('submitText').value;
+    (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () { toast('已复制，可粘贴到 GitHub 情报提交模板'); },
+      function () { $('submitText').select(); toast('请手动复制（Ctrl/⌘+C）'); });
   }
 
   /* ---------- 设置 ---------- */
@@ -303,6 +338,8 @@
   $('endBtn').addEventListener('click', openSummary);
   $('exportBtn').addEventListener('click', exportJSON);
   $('sumExport').addEventListener('click', exportJSON);
+  $('sumSubmit').addEventListener('click', openSubmit);
+  $('submitCopy').addEventListener('click', copySubmit);
   $('resetBtn').addEventListener('click', newSession);
   $('sumNew').addEventListener('click', function () { $('summaryModal').classList.remove('open'); newSession(); });
   $('sumClose').addEventListener('click', function () { $('summaryModal').classList.remove('open'); });
