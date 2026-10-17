@@ -47,6 +47,12 @@ DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会�
 - **情报看板**：“结束对话”后生成迷你情报看板——完整（脱敏）对话记录、情报卡片、话术画像、拖延时长；可导出脱敏 JSON 报告。
 - **可选大模型引擎（默认关闭）**：OpenAI 兼容协议，默认对接**阿里云百炼 DashScope（通义千问 qwen-plus）**，也可换成其他国产大模型；自带零依赖 Node 代理，Key 只留在服务器 `.env`。
 
+## 📸 截图
+
+| 沙盒：冒充领导熟人 | 公开诈骗情报库 | 手机端首页 |
+|---|---|---|
+| <img src="screenshots/demo-boss.png" width="320" alt="冒充领导场景对话"> | <img src="screenshots/intel.png" width="320" alt="情报库页面"> | <img src="screenshots/landing-mobile.png" width="160" alt="手机端首页"> |
+
 ## 🚀 快速开始
 
 ### 方式 A：纯静态（无需任何 Key）
