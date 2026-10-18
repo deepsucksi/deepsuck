@@ -24,7 +24,7 @@
   <a href="docs/PHONE.md">电话接入方案</a>
 </p>
 
-<p align="center"><img src="screenshots/landing.png" width="820" alt="DeepSuck 首页截图"></p>
+<p align="center"><img src="screenshots/landing-1280.webp" width="820" alt="DeepSuck 首页截图"></p>
 
 DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会聊天的“潜在受害人”人设（糊涂的王阿姨、耳背的李大爷、好奇的大学生小林……）陪骗子周旋——故意误解、请求重复、假装手机卡顿、慢吞吞去找老花镜——消耗骗子的时间，同时自动提取对方暴露的**收款银行卡、支付宝/微信/QQ、手机号、BTC/ETH/TRON 钱包地址、网址**以及**诈骗话术模式**，脱敏后生成结构化情报，用于预防与早期预警。
 
@@ -50,13 +50,15 @@ DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会�
 
 ## 截图
 
-| 沙盒：冒充公检法 | 公开诈骗情报库 | 手机端首页 |
+| 沙盒：冒充公检法 | 情报看板 | 手机端首页 |
 |---|---|---|
-| <img src="screenshots/redesign-demo-1280.png" width="320" alt="冒充公检法场景对话"> | <img src="screenshots/redesign-intel-1280.png" width="320" alt="情报库页面"> | <img src="screenshots/redesign-landing-390.png" width="160" alt="手机端首页"> |
+| <img src="screenshots/demo-1280.webp" width="320" alt="冒充公检法场景对话"> | <img src="screenshots/demo-summary-1280.webp" width="320" alt="情报看板"> | <img src="screenshots/landing-390.webp" width="160" alt="手机端首页"> |
 
-| 语音演示（真实 ASR/LLM/TTS 通话） | 黑名单命中（destroylist / OFAC） | 情报看板 |
+| 公开诈骗情报库 | 手机端沙盒 | 手机端情报库 |
 |---|---|---|
-| <img src="screenshots/voice-call.png" width="320" alt="语音演示"> | <img src="screenshots/demo-blocklist.png" width="320" alt="黑名单命中"> | <img src="screenshots/summary-blocklist.png" width="320" alt="看板中的黑名单命中"> |
+| <img src="screenshots/intel-1280.webp" width="320" alt="情报库页面"> | <img src="screenshots/demo-390.webp" width="160" alt="手机端沙盒"> | <img src="screenshots/intel-390.webp" width="160" alt="手机端情报库"> |
+
+截图由 `npm run screenshots` 生成（无头 Chrome，见 [scripts/screenshots.js](scripts/screenshots.js)）。
 
 王阿姨语音样例：[screenshots/wangayi-sample.wav](screenshots/wangayi-sample.wav)（CosyVoice `longlaoyi_v3`）
 

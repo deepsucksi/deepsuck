@@ -14,7 +14,8 @@
     "build:core": "node scripts/build-core.js",
     "fixtures": "node scripts/gen-fixtures.js",
     "test:py": "cd python && python -m pytest -q",
-    "blocklists": "node scripts/fetch-blocklists.js"
+    "blocklists": "node scripts/fetch-blocklists.js",
+    "screenshots": "node scripts/screenshots.js"
   },
   "keywords": [
     "anti-scam",
