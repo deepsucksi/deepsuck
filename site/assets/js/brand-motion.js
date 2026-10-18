@@ -50,7 +50,9 @@
       // 标题逐字展开；读屏仍读整句（aria-label）
       document.querySelectorAll('#home-title, main h2').forEach(function (heading) {
         var phrase = heading.innerText.replace(/\s+/g, ' ').trim();
-        var split = SplitText.create(heading, { type: 'chars', charsClass: 'unfurl-char', aria: 'auto' }); splits.push(split);
+        // 英文先按词包一层，避免单词被拆到两行（中文没有空格分词，仍只按字拆）
+        var en = document.documentElement.lang === 'en';
+        var split = SplitText.create(heading, en ? { type: 'words,chars', wordsClass: 'unfurl-word', charsClass: 'unfurl-char', aria: 'auto' } : { type: 'chars', charsClass: 'unfurl-char', aria: 'auto' }); splits.push(split);
         heading.setAttribute('aria-label', phrase); heading.setAttribute('data-split-label', '');
         g.from(split.chars, { yPercent: 24, rotationX: -12, opacity: 0, filter: 'blur(2px)', duration: .95, stagger: .022, ease: 'unfurl', scrollTrigger: { trigger: heading, start: 'top 94%', once: true } });
       });
