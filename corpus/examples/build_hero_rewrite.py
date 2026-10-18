@@ -2,8 +2,10 @@
 
 改写前 = hero-chat.js 里现有的 3 段 SCRIPTS（只读解析，不改 site/）；
 改写后 = 新人设（personas/prompts/*.yaml）+ 话术库（corpus/scripts/*.yaml）重写骗子与被骗两侧台词，
-再用 personas.humanize 以固定随机种子做真人化。输出的 after 段与 hero-chat.js 的 SCRIPTS 同格式
-（r = 骗子，s = 人设，t = 话术标签，i = 已打码的情报，w = 估算拖住秒数），可直接替换。
+再用 personas.humanize 以固定随机种子做真人化。输出的 after 段按 hero-chat.js 的 SCRIPTS 结构：
+title（「诈骗类型 · 人设名」）、source（来源类型，如「据公开反诈宣传改写」；SCRIPTS 现有代码不读这个字段）、
+lines（每条 r = 骗子 或 s = 人设 二选一，可选 t = 话术标签、i = 已打码的情报、w = 估算拖住秒数）；
+每段 4–6 条，每条文本不超过 40 字。build() 会校验这些约束，不满足就报错。
 
     python corpus/examples/build_hero_rewrite.py            # 重新生成 JSON
     python corpus/examples/build_hero_rewrite.py --md       # 打印 docs/REALISM.md 对比章节用的 Markdown
@@ -41,14 +43,13 @@ REWRITES = [
         "persona": "retiree",
         "script": "impersonate_police",
         "lines": [
-            {"r": "我是市公安局经侦支队的张警官，你名下一张银行卡涉嫌洗钱，现在需要你配合调查。",
-             "t": "冒充公检法 · 制造紧迫感"},
-            {"s": "啊？警察同志你慢点说，我这耳朵不好使。洗钱？我就一张领退休金的卡啊。", "w": 60},
-            {"r": "案件处于保密阶段，不要告诉家人。把资金转到国家安全账户 622202*********3445，户名王**，查清后原路退回。",
-             "t": "要求保密 · 安全账户", "i": "银行卡 622202*********3445 · 户名 王**"},
-            {"s": "你等会儿啊，我找一下老花镜，把这个账户抄在本子上。户名是姓王是吧？你再留个电话，我这手机老是断。", "w": 90},
-            {"r": "打 139****2233，两个小时之内必须办完，快点！", "i": "电话 139****2233"},
-            {"s": "好好好，我先去找存折，好像压在柜子最底下了，你别挂啊。", "w": 180},
+            {"r": "我是市公安局经侦支队张警官，你名下银行卡涉嫌洗钱，请配合调查。", "t": "冒充公检法 · 制造紧迫感"},
+            {"s": "啊？警察同志你慢点说，我耳朵背。洗钱？我就一张退休金的卡啊。", "w": 60},
+            {"r": "案件保密，别告诉家人！钱转到安全账户 622202*********3445", "t": "要求保密 · 安全账户",
+             "i": "银行卡 622202*********3445"},
+            {"s": "等会儿，我找老花镜抄本子上。户名写谁？再留个电话，我手机老断。", "w": 90},
+            {"r": "户名王**，电话 139****2233，两小时内必须办完！", "i": "户名 王** · 电话 139****2233"},
+            {"s": "好好好，我先去找存折，好像压在柜子底下了，你别挂啊。", "w": 180},
         ],
     },
     {
@@ -58,14 +59,13 @@ REWRITES = [
         "persona": "mom",
         "script": "task_rebate",
         "lines": [
-            {"r": "宝妈在家也能赚钱！招线上点赞员，动动手指日结 200-500 元，先做新手任务，返 5 元马上到账。",
-             "t": "刷单返佣 · 制造紧迫感"},
-            {"s": "真的假的？我娃刚睡着，正好有空，那我先做一个试试。", "w": 60},
-            {"r": "新手任务奖励到了吧？下一单是福利单，先垫付 2800 元，本金加佣金一起返。任务在\"星辰任务\"APP 上做：xi***mo.top",
-             "t": "诱导垫付 · 下载APP", "i": "APP 星辰任务 · 网址 xi***mo.top"},
-            {"s": "先付多少来着？付完多久能返回来呀？稍等，娃又醒了。", "w": 120},
-            {"r": "十分钟内返，转到 622848*********3445，户名赵**", "i": "银行卡 622848*********3445"},
-            {"s": "你把账户发我，我截图存着。钱在我老公那里，等他下班回来我让他转。", "w": 240},
+            {"r": "宝妈在家也能赚钱！点赞员日结 200-500 元，新手任务返 5 元。", "t": "刷单返佣 · 制造紧迫感"},
+            {"s": "真的假的？娃刚睡着正好有空，我先做一个试试。", "w": 60},
+            {"r": "福利单先垫 2800 元返本加佣，下载\"星辰任务\"APP：xi***mo.top", "t": "诱导垫付 · 下载APP",
+             "i": "APP 星辰任务 · 网址 xi***mo.top"},
+            {"s": "先付多少来着？付完多久能返呀？稍等，娃又醒了。", "w": 120},
+            {"r": "十分钟内返，转到 622848*********3445，户名赵**", "i": "银行卡 622848*********3445 · 户名 赵**"},
+            {"s": "账户发我截图存着，钱在我老公那，等他下班回来转。", "w": 240},
         ],
     },
     {
@@ -75,18 +75,80 @@ REWRITES = [
         "persona": "graduate",
         "script": "impersonate_boss",
         "lines": [
-            {"r": "小宇，我是王总，这是我新的微信，在开会不方便接电话。", "t": "冒充熟人/领导"},
-            {"s": "王总好！我刚入职没多久，您有什么吩咐？我能打个电话跟您确认一下吗？", "w": 60},
-            {"r": "别打，会议室不能接电话。合作方的款要急着付，你先帮我垫 4.8 万，转 621483******9887",
-             "t": "要求转账 · 阻止核实", "i": "银行卡 621483******9887"},
-            {"s": "啊这，我卡里余额不够，工资还没发。户名是公司的还是个人的？我得跟财务一样核对一下。", "w": 150},
-            {"r": "户名孙**，是合作方老板的个人账户，赶紧的。", "i": "户名 孙**"},
-            {"s": "好嘞，我先找室友借一点，您稍等哈，我这边在上班，等摸鱼的时候弄。", "w": 180},
+            {"r": "小宇，我是王总，这是新微信，在开会不方便接电话。", "t": "冒充熟人/领导"},
+            {"s": "王总好！您有什么吩咐？我能打电话跟您确认一下吗？", "w": 60},
+            {"r": "别打！先帮我给合作方垫 4.8 万，转 621483******9887", "t": "要求转账 · 阻止核实",
+             "i": "银行卡 621483******9887"},
+            {"s": "啊这，工资还没发余额不够。户名是公司还是个人的？我得核对一下。", "w": 150},
+            {"r": "户名孙**，合作方老板的个人账户，赶紧的。", "i": "户名 孙**"},
+            {"s": "好嘞，我找室友借点，在上班呢，等摸鱼的时候弄。", "w": 180},
         ],
     },
 ]
 
-KEEP = ["王总", "小宇", "张警官", "星辰任务", "王**", "赵**", "孙**"]
+# hero-chat.js 的展示约束（网站与增长要求）
+MAX_CHARS = 40
+MIN_LINES, MAX_LINES = 4, 6
+LINE_KEYS = {"r", "s", "t", "i", "w"}
+SENSITIVE_INTEL = ("银行卡", "电话", "户名", "网址", "微信", "QQ", "支付宝", "钱包", "身份证")
+# source 按实际来源类型填写：v0.1 话术库（corpus/scripts 的 source 字段）全部是“根据公开反诈宣传归纳改写”
+SOURCE_BY_TYPE = {"公开反诈宣传": "据公开反诈宣传改写", "公开案例": "据公开案例改写", "数据集": "据公开数据集改写"}
+
+
+def source_for(script_id: str) -> str:
+    """从 corpus/scripts/<id>.yaml 的 source 字段推出展示用来源（不依赖 PyYAML，按行读取）。"""
+    text = (ROOT / "corpus" / "scripts" / f"{script_id}.yaml").read_text(encoding="utf-8")
+    m = re.search(r"^source:\s*(.+)$", text, re.M)
+    raw = m.group(1) if m else ""
+    for key, label in SOURCE_BY_TYPE.items():
+        if key in raw:
+            return label
+    raise ValueError(f"cannot map source of {script_id}: {raw!r}")
+
+
+def intel_problems(i: str) -> list:
+    """i 必须已打码：每一项敏感情报都带 * ，且没有 5 位以上的未打码数字。"""
+    bad = []
+    for item in [x.strip() for x in i.split("·")]:
+        if item.startswith(SENSITIVE_INTEL) and "*" not in item:
+            bad.append(item)
+        if re.search(r"(?<![\d*])\d{5,}(?![\d*])", item):
+            bad.append(item)
+    return bad
+
+
+def validate_script(sc: dict) -> list:
+    """按 hero-chat.js SCRIPTS 结构检查一段（after 段）；返回问题列表。"""
+    errs = []
+    if set(sc) != {"title", "source", "lines"}:
+        errs.append(f"keys {sorted(sc)}")
+    if not re.fullmatch(r"[^·]+ · [^·]+", sc.get("title", "")):
+        errs.append(f"title {sc.get('title')!r} 应为「诈骗类型 · 人设名」")
+    if sc.get("source") not in SOURCE_BY_TYPE.values():
+        errs.append(f"source {sc.get('source')!r}")
+    lines = sc.get("lines", [])
+    if not MIN_LINES <= len(lines) <= MAX_LINES:
+        errs.append(f"{len(lines)} lines")
+    for ln in lines:
+        if not set(ln) <= LINE_KEYS or (("r" in ln) == ("s" in ln)):
+            errs.append(f"line keys {sorted(ln)}")
+            continue
+        text = ln.get("r") or ln.get("s")
+        if not text or len(text) > MAX_CHARS:
+            errs.append(f"{len(text or '')} chars: {text}")
+        if "w" in ln and not (isinstance(ln["w"], int) and ln["w"] > 0):
+            errs.append(f"w {ln['w']!r}")
+        if "t" in ln and not ln["t"]:
+            errs.append("empty t")
+        if "i" in ln:
+            errs.extend(f"unmasked intel: {x}" for x in intel_problems(ln["i"]))
+    return errs
+
+
+# 人设 id → 展示名（与 personas/prompts/*.yaml 的 name 一致；测试会核对）
+P_NAMES = {"retiree": "周伯", "mom": "小陈妈妈", "graduate": "小宇", "shop_owner": "郑老板"}
+
+KEEP = ["王总", "小宇", "张警官", "星辰任务", "王**", "赵**", "孙**", "警察同志"]
 
 
 def parse_hero_js(path: Path = HERO_JS) -> list:
@@ -136,6 +198,11 @@ def build() -> dict:
                 new["s"] = res.text
             after.append(new)
             trace.append(res.ops)
+        src = source_for(rw["script"])
+        after_sc = {"title": rw["title"], "source": src, "lines": after}
+        errs = validate_script(after_sc)
+        if errs:
+            raise ValueError(f"{rw['id']}: " + "; ".join(errs))
         scripts.append({
             "id": rw["id"],
             "persona": rw["persona"],
@@ -143,8 +210,8 @@ def build() -> dict:
             "seed": seed,
             "scammer_seed": seed + 1000,
             "before": before[rw["before_title"]],
-            "rewritten": {"title": rw["title"], "lines": rw["lines"]},
-            "after": {"title": rw["title"], "lines": after},
+            "rewritten": {"title": rw["title"], "source": src, "lines": rw["lines"]},
+            "after": after_sc,
             "ops": trace,
         })
     return {
@@ -180,7 +247,7 @@ def markdown(data: dict) -> str:
     for n, s in enumerate(data["scripts"], 1):
         out.append(f"### {n}. {s['before']['title']} → {s['after']['title']}")
         out.append("")
-        out.append(f"人设 `{s['persona']}`，话术库 `corpus/scripts/{s['script']}.yaml`，"
+        out.append(f"来源：{s['after']['source']}。人设 `{s['persona']}`，话术库 `corpus/scripts/{s['script']}.yaml`，"
                    f"人设种子 {s['seed']}，骗子种子 {s['scammer_seed']}。")
         out.append("")
         for label, block in (("改写前（hero-chat.js 现有）", s["before"]), ("改写稿（真人化之前）", s["rewritten"]),
