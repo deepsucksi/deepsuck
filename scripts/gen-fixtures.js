@@ -23,6 +23,42 @@ const HZ = require('../site/assets/js/humanize.js');
 const DIR = path.join(__dirname, '..', 'tests', 'fixtures');
 const HEADER = '由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。';
 
+// 验证码按上下文打码（#33）：[文本, 'mask' 应打码 | 'keep' 原样（卡号 / 手机号仍由实体规则打码）]，号码均为虚构
+const OTP_CASES = [
+  ['您的验证码是472915，5分钟内有效，请勿告诉他人', 'mask'],
+  ['472 915', 'keep'],
+  ['验证码 472 915', 'mask'],
+  ['验证码是 4 7 2 9 1 5', 'mask'],
+  ['验证码是…4…7…2…9…1…5', 'mask'],
+  ['动态码 472...915', 'mask'],
+  ['校验码⋯四七二⋯九一五', 'mask'],
+  ['验证码是…幺二三…四五六', 'mask'],
+  ['短信码是 4 7 2，9 1 5', 'mask'],
+  ['确认码：4729-1530', 'mask'],
+  ['OTP: 4729', 'mask'],
+  ['your otp is 47291530', 'mask'],
+  ['472915是验证码吧？', 'mask'],
+  ['验证码收到了。是…472915', 'mask'],
+  ['动态密码收到了。你等等。我念…四七…二九…一五', 'mask'],
+  ['我验证码找不到了，1234是不是', 'mask'],
+  ['验证码 472915 472915', 'mask'],
+  ['你的验证码是472915。另外我的工号是8823', 'mask'],
+  ['验证码已发送至尾号1234的手机', 'keep'],
+  ['验证码发到13800001111了', 'keep'],
+  ['验证码发到 138 0000 1111 了', 'keep'],
+  ['卡号6222020200112233445，验证码等会给你', 'keep'],
+  ['验证码10分钟内有效', 'keep'],
+  ['验证码收到了，转了5000元', 'keep'],
+  ['金额是5000，验证码还没来', 'keep'],
+  ['验证码？订单号A47291', 'keep'],
+  ['今天买了 4729 块的东西，验证码呢', 'keep'],
+  ['验证码是六位数还是四位数？', 'keep'],
+  ['我家门牌号 2046，下午三点到', 'keep'],
+  ['尾号1234', 'keep'],
+  ['验证码是4位的，卡号后四位是8888', 'keep'],
+  ['验证码是多少？我念一下：一二三', 'keep']
+];
+
 // ---- 输入用例（全部为虚构测试数据）----
 const TEXTS = [
   '把钱转到 6217 0012 3456 7890 123，户名李强，建设银行',
@@ -160,7 +196,14 @@ function build() {
   out.redact = { comment: HEADER, cases: REDACT.map(([type, input]) => ({ type, input, expected: R.mask(type, input) })),
     groups: REDACT.filter(([type]) => type === 'bank_card').map(([, input]) => R.mask('bank_card', input))
       .concat(['622202*********3445', '6222 02** ****', '', '王**', '***3445'])
-      .map((input) => ({ input, expected: R.formatCardGroups(input) })) };
+      .map((input) => ({ input, expected: R.formatCardGroups(input) })),
+    otp: OTP_CASES.map(([text, expect]) => {
+      const spans = R.findOtpSpans(text);
+      const redacted = R.redactText(text, X.extractSensitive(text));
+      const masked = redacted !== R.redactText(text, X.extractSensitive(text).concat([{ start: 0, end: text.length, sensitive: false }]));
+      if ((expect === 'mask') !== masked) throw new Error('OTP 用例与预期不符：' + text + ' -> ' + redacted);
+      return { text, expect, spans, redacted };
+    }) };
   out.normalize = { comment: HEADER, cases: TEXTS.map((text) => { const n = N.normalize(text); return { text, expected: n.text, changed: n.changed }; }) };
   out.extract = {
     comment: HEADER,

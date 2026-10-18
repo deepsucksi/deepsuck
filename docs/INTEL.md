@@ -80,8 +80,10 @@ DeepSuck 会**公开发布**它收集到的诈骗情报，让任何人都能检�
 | 函数 | 输入 | 输出 | 用途 |
 |---|---|---|---|
 | `extract_sensitive(text)`（`deepsuck.extractors`） | `str`，原始转写文本，可含空格、连字符、中文数字（如“六二二二……”） | `list[dict]`，每项含 `type`、`label`、`value`（原值，只留内存）、`masked`（打码值）、`start`/`end`（在**原始文本**中的下标）、`sensitive`、`meta` | 找出敏感片段 |
-| `redact_text(text, entities)` | 原始文本 + 上一步的列表 | `str`，把每个片段替换为 `masked`（缺省时按 `type` 现算）；`sensitive is False` 或无下标的项跳过 | 生成可落盘的脱敏文本 |
+| `redact_text(text, entities)` | 原始文本 + 上一步的列表 | `str`，把每个片段替换为 `masked`（缺省时按 `type` 现算）；`sensitive is False` 或无下标的项跳过；另外按上下文给验证码打码（见下） | 生成可落盘的脱敏文本 |
 | `mask(type_, value)` | 情报类型 + 单个值 | `str` 打码值；未知类型按通用账号规则保守打码 | 单值打码（如写入结构化字段） |
+
+验证码不是情报实体，`redact_text` 另按上下文打码（`find_otp_spans(text)` 可单独调用，JS 为 `redactText` / `findOtpSpans`）：只在“验证码、动态码、动态密码、校验码、短信码、确认码、安全码、OTP”前 16 个字或后 8 个字以内（中间不夹阿拉伯数字，至多跨 2 个句末标点）出现 4–8 位数字时，把数字逐个换成 `*`、分隔符保留，例如“验证码是 4 7 2 9 1 5”→“验证码是 * * * * * *”、“校验码⋯四七二⋯九一五”→“校验码⋯***⋯***”。数字之间允许空格、“…”“⋯”“...”、连字符，可用中文数字逐位读出，两段各不超过 4 位时可用“，”“、”连接。不打码：手机号、卡号等实体（照常由实体规则打码）、紧挨字母 / 数字 / `*` 的数字（订单号、已打码值）、前面是“尾号 / 后四位 / 金额 / 工号 / 订单号 / ¥”等、后面是“元 / 块 / 分钟 / 位 / 个”等单位的数字，以及离关键词远的普通数字。规则在 `site/assets/core/extractors.json` 的 `redact.otp`，JS 与 Python 共用（#33）。
 
 `mask`、`redact_text`、`extract_sensitive` 也可直接 `from deepsuck import ...`。另有按类型的 `mask_bank_card`、`mask_phone`、`mask_id_card` 等函数，类型到函数的映射见 `MASKERS`。
 
