@@ -1,4 +1,4 @@
-// DeepSuck 语音演示前端：原生 WebRTC 连 Pipecat SmallWebRTC（/api/offer），数据通道收看板消息。
+// DeepSuck 语音演示前端：原生 WebRTC 连语音服务（/api/offer），数据通道收看板消息。
 (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -16,14 +16,15 @@
       iceServers = c.iceServers || [];
       turnOn = !!c.turn;
       traceOn = !c.trace || c.trace.enabled !== false;
-      if (!traceOn) { $("consentRow").hidden = true; $("keepNote").hidden = true; }
+      if (!traceOn) { $("consentRow").hidden = true; $("keepNote").textContent = "本演示不保存通话内容；仅供防诈研究与教育。"; }
       if (c.limits) $("limits").textContent = `公开体验限制：每局最长 ${c.limits.maxMinutes} 分钟 / ${c.limits.maxTurns} 轮，同时最多 ${c.limits.maxSessions} 路通话` +
         (c.budget && c.budget.capCny ? `；今日额度已用 ${c.budget.usedPct}%` : "") + "。";
       if (c.budget && c.budget.exhausted) { setStatus("bad", "今日语音体验额度已用完"); $("call").disabled = true; return; }
-      $("persona").innerHTML = c.personas.map((p) => `<option value="${p.id}">${esc(p.name)}（${esc(p.voice || "")}）</option>`).join("");
+      $("persona").innerHTML = c.personas.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
       $("scenario").innerHTML = c.scenarios.map((s) => `<option value="${s.id}">${esc(s.title)}</option>`).join("");
-      if (c.keyConfigured) setStatus("ok", `就绪 · ${c.engine === "rule" ? "规则引擎" : c.models.llm} · ${c.models.asr} · ${c.models.tts}`);
-      else { setStatus("bad", "未配置 DASHSCOPE_API_KEY"); $("call").disabled = true; err("服务端没有 DASHSCOPE_API_KEY：复制 voice/.env.example 为 voice/.env 并填入后重启。"); }
+      // 页面不显示模型、厂商、技术栈名；服务端配置问题见 voice/README.md「需要什么」
+      if (c.keyConfigured) setStatus("ok", "就绪");
+      else { setStatus("bad", "语音服务暂不可用"); $("call").disabled = true; err("语音服务暂时无法通话，请稍后再来。"); }
     } catch (e) { setStatus("bad", "无法连接服务"); }
   }
 
@@ -80,6 +81,7 @@
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type, pc_id: pcId, ...extra }),
     });
+    if (r.status === 503) throw new Error("语音服务暂不可用，请稍后再试"); // 503 的服务端说明面向部署者，不上页面
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `HTTP ${r.status}`);
     const ans = await r.json();
     pcId = ans.pc_id;
@@ -177,7 +179,7 @@
       relayOffered = servers.some((s) => [].concat(s.urls || []).some((u) => /^turns?:/.test(u)));
       pc = new RTCPeerConnection({ iceServers: servers });
       pc.addTransceiver(mic.getAudioTracks()[0], { direction: "sendrecv" });
-      pc.addTransceiver("video", { direction: "sendrecv" }); // SmallWebRTC 期望有视频收发器；不发送画面
+      pc.addTransceiver("video", { direction: "sendrecv" }); // 服务端期望有视频收发器；不发送画面
       pc.ontrack = (e) => { if (e.track.kind === "audio") $("audio").srcObject = new MediaStream([e.track]); };
       pc.onconnectionstatechange = () => {
         if (!pc) return;
