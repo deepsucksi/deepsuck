@@ -67,7 +67,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 | [VOICE_LATENCY](docs/VOICE_LATENCY.md) | 语音延迟：填充音、打断、流式合成，可调参数与实测数据 |
 | [voice/telephony](voice/telephony/README.md) | 电话接入适配层（`ws-raw`、`pipecat-ws`；默认关闭，只接不拨）与阿里云呼入设计稿 |
 | [PHONE](docs/PHONE.md) | 电话接入方案：国内外云号码 / SIP 中继对比、呼叫转移规则、推荐方案与月成本 |
-| [corpus](corpus/README.md) · [personas](personas/README.md) | 诈骗话术库（7 类，YAML，脱敏改写）与可复用资源调研；4 个新人设提示词与真人化后处理 |
+| [corpus](corpus/README.md) · [personas](personas/README.md) · [REALISM](docs/REALISM.md) | 诈骗话术库（7 类，YAML，脱敏改写）与可复用资源调研；4 个新人设提示词与真人化后处理；真人感设计与首页示例改写对比 |
 | [INTEL](docs/INTEL.md) · [EVAL](docs/EVAL.md) · [ETHICS](docs/ETHICS.md) | 情报库策略 · 评测 · 伦理与使用规范 |
 | [CHANGELOG](CHANGELOG.md) | 版本记录 |
 

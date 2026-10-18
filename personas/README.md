@@ -14,11 +14,10 @@ personas/
 ├── humanize/             文字打字特征：真人化后处理（零依赖）
 ├── voice_traits.yaml     语音说话特征：每个人设的口头语、听错反问、语速口音、停顿与扯家常节奏（不含错别字）
 ├── voice_traits.py       读取上面的 YAML；fillers() 与 voice/persona.py 的 FILLERS 同格式
-├── REALISM.md            真人感设计：文字打字特征与语音说话特征分两章
 └── tests/
 ```
 
-所有人设、背景与台词都是虚构的，不对应任何真实个人。
+所有人设、背景与台词都是虚构的，不对应任何真实个人。真人感的设计说明（文字打字特征、语音说话特征、首页示例改写对比）见 [docs/REALISM.md](../docs/REALISM.md)。
 
 ## 人设文件
 
@@ -68,7 +67,7 @@ python -m personas.humanize "你说的账户是哪个银行的？" --profile sho
 
 ## 语音说话特征（voice_traits.yaml）
 
-覆盖王阿姨、李大爷、小林和 4 个新人设，字段 `backchannel`（8–12 条）、`mishear`、`speech`、`rhythm`，说明见 [REALISM.md](REALISM.md#二语音说话特征)。`python -m personas.voice_traits` 打印可直接替换 `FILLERS` 的整张表。
+覆盖王阿姨、李大爷、小林和 4 个新人设，字段 `backchannel`（8–12 条）、`mishear`、`speech`、`rhythm`，说明见 [docs/REALISM.md](../docs/REALISM.md#二语音说话特征)。`python -m personas.voice_traits` 打印可直接替换 `FILLERS` 的整张表。
 
 ## 测试
 

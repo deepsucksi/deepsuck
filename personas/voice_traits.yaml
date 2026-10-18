@@ -1,5 +1,5 @@
 # 语音说话特征（每个人设一份）。只描述“怎么说”，不含任何错别字：这里的内容会直接送进 TTS。
-# 打字特征（错别字、标点）在 humanize/，两者的区别见 REALISM.md。
+# 打字特征（错别字、标点）在 humanize/，两者的区别见 docs/REALISM.md。
 #
 # 字段：
 #   backchannel  8–12 条短口头语，格式与 voice/persona.py 的 FILLERS[persona_id] 完全相同（字符串列表），
