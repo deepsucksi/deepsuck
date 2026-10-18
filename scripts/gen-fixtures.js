@@ -23,6 +23,42 @@ const HZ = require('../site/assets/js/humanize.js');
 const DIR = path.join(__dirname, '..', 'tests', 'fixtures');
 const HEADER = '由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。';
 
+// 验证码按上下文打码（#33）：[文本, 'mask' 应打码 | 'keep' 原样（卡号 / 手机号仍由实体规则打码）]，号码均为虚构
+const OTP_CASES = [
+  ['您的验证码是472915，5分钟内有效，请勿告诉他人', 'mask'],
+  ['472 915', 'keep'],
+  ['验证码 472 915', 'mask'],
+  ['验证码是 4 7 2 9 1 5', 'mask'],
+  ['验证码是…4…7…2…9…1…5', 'mask'],
+  ['动态码 472...915', 'mask'],
+  ['校验码⋯四七二⋯九一五', 'mask'],
+  ['验证码是…幺二三…四五六', 'mask'],
+  ['短信码是 4 7 2，9 1 5', 'mask'],
+  ['确认码：4729-1530', 'mask'],
+  ['OTP: 4729', 'mask'],
+  ['your otp is 47291530', 'mask'],
+  ['472915是验证码吧？', 'mask'],
+  ['验证码收到了。是…472915', 'mask'],
+  ['动态密码收到了。你等等。我念…四七…二九…一五', 'mask'],
+  ['我验证码找不到了，1234是不是', 'mask'],
+  ['验证码 472915 472915', 'mask'],
+  ['你的验证码是472915。另外我的工号是8823', 'mask'],
+  ['验证码已发送至尾号1234的手机', 'keep'],
+  ['验证码发到13800001111了', 'keep'],
+  ['验证码发到 138 0000 1111 了', 'keep'],
+  ['卡号6222020200112233445，验证码等会给你', 'keep'],
+  ['验证码10分钟内有效', 'keep'],
+  ['验证码收到了，转了5000元', 'keep'],
+  ['金额是5000，验证码还没来', 'keep'],
+  ['验证码？订单号A47291', 'keep'],
+  ['今天买了 4729 块的东西，验证码呢', 'keep'],
+  ['验证码是六位数还是四位数？', 'keep'],
+  ['我家门牌号 2046，下午三点到', 'keep'],
+  ['尾号1234', 'keep'],
+  ['验证码是4位的，卡号后四位是8888', 'keep'],
+  ['验证码是多少？我念一下：一二三', 'keep']
+];
+
 // ---- 输入用例（全部为虚构测试数据）----
 const TEXTS = [
   '把钱转到 6217 0012 3456 7890 123，户名李强，建设银行',
@@ -56,6 +92,9 @@ TEXTS.push('电话 184-2893-2334，微，信 htb_6601', '加微、信：kefu_tb2
   '户名周杰农业银行', '户名郑华中国银航', '户名王建国工商银行', '收款人是我们公司财务李强，卡号6222020200112233445', '钱转到李强的账户上就行', '转到王经理的卡上',
   '【示例数据】收款户名只保留姓氏。', '收款人是我的朋友', '微信号码事 wgold_3487', '收款人叫李强找没听清', '户名周杰然后民生银航',
   '电化，幺，八\n六，幺，七，九，五，四，三，八，六', '工号 12345678 分机 139');
+// #8 断续句：三点省略 + 空格、座机 / 400 停顿、钱包末段 1 个字符、开奖号码不当座机
+TEXTS.push('卡号 6222... 0000... 1234... 5678... 907，户名王某某', '电话一三八...零零一三...八零零零…尾号八零零零', '座机…零二幺…两零零零…零零零零，打这个',
+  '客服热线四零零…零零零…幺二三四', 'USDT地址是…TABCD…EFGHJ…KLMNP…QRSTU…VWXYZ…abcdef…ghi', '开奖号码是03、15、22、23、35、47，特别号码是09', '您尾号1234的卡涉嫌洗钱');
 for (const sc of S.SCENARIOS) for (const line of sc.samples) TEXTS.push(line);
 
 // 跨回合拼接（同一说话方相邻回合）
@@ -78,6 +117,12 @@ const STITCH = [
   ['卡号 6222 0202 0011 2233', '445 元'],
   // 手写错字的屏蔽词
   ['房问号 199', '0069 7308 是同事的工好'],
+  // #8：断续句（停顿、逐位、跨回合；后半段像手机号；钱包地址分两回合）
+  ['卡号是…6222…0000…', '嗯…1234...5678...', '…907…'],
+  ['账户…6222…0000…', '然后…138…0013…8007，收款人王某某'],
+  ['座机号码…零二幺…两零零零…', '嗯…零零零零'],
+  ['用 ERC20 也行：0x0123，456789ab，cdef…', '嗯…0123456789，abcdef01，234567'],
+  ['USDT收款地址…TABCDEFGHJKLMNPQRSTUVWX…', '然后…YZabcdefghi'],
   ['工好 151', '0859 5928']
 ];
 
@@ -151,7 +196,14 @@ function build() {
   out.redact = { comment: HEADER, cases: REDACT.map(([type, input]) => ({ type, input, expected: R.mask(type, input) })),
     groups: REDACT.filter(([type]) => type === 'bank_card').map(([, input]) => R.mask('bank_card', input))
       .concat(['622202*********3445', '6222 02** ****', '', '王**', '***3445'])
-      .map((input) => ({ input, expected: R.formatCardGroups(input) })) };
+      .map((input) => ({ input, expected: R.formatCardGroups(input) })),
+    otp: OTP_CASES.map(([text, expect]) => {
+      const spans = R.findOtpSpans(text);
+      const redacted = R.redactText(text, X.extractSensitive(text));
+      const masked = redacted !== R.redactText(text, X.extractSensitive(text).concat([{ start: 0, end: text.length, sensitive: false }]));
+      if ((expect === 'mask') !== masked) throw new Error('OTP 用例与预期不符：' + text + ' -> ' + redacted);
+      return { text, expect, spans, redacted };
+    }) };
   out.normalize = { comment: HEADER, cases: TEXTS.map((text) => { const n = N.normalize(text); return { text, expected: n.text, changed: n.changed }; }) };
   out.extract = {
     comment: HEADER,

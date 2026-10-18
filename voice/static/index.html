@@ -121,7 +121,6 @@ main>.call{grid-area:call}.playbook{grid-area:pb}.board{grid-area:dash}
 .note .foot{display:flex;flex-wrap:wrap;gap:8px 28px;margin-top:16px;font-size:12px}
 .note .foot a{color:var(--muted);text-decoration:none}.note .foot a:hover{color:var(--ink)}
 /* 通话追踪同意与反馈（voice/trace.py）：沿用控制台的灰阶，不加新颜色 */
-.intro p.keep{font-size:12.5px;line-height:1.8;color:var(--muted);margin:12px 0 0;max-width:660px}
 .consent{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:12px;color:var(--d-muted)}
 .consent label{display:inline-flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.6;color:var(--d-muted);cursor:pointer}
 .consent input{margin:3px 0 0;accent-color:#c9d3cc;flex:none}
@@ -136,7 +135,7 @@ main>.call{grid-area:call}.playbook{grid-area:pb}.board{grid-area:dash}
 .fb input[type=text]{flex:1 1 240px;min-width:0}.fb input[type=number]{width:96px}
 button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:var(--edge2);color:var(--d-ink)}button.mini:hover{border-color:#ffffff50}
 .fb-done{font-size:12px;color:var(--d-dim)}
-.trace[hidden],.fb[hidden],.fb-done[hidden],.consent[hidden],.consent-info[hidden],.keep[hidden]{display:none}
+.trace[hidden],.fb[hidden],.fb-done[hidden],.consent[hidden],.consent-info[hidden]{display:none}
 .controls .consent label{flex:0 1 auto}.controls .consent .linkbtn{flex:none}
 /* 连接失败说明（GitHub #3）：同 consent-info 的线框，不加新颜色 */
 .net-help{margin:0 0 12px;padding:12px 14px;border:1px solid var(--edge2);font-size:12.5px;line-height:1.8;color:var(--d-text)}
@@ -193,7 +192,6 @@ button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:
     <p class="kicker">语音演示 · 防御性研究</p>
     <h1>扮演骗子，打给它试试</h1>
     <p class="lead">你扮演骗子，对着麦克风说话；机器人会先开口，用拖延和反复确认把你留在线上，右侧看板实时显示脱敏后的情报。</p>
-    <p class="keep" id="keepNote">本演示在你同意时会保存录音和脱敏后的对话文字用于改进，30 天删除。</p>
   </div>
 </section>
 <div class="console">
@@ -272,7 +270,7 @@ button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:
 </div>
 <footer class="note">
   <div class="wrap">
-    <p>语音链路：浏览器麦克风 → SmallWebRTC → Paraformer 实时识别 → 情报抽取/话术识别 → qwen-plus → 输出守卫 → CosyVoice。需要 DASHSCOPE_API_KEY。勾选同意时保存录音和脱敏文字 30 天，用于改进；不勾选不保存任何内容。看板只显示脱敏值。仅供防诈研究与教育，请勿用于拨打任何真实电话。</p>
+    <p id="keepNote">勾选同意时保存录音和脱敏文字 30 天用于改进，不勾选则不保存；仅供防诈研究与教育，请勿用于联系任何真实的人。</p>
     <div class="foot"><a href="https://deepsuck.si/">deepsuck.si</a><a href="https://deepsuck.si/intel.html">公开诈骗情报库</a><a href="https://github.com/deepsucksi/deepsuck">GitHub · Apache-2.0</a></div>
   </div>
 </footer>

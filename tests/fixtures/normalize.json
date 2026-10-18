@@ -408,8 +408,8 @@
   },
   {
    "text": "TRC20 TQ7xM6hY pCzD8vNp 1qJ3kR5s W9uL2aBc De",
-   "expected": "TRC20 TQ7xM6hY pCzD8vNp 1qJ3kR5s W9uL2aBc De",
-   "changed": false
+   "expected": "TRC20 TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe",
+   "changed": true
   },
   {
    "text": "2026.10.18 版本 1.2.3",
@@ -544,6 +544,41 @@
   {
    "text": "工号 12345678 分机 139",
    "expected": "工号 12345678 分机 139",
+   "changed": false
+  },
+  {
+   "text": "卡号 6222... 0000... 1234... 5678... 907，户名王某某",
+   "expected": "卡号 6222000012345678907,户名王某某",
+   "changed": true
+  },
+  {
+   "text": "电话一三八...零零一三...八零零零…尾号八零零零",
+   "expected": "电话13800138000…尾号八零零零",
+   "changed": true
+  },
+  {
+   "text": "座机…零二幺…两零零零…零零零零，打这个",
+   "expected": "座机…02120000000,打这个",
+   "changed": true
+  },
+  {
+   "text": "客服热线四零零…零零零…幺二三四",
+   "expected": "客服热线4000001234",
+   "changed": true
+  },
+  {
+   "text": "USDT地址是…TABCD…EFGHJ…KLMNP…QRSTU…VWXYZ…abcdef…ghi",
+   "expected": "USDT地址是…TABCDEFGHJKLMNPQRSTUVWXYZabcdefghi",
+   "changed": true
+  },
+  {
+   "text": "开奖号码是03、15、22、23、35、47，特别号码是09",
+   "expected": "开奖号码是03、15、22、23、35、47,特别号码是09",
+   "changed": true
+  },
+  {
+   "text": "您尾号1234的卡涉嫌洗钱",
+   "expected": "您尾号1234的卡涉嫌洗钱",
    "changed": false
   },
   {

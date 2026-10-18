@@ -24,15 +24,15 @@ const T = {
   zh: {
     htmlLang: 'zh-CN', hreflang: 'zh-CN', locale: 'zh_CN', base: '/blog/',
     blog: '博客', blogTitle: 'DeepSuck 博客', blogDesc: 'DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。',
-    empty: '文章整理中。', home: '首页', intel: '情报库', demo: '进入沙盒', menu: '菜单', skip: '跳到正文', nav: '主导航', pageNav: '页面导航',
+    empty: '文章即将发布', emptyNote: '第一批文章正在审校。订阅 RSS，文章发布后会出现在你的阅读器里。', subscribe: '订阅 RSS', home: '首页', intel: '情报库', demo: '进入沙盒', menu: '菜单', skip: '跳到正文', nav: '主导航', pageNav: '页面导航',
     other: 'EN', otherName: 'English', readOther: 'Read in English', back: '返回博客', draft: '草稿 · 未发布', rss: 'RSS 订阅',
     foot: 'DeepSuck · 代码 Apache-2.0 · 仅用于防诈研究与教育', foot110: '遇到诈骗请拨打 110 / 96110', published: '发布于', updated: '更新于',
   },
   en: {
     htmlLang: 'en', hreflang: 'en', locale: 'en_US', base: '/blog/en/',
     blog: 'Blog', blogTitle: 'DeepSuck Blog', blogDesc: 'Notes from the DeepSuck open-source anti-scam project: progress, technical write-ups and scam-recognition guides.',
-    empty: 'Posts are on the way.', home: 'Home', intel: 'Intel library', demo: 'Try the sandbox', menu: 'Menu', skip: 'Skip to content', nav: 'Main navigation', pageNav: 'Page navigation',
-    other: '中文', otherName: '中文', readOther: '阅读中文版', back: 'Back to blog', draft: 'Draft · unpublished', rss: 'RSS feed',
+    empty: 'Articles coming soon', emptyNote: 'The first articles are in review. Subscribe to the RSS feed and they will show up in your reader once published.', subscribe: 'Subscribe via RSS', home: 'Home', intel: 'Intel library', demo: 'Try the sandbox', menu: 'Menu', skip: 'Skip to content', nav: 'Main navigation', pageNav: 'Page navigation',
+    other: '中文', otherName: '中文', readOther: 'Read in Chinese', back: 'Back to blog', draft: 'Draft · unpublished', rss: 'RSS feed',
     foot: 'DeepSuck · Code Apache-2.0 · For anti-fraud research and education only', foot110: 'Scam? Call 110 / 96110 (China)', published: 'Published', updated: 'Updated',
   },
 };
@@ -150,7 +150,7 @@ ${head}<link rel="icon" href="${r('/assets/brand/favicon-32.png')}" type="image/
       <a class="hide-m" href="${homeHref}">${t.home}</a>
       <a class="hide-m" href="${r('/intel.html')}">${t.intel}</a>
       <a class="hide-m" href="${r(t.base)}" aria-current="page">${t.blog}</a>
-      <a class="btn small ghost hide-xs" href="${otherHref}" hreflang="${T[otherLang].hreflang}" lang="${T[otherLang].htmlLang}" data-lang-switch="${otherLang}">${t.other}</a>
+      <a class="btn small ghost hide-xs lang-toggle" href="${otherHref}" hreflang="${T[otherLang].hreflang}" lang="${T[otherLang].htmlLang}" data-lang-switch="${otherLang}">${t.other}</a>
       <a class="hide-m nav-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">${GH_ICON}<span>GitHub</span> ↗</a>
       <a class="btn small primary" href="${r('/demo.html')}">${t.demo}</a>
     </nav>
@@ -162,7 +162,7 @@ ${head}<link rel="icon" href="${r('/assets/brand/favicon-32.png')}" type="image/
         <a href="${r(t.base)}" aria-current="page">${t.blog}</a>
         <a href="${r('/demo.html')}">${t.demo}</a>
         <a class="mobile-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">${GH_ICON}<span>GitHub ↗</span></a>
-        <a class="menu-lang" href="${otherHref}" hreflang="${T[otherLang].hreflang}" lang="${T[otherLang].htmlLang}" data-lang-switch="${otherLang}">${t.otherName}</a>
+        <a class="menu-lang lang-toggle" href="${otherHref}" hreflang="${T[otherLang].hreflang}" lang="${T[otherLang].htmlLang}" data-lang-switch="${otherLang}">${t.otherName}</a>
       </nav>
     </details>
   </div>
@@ -255,8 +255,12 @@ function renderIndex(lang, list) {
   <h1>${t.blog}</h1>
   <p class="lead">${esc(t.blogDesc)}</p>
 </div>
-${posts.length ? `<ol class="post-list" reversed>\n${items}\n  </ol>` : `<p class="blog-empty">${t.empty}</p>`}
-<p class="blog-feed"><a href="feed.xml">${t.rss}</a></p>`;
+${posts.length ? `<ol class="post-list" reversed>\n${items}\n  </ol>
+<p class="blog-feed"><a href="feed.xml">${t.rss}</a></p>` : `<section class="blog-empty" aria-labelledby="blog-empty-title">
+  <h2 id="blog-empty-title">${t.empty}</h2>
+  <p>${esc(t.emptyNote)}</p>
+  <p class="blog-empty-actions"><a class="btn small" href="feed.xml" type="application/rss+xml">${t.subscribe}</a></p>
+</section>`}`;
   return layout({ lang, urlPath, title: `${t.blogTitle}`, description: t.blogDesc, ogType: 'website', alternates, otherHref: rel(urlPath, T[OTHER[lang]].base),
     head: `<script type="application/ld+json">${jsonLd(ld)}</script>\n`, body, draft: false });
 }

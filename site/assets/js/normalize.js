@@ -20,8 +20,9 @@
   var DJ = O.digitJoin || null;
   var SEP = DJ ? '[' + escCls(DJ.separators) + ']' : '[\\s\\-]';
   var NUM_CHARS = Object.keys(O.numerals).join('');
-  // 中文数字之间允许夹空格 / 横杠 / 换行 / 标点（“六二二二，零二零二”），每处至多 2 个
-  var RE_NUM_RUN = new RegExp('[0-9' + NUM_CHARS + '](?:' + SEP + '{0,2}[0-9' + NUM_CHARS + ']){' + (O.numeralRunMin - 1) + ',}', 'g');
+  var MAX_SEP = DJ ? DJ.maxSep : 2;
+  // 中文数字之间允许夹空格 / 横杠 / 换行 / 标点（“六二二二，零二零二”“六二二二... 零二零二”），每处至多 maxSep 个
+  var RE_NUM_RUN = new RegExp('[0-9' + NUM_CHARS + '](?:' + SEP + '{0,' + MAX_SEP + '}[0-9' + NUM_CHARS + ']){' + (O.numeralRunMin - 1) + ',}', 'g');
   var RE_HAS_NUMERAL = new RegExp('[' + NUM_CHARS + ']');
   var latinDots = O.dotWords.filter(function (w) { return /^[A-Za-z]+$/.test(w); }); // dot：两侧须有空格
   var cjkDots = O.dotWords.filter(function (w) { return latinDots.indexOf(w) < 0; });
@@ -54,11 +55,14 @@
   var RE_TYPO = TYPO_KEYS.length ? new RegExp(TYPO_KEYS.map(escRe).join('|'), 'g') : null;
   var RE_DIGIT_JOIN = DJ ? new RegExp('(?<![0-9A-Za-z])[0-9]{1,' + DJ.maxGroup + '}(?:' + SEP + '{1,' + DJ.maxSep + '}[0-9]{1,' + DJ.maxGroup + '})+(?![0-9A-Za-z])', 'g') : null;
   var RE_UNIT_AFTER = DJ ? new RegExp(DJ.unitAfter) : null;
-  var RE_STD_FORMAT = /^(?:[0-9]{4}(?:[ -][0-9]{4}){3}(?:[ -][0-9]{1,3})?|(?:86[\s-]?)?1[3-9][0-9][\s.-]?[0-9]{4}[\s.-]?[0-9]{4})$/;
+  var RE_STD_FORMAT = /^(?:[0-9]{4}(?:[ -][0-9]{4}){3}(?:[ -][0-9]{1,3})?|(?:86[\s-]?)?1[3-9][0-9][\s.-]?[0-9]{4}[\s.-]?[0-9]{4}|0[0-9]{2,3}-[0-9]{7,8}|(?:400|800)[\s-]?[0-9]{3}[\s-]?[0-9]{4})$/;
   var WJ = O.walletJoin || null;
   var B58 = '1-9A-HJ-NP-Za-km-z';
-  var RE_ETH_JOIN = WJ ? new RegExp('(?<![0-9A-Za-z])0x[0-9a-fA-F]{1,40}(?:' + SEP + '{1,3}[0-9a-fA-F]{' + WJ.minChunk + ',40})+(?![0-9A-Za-z])', 'g') : null;
-  var RE_TRON_JOIN = WJ ? new RegExp('(?<![0-9A-Za-z])T[' + B58 + ']{' + (WJ.minChunk - 1) + ',33}(?:' + SEP + '{1,3}[' + B58 + ']{' + WJ.minChunk + ',33})+(?![0-9A-Za-z])', 'g') : null;
+  // 中间各段至少 minChunk 个字符，最后一段至少 lastChunkMin 个（断续报地址常剩一两个字符单独念）
+  var LAST = WJ ? (WJ.lastChunkMin || WJ.minChunk) : 0;
+  var WSEP = SEP + '{1,' + MAX_SEP + '}';
+  var RE_ETH_JOIN = WJ ? new RegExp('(?<![0-9A-Za-z])0x[0-9a-fA-F]{1,40}(?:' + WSEP + '[0-9a-fA-F]{' + WJ.minChunk + ',40})*' + WSEP + '[0-9a-fA-F]{' + LAST + ',40}(?![0-9A-Za-z])', 'g') : null;
+  var RE_TRON_JOIN = WJ ? new RegExp('(?<![0-9A-Za-z])T[' + B58 + ']{' + (WJ.minChunk - 1) + ',33}(?:' + WSEP + '[' + B58 + ']{' + WJ.minChunk + ',33})*' + WSEP + '[' + B58 + ']{' + LAST + ',33}(?![0-9A-Za-z])', 'g') : null;
 
   function luhn(d) {
     var sum = 0, alt = false;
@@ -69,8 +73,12 @@
     var B = typeof module === 'object' && module.exports ? require('./cardbin.js') : (self.DeepSuck || {}).cardbin;
     return !!(B && B.lookup(d));
   }
-  /** 拼起来是否像一个完整号码：11 位手机号（可带 86）或 16–19 位银行卡（Luhn / 62 银联 / BIN 命中） */
+  var RE_LANDLINE_DIGITS = /^(?:0(?:10|2[0-9])[2-8][0-9]{7}|0[3-9][0-9]{2}[2-8][0-9]{6,7})$/;
+  var RE_HOTLINE_DIGITS = /^(?:400|800)[0-9]{7}$/;
+  /** 拼起来是否像一个完整号码：11 位手机号（可带 86）、座机（010 / 02x + 8 位，0[3-9]xx + 7/8 位，用户号 2–8 开头）、400 / 800 热线，或 16–19 位银行卡（Luhn / 62 银联 / BIN 命中） */
   function plausibleNumber(d) {
+    if (RE_LANDLINE_DIGITS.test(d)) return 'landline';
+    if (RE_HOTLINE_DIGITS.test(d)) return 'hotline';
     if (d.length === 11 && /^1[3-9]/.test(d)) return 'phone';
     if (d.length === 13 && /^861[3-9]/.test(d)) return 'phone';
     if (d.length >= 16 && d.length <= 19 && !/^(\d)\1+$/.test(d) && (luhn(d) || /^62/.test(d) || binHit(d))) return 'bank_card';
@@ -91,7 +99,10 @@
           if (j === G.length - 1 && tailUnit) break;
           tot += G[j].d;
           if (tot.length > 19) break;
-          if (plausibleNumber(tot) && !RE_STD_FORMAT.test(m.slice(G[i].s, G[j].e))) best = j;
+          var kind = plausibleNumber(tot);
+          // 座机 / 热线不由两位一组的数字拼成（“开奖号码是03、15、22、23、35、47”）
+          if ((kind === 'landline' || kind === 'hotline') && G.slice(i, j + 1).filter(function (g) { return g.d.length === 2; }).length >= 2) kind = null;
+          if (kind && !RE_STD_FORMAT.test(m.slice(G[i].s, G[j].e))) best = j;
         }
       }
       if (best > i) {

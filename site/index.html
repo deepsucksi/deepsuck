@@ -3,21 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DeepSuck · 开源 AI 反诈“拖住”机器人</title>
-<meta name="description" content="DeepSuck：开源的 AI 反诈机器人，用会聊天的“受害人”人设拖住骗子、提取诈骗情报（脱敏）、用于预防与预警。">
+<title data-i18n="meta.home.title">DeepSuck · 开源 AI 反诈“拖住”机器人</title>
+<meta name="description" content="DeepSuck：开源的 AI 反诈机器人，用会聊天的“受害人”人设拖住骗子、提取诈骗情报（脱敏）、用于预防与预警。" data-i18n-attr="content:meta.home.desc">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="DeepSuck">
-<meta property="og:title" content="DeepSuck · 让骗子把时间浪费在 AI 身上">
-<meta property="og:description" content="开源 AI 反诈“拖住”机器人：像普通人一样的受害人人设陪骗子周旋，提取脱敏情报，公开诈骗情报库。">
+<meta property="og:title" content="DeepSuck · 让骗子把时间浪费在 AI 身上" data-i18n-attr="content:meta.home.og">
+<meta property="og:description" content="开源 AI 反诈“拖住”机器人：像普通人一样的受害人人设陪骗子周旋，提取脱敏情报，公开诈骗情报库。" data-i18n-attr="content:meta.home.ogdesc">
 <meta property="og:image" content="https://deepsuck.si/assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="DeepSuck · 让骗子把时间浪费在 AI 身上">
+<meta property="og:image:alt" content="DeepSuck · 让骗子把时间浪费在 AI 身上" data-i18n-attr="content:meta.home.og">
 <meta property="og:url" content="https://deepsuck.si/">
-<meta property="og:locale" content="zh_CN">
+<meta property="og:locale" content="zh_CN" data-i18n-attr="content:meta.locale">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="DeepSuck · 让骗子把时间浪费在 AI 身上">
-<meta name="twitter:description" content="开源 AI 反诈“拖住”机器人 + 公开诈骗情报库。">
+<meta name="twitter:title" content="DeepSuck · 让骗子把时间浪费在 AI 身上" data-i18n-attr="content:meta.home.og">
+<meta name="twitter:description" content="开源 AI 反诈“拖住”机器人 + 公开诈骗情报库。" data-i18n-attr="content:meta.home.twdesc">
 <meta name="twitter:image" content="https://deepsuck.si/assets/og.png">
 <meta name="theme-color" content="#ffffff">
 <link rel="canonical" href="https://deepsuck.si/">
@@ -40,7 +40,7 @@
 <header class="topbar">
   <div class="wrap">
     <a class="brand" href="./" aria-label="DeepSuck"><span class="brand-symbol"><img src="assets/brand/on-hold-mono-96.png" alt="" width="96" height="96"></span><img class="brand-wordmark" src="assets/brand/wordmark.svg" alt="DeepSuck" width="146" height="40"></a>
-    <nav class="nav" aria-label="主导航">
+    <nav class="nav" aria-label="主导航" data-i18n-attr="aria-label:aria.mainnav">
       <a class="hide-m" href="#how" data-i18n="nav.how">原理</a>
       <a class="hide-m" href="#scenarios" data-i18n="nav.sc">场景</a>
       <a class="hide-m" href="#ethics" data-i18n="nav.ethics">底线</a>
@@ -52,7 +52,7 @@
     </nav>
     <details class="menu">
       <summary class="btn small" data-i18n="nav.menu">菜单</summary>
-      <nav class="menu-panel" aria-label="页面导航">
+      <nav class="menu-panel" aria-label="页面导航" data-i18n-attr="aria-label:aria.pagenav">
         <a href="demo.html" data-i18n="nav.demo">进入沙盒</a>
         <a href="#how" data-i18n="nav.how">原理</a>
         <a href="#scenarios" data-i18n="nav.sc">场景</a>
@@ -85,17 +85,17 @@
     <div class="center-heading"><p class="chapter" data-i18n="s2.t">周旋</p><h2 data-i18n="s2.d">慢慢回、反复确认、偶尔没听清，每一轮都在消耗骗子的时间与精力。</h2></div>
     <!-- 四个人设：身份取自 personas/prompts/*.yaml 的 archetype；台词由 assets/js/home.js 从 hero-chat.js 的 SCRIPTS（正式首页示例对话）读取 -->
     <div class="team-console" id="heroChat">
-      <div class="team-roster" role="group" aria-label="人设"><button type="button" class="team-member active" data-persona="retiree" aria-pressed="true" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/retired-800.webp" srcset="assets/brand/round6/retired-400.webp 400w, assets/brand/round6/retired-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">01</span><b>退休老人</b></span></button><button type="button" class="team-member" data-persona="mom" aria-pressed="false" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/parent-800.webp" srcset="assets/brand/round6/parent-400.webp 400w, assets/brand/round6/parent-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">02</span><b>宝妈</b></span></button><button type="button" class="team-member" data-persona="graduate" aria-pressed="false" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/graduate-800.webp" srcset="assets/brand/round6/graduate-400.webp 400w, assets/brand/round6/graduate-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">03</span><b>刚毕业学生</b></span></button><button type="button" class="team-member" data-persona="shop_owner" aria-pressed="false" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/owner-800.webp" srcset="assets/brand/round6/owner-400.webp 400w, assets/brand/round6/owner-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">04</span><b>个体小老板</b></span></button></div>
+      <div class="team-roster" role="group" aria-label="人设" data-i18n-attr="aria-label:aria.personas"><button type="button" class="team-member active" data-persona="retiree" aria-pressed="true" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/retired-800.webp" srcset="assets/brand/round6/retired-400.webp 400w, assets/brand/round6/retired-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">01</span><b data-i18n="role.retiree">退休老人</b></span></button><button type="button" class="team-member" data-persona="mom" aria-pressed="false" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/parent-800.webp" srcset="assets/brand/round6/parent-400.webp 400w, assets/brand/round6/parent-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">02</span><b data-i18n="role.mom">宝妈</b></span></button><button type="button" class="team-member" data-persona="graduate" aria-pressed="false" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/graduate-800.webp" srcset="assets/brand/round6/graduate-400.webp 400w, assets/brand/round6/graduate-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">03</span><b data-i18n="role.graduate">刚毕业学生</b></span></button><button type="button" class="team-member" data-persona="shop_owner" aria-pressed="false" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/owner-800.webp" srcset="assets/brand/round6/owner-400.webp 400w, assets/brand/round6/owner-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">04</span><b data-i18n="role.owner">个体小老板</b></span></button></div>
       <div class="team-conversation" id="personaConversation">
         <div class="persona-exchange" aria-live="off">
-          <p class="scammer-prompt" id="scamPrompt"><span>骗子</span><span id="scamLine"></span></p>
+          <p class="scammer-prompt" id="scamPrompt"><span data-i18n="role.scammer">骗子</span><span id="scamLine" data-i18n-keep="dialogue"></span></p>
           <p class="reply-speaker" id="botSpeaker"></p>
-          <blockquote class="persona-response" id="personaReply"></blockquote>
+          <blockquote class="persona-response" id="personaReply" data-i18n-keep="dialogue"></blockquote>
         </div>
         <div class="team-footer"><a id="personaLink" class="persona-try" href="demo.html"><span data-i18n="cta.demo">扮演骗子，试试能骗到谁</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a><div class="carousel-control"><span id="portraitNumber" aria-hidden="true">01 / 04</span><button type="button" id="carouselToggle" aria-label="暂停自动轮播" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="carousel-pause" d="M9 6v12M15 6v12"/><path class="carousel-play" d="m9 6 9 6-9 6Z"/></svg></button></div></div>
       </div>
     </div>
-    <div class="persona-notes"><p class="persona-disclosure" id="personaSource" data-i18n="hero.sample">据公开反诈宣传改写<span class="hc-x"> · 号码虚构</span></p><a class="voice-link" data-live-voice href="#" target="_blank" rel="noopener" hidden>语音演示 ↗</a></div>
+    <div class="persona-notes"><p class="persona-disclosure" id="personaSource" data-i18n="hero.sample">据公开反诈宣传改写<span class="hc-x"> · 号码虚构</span></p><a class="voice-link" data-live-voice href="#" target="_blank" rel="noopener" hidden data-i18n="nav.voice.arrow">语音演示 ↗</a></div>
   </div>
 </section>
 
@@ -107,9 +107,9 @@
     <div class="clue-sheet" id="clueSheet">
       <div class="sheet-head"><span id="clueTitle"></span><span id="clueSource"></span></div>
       <dl>
-        <div><dt>骗子</dt><dd id="clueSaid"></dd></div>
-        <div><dt>已提取情报（脱敏）</dt><dd class="account-number" id="clueIntel"></dd></div>
-        <div><dt>识别到的诈骗话术</dt><dd id="clueTactics"></dd></div>
+        <div><dt data-i18n="role.scammer">骗子</dt><dd id="clueSaid" data-i18n-keep="dialogue"></dd></div>
+        <div><dt data-i18n="clue.intel">已提取情报（脱敏）</dt><dd class="account-number" id="clueIntel"></dd></div>
+        <div><dt data-i18n="clue.tactics">识别到的诈骗话术</dt><dd id="clueTactics"></dd></div>
       </dl>
       <p data-i18n="s4.d">沙盒里的情报在展示与导出前统一打码，如 622202*********1234（银行卡按 PCI DSS 只留前 6 位与后 4 位）、138****5678、0x12ab...9f3e。提交到情报库时按<a href="intel.html#policy">发布策略</a>处理。</p>
     </div>
@@ -135,26 +135,26 @@
     <div class="section-head"><h2 data-i18n="sc.title">七个高发中文诈骗场景</h2><p class="sub" data-i18n="sc.sub">在沙盒里由你扮演骗子，机器人扮演“受害人”。每个场景都内置一键样例台词与话术标签，开箱即玩。</p></div>
     <div class="cards3 cards-sc">
       <a class="card" href="demo.html?scenario=refund"><div class="num">01</div><h3 data-i18n="c1.t">冒充客服 · 退款理赔</h3><p data-i18n="c1.d">“商品质量问题双倍理赔”“会员自动扣费”，诱导下载 APP、共享屏幕、报验证码。</p>
-        <div class="tags"><span class="tag">冒充客服</span><span class="tag">诱导下载APP</span><span class="tag">索要验证码</span></div></a>
+        <div class="tags"><span class="tag" data-i18n="tag.冒充客服">冒充客服</span><span class="tag" data-i18n="tag.诱导下载APP">诱导下载APP</span><span class="tag" data-i18n="tag.索要验证码">索要验证码</span></div></a>
       <a class="card" href="demo.html?scenario=police"><div class="num">02</div><h3 data-i18n="c2.t">冒充公检法 · 安全账户</h3><p data-i18n="c2.d">“你涉嫌洗钱”“案件保密”“把钱转到安全账户配合清查”。</p>
-        <div class="tags"><span class="tag">冒充公检法</span><span class="tag">要求保密</span><span class="tag">安全账户</span></div></a>
+        <div class="tags"><span class="tag" data-i18n="tag.冒充公检法">冒充公检法</span><span class="tag" data-i18n="tag.要求保密">要求保密</span><span class="tag" data-i18n="tag.安全账户">安全账户</span></div></a>
       <a class="card" href="demo.html?scenario=pig"><div class="num">03</div><h3 data-i18n="c3.t">杀猪盘 · 投资/感情</h3><p data-i18n="c3.d">先谈感情、再谈“内部平台”“导师带单”，诱导充值 USDT。</p>
-        <div class="tags"><span class="tag">情感操控</span><span class="tag">高收益承诺</span><span class="tag">涉加密货币</span></div></a>
+        <div class="tags"><span class="tag" data-i18n="tag.情感操控">情感操控</span><span class="tag" data-i18n="tag.高收益承诺">高收益承诺</span><span class="tag" data-i18n="tag.涉加密货币">涉加密货币</span></div></a>
       <a class="card" href="demo.html?scenario=task"><div class="num">04</div><h3 data-i18n="c4.t">刷单返利 · 做任务</h3><p data-i18n="c4.d">“点赞日结”“新手返 5 元”，然后“福利单垫付”“三连单才能提现”“超时冻结交解冻费”。</p>
-        <div class="tags"><span class="tag">刷单返利</span><span class="tag">连单卡单</span><span class="tag">诱导垫付</span></div></a>
+        <div class="tags"><span class="tag" data-i18n="tag.刷单返利">刷单返利</span><span class="tag" data-i18n="tag.连单卡单">连单卡单</span><span class="tag" data-i18n="tag.诱导垫付">诱导垫付</span></div></a>
       <a class="card" href="demo.html?scenario=loan"><div class="num">05</div><h3 data-i18n="c5.t">虚假贷款 · 征信修复</h3><p data-i18n="c5.d">“无抵押秒批”，再以“卡号填错被冻结”“刷流水证明还款能力”“征信修复服务费”要钱。</p>
-        <div class="tags"><span class="tag">冒充金融机构</span><span class="tag">解冻费</span><span class="tag">征信恐吓</span></div></a>
+        <div class="tags"><span class="tag" data-i18n="tag.冒充金融机构">冒充金融机构</span><span class="tag" data-i18n="tag.解冻费">解冻费</span><span class="tag" data-i18n="tag.征信恐吓">征信恐吓</span></div></a>
       <a class="card" href="demo.html?scenario=boss"><div class="num">06</div><h3 data-i18n="c6.t">冒充领导/熟人</h3><p data-i18n="c6.d">“我是你王总，换新号了”“在开会别打电话”“先帮我给合作方垫一笔”。阿姨会反问：单位那盆君子兰是谁养死的？</p>
-        <div class="tags"><span class="tag">冒充熟人</span><span class="tag">阻止电话核实</span><span class="tag">紧急借钱</span></div></a>
+        <div class="tags"><span class="tag" data-i18n="tag.冒充熟人">冒充熟人</span><span class="tag" data-i18n="tag.阻止电话核实">阻止电话核实</span><span class="tag" data-i18n="tag.紧急借钱">紧急借钱</span></div></a>
       <a class="card" href="demo.html?scenario=campus"><div class="num">07</div><h3 data-i18n="c7.t">注销校园贷</h3><p data-i18n="c7.d">“在校期间开过校园贷，不注销影响征信”，诱导把借呗/微粒贷额度借出来转到“核查账户”。</p>
-        <div class="tags"><span class="tag">冒充网贷客服</span><span class="tag">诱导借贷</span><span class="tag">共享屏幕</span></div></a>
+        <div class="tags"><span class="tag" data-i18n="tag.冒充网贷客服">冒充网贷客服</span><span class="tag" data-i18n="tag.诱导借贷">诱导借贷</span><span class="tag" data-i18n="tag.共享屏幕">共享屏幕</span></div></a>
       <a class="card card-intel" href="intel.html"><div class="num">08</div><h3 data-i18n="c8.t">公开诈骗情报库</h3><p data-i18n="c8.d">诈骗电话、钱包地址、网址/APP、话术完整公开；银行卡与姓名部分打码。可检索、可下载 JSON/CSV，欢迎提交。</p>
-        <div class="tags"><span class="tag amber">完整公开</span><span class="tag amber">部分打码</span><span class="tag amber">可申诉下架</span></div></a>
+        <div class="tags"><span class="tag amber" data-i18n="tag.完整公开">完整公开</span><span class="tag amber" data-i18n="tag.部分打码">部分打码</span><span class="tag amber" data-i18n="tag.可申诉下架">可申诉下架</span></div></a>
     </div>
-    <div class="personas-line"><span class="note">三位人设</span>
-      <span class="tag">王阿姨 · 退休会计，热心，爱确认</span>
-      <span class="tag">李大爷 · 说话慢，不着急</span>
-      <span class="tag">小林 · 好奇的大学生</span>
+    <div class="personas-line"><span class="note" data-i18n="pl.title">三位人设</span>
+      <span class="tag" data-i18n="pl.wang">王阿姨 · 退休会计，热心，爱确认</span>
+      <span class="tag" data-i18n="pl.li">李大爷 · 说话慢，不着急</span>
+      <span class="tag" data-i18n="pl.lin">小林 · 好奇的大学生</span>
     </div>
   </div>
 </section>

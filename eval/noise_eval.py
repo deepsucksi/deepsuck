@@ -10,6 +10,9 @@
   E. 人设错字档（--tiers default,handwriting）：按人设预设（王阿姨 / 李大爷 / 小林 + 4 个基础预设）的默认档与手写档，
      把 A 的暴露台词、B 的数字混淆句、C 的跨回合拆分句与对抗负例都过一遍 personas.humanize 再提取；
      拆条后的每一条当作一个独立回合送进 Session（真人一句拆几条发）。同时报实测每百字错字数。
+  F. 断续句评测集（#8，eval/halting_eval.py）：「…」「...」「，」停顿、数字逐位读（中文 / 阿拉伯 / 幺两混读）、跨回合拆开、
+     「尾号XXXX」，覆盖银行卡、手机 / 座机 / 400、TRC20 / ETH 地址，按账户 / 电话 / 钱包分别报召回与误报；负例含王阿姨 voiceShots
+     的断续句、只报尾号、验证码 / 订单号 / 工号 / 时间。
 
 用法：python eval/noise_eval.py [--impl 另一份 python/ 目录（如旧版 worktree）] [--seeds 30] [--json out.json] [--md out.md]
       [--taf ~/.cache/deepsuck/TeleAntiFraud]
@@ -344,9 +347,16 @@ def summary(r):
             "falseItems": r["stitch"]["negative"]["falseItems"], "negCases": r["stitch"]["negative"]["cases"]}
 
 
-res = {"impl": A.impl, "hasStitch": HAS_STITCH, "seeds": A.seeds,
+res = {"impl": A.impl, "commit": sim.code_commit(Path(A.impl)) if hasattr(sim, "code_commit") else None, "hasStitch": HAS_STITCH, "seeds": A.seeds,
        "humanize": eval_humanize(A.seeds), "digits": eval_digits(A.seeds), "stitch": eval_stitch(A.seeds), "teleantifraud": eval_taf(A.taf)}
 res["summary"] = summary(res)
+sys.path.insert(0, str(ROOT / "eval"))
+import halting_eval  # noqa: E402
+res["halting"] = halting_eval.run(Session, canon, A.seeds)
+# 模拟器断续句模式（--reveal halting）：规则引擎对练下按类型的召回与误报，台词两种来源各跑一遍
+res["halting"]["sim"] = {lines: {k: v for k, v in sim.run(A.seeds, ("rule",), reveal="halting", lines=lines)["byPolicy"]["rule"].items()
+                                 if k in ("sessions", "extractRate", "falseIntelPerSession", "leakRate", "byType")}
+                         for lines in ("corpus", "legacy")} if hasattr(sim, "halting_groups") else None
 res["tiers"] = {}
 for tier in [x for x in A.tiers.split(",") if x]:
     if tier not in ("default", "handwriting"):
@@ -391,6 +401,7 @@ for tier, tr in res["tiers"].items():
     for parts in (2, 3):
         for st in SPLIT_STYLES:
             lines.append(f"| {parts} 回合 | {st} | {p[f'{parts}|{st}|bank_card']['rate']:.1%} | {p[f'{parts}|{st}|phone']['rate']:.1%} |")
+lines += ["", halting_eval.to_markdown(res["halting"])]
 md = "\n".join(lines)
 print(md)
 if A.json:

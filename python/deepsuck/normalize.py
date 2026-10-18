@@ -22,9 +22,10 @@ def _esc_cls(chars: str) -> str:
 
 
 _SEP = "[" + _esc_cls(_DJ["separators"]) + "]" if _DJ else r"[\s\-]"
-# 中文数字之间允许夹空格 / 横杠 / 换行 / 标点（“六二二二，零二零二”），每处至多 2 个
+_MAX_SEP = _DJ["maxSep"] if _DJ else 2
+# 中文数字之间允许夹空格 / 横杠 / 换行 / 标点（“六二二二，零二零二”“六二二二... 零二零二”），每处至多 maxSep 个
 RE_NUM_RUN = re.compile(
-    "[0-9" + _NUM_CHARS + "](?:" + _SEP + "{0,2}[0-9" + _NUM_CHARS + "]){" + str(_O["numeralRunMin"] - 1) + ",}"
+    "[0-9" + _NUM_CHARS + "](?:" + _SEP + "{0,%d}[0-9" % _MAX_SEP + _NUM_CHARS + "]){" + str(_O["numeralRunMin"] - 1) + ",}"
 )
 RE_HAS_NUMERAL = re.compile("[" + _NUM_CHARS + "]")
 _latin = [w for w in _O["dotWords"] if re.fullmatch(r"[A-Za-z]+", w)]
@@ -88,13 +89,17 @@ RE_DIGIT_JOIN = (
 )
 RE_UNIT_AFTER = re.compile(_DJ["unitAfter"]) if _DJ else None
 RE_STD_FORMAT = re.compile(
-    r"^(?:[0-9]{4}(?:[ -][0-9]{4}){3}(?:[ -][0-9]{1,3})?|(?:86[\s-]?)?1[3-9][0-9][\s.-]?[0-9]{4}[\s.-]?[0-9]{4})$")
+    r"^(?:[0-9]{4}(?:[ -][0-9]{4}){3}(?:[ -][0-9]{1,3})?|(?:86[\s-]?)?1[3-9][0-9][\s.-]?[0-9]{4}[\s.-]?[0-9]{4}"
+    r"|0[0-9]{2,3}-[0-9]{7,8}|(?:400|800)[\s-]?[0-9]{3}[\s-]?[0-9]{4})$")
 _WJ = _O.get("walletJoin")
 _B58 = "1-9A-HJ-NP-Za-km-z"
-RE_ETH_JOIN = (re.compile("(?<![0-9A-Za-z])0x[0-9a-fA-F]{1,40}(?:%s{1,3}[0-9a-fA-F]{%d,40})+(?![0-9A-Za-z])" % (_SEP, _WJ["minChunk"]))
-               if _WJ else None)
-RE_TRON_JOIN = (re.compile("(?<![0-9A-Za-z])T[%s]{%d,33}(?:%s{1,3}[%s]{%d,33})+(?![0-9A-Za-z])"
-                           % (_B58, _WJ["minChunk"] - 1, _SEP, _B58, _WJ["minChunk"])) if _WJ else None)
+# 中间各段至少 minChunk 个字符，最后一段至少 lastChunkMin 个（断续报地址常剩一两个字符单独念）
+_LAST = (_WJ.get("lastChunkMin") or _WJ["minChunk"]) if _WJ else 0
+RE_ETH_JOIN = (re.compile("(?<![0-9A-Za-z])0x[0-9a-fA-F]{1,40}(?:%s{1,%d}[0-9a-fA-F]{%d,40})*%s{1,%d}[0-9a-fA-F]{%d,40}(?![0-9A-Za-z])"
+                          % (_SEP, _MAX_SEP, _WJ["minChunk"], _SEP, _MAX_SEP, _LAST)) if _WJ else None)
+RE_TRON_JOIN = (re.compile("(?<![0-9A-Za-z])T[%s]{%d,33}(?:%s{1,%d}[%s]{%d,33})*%s{1,%d}[%s]{%d,33}(?![0-9A-Za-z])"
+                           % (_B58, _WJ["minChunk"] - 1, _SEP, _MAX_SEP, _B58, _WJ["minChunk"], _SEP, _MAX_SEP, _B58, _LAST))
+                if _WJ else None)
 _RE_HEX = re.compile("[0-9a-fA-F]+")
 _RE_B58 = re.compile("[" + _B58 + "]+")
 
@@ -117,8 +122,17 @@ def _bin_hit(d: str) -> bool:
     return lookup(d) is not None
 
 
+RE_LANDLINE_DIGITS = re.compile(r"0(?:10|2[0-9])[2-8][0-9]{7}|0[3-9][0-9]{2}[2-8][0-9]{6,7}")
+RE_HOTLINE_DIGITS = re.compile(r"(?:400|800)[0-9]{7}")
+
+
 def plausible_number(d: str) -> Optional[str]:
-    """拼起来是否像一个完整号码：11 位手机号（可带 86）或 16–19 位银行卡（Luhn / 62 银联 / BIN 命中）。"""
+    """拼起来是否像一个完整号码：11 位手机号（可带 86）、座机（010 / 02x + 8 位，0[3-9]xx + 7/8 位，用户号 2–8 开头）、
+    400 / 800 热线，或 16–19 位银行卡（Luhn / 62 银联 / BIN 命中）。"""
+    if RE_LANDLINE_DIGITS.fullmatch(d):
+        return "landline"
+    if RE_HOTLINE_DIGITS.fullmatch(d):
+        return "hotline"
     if len(d) == 11 and re.match(r"1[3-9]", d):
         return "phone"
     if len(d) == 13 and re.match(r"861[3-9]", d):
@@ -146,7 +160,11 @@ def _join_groups(m: str, tail_unit: bool):
                 tot += G[j][2]
                 if len(tot) > 19:
                     break
-                if plausible_number(tot) and not RE_STD_FORMAT.match(m[G[i][0]:G[j][1]]):
+                kind = plausible_number(tot)
+                # 座机 / 热线不由两位一组的数字拼成（“开奖号码是03、15、22、23、35、47”）
+                if kind in ("landline", "hotline") and sum(1 for g in G[i:j + 1] if len(g[2]) == 2) >= 2:
+                    kind = None
+                if kind and not RE_STD_FORMAT.match(m[G[i][0]:G[j][1]]):
                     best = j
         if best > i:
             drop.update(k for k in range(G[i][1], G[best][0]) if not ("0" <= m[k] <= "9"))

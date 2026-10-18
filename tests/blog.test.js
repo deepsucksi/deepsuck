@@ -38,7 +38,7 @@ test('草稿不进正式构建：页面、RSS、sitemap 都没有草稿', () => 
     for (const lang of ['zh', 'en']) {
       const idx = b.files.get(lang === 'zh' ? 'blog/index.html' : 'blog/en/index.html');
       if (b.posts.some((p) => p.lang === lang)) assert.doesNotMatch(idx, /class="blog-empty"/);
-      else assert.match(idx, /class="blog-empty"/, '没有已发布文章时显示「文章整理中」');
+      else assert.match(idx, /class="blog-empty"/, '没有已发布文章时显示空状态');
     }
   }
   assert.match(fxPub.files.get('blog/index.html'), /sample-post/);
@@ -50,6 +50,39 @@ test('草稿不进正式构建：页面、RSS、sitemap 都没有草稿', () => 
     assert.match(html, /class="tag amber"/);
   }
   assert.throws(() => require('node:child_process').execFileSync(process.execPath, [path.join(ROOT, 'scripts/build-blog.js'), '--drafts'], { stdio: 'pipe' }), '含草稿的构建不能写进 site/');
+});
+
+test('列表页空状态：没有已发布文章时显示「文章即将发布」/「Articles coming soon」、一句说明和 RSS 订阅入口', () => {
+  const os = require('node:os');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-empty-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'content', 'blog', 'zh'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, 'content', 'blog', 'en'), { recursive: true });
+    fs.copyFileSync(path.join(FIXTURE, 'content', 'blog', 'site.json'), path.join(tmp, 'content', 'blog', 'site.json'));
+    fs.copyFileSync(path.join(FIXTURE, 'content', 'blog', 'zh', 'draft-only.md'), path.join(tmp, 'content', 'blog', 'zh', 'draft-only.md'));
+    const empty = build({ root: tmp });
+    assert.equal(empty.posts.length, 0);
+    const cases = { 'blog/index.html': ['文章即将发布', '订阅 RSS'], 'blog/en/index.html': ['Articles coming soon', 'Subscribe via RSS'] };
+    for (const [f, [heading, cta]] of Object.entries(cases)) {
+      const html = empty.files.get(f);
+      const block = attr(html, /(<section class="blog-empty"[\s\S]*?<\/section>)/);
+      assert.ok(block, `${f} 没有空状态区块`);
+      assert.match(block, new RegExp(`<h2 id="blog-empty-title">${heading}</h2>`));
+      assert.match(block, /<p>[^<]{20,}<\/p>/, `${f} 空状态缺一句说明`);
+      assert.match(block, new RegExp(`<a class="btn small" href="feed.xml" type="application/rss\\+xml">${cta}</a>`));
+      assert.ok(empty.files.has(f.replace('index.html', 'feed.xml')), `${f} 的 RSS 订阅入口指向的 feed.xml 不存在`);
+      assert.doesNotMatch(html, /class="post-list"/);
+      assert.doesNotMatch(html, /draft-only/, '空状态页不能泄露草稿');
+    }
+    // 有文章时不显示空状态，RSS 链接放在列表下方
+    for (const f of ['blog/index.html', 'blog/en/index.html']) {
+      const html = fxPub.files.get(f);
+      assert.doesNotMatch(html, /blog-empty/);
+      assert.match(html, /<p class="blog-feed"><a href="feed.xml">/);
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('文章页：canonical、hreflang、OG、Twitter 卡片、JSON-LD BlogPosting 齐全', () => {
