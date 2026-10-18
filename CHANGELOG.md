@@ -1,5 +1,7 @@
 # 更新记录
 
+格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。新条目写在「未发布」下；发版时改为 `## [X.Y.Z] - YYYY-MM-DD`，并作为 GitHub Release 的说明（流程见 [docs/CONTRIBUTING-dev.md](docs/CONTRIBUTING-dev.md#7-版本与发布)）。
+
 ## 未发布
 
 - 情报提取（断续句回归，#8；JS / Python 一致，规则在 `extractors.json`）：数字 / 中文数字 / 钱包分段的分隔至多 4 个（“六二二二...零二零二”“6222... 0212”）；座机（区号 + 7/8 位）与 400 / 800 热线可由分组停顿拼接，前面紧挨订单号 / 工号 / 验证码、或两位一组（开奖号码）时不算；跨回合卡号的后半段像手机号 / 座机、前 16 位过 Luhn、三回合先拼出前缀时由完整卡号取代；完整 ETH / TRON 地址先于微信号认领，钱包末段可只剩 1–2 个字符，新增钱包地址跨两回合拼接（`stitch.wallet`）。模拟器新增 `--reveal halting`（断续句：停顿、逐位读、约一半拆进两个回合）与按类型的 `byType`，结果 JSON 记录 `commit` 与种子范围；新增 `eval/halting_eval.py` 断续句评测集（接入 `noise_eval.py` F 部分）。断续句评测集召回 账户 66.5% → 100%、电话 35.7% → 100%、钱包 52.1% → 100%，误报 70 → 0；模拟器断续句模式（corpus）账户 69.1% → 100%、电话 78.9% → 100%（误报 39 → 0）、钱包 33.3% → 100%；标准 / hard 模式、噪声评测 A–E、TeleAntiFraud 不退步（跨回合 C 99.375% → 99.79%）。覆盖写入 `eval/results-noise.json`、`results-sim.json`、`results-sim-corpus.json`、`results-sim-hard.json`；docs/EVAL.md 顶部新增“当前结论”。新增测试 `python/tests/test_halting_recall.py`、`tests/halting_recall.test.js`（共用 `tests/fixtures/halting_vectors.json`），fixtures 增加断续句用例。

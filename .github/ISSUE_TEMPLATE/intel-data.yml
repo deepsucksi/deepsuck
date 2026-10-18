@@ -1,0 +1,50 @@
+name: 情报数据问题 / Intel data issue
+description: 情报库已有条目有误、重复、打码不当，或数据格式、字段、订阅源（STIX / 黑名单）有问题。Problems with existing intel entries, schema or feeds.
+title: "[Intel data] "
+labels: ["area:intel"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        本模板用于**已有数据**的问题。提交新情报请用「情报提交」模板；条目涉及你本人、希望下架请用「下架申诉」模板。
+        **请不要填写任何未打码的卡号、手机号、姓名或账号**，条目 ID 就够了。
+
+        This form is for problems with **existing** data. To submit new intel use the "Intel submission" form; to request removal of an entry about you use "Takedown & appeal". Do not include unmasked personal data; the entry ID is enough.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 问题类型 / Kind
+      options:
+        - 条目信息错误 / Wrong entry
+        - 重复条目 / Duplicate entries
+        - 打码不当或过度 / Masking too weak or too strong
+        - 分类或场景标错 / Wrong type or scenario
+        - 数据格式 / 字段 / Schema or fields
+        - 订阅源（STIX、黑名单）/ Feeds (STIX, blocklists)
+        - 其他 / Other
+    validations:
+      required: true
+  - type: input
+    id: entry_ids
+    attributes:
+      label: 条目 ID / Entry IDs
+      description: 例如 EX-0013，多个用逗号分隔；与格式或订阅源有关时可留空。e.g. EX-0013, comma-separated.
+  - type: textarea
+    id: detail
+    attributes:
+      label: 问题描述 / Details
+      description: 现在是什么、应该是什么、依据是什么。What it is, what it should be, and why.
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: 文件或地址 / File or URL
+      description: 例如 site/data/intel.json、site/data/intel.stix.json 或页面地址。
+  - type: checkboxes
+    id: check
+    attributes:
+      label: 自查 / Checklist
+      options:
+        - label: 内容不含未打码的个人信息 / No unmasked personal data
+          required: true
