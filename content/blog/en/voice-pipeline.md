@@ -85,6 +85,8 @@ All numbers below come from VOICE_LATENCY.md, measured on the same machine with 
 | After, first audible sound (incl. filler) | 1653 ms | 2803 ms |
 | After, reply itself (fillers off, 3 sentences) | 4162 ms | 5827 ms |
 
+Measured before the language model was switched; updated figures are pending.
+
 In one external probe of the live service, the first packet of the real reply arrived at 2469, 2627 and 2484 ms: about 650 ms recognition, 430–680 ms to the model's first token and 1050–1340 ms to the first synthesised packet — synthesis is still the largest share ("TTS first-packet breakdown" in VOICE_LATENCY.md).
 
 ## Extracting intelligence

@@ -145,6 +145,7 @@
 <td>5827 ms</td>
 </tr>
 </tbody></table></div>
+<p>Measured before the language model was switched; updated figures are pending.</p>
 <p>In one external probe of the live service, the first packet of the real reply arrived at 2469, 2627 and 2484 ms: about 650 ms recognition, 430–680 ms to the model&#39;s first token and 1050–1340 ms to the first synthesised packet — synthesis is still the largest share (&quot;TTS first-packet breakdown&quot; in VOICE_LATENCY.md).</p>
 <h2>Extracting intelligence</h2>
 <p>There is a single set of extraction rules in <code>site/assets/core/extractors.json</code>. The browser and Python implementations match byte for byte and check each other through shared test fixtures (INTEL.md, &quot;noise robustness and cross-turn stitching&quot;). The voice server reuses the Python implementation.</p>

@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- 文档（#66）：博客「技术拆解：王阿姨的语音链路」中英文在延迟表格下加注记（中文「测于更换大模型之前，换模型后的数据待更新。」，英文 “Measured before the language model was switched; updated figures are pending.”），site/blog/ 重新生成。docs/CONTRIBUTING-dev.md 第 5 节 worktree 规则更正：VPS（`/opt/deepsuck-wt/<role>-<branch>`）与共享电脑（`/workspace/deepsuck-wt/<role>-<branch>`）都可开发，需要调用大模型的评测在共享电脑上跑；一个分支一个独立 worktree，不在 `/opt/deepsuck-dev`、`/workspace/deepsuck` 里 checkout 或提交，`/opt/deepsuck` 只用来部署；补共享电脑上的命令与推送认证说明。第 4 节写明五项必需检查：node、voice、python (3.9)、python (3.12)、deploy。
 - 语音页（#59）：页脚底线声明下加一行英文 “Do not use this to contact any real person.”（`lang="en"` 的独立元素，放在 `#keepNote` 外，voice.js 替换 `#keepNote` 文案时不受影响）；只改静态文案与样式。
 - CI（#47）：deploy 任务的 Caddyfile 校验改用线上同一个 caddy-l4 构建（`deploy/Dockerfile.caddy`，buildx + GitHub Actions 缓存），不再用不认 layer4 的官方镜像；`build images` 只构建 proxy、voice。语音电话接起时的那一声（王阿姨、李大爷、小林）改从 `personas/voice_traits.yaml` 新字段 `opening` 读取，内容不变，`voice/persona.py` 不再手写人设条目。
 - 博客：首批三篇文章正式发布，中英各一份，发布日期均为 2026-10-19。三篇是 `why-we-stall-scammers`（项目愿景，现行四位人设）、`voice-pipeline`（王阿姨语音链路的技术拆解，开源组件写原名）和 `spot-scam-scripts`（七类常见诈骗话术的识别信号）。前两篇文末加「致谢」，按仓库依赖列出所用的开源项目；商业云服务和模型仍用通用说法。`tests/blog.test.js` 的文风检查同步放开开源项目名，并新增李大爷、周伯两个禁词。文档：新增 `docs/GROWTH.md`（开源运营计划，已写入 2026-10-19 的决定：topics 和 Discussions 已定、统计暂不上、投稿等 v0.4 跑通后再议）。新增 `.github/DISCUSSION_TEMPLATE/scam-script-leads.yml`（「诈骗话术线索」发帖模板，禁止发布真实个人信息）。
