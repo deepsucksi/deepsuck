@@ -180,8 +180,12 @@ def test_route_call_lifecycle_with_stub_pipeline(monkeypatch, tmp_path):
                 break
         assert echoed >= 640 * 5
         assert len(gate.active) == 1
-    deadline = time.time() + 15  # Asterisk 侧挂机 = 关闭 WebSocket
-    while gate.active and time.time() < deadline:
-        time.sleep(0.05)
+        # Asterisk 侧挂机 = 关闭 WebSocket。必须在离开 with 之前等服务端处理完：
+        # TestClient 退出时会直接取消还在跑的 ASGI 任务，管线收尾慢一点（CI 负载高时）
+        # 就会变成 CancelledError，这是测试客户端的行为，线上 uvicorn 不会这样取消。
+        ws.close(1000)
+        deadline = time.time() + 15
+        while gate.active and time.time() < deadline:
+            time.sleep(0.05)
     assert seen["audio"] > 0 and seen["dtmf"] == ["1"]
     assert not gate.active and budget.status()["active"] == 0
