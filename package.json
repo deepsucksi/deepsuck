@@ -13,6 +13,7 @@
     "test": "node --test tests/",
     "build:core": "node scripts/build-core.js",
     "fixtures": "node scripts/gen-fixtures.js",
+    "build:intel": "cd python && python3 -m deepsuck.stix ../site/data/intel.json -o ../site/data/intel.stix.json && python3 -m deepsuck.feeds ../site/data/intel.json --out-dir ../site/data",
     "test:py": "cd python && python -m pytest -q",
     "blocklists": "node scripts/fetch-blocklists.js",
     "screenshots": "node scripts/screenshots.js",

@@ -74,7 +74,10 @@ function pickEntity(e) {
 
 function build() {
   const out = {};
-  out.redact = { comment: HEADER, cases: REDACT.map(([type, input]) => ({ type, input, expected: R.mask(type, input) })) };
+  out.redact = { comment: HEADER, cases: REDACT.map(([type, input]) => ({ type, input, expected: R.mask(type, input) })),
+    groups: REDACT.filter(([type]) => type === 'bank_card').map(([, input]) => R.mask('bank_card', input))
+      .concat(['622202*********3445', '6222 02** ****', '', '王**', '***3445'])
+      .map((input) => ({ input, expected: R.formatCardGroups(input) })) };
   out.normalize = { comment: HEADER, cases: TEXTS.map((text) => { const n = N.normalize(text); return { text, expected: n.text, changed: n.changed }; }) };
   out.extract = {
     comment: HEADER,

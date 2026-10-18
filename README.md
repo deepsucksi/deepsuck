@@ -78,6 +78,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 - [ ] 电话：接入适配层已有（`voice/telephony/`，默认关闭，只接听、不外呼，可本地联调）；本轮不购买号码，阿里云呼入仅有设计稿，SIP Trunk 需企业资质；个人可行方案对比整理中（[docs/PHONE.md](docs/PHONE.md)），现状与已定政策见 [QUICKSTART 第 6 节](docs/QUICKSTART.md#6-电话接入适配层已有默认关闭只接不拨)
 - [ ] 短信诱骗通道：旧安卓机 + SmsForwarder
 - [x] 情报增强：银行卡 BIN 本地查询（[hexindai/bcbc](https://github.com/hexindai/bcbc)，MIT）；STIX 2.1 导出（`python -m deepsuck.stix`，[`data/intel.stix.json`](site/data/intel.stix.json)）
+- [x] 情报收录自动化：issue 表单 → 脱敏 / 去重 / 黑名单比对 → 待审核 PR（[docs/INTEL.md](docs/INTEL.md)）；公开订阅源 [`intel.rss`](site/data/intel.rss) / [`intel.csv`](site/data/intel.csv)
 - [ ] 号码归属地
 - [ ] 评测扩展与大模型人设加固（提示词注入检测、本地模型）
 

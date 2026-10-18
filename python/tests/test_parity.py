@@ -77,3 +77,12 @@ def test_session_replay(case):
     assert s.intel_list() == case["intel"]
     st = s.stats()
     assert {k: st[k] for k in ("estimatedScammerSeconds", "intelCount", "riskScore")} == case["stats"]
+
+
+GROUPS = fixture("redact")["groups"]
+
+
+@pytest.mark.parametrize("case", GROUPS, ids=lambda c: c["input"] or "empty")
+def test_card_groups_parity(case):
+    from deepsuck.redact import format_card_groups
+    assert format_card_groups(case["input"]) == case["expected"]

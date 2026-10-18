@@ -90,3 +90,13 @@ test('会话 submission()：按策略输出，report() 仍不含完整电话', (
   assert.ok(!JSON.stringify(s.report()).includes('13900112233'));
   assert.ok(I.submissionMarkdown(sub).includes('`13900112233`'));
 });
+
+test('公开订阅源：site/data/intel.csv 与情报页“下载 CSV”逐字节一致，且不含申诉中/已下架条目', () => {
+  const csv = fs.readFileSync(path.join(__dirname, '../site/data/intel.csv'), 'utf8');
+  assert.equal(csv, I.toCSV(lib.entries.filter((e) => e.status === 'active')));
+  const rss = fs.readFileSync(path.join(__dirname, '../site/data/intel.rss'), 'utf8');
+  assert.match(rss, /^<\?xml version="1.0" encoding="UTF-8"\?>\n<rss version="2.0"/);
+  lib.entries.filter((e) => e.status !== 'active').forEach((e) => {
+    assert.ok(!csv.includes(e.id) && !rss.includes(e.id));
+  });
+});

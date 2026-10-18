@@ -23,6 +23,18 @@ def mask_bank_card(v) -> str:
     return d[:6] + _stars(len(d) - 10) + d[-4:]
 
 
+def format_card_groups(v) -> str:
+    """仅用于展示：把（已打码的）卡号每 4 位一组，622202*********3445 -> 6222 02** **** ***3 445。
+
+    存储、导出、STIX 仍用不分组的 mask_bank_card 结果；含数字与 * 以外字符的值原样返回。
+    """
+    raw = "" if v is None else str(v)
+    s = re.sub(r"[\s-]", "", raw)
+    if not re.fullmatch(r"[0-9*]+", s):
+        return raw
+    return " ".join(s[i:i + 4] for i in range(0, len(s), 4))
+
+
 def mask_phone(v) -> str:
     d = _digits(v)
     if len(d) == 13 and d.startswith("86"):

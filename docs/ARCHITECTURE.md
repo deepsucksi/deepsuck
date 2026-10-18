@@ -9,7 +9,7 @@ deepsuck/
 │   ├── demo.html             # 沙盒演示 + 情报看板 + 情报库提交
 │   ├── intel.html            # 公开诈骗情报库（检索 / 筛选 / JSON·CSV 导出）
 │   ├── 404.html · robots.txt · sitemap.xml
-│   ├── data/intel.json       # 情报库数据（当前为示例数据）+ intel.schema.json + intel.stix.json（STIX 2.1）
+│   ├── data/intel.json       # 情报库数据（当前为示例数据）+ intel.schema.json + intel.stix.json（STIX 2.1）+ intel.csv / intel.rss（订阅源）
 │   └── assets/
 │       ├── core/*.json       # 规则与台词的单一事实来源：extractors / tactics / personas / scenarios / blocklists / cardbin（BIN 表，MIT）
 │       ├── og*.png           # Open Graph 图（由 scripts/og.js 渲染）

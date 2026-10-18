@@ -67,3 +67,15 @@ test('redactText：替换文本中的所有敏感片段', () => {
   assert.match(out, /622202\*{9}3445/);
   assert.match(out, /139\*\*\*\*2233/);
 });
+
+test('银行卡分组展示：每 4 位一组，仅用于展示', () => {
+  assert.equal(R.formatCardGroups('622202*********3445'), '6222 02** **** ***3 445');
+  assert.equal(R.formatCardGroups('622202******2233'), '6222 02** **** 2233');
+  assert.equal(R.formatCardGroups('622202*******1234'), '6222 02** **** *123 4');
+  assert.equal(R.formatCardGroups('622202********1234'), '6222 02** **** **12 34');
+  assert.equal(R.formatCardGroups('*******2001'), '**** ***2 001');
+  assert.equal(R.formatCardGroups('6222 02** **** ***3 445'), '6222 02** **** ***3 445');
+  assert.equal(R.formatCardGroups('王**'), '王**');
+  assert.equal(R.formatCardGroups(null), '');
+  assert.equal(R.mask('bank_card', '6222020200112233445'), '622202*********3445'); // 存储格式不变
+});

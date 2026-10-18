@@ -1,0 +1,129 @@
+name: 情报提交（结构化，自动生成 PR）/ Structured intel submission
+description: 按字段提交一类情报（电话、钱包、网址、APP、收款账户或话术）。机器人会自动打码、去重、做黑名单比对，并生成待维护者审核的 PR。
+title: "[情报提交] "
+labels: ["intel-submission", "needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **如果你已经转账或正在被骗，请立即拨打 110 报警并联系银行止付。** 本情报库是公益补充，不能替代报警。
+
+        发布策略（详见 https://deepsuck.si/intel.html#policy ）：诈骗电话、钱包地址、网址/APP、话术完整公开；银行卡按 PCI DSS 只留前 6 后 4（如 `622202*********3445`），姓名只留姓，个人账号首尾各留 2 位。
+
+        **请尽量在提交前自己打码。** issue 是公开的：即使机器人在 PR 里自动打码，issue 原文仍然可见。如果误填了完整卡号、姓名或账号，请在机器人提醒后编辑删除。
+        机器人只生成 PR，**不会自动合并**；维护者审核后才会收录。请勿提交受害人（包括你自己）的任何信息，或沙盒里的虚构样例台词。
+  - type: dropdown
+    id: type
+    attributes:
+      label: 情报类型
+      description: 一次提交一种类型；多种类型请分开提交，或使用沙盒的「提交到情报库」。
+      options:
+        - 诈骗电话
+        - 加密钱包地址
+        - 诈骗网址/域名
+        - APP/平台名称
+        - 收款银行卡
+        - 支付宝/微信/QQ 等账号
+        - 收款户名/姓名
+        - 话术/手法
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: 值
+      description: 每行一条，最多 10 条。银行卡请只填前 6 后 4，其余用 * 代替；话术请每行一句。
+      placeholder: |
+        10000000001
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 账号所属平台（仅账号类型需要）
+      options:
+        - 支付宝
+        - 微信
+        - QQ
+        - 邮箱
+        - 其他
+  - type: input
+    id: bank
+    attributes:
+      label: 开户行 / 所在链（可选）
+      description: 银行卡填开户行（如 工商银行），钱包地址可填链（如 TRON）。不确定可留空。
+  - type: textarea
+    id: script
+    attributes:
+      label: 话术片段（可选）
+      description: 对方的关键原话。请删去与你本人有关的信息；机器人会再做一次脱敏。
+      render: text
+  - type: dropdown
+    id: source
+    attributes:
+      label: 来源
+      options:
+        - 本人遇到
+        - 沙盒拖住
+        - 蜜罐
+        - 公开报道
+    validations:
+      required: true
+  - type: dropdown
+    id: scenario
+    attributes:
+      label: 诈骗场景
+      options:
+        - 冒充客服 · 退款理赔
+        - 冒充公检法 · 安全账户
+        - 杀猪盘 · 投资/感情
+        - 刷单返利 · 做任务赚佣金
+        - 虚假贷款 · 征信修复
+        - 冒充领导/熟人 · 借钱转账
+        - 注销校园贷 · 清空网贷额度
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: tactics
+    attributes:
+      label: 话术标签（可选）
+      description: 例如 authority, safe_account, otp（见 site/assets/core/tactics.json）
+  - type: input
+    id: first_seen
+    attributes:
+      label: 遇到的时间
+      placeholder: 2026-10-18
+    validations:
+      required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: 对方联系你的渠道
+      multiple: true
+      options:
+        - 电话
+        - 短信
+        - 微信
+        - QQ
+        - 短视频平台
+        - 电商/二手平台
+        - 境外通讯软件
+        - 邮件
+        - 其他
+  - type: textarea
+    id: notes
+    attributes:
+      label: 补充说明（可选）
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 提交确认
+      options:
+        - label: 以上信息来自真实遇到的诈骗，不是沙盒中的虚构样例。
+          required: true
+        - label: 我已尽量按发布策略打码，且未包含任何受害人信息。
+          required: true
+        - label: 我理解提交内容将公开发布（Apache-2.0），情报仅供参考，不作为认定依据。
+          required: true

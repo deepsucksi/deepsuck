@@ -1,0 +1,134 @@
+# 情报提交自动化（IssueOps）：带 intel-submission 标签的 issue（两个情报提交模板都会自动加上该标签）
+#   → 解析表单 → deepsuck.redact 脱敏 → 与 intel.json 去重 → 公开黑名单比对
+#   → 生成更新 intel.json / intel.stix.json / intel.csv / intel.rss 的 PR，并在 issue 里回评论。
+#
+# 安全约定：
+# - 绝不自动合并：只开 PR，由维护者审核合并；本工作流不调用任何 merge / auto-merge。
+# - 最小权限：工作流默认无权限；解析 issue 的 job 只读，只有建 PR 的 job 能写 contents / pull-requests，
+#   只有评论的 job 能写 issues。
+# - 防注入：issue 标题/正文不出现在任何 run: 脚本里；正文由 Python 直接从 $GITHUB_EVENT_PATH 读取，
+#   其余数据通过环境变量或文件传递；GITHUB_OUTPUT 只写固定取值。
+# - 不回显原文：不用会把 issue 正文打印到日志的解析 Action；PR 与评论只含脱敏后的公开值，生成前做泄露检查。
+# - 第三方 Action 全部锁定到 commit SHA。
+name: intel-intake
+
+on:
+  issues:
+    types: [opened, edited, labeled, reopened]
+
+permissions: {}
+
+concurrency:
+  group: intel-intake-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  parse:
+    if: >-
+      github.event.issue.state == 'open' &&
+      github.event.issue.pull_request == null &&
+      github.event.sender.type != 'Bot' &&
+      contains(github.event.issue.labels.*.name, 'intel-submission') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'intel-submission')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.intake.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: parse, redact, dedupe, blocklist check
+        id: intake
+        working-directory: python
+        env:
+          OUT_DIR: ${{ runner.temp }}/intake
+        run: python -m deepsuck.intake process --event "$GITHUB_EVENT_PATH" --repo .. --out "$OUT_DIR"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: intake
+          path: ${{ runner.temp }}/intake
+          retention-days: 3
+          if-no-files-found: error
+
+  pull-request:
+    needs: parse
+    if: needs.parse.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      url: ${{ steps.cpr.outputs.pull-request-url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: intake
+          path: ${{ runner.temp }}/intake
+      - name: copy generated data files (fixed list)
+        env:
+          SRC: ${{ runner.temp }}/intake/files
+        run: |
+          for f in intel.json intel.stix.json intel.csv intel.rss; do
+            test -f "$SRC/$f" && test ! -L "$SRC/$f"
+            cp -- "$SRC/$f" "site/data/$f"
+          done
+      - id: cpr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          branch: intel-intake/issue-${{ github.event.issue.number }}
+          delete-branch: true
+          add-paths: |
+            site/data/intel.json
+            site/data/intel.stix.json
+            site/data/intel.csv
+            site/data/intel.rss
+          commit-message: "intel: community submission from issue #${{ github.event.issue.number }}"
+          title: "intel: 社区情报提交 #${{ github.event.issue.number }}（待审核）"
+          body-path: ${{ runner.temp }}/intake/pr.md
+          labels: |
+            intel-submission
+            needs-review
+          draft: false
+
+  comment:
+    needs: [parse, pull-request]
+    if: always() && needs.parse.result == 'success' && needs.pull-request.result != 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: intake
+          path: ${{ runner.temp }}/intake
+      - name: add PR link
+        env:
+          IN: ${{ runner.temp }}/intake/comment.md
+          OUT: ${{ runner.temp }}/comment.md
+          PR_URL: ${{ needs.pull-request.outputs.url }}
+        run: |
+          cp -- "$IN" "$OUT"
+          if [ -n "$PR_URL" ]; then printf '\n待审核 PR：%s\n' "$PR_URL" >> "$OUT"; fi
+      - id: find
+        uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          comment-author: github-actions[bot]
+          body-includes: "<!-- deepsuck-intel-intake -->"
+      - uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          comment-id: ${{ steps.find.outputs.comment-id }}
+          edit-mode: replace
+          body-path: ${{ runner.temp }}/comment.md

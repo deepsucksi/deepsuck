@@ -19,6 +19,16 @@
    *   6222 0212 3456 1234 -> 622202******1234；6222020200112233445 -> 622202*********3445
    * 8–15 位（非标准长度）只留后 4 位，少于 8 位全部打码，保证至少一半数字被隐藏。
    */
+  /**
+   * 仅用于展示：把（已打码的）卡号每 4 位一组，622202*********3445 -> 6222 02** **** ***3 445。
+   * 存储、导出、STIX 仍用不分组的 maskBankCard 结果；只含数字与 * 以外字符的值原样返回。
+   */
+  function formatCardGroups(v) {
+    var s = String(v == null ? '' : v).replace(/[\s-]/g, '');
+    if (!/^[0-9*]+$/.test(s)) return String(v == null ? '' : v);
+    return s.replace(/(.{4})(?=.)/g, '$1 ');
+  }
+
   function maskBankCard(v) {
     var d = digitsOnly(v);
     if (d.length < 8) return stars(d.length);
@@ -151,6 +161,7 @@
     mask: mask,
     redactText: redactText,
     maskBankCard: maskBankCard,
+    formatCardGroups: formatCardGroups,
     maskPhone: maskPhone,
     maskCrypto: maskCrypto,
     maskQQ: maskQQ,

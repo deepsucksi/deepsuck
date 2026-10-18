@@ -1,0 +1,2 @@
+# 订阅源 CSV 按 RFC 4180 使用 CRLF，保持字节不变
+site/data/intel.csv -text

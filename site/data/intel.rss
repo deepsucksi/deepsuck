@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+<title>DeepSuck 公开诈骗情报库</title>
+<link>https://deepsuck.si/intel.html</link>
+<atom:link href="https://deepsuck.si/data/intel.rss" rel="self" type="application/rss+xml"/>
+<description>DeepSuck 公开诈骗情报库订阅源：只含已公开（active）条目，银行卡、姓名、个人账号均为打码值。情报仅供参考，不能作为认定依据。</description>
+<language>zh-cn</language>
+<copyright>Apache-2.0（随仓库发布）</copyright>
+<lastBuildDate>Sun, 18 Oct 2026 00:00:00 +0000</lastBuildDate>
+<generator>deepsuck.feeds</generator>
+<item>
+<title>诈骗电话：10000000001［示例］</title>
+<link>https://deepsuck.si/intel.html?type=phone&amp;q=10000000001</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0001</guid>
+<pubDate>Mon, 12 Oct 2026 00:00:00 +0000</pubDate>
+<category>phone</category>
+<category>scenario:police</category>
+<description>类型：诈骗电话
+公开值：10000000001
+场景：police
+首次出现：2026-10-01
+最近出现：2026-10-12
+举报次数：3
+来源：example
+可信度：example
+话术标签：authority, threat, secrecy
+说明：【示例数据】自称"市公安局经侦支队"，称名下银行卡涉嫌洗钱。号码为不可分配的虚构号段。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>加密钱包地址：TDemoExampleAddrDoNotUse0000000001（TRON）［示例］</title>
+<link>https://deepsuck.si/intel.html?type=crypto_wallet&amp;q=TDemoExampleAddrDoNotUse0000000001</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0004</guid>
+<pubDate>Sat, 10 Oct 2026 00:00:00 +0000</pubDate>
+<category>crypto_wallet</category>
+<category>scenario:pig</category>
+<description>类型：加密钱包地址
+公开值：TDemoExampleAddrDoNotUse0000000001
+链：TRON
+场景：pig
+首次出现：2026-09-28
+最近出现：2026-10-10
+举报次数：4
+来源：example
+可信度：example
+话术标签：high_return, crypto, romance
+说明：【示例数据】杀猪盘"导师带单"要求充值 USDT（TRC20）。地址为故意构造的无效地址。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>收款银行卡：622848*********0002（中国农业银行 · 借记卡）［示例］</title>
+<link>https://deepsuck.si/intel.html?type=bank_card&amp;q=622848%2A%2A%2A%2A%2A%2A%2A%2A%2A0002</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0012</guid>
+<pubDate>Fri, 09 Oct 2026 00:00:00 +0000</pubDate>
+<category>bank_card</category>
+<category>scenario:task</category>
+<description>类型：收款银行卡
+公开值：622848*********0002
+开户行：农业银行
+发卡行（BIN 推断）：中国农业银行
+卡种：借记卡
+场景：task
+首次出现：2026-10-09
+举报次数：1
+来源：example
+可信度：example
+话术标签：task_rebate, transfer
+说明：【示例数据】刷单"三连单"垫付收款卡。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>APP/平台名称：示例·星辰任务［示例］</title>
+<link>https://deepsuck.si/intel.html?type=app&amp;q=%E7%A4%BA%E4%BE%8B%C2%B7%E6%98%9F%E8%BE%B0%E4%BB%BB%E5%8A%A1</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0010</guid>
+<pubDate>Thu, 08 Oct 2026 00:00:00 +0000</pubDate>
+<category>app</category>
+<category>scenario:task</category>
+<description>类型：APP/平台名称
+公开值：示例·星辰任务
+场景：task
+首次出现：2026-10-08
+举报次数：1
+来源：example
+可信度：example
+话术标签：task_rebate
+说明：【示例数据】虚构的刷单任务平台名称。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>诈骗网址/域名：https://task-fanli.example/app［示例］</title>
+<link>https://deepsuck.si/intel.html?type=url&amp;q=https%3A%2F%2Ftask-fanli.example%2Fapp</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0008</guid>
+<pubDate>Thu, 08 Oct 2026 00:00:00 +0000</pubDate>
+<category>url</category>
+<category>scenario:task</category>
+<description>类型：诈骗网址/域名
+公开值：https://task-fanli.example/app
+场景：task
+首次出现：2026-10-08
+举报次数：2
+来源：example
+可信度：example
+话术标签：task_rebate, app_download
+说明：【示例数据】刷单"任务平台"下载地址。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>诈骗网址/域名：http://gaj-case-query.example/case［示例］</title>
+<link>https://deepsuck.si/intel.html?type=url&amp;q=http%3A%2F%2Fgaj-case-query.example%2Fcase</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0007</guid>
+<pubDate>Tue, 06 Oct 2026 00:00:00 +0000</pubDate>
+<category>url</category>
+<category>scenario:police</category>
+<description>类型：诈骗网址/域名
+公开值：http://gaj-case-query.example/case
+场景：police
+首次出现：2026-10-06
+举报次数：1
+来源：example
+可信度：example
+话术标签：authority, info_harvest
+说明：【示例数据】仿冒"通缉令查询"页面，诱导输入身份证号与银行卡。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>诈骗电话：10000000003［示例］</title>
+<link>https://deepsuck.si/intel.html?type=phone&amp;q=10000000003</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0003</guid>
+<pubDate>Mon, 05 Oct 2026 00:00:00 +0000</pubDate>
+<category>phone</category>
+<category>scenario:loan</category>
+<description>类型：诈骗电话
+公开值：10000000003
+场景：loan
+首次出现：2026-10-05
+举报次数：2
+来源：example
+可信度：example
+话术标签：loan_fraud, threat
+说明：【示例数据】自称"金融服务中心"，推销无抵押低息贷款，随后索要解冻金。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>支付宝/微信/QQ 等账号：ke******26［示例］</title>
+<link>https://deepsuck.si/intel.html?type=account&amp;q=ke%2A%2A%2A%2A%2A%2A26</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0014</guid>
+<pubDate>Sun, 04 Oct 2026 00:00:00 +0000</pubDate>
+<category>account</category>
+<category>scenario:refund</category>
+<description>类型：支付宝/微信/QQ 等账号
+公开值：ke******26
+场景：refund
+首次出现：2026-10-04
+举报次数：1
+来源：example
+可信度：example
+话术标签：off_platform
+说明：【示例数据】"客服"引流用的微信号（已打码）。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>APP/平台名称：示例·安心退［示例］</title>
+<link>https://deepsuck.si/intel.html?type=app&amp;q=%E7%A4%BA%E4%BE%8B%C2%B7%E5%AE%89%E5%BF%83%E9%80%80</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0009</guid>
+<pubDate>Sun, 04 Oct 2026 00:00:00 +0000</pubDate>
+<category>app</category>
+<category>scenario:refund</category>
+<description>类型：APP/平台名称
+公开值：示例·安心退
+场景：refund
+首次出现：2026-10-04
+举报次数：2
+来源：example
+可信度：example
+话术标签：app_download, cs_impersonation
+说明：【示例数据】虚构的仿冒理赔 APP 名称。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>诈骗网址/域名：https://refund-kefu.example/dl［示例］</title>
+<link>https://deepsuck.si/intel.html?type=url&amp;q=https%3A%2F%2Frefund-kefu.example%2Fdl</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0006</guid>
+<pubDate>Sun, 04 Oct 2026 00:00:00 +0000</pubDate>
+<category>url</category>
+<category>scenario:refund</category>
+<description>类型：诈骗网址/域名
+公开值：https://refund-kefu.example/dl
+场景：refund
+首次出现：2026-10-04
+举报次数：2
+来源：example
+可信度：example
+话术标签：app_download, cs_impersonation
+说明：【示例数据】仿冒"理赔 APP"下载页。.example 为 RFC 2606 保留域名，不存在真实网站。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>诈骗电话：10000000002［示例］</title>
+<link>https://deepsuck.si/intel.html?type=phone&amp;q=10000000002</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0002</guid>
+<pubDate>Sat, 03 Oct 2026 00:00:00 +0000</pubDate>
+<category>phone</category>
+<category>scenario:refund</category>
+<description>类型：诈骗电话
+公开值：10000000002
+场景：refund
+首次出现：2026-10-03
+举报次数：1
+来源：example
+可信度：example
+话术标签：cs_impersonation, app_download
+说明：【示例数据】自称电商平台客服，"商品质量问题双倍理赔"。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>加密钱包地址：0xdeadbeef00000000000000000000000000000001（Ethereum/EVM）［示例］</title>
+<link>https://deepsuck.si/intel.html?type=crypto_wallet&amp;q=0xdeadbeef00000000000000000000000000000001</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0005</guid>
+<pubDate>Fri, 02 Oct 2026 00:00:00 +0000</pubDate>
+<category>crypto_wallet</category>
+<category>scenario:pig</category>
+<description>类型：加密钱包地址
+公开值：0xdeadbeef00000000000000000000000000000001
+链：Ethereum/EVM
+场景：pig
+首次出现：2026-10-02
+举报次数：1
+来源：example
+可信度：example
+话术标签：crypto, urgency
+说明：【示例数据】ERC20 充值地址示例，仅用于演示。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>收款户名/姓名：王**［示例］</title>
+<link>https://deepsuck.si/intel.html?type=name&amp;q=%E7%8E%8B%2A%2A</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0013</guid>
+<pubDate>Thu, 01 Oct 2026 00:00:00 +0000</pubDate>
+<category>name</category>
+<category>scenario:police</category>
+<description>类型：收款户名/姓名
+公开值：王**
+场景：police
+首次出现：2026-10-01
+举报次数：3
+来源：example
+可信度：example
+话术标签：safe_account
+说明：【示例数据】收款户名只保留姓氏。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>收款银行卡：622202*********0001（中国工商银行 · 借记卡）［示例］</title>
+<link>https://deepsuck.si/intel.html?type=bank_card&amp;q=622202%2A%2A%2A%2A%2A%2A%2A%2A%2A0001</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0011</guid>
+<pubDate>Thu, 01 Oct 2026 00:00:00 +0000</pubDate>
+<category>bank_card</category>
+<category>scenario:police</category>
+<description>类型：收款银行卡
+公开值：622202*********0001
+开户行：工商银行
+发卡行（BIN 推断）：中国工商银行
+卡种：借记卡
+场景：police
+首次出现：2026-10-01
+举报次数：3
+来源：example
+可信度：example
+话术标签：safe_account, transfer
+说明：【示例数据】所谓"国家安全账户"。银行卡号按 PCI DSS 只公开前 6 位（BIN）与后 4 位，发卡行与卡种由 BIN 表推断：收款卡常为被冒用或被诱骗出租的普通人账户。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>话术/手法："我是你领导，这是新号，在开会不方便接电话，帮我先给合作方垫一笔保证金"［示例］</title>
+<link>https://deepsuck.si/intel.html?type=script</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0018</guid>
+<pubDate>Sat, 26 Sep 2026 00:00:00 +0000</pubDate>
+<category>script</category>
+<category>scenario:boss</category>
+<description>类型：话术/手法
+公开值："我是你领导，这是新号，在开会不方便接电话，帮我先给合作方垫一笔保证金"
+场景：boss
+首次出现：2026-09-26
+举报次数：6
+来源：example
+可信度：example
+话术标签：acquaintance, secrecy, transfer, urgency
+说明：【示例数据】冒充领导/熟人话术：阻止电话核实是关键特征。涉及转账务必电话或当面确认。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>话术/手法："在校期间开通过校园贷，不注销影响征信 → 把借呗/微粒贷额度借出来转到核查账户…［示例］</title>
+<link>https://deepsuck.si/intel.html?type=script</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0017</guid>
+<pubDate>Fri, 25 Sep 2026 00:00:00 +0000</pubDate>
+<category>script</category>
+<category>scenario:campus</category>
+<description>类型：话术/手法
+公开值："在校期间开通过校园贷，不注销影响征信 → 把借呗/微粒贷额度借出来转到核查账户 → 共享屏幕、报验证码"
+场景：campus
+首次出现：2026-09-25
+举报次数：7
+来源：example
+可信度：example
+话术标签：campus_loan, safe_account, app_download, otp
+说明：【示例数据】"注销校园贷"话术。正规平台注销账户无需转账、无需借款。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>话术/手法："新手任务返 5 元 → 福利单垫付返 30% → 触发三连单必须做完才能提现 …［示例］</title>
+<link>https://deepsuck.si/intel.html?type=script</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0016</guid>
+<pubDate>Tue, 22 Sep 2026 00:00:00 +0000</pubDate>
+<category>script</category>
+<category>scenario:task</category>
+<description>类型：话术/手法
+公开值："新手任务返 5 元 → 福利单垫付返 30% → 触发三连单必须做完才能提现 → 操作超时冻结需交解冻费"
+场景：task
+首次出现：2026-09-22
+举报次数：9
+来源：example
+可信度：example
+话术标签：task_rebate, transfer, urgency
+说明：【示例数据】刷单返利"先给甜头再套牢"的标准流程。所有刷单都是诈骗。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+<item>
+<title>话术/手法："你名下银行卡涉嫌洗钱，案件保密，不要告诉家人；配合资金清查把钱转到安全账户"［示例］</title>
+<link>https://deepsuck.si/intel.html?type=script</link>
+<guid isPermaLink="false">deepsuck-intel:EX-0015</guid>
+<pubDate>Sun, 20 Sep 2026 00:00:00 +0000</pubDate>
+<category>script</category>
+<category>scenario:police</category>
+<description>类型：话术/手法
+公开值："你名下银行卡涉嫌洗钱，案件保密，不要告诉家人；配合资金清查把钱转到安全账户"
+场景：police
+首次出现：2026-09-20
+举报次数：12
+来源：example
+可信度：example
+话术标签：authority, secrecy, safe_account, threat
+说明：【示例数据】冒充公检法典型话术链：恐吓 → 隔离 → 转账。公检法不会电话办案，更没有"安全账户"。
+情报仅供参考，不能作为认定依据。</description>
+</item>
+</channel>
+</rss>

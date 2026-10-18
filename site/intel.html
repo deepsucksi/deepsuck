@@ -6,6 +6,7 @@
 <title>公开诈骗情报库 · DeepSuck</title>
 <meta name="description" content="DeepSuck 公开诈骗情报库：诈骗电话、钱包地址、网址/APP 与话术完整公开，银行卡与姓名部分打码。支持检索、筛选与 JSON/CSV 下载。">
 <link rel="canonical" href="https://deepsuck.si/intel.html">
+<link rel="alternate" type="application/rss+xml" title="DeepSuck 公开诈骗情报库" href="https://deepsuck.si/data/intel.rss">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="DeepSuck">
 <meta property="og:title" content="DeepSuck 公开诈骗情报库">
@@ -78,7 +79,7 @@
   <p class="note" id="resultInfo">加载中…</p>
   <div class="intel-grid" id="results"></div>
   <div class="more"><button class="btn" id="moreBtn" type="button" hidden>显示更多</button></div>
-  <p class="note">完整数据：<a href="data/intel.json">data/intel.json</a> · STIX 2.1：<a href="data/intel.stix.json">data/intel.stix.json</a>（不含打码类条目）· 格式定义：<a href="data/intel.schema.json">data/intel.schema.json</a>（<code>deepsuck.intel-library/v1</code>）· 下载按钮导出的是当前筛选结果。</p>
+  <p class="note">完整数据：<a href="data/intel.json">data/intel.json</a> · STIX 2.1：<a href="data/intel.stix.json">data/intel.stix.json</a>（不含姓名/账号/身份证，银行卡为打码值）· 订阅：<a href="data/intel.rss">RSS</a> · <a href="data/intel.csv">CSV</a>（只含公开中的条目）· 格式定义：<a href="data/intel.schema.json">data/intel.schema.json</a>（<code>deepsuck.intel-library/v1</code>）· 下载按钮导出的是当前筛选结果。</p>
 
   <section id="policy">
     <h2>发布策略</h2>

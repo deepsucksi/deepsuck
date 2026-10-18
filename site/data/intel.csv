@@ -1,0 +1,19 @@
+﻿id,example,type,value,chain,bank,issuer,cardType,scenario,tactics,firstSeen,lastSeen,reports,source,confidence,status,notes
+EX-0001,true,phone,10000000001,,,,,police,authority|threat|secrecy,2026-10-01,2026-10-12,3,example,example,active,"【示例数据】自称""市公安局经侦支队""，称名下银行卡涉嫌洗钱。号码为不可分配的虚构号段。"
+EX-0002,true,phone,10000000002,,,,,refund,cs_impersonation|app_download,2026-10-03,,1,example,example,active,"【示例数据】自称电商平台客服，""商品质量问题双倍理赔""。"
+EX-0003,true,phone,10000000003,,,,,loan,loan_fraud|threat,2026-10-05,,2,example,example,active,"【示例数据】自称""金融服务中心""，推销无抵押低息贷款，随后索要解冻金。"
+EX-0004,true,crypto_wallet,TDemoExampleAddrDoNotUse0000000001,TRON,,,,pig,high_return|crypto|romance,2026-09-28,2026-10-10,4,example,example,active,"【示例数据】杀猪盘""导师带单""要求充值 USDT（TRC20）。地址为故意构造的无效地址。"
+EX-0005,true,crypto_wallet,0xdeadbeef00000000000000000000000000000001,Ethereum/EVM,,,,pig,crypto|urgency,2026-10-02,,1,example,example,active,【示例数据】ERC20 充值地址示例，仅用于演示。
+EX-0006,true,url,https://refund-kefu.example/dl,,,,,refund,app_download|cs_impersonation,2026-10-04,,2,example,example,active,"【示例数据】仿冒""理赔 APP""下载页。.example 为 RFC 2606 保留域名，不存在真实网站。"
+EX-0007,true,url,http://gaj-case-query.example/case,,,,,police,authority|info_harvest,2026-10-06,,1,example,example,active,"【示例数据】仿冒""通缉令查询""页面，诱导输入身份证号与银行卡。"
+EX-0008,true,url,https://task-fanli.example/app,,,,,task,task_rebate|app_download,2026-10-08,,2,example,example,active,"【示例数据】刷单""任务平台""下载地址。"
+EX-0009,true,app,示例·安心退,,,,,refund,app_download|cs_impersonation,2026-10-04,,2,example,example,active,【示例数据】虚构的仿冒理赔 APP 名称。
+EX-0010,true,app,示例·星辰任务,,,,,task,task_rebate,2026-10-08,,1,example,example,active,【示例数据】虚构的刷单任务平台名称。
+EX-0011,true,bank_card,622202*********0001,,工商银行,中国工商银行,借记卡,police,safe_account|transfer,2026-10-01,,3,example,example,active,"【示例数据】所谓""国家安全账户""。银行卡号按 PCI DSS 只公开前 6 位（BIN）与后 4 位，发卡行与卡种由 BIN 表推断：收款卡常为被冒用或被诱骗出租的普通人账户。"
+EX-0012,true,bank_card,622848*********0002,,农业银行,中国农业银行,借记卡,task,task_rebate|transfer,2026-10-09,,1,example,example,active,"【示例数据】刷单""三连单""垫付收款卡。"
+EX-0013,true,name,王**,,,,,police,safe_account,2026-10-01,,3,example,example,active,【示例数据】收款户名只保留姓氏。
+EX-0014,true,account,ke******26,,,,,refund,off_platform,2026-10-04,,1,example,example,active,"【示例数据】""客服""引流用的微信号（已打码）。"
+EX-0015,true,script,"""你名下银行卡涉嫌洗钱，案件保密，不要告诉家人；配合资金清查把钱转到安全账户""",,,,,police,authority|secrecy|safe_account|threat,2026-09-20,,12,example,example,active,"【示例数据】冒充公检法典型话术链：恐吓 → 隔离 → 转账。公检法不会电话办案，更没有""安全账户""。"
+EX-0016,true,script,"""新手任务返 5 元 → 福利单垫付返 30% → 触发三连单必须做完才能提现 → 操作超时冻结需交解冻费""",,,,,task,task_rebate|transfer|urgency,2026-09-22,,9,example,example,active,"【示例数据】刷单返利""先给甜头再套牢""的标准流程。所有刷单都是诈骗。"
+EX-0017,true,script,"""在校期间开通过校园贷，不注销影响征信 → 把借呗/微粒贷额度借出来转到核查账户 → 共享屏幕、报验证码""",,,,,campus,campus_loan|safe_account|app_download|otp,2026-09-25,,7,example,example,active,"【示例数据】""注销校园贷""话术。正规平台注销账户无需转账、无需借款。"
+EX-0018,true,script,"""我是你领导，这是新号，在开会不方便接电话，帮我先给合作方垫一笔保证金""",,,,,boss,acquaintance|secrecy|transfer|urgency,2026-09-26,,6,example,example,active,【示例数据】冒充领导/熟人话术：阻止电话核实是关键特征。涉及转账务必电话或当面确认。

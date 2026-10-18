@@ -17,6 +17,7 @@
       if (/^\d{11}$/.test(d)) return d.slice(0, 3) + ' ' + d.slice(3, 7) + ' ' + d.slice(7);
       if (/^(400|800)\d{7}$/.test(d)) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
     }
+    if (e.type === 'bank_card' && D.redact && D.redact.formatCardGroups) return D.redact.formatCardGroups(e.value); // 仅展示分组，存储不变
     return e.value;
   }
 

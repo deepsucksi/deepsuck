@@ -29,3 +29,15 @@ def test_separators_and_tiny():
     assert mask("bank_card", "6222-0212-3456-7890-128") == "622202*********0128"
     assert mask_bank_card("6222021") == "*******"
     assert mask_bank_card("") == ""
+
+
+def test_format_card_groups_display_only():
+    from deepsuck.redact import format_card_groups
+    assert format_card_groups("622202*********3445") == "6222 02** **** ***3 445"
+    assert format_card_groups("622202******2233") == "6222 02** **** 2233"
+    assert format_card_groups("*******2001") == "**** ***2 001"
+    assert format_card_groups("6222 02** **** ***3 445") == "6222 02** **** ***3 445"  # 幂等
+    assert format_card_groups("王**") == "王**"
+    assert format_card_groups(None) == ""
+    # 存储格式不变
+    assert mask_bank_card("6222020200112233445") == "622202*********3445"

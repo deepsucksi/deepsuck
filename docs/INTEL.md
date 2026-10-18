@@ -34,7 +34,8 @@ DeepSuck 会**公开发布**它收集到的诈骗情报，让任何人都能检�
 1. 在[沙盒](https://deepsuck.si/demo.html)选择场景，把骗子原话逐条粘贴进去（提取与打码都在浏览器本地完成）；
 2. 结束对话 → 「提交到情报库」：按上表策略生成内容并复制；
 3. 打开 [GitHub 情报提交模板](https://github.com/deepsucksi/deepsuck/issues/new?template=intel-submission.yml)，内容会自动预填，补充时间与渠道后提交；
-4. 维护者审核后以 `DS-YYYY-xxxx` 编号收录（`source: community`）。
+   单条手动提交可以用 [结构化提交模板](https://github.com/deepsucksi/deepsuck/issues/new?template=intel-intake.yml)（类型、值、话术片段、来源、场景等分字段填写）；
+4. 机器人自动打码、去重、做黑名单比对，生成待审核的 PR 并在 issue 里回复结果（见下文「GitHub 自动收录」）；维护者审核合并后以 `DS-YYYY-NNNN-k` 编号收录（`NNNN` 为 issue 号）。
 
 **请勿提交**受害人信息、未打码的银行卡号 / 身份证号 / 全名，或沙盒里的虚构样例台词。
 
@@ -127,6 +128,60 @@ mask("id_card", "11010119900101123x")  # "110101********123X"
 - 只把 `redact_text` 的结果或 `masked` 写入日志、数据库或模型上下文；`value` 是原值，不要落盘。
 - `redact_text` 只替换 `extract_sensitive` 识别到的片段。识别不到的写法（比如口述里夹了无关字）不会被打码，落盘前可以再用正则兜底，比如抹掉 ≥7 位的连续数字。
 - 打码结果是确定的：同一输入总是得到同一输出，可直接用于去重。
+
+### 银行卡分组展示 `format_card_groups` / `formatCardGroups`
+
+只用于**展示**：把打码后的卡号每 4 位一组，方便人眼核对位数。Python 为 `deepsuck.redact.format_card_groups(v)`，JS 为 `DeepSuck.redact.formatCardGroups(v)`（`site/assets/js/redact.js`），两边结果由 `tests/fixtures/redact.json` 的 `groups` 逐条比对。
+
+| 存储值（`mask_bank_card` 结果） | 展示值 |
+|---|---|
+| `622202*********3445`（19 位） | `6222 02** **** ***3 445` |
+| `622202******2233`（16 位） | `6222 02** **** 2233` |
+| `*******2001`（11 位） | `**** ***2 001` |
+
+- 输入里的空格、连字符先去掉，所以对已分组的值再调用一次结果不变；含数字和 `*` 以外字符的值（如 `王**`）原样返回。
+- **存储、导出、STIX、CSV/RSS、去重键一律用不分组的原格式**（`622202*********3445`）。情报页卡片用分组格式展示，“复制”按钮复制的仍是原格式；情报提交机器人的 issue 评论和 PR 表格里也用分组格式展示。
+
+## GitHub 自动收录（IssueOps）
+
+工作流 [`.github/workflows/intel-intake.yml`](../.github/workflows/intel-intake.yml)，核心逻辑在 [`python/deepsuck/intake.py`](../python/deepsuck/intake.py)（测试 `python/tests/test_intake.py`，不联网）。
+
+**触发**：issue 带 `intel-submission` 标签（两个情报提交模板都会自动加上），事件为 opened / edited / labeled / reopened。PR、已关闭的 issue 和机器人触发的事件都不处理。提交者编辑 issue 后会重新处理，并更新同一条机器人评论。
+
+**流程**：
+
+1. 解析表单：支持结构化模板 `intel-intake.yml` 和沙盒预填用的 `intel-submission.yml`（逐行解析 `- 类型：`值`` 格式）。解析结果的形状与 issue-ops/parser 一致，测试里用该 Action 对同一批正文的真实输出做比对。
+2. 脱敏：按发布策略调用 `deepsuck.redact`：银行卡用 PCI 打码（只接受前 6 后 4 或完整卡号，旧的“前 4 后 4”格式会被拒绝，因为推断不了 BIN），并按 BIN 补上发卡行和卡种；姓名只留姓；账号按所选平台打码。话术片段和补充说明再跑一遍 `redact_text`；身份证号不接受自动收录。
+3. 去重：电话按数字、钱包按地址、网址去掉协议后比较。重复的条目举报次数 +1，并更新 `lastSeen`，同时打上 `gh-issue-N` 标签，同一个 issue 重跑不会重复计数。与示例数据相同的不收录；申诉中或已下架的交给维护者人工处理。
+4. 黑名单比对：网址和钱包地址与公开黑名单比对（见上文），命中的条目可信度设为 `medium`，否则为 `low`。比对失败不影响收录。
+5. 生成文件：重新生成 `site/data/intel.json`、`intel.stix.json`、`intel.csv`、`intel.rss`，格式与仓库里的完全一致，并开出 PR（分支 `intel-intake/issue-N`）。
+
+**安全约定**：
+
+- **绝不自动合并**。工作流只开 PR，PR 正文附维护者审核清单。
+- **最小权限**。工作流默认没有任何权限：解析 issue 的 job 只读（`contents: read`），建 PR 的 job 只有 `contents: write` 和 `pull-requests: write`，评论的 job 只有 `issues: write`。三个 job 之间用 artifact 传递结果，第三方 Action 都锁定到 commit SHA。
+- **防脚本注入**。issue 标题和正文不出现在任何 `run:` 脚本里：正文由 Python 直接从 `$GITHUB_EVENT_PATH` 读取，其余数据走环境变量或文件；写入 `GITHUB_OUTPUT` 的只有固定的 `changed=true/false`。
+- **不回显原文**：PR 和评论里只有按策略处理后的公开值；评论文本会转义 Markdown/HTML，并打断 `@` 提及和 `#` 引用。输出前还有一道泄露检查：如果任何输出里出现了打码类原值（≥7 位数字串、未打码的姓名或账号），就不生成 PR，评论也不显示具体值。原文里有未打码的信息时，评论会请提交者编辑 issue 删掉；维护者也可以在编辑历史里删除旧版本，必要时隐藏或删除这个 issue。
+- **没有用 issue-ops/parser 解析**：这个 Action 会把 issue 正文原样打印到公开的 Actions 日志里，提交者事后删改也去不掉，所以改用仓库内的解析器。issue-ops/parser 只作为测试基准使用。
+
+**仓库设置**：需要打开 Settings → Actions → General → Workflow permissions 下的 “Allow GitHub Actions to create and approve pull requests”（已由负责人打开）。默认的 `GITHUB_TOKEN` 权限保持只读即可，工作流在 job 里单独声明需要的写权限。触发用的 `intel-submission` 标签和 `needs-review` 标签都已经存在。
+
+**验证方式**：
+
+- 本地：`cd python && python -m pytest tests/test_intake.py`。也可以构造事件文件试跑：`python -m deepsuck.intake process --event event.json --repo .. --out /tmp/intake --offline`，然后查看 `/tmp/intake/{pr.md,comment.md,files/}`。
+- 线上：用任一情报提交模板提交一条示例 issue，例如“诈骗网址/域名”填一个 `.example` 域名。确认三个 job 依次运行、出现分支 `intel-intake/issue-N` 和一个待审核的 PR，issue 下有一条机器人评论；再编辑 issue，确认 PR 和评论都被更新而不是重复创建。测试完关闭 PR 和 issue 即可，分支会随 PR 一起删除。
+- 由 `GITHUB_TOKEN` 创建的 PR 不会触发其他工作流（GitHub 的限制），所以 `test` 工作流不会自动运行。维护者可以关闭再重新打开 PR，或推一个空提交来触发 CI。
+
+## 公开订阅源（CSV / RSS）
+
+| 地址 | 格式 |
+|---|---|
+| <https://deepsuck.si/data/intel.rss> | RSS 2.0：每条情报一个 item，`guid` 为 `deepsuck-intel:<id>`，链接到情报页的筛选结果 |
+| <https://deepsuck.si/data/intel.csv> | CSV（UTF-8 BOM、CRLF），列与情报页“下载 CSV”一致：`id, example, type, value, chain, bank, issuer, cardType, scenario, tactics, firstSeen, lastSeen, reports, source, confidence, status, notes` |
+
+- 只输出 `status: active` 的条目，申诉中（`disputed`）和已下架（`removed`）的条目不输出。
+- `value` 是库里按发布策略处理后的公开值：银行卡为 PCI 打码值（不分组），姓名和账号已打码。打码类条目如果没有通过打码校验，整次生成会失败，不会输出。
+- 输出是确定的，只依赖 `intel.json`。改了 `intel.json` 后运行 `npm run build:intel`，会重新生成 STIX、CSV 和 RSS；`python/tests/test_feeds.py` 和 `tests/intel.test.js` 会检查生成文件是否最新，并检查 CSV 与页面导出逐字节一致。
 
 ## STIX 2.1 导出（v0.5）
 

@@ -1,0 +1,26 @@
+{
+ "type": [
+  "诈骗网址/域名"
+ ],
+ "value": "```text\nhxxps://pay-secure-refund[.]top/dl\nhttps://refund-kefu.example/dl\nnot a url\n```",
+ "platform": [],
+ "source": [
+  "沙盒拖住"
+ ],
+ "scenario": [
+  "冒充客服 · 退款理赔"
+ ],
+ "first_seen": "2026/10/16",
+ "channel": [
+  "短信"
+ ],
+ "notes": "对方自称“平台理赔专员”",
+ "confirm": {
+  "selected": [
+   "以上信息来自真实遇到的诈骗，不是沙盒中的虚构样例。",
+   "我已尽量按发布策略打码，且未包含任何受害人信息。",
+   "我理解提交内容将公开发布（Apache-2.0），情报仅供参考，不作为认定依据。"
+  ],
+  "unselected": []
+ }
+}
