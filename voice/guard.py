@@ -258,10 +258,10 @@ def end_reason(*, started: float, last_heard: float, turns: int, limits: Limits,
 
 
 END_TEXT = {
-    "time": "哎呀，锅里还炖着汤呢，我先挂了啊，回头再说！",
-    "turns": "我脑子都转晕了，先歇会儿，回头再打给你啊。",
-    "idle": "喂？喂？听不见了啊……那我先挂了。",
-    "budget": "哎哟手机没电了，先挂了啊。",
+    "time": "我这边有点事，先挂了，回头再说。",
+    "turns": "说了这么半天我也没弄明白，先这样，回头再说。",
+    "idle": "喂？没声音了，那我先挂了。",
+    "budget": "手机快没电了，先挂了。",
 }
 END_NOTE = {
     "time": "已达每局通话时长上限",

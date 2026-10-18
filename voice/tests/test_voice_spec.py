@@ -93,3 +93,11 @@ def test_calm_tts_text():
     assert calm("嗯……") == "嗯"
     assert speakable("好的！", calm_tts=False) == "好的！"
     assert "……" in speakable("卡号是 6222 **** 3456！")
+
+
+def test_voice_prompt_is_restrained():
+    from voice.persona import system_prompt
+    for pid in ("wang", "li", "lin"):
+        sp = system_prompt(pid, "refund")
+        assert "不用感叹号和省略号" in sp and "老花镜" in sp and "看不清" not in sp
+        assert "62 岁" not in sp and "62岁" not in sp
