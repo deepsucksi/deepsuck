@@ -1,0 +1,137 @@
+{
+  "version": "review-11",
+  "colors": {
+    "white": "#FFFFFF",
+    "paper": "#F7F8F6",
+    "ink": "#191B1B",
+    "night": "#111313",
+    "signal": "#E86B45"
+  },
+  "motion": {
+    "unfurl": {
+      "ease": [
+        0.22,
+        1,
+        0.36,
+        1
+      ],
+      "durationMs": 950,
+      "staggerMs": 22,
+      "translateYPercent": 24,
+      "rotationXDegrees": -12,
+      "blurPx": 2
+    },
+    "surfaceEntry": {
+      "durationMs": 1050,
+      "translateYPx": 26
+    },
+    "receiverFloat": {
+      "halfCycleMs": 7000,
+      "translateYPx": -5,
+      "rotationDegrees": 0.45,
+      "ease": "sine.inOut"
+    },
+    "receiverLight": {
+      "durationMs": 11000,
+      "restMs": 3000
+    },
+    "pointerTilt": {
+      "maxRotationYDegrees": 2.5,
+      "maxRotationXDegrees": 1.5,
+      "settleMs": 1400,
+      "finePointerOnly": true
+    },
+    "audio": {
+      "source": "actual AudioContext AnalyserNode",
+      "fftSize": 128,
+      "smoothing": 0.76,
+      "autoplay": false
+    },
+    "preferences": {
+      "respectReducedMotion": true,
+      "pauseControl": true,
+      "pauseOffscreenLoops": true,
+      "pauseHiddenTabLoops": true
+    },
+    "scene": {
+      "scope": "hero + conversation + intelligence",
+      "start": "poster-art top 32% viewport",
+      "end": "experience top 72% viewport",
+      "scrubSeconds": 0.65,
+      "background": [
+        "#FFFFFF",
+        "#111313"
+      ],
+      "receiverYDesktopPx": 75,
+      "receiverYMobilePx": 40,
+      "receiverScale": 0.94,
+      "receiverRotationDegrees": 1.5,
+      "pinned": false,
+      "staticFallback": "gradient relative to actual hero height"
+    },
+    "personaEntry": {
+      "durationMs": 1000,
+      "translateYPx": 18
+    },
+    "secondaryArt": {
+      "yPercent": [
+        4,
+        -3
+      ],
+      "scale": [
+        1.035,
+        1
+      ],
+      "scrubSeconds": 1.2,
+      "reducedMotion": "static"
+    },
+    "personaSwitch": {
+      "widthDurationMs": 700,
+      "activeWidthRatio": 1.5,
+      "replyFadeMs": 600,
+      "manual": true,
+      "allCharactersRemainVisible": true,
+      "autoplay": true,
+      "intervalMs": 7000,
+      "pauseOn": [
+        "hover",
+        "focus",
+        "offscreen",
+        "hidden-document",
+        "user-pause",
+        "reduced-motion",
+        "global-motion-pause"
+      ],
+      "resume": "full interval",
+      "automaticAriaLive": "off"
+    }
+  },
+  "icons": {
+    "file": "icons.svg",
+    "grid": 24,
+    "strokeWidth": 1.6,
+    "linecap": "round",
+    "linejoin": "round",
+    "minimumControlTarget": 40,
+    "usage": "Functional controls only. Chapter badges and decorative diagrams removed in round 5."
+  },
+  "runtime": {
+    "library": "GSAP",
+    "version": "3.15.0",
+    "delivery": "local vendored files",
+    "license": "https://gsap.com/standard-license",
+    "plugins": [
+      "ScrollTrigger",
+      "SplitText",
+      "CustomEase"
+    ]
+  },
+  "imagery": {
+    "portraitFolder": "round6/",
+    "secondaryFolder": "round7/",
+    "desktopLayout": "Four visible characters; active width ratio 1.5; shared conversation beneath",
+    "mobileLayout": "Four visible characters in a two-column grid; shared conversation beneath",
+    "sourceRecord": "../../../review/ROUND7-ASSETS.json",
+    "intelligenceLayout": "Contained image and copy grid, separate full-width evidence sheet"
+  }
+}

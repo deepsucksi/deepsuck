@@ -1,29 +1,37 @@
 <!doctype html>
-<!-- DeepSuck — Open Graph 图模板（1200×630）。由 scripts/og.js 用无头 Chrome 渲染为 site/assets/og*.png。?v=home|demo|intel -->
+<!-- DeepSuck — Open Graph 图模板（1200×630，R11 视觉）。由 scripts/og.js 用无头 Chrome 渲染为 site/assets/og*.png。?v=home|demo|intel -->
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <style>
-  :root{--bg:#f7f6f3;--surface:#fff;--sunk:#f0eee9;--line:#e5e2dc;--ink:#161514;--muted:#5c5953;--dim:#6c6963;--accent:#8a5a2b}
+  /* R11 视觉：白底、单色标志 + 字标、橙红听筒；字体与配色同 site/assets/css/style.css */
+  @font-face{font-family:"Manrope";src:url("../../site/assets/fonts/Manrope.ttf") format("truetype");font-weight:200 800}
+  @font-face{font-family:"IBM Plex Mono";src:url("../../site/assets/fonts/IBMPlexMono-Regular.ttf") format("truetype");font-weight:400}
+  :root{--bg:#fff;--sunk:#f2f4f5;--line:#e3e7e9;--ink:#171c1f;--muted:#606b72;--accent:#b74224;--night:#111313}
   *{box-sizing:border-box;margin:0}
-  html,body{width:1200px;height:630px;background:var(--bg);color:var(--ink);font-family:"PingFang SC","Noto Sans CJK SC","Noto Sans SC","Source Han Sans SC",sans-serif;-webkit-font-smoothing:antialiased}
-  .page{position:relative;width:1200px;height:630px;padding:72px 88px}
-  .brand{display:flex;align-items:center;gap:14px;font-size:26px;font-weight:600;letter-spacing:-.01em}
-  .brand img{width:40px;height:40px}
-  .eyebrow{margin-top:56px;font-size:20px;letter-spacing:.08em;color:var(--accent)}
-  h1{margin-top:18px;font-size:76px;line-height:1.16;font-weight:600;letter-spacing:-.02em}
-  h1 em{display:block;font-style:normal;font-weight:400;color:var(--muted)}
-  .chat{position:absolute;right:88px;top:184px;width:380px;display:flex;flex-direction:column;gap:14px}
-  .b{padding:16px 20px;border-radius:18px;font-size:21px;line-height:1.6}
-  .r{align-self:flex-end;background:var(--ink);color:#f3f2ef;border-bottom-right-radius:5px}
-  .s{align-self:flex-start;background:var(--sunk);border-bottom-left-radius:5px}
-  .foot{position:absolute;left:88px;right:88px;bottom:60px;display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:22px;font-family:"Noto Sans Mono CJK SC",ui-monospace,Menlo,monospace;font-size:19px;color:var(--dim)}
+  html,body{width:1200px;height:630px;background:var(--bg);color:var(--ink);font-family:"Manrope","PingFang SC","Noto Sans CJK SC","Noto Sans SC","Source Han Sans SC",sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+  .page{position:relative;width:1200px;height:630px;padding:64px 80px}
+  .art{position:absolute;right:-40px;top:22px;width:580px;height:auto;pointer-events:none;-webkit-mask-image:linear-gradient(to bottom,#000 72%,transparent 92%);mask-image:linear-gradient(to bottom,#000 72%,transparent 92%)}
+  .brand{position:relative;display:flex;align-items:center;gap:4px}
+  .brand .mark{width:58px;height:52px;position:relative;overflow:hidden}
+  .brand .mark img{position:absolute;width:70px;height:70px;left:-7px;top:-9px;filter:brightness(0)}
+  .brand .word{width:158px;height:43px;object-fit:contain;filter:brightness(0)}
+  .eyebrow{position:relative;margin-top:58px;font-size:20px;letter-spacing:.08em;color:var(--accent)}
+  h1{position:relative;margin-top:18px;max-width:700px;font-size:74px;line-height:1.16;font-weight:800;letter-spacing:-.02em}
+  h1 em{display:block;font-style:normal;color:var(--ink)}
+  .chat{position:absolute;right:64px;bottom:136px;width:400px;display:flex;flex-direction:column;gap:12px}
+  .b{padding:15px 20px;border-radius:10px;font-size:20px;line-height:1.6;box-shadow:0 10px 30px rgba(17,19,19,.12)}
+  .r{align-self:flex-end;background:var(--night);color:#f4f5f5}
+  .s{align-self:flex-start;background:#fff;border:1px solid var(--line)}
+  .foot{position:absolute;left:80px;right:80px;bottom:52px;display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:22px;font-family:"IBM Plex Mono","Noto Sans Mono CJK SC",ui-monospace,Menlo,monospace;font-size:19px;color:var(--muted)}
+  .v-intel h1{font-size:64px}
   .foot b{font-weight:400;color:var(--accent)}
 </style>
 </head>
 <body>
 <div class="page">
-  <div class="brand"><img src="../../site/assets/logo.svg" alt="">DeepSuck</div>
+  <img class="art" src="../../site/assets/brand/on-hold-960.webp" alt="">
+  <div class="brand"><span class="mark"><img src="../../site/assets/brand/on-hold-mono-256.png" alt=""></span><img class="word" src="../../site/assets/brand/wordmark.svg" alt="DeepSuck"></div>
   <p class="eyebrow" id="eyebrow">开源 · 防御性研究 · 中文场景优先</p>
   <h1 id="title">让骗子把时间<em>浪费在 AI 身上</em></h1>
   <div class="chat" id="chat">
@@ -44,6 +52,7 @@
     document.getElementById('title').innerHTML = V.title;
     document.getElementById('foot').innerHTML = V.foot;
     if (V.chat === false) document.getElementById('chat').remove();
+    document.body.className = 'v-' + new URLSearchParams(location.search).get('v');
   }
 </script>
 </body>

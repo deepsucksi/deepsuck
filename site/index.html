@@ -19,9 +19,10 @@
 <meta name="twitter:title" content="DeepSuck · 让骗子把时间浪费在 AI 身上">
 <meta name="twitter:description" content="开源 AI 反诈“拖住”机器人 + 公开诈骗情报库。">
 <meta name="twitter:image" content="https://deepsuck.si/assets/og.png">
-<meta name="theme-color" content="#f7f6f3">
+<meta name="theme-color" content="#ffffff">
 <link rel="canonical" href="https://deepsuck.si/">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/brand/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="assets/brand/favicon-180.png">
 <script type="application/ld+json">
 [{"@context":"https://schema.org","@type":"WebSite","name":"DeepSuck","url":"https://deepsuck.si/","inLanguage":["zh-CN","en"],
 "description":"开源的 AI 反诈“拖住”机器人：用受害人人设拖住骗子、提取脱敏诈骗情报，并公开诈骗情报库。"},
@@ -31,86 +32,105 @@
 "author":{"@type":"Organization","name":"DeepSuck contributors"}}]
 </script>
 <link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/home.css">
 </head>
-<body>
+<body class="brand-home">
+<svg class="icon-definitions" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><symbol id="ds-arrow" viewBox="0 0 24 24"><path d="M5 19 19 5M7 5h12v12"/></symbol><symbol id="ds-play" viewBox="0 0 24 24"><path d="M8 5.8c0-.7.8-1.1 1.4-.7l10 6a1 1 0 0 1 0 1.8l-10 6c-.6.4-1.4 0-1.4-.7Z"/></symbol><symbol id="ds-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol></defs></svg>
+<a class="skip-link" href="#main" data-i18n="nav.skip">跳到正文</a>
 <header class="topbar">
   <div class="wrap">
-    <a class="brand" href="./"><img src="assets/logo.svg" alt="">DeepSuck</a>
-    <nav class="nav">
+    <a class="brand" href="./" aria-label="DeepSuck"><span class="brand-symbol"><img src="assets/brand/on-hold-mono-96.png" alt="" width="96" height="96"></span><img class="brand-wordmark" src="assets/brand/wordmark.svg" alt="DeepSuck" width="146" height="40"></a>
+    <nav class="nav" aria-label="主导航">
       <a class="hide-m" href="#how" data-i18n="nav.how">原理</a>
       <a class="hide-m" href="#scenarios" data-i18n="nav.sc">场景</a>
       <a class="hide-m" href="#ethics" data-i18n="nav.ethics">底线</a>
       <a class="hide-m" href="intel.html" data-i18n="nav.intel">情报库</a>
       <a class="hide-m" href="#oss" data-i18n="nav.oss">开源</a>
-      <a class="gh-btn" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener" ><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span data-i18n="nav.gh">GitHub 上标星</span></a>
       <button class="btn small ghost lang-toggle" id="langBtn" type="button">EN</button>
-      <a class="btn small primary" href="demo.html" data-i18n="nav.demo">进入沙盒</a>
+      <a class="nav-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg class="github-mark" aria-hidden="true" focusable="false" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg><span data-i18n="nav.gh">GitHub 上标星</span> ↗</a>
     </nav>
     <details class="menu">
       <summary class="btn small" data-i18n="nav.menu">菜单</summary>
       <nav class="menu-panel" aria-label="页面导航">
+        <a href="demo.html" data-i18n="nav.demo">进入沙盒</a>
         <a href="#how" data-i18n="nav.how">原理</a>
         <a href="#scenarios" data-i18n="nav.sc">场景</a>
         <a href="#ethics" data-i18n="nav.ethics">底线</a>
         <a href="intel.html" data-i18n="nav.intel">情报库</a>
         <a href="#oss" data-i18n="nav.oss">开源</a>
-        <a href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">GitHub</a>
+        <a class="mobile-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg class="github-mark" aria-hidden="true" focusable="false" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg><span>GitHub ↗</span></a>
         <button class="lang-toggle" type="button">EN</button>
       </nav>
     </details>
   </div>
 </header>
 
-<main>
-<div class="wrap hero">
-  <div class="hero-grid">
-    <div>
-      <p class="eyebrow" data-i18n="hero.kicker">开源 · 防御性研究 · 中文场景优先</p>
-      <h1 data-i18n="hero.title">让骗子把时间<br><em>浪费在 AI 身上</em></h1>
-      <p class="lead" data-i18n="hero.lead">DeepSuck 是一个开源的 AI 反诈“拖住”机器人：用像普通人一样的受害人人设陪骗子聊天，慢慢回、反复确认、偶尔没听清，同时自动提取对方暴露的收款账户、钱包地址、电话与网址，脱敏后形成情报，用于预防与早期预警。</p>
-      <ul class="facts">
-        <li data-i18n="chip1">纯静态 · 无需 API Key</li>
-        <li data-i18n="chip2">浏览器本地规则引擎</li>
-        <li data-i18n="chip3">可选接入通义千问（百炼）</li>
-        <li data-i18n="chip4">情报默认脱敏</li>
-        <li>Apache-2.0</li>
-      </ul>
-      <div class="cta">
-        <a class="btn primary" href="demo.html" data-i18n="cta.demo">扮演骗子，试试能骗到谁</a>
-        <a class="btn" href="intel.html" data-i18n="cta.intel">查诈骗情报库</a>
-        <a class="btn ghost" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener" data-i18n="cta.gh">GitHub 点个星</a>
-      </div>
-    </div>
-    <div class="mock hero-chat" id="heroChat" role="img" aria-label="示例（据公开反诈宣传改写）：骗子冒充公安要求转账，周伯一边反复确认、慢慢记，一边套出收款账户、户名和电话">
-      <div class="hc-head"><span class="hc-dot"></span><span id="hcTitle">冒充公检法 · 周伯</span><span class="hc-sample" data-i18n="hero.sample">据公开反诈宣传改写<span class="hc-x"> · 号码虚构</span></span><span class="hc-timer" id="hcTimer">00:00</span></div>
-      <div class="hc-body" id="hcBody">
-        <div class="row"><div class="b r">我是市公安局经侦支队张警官，你名下银行卡涉嫌洗钱，请配合调查。</div></div>
-        <div class="row"><div class="b s">啊？洗钱？你再说一遍，哪张卡？我就一张卡啊。</div></div>
-        <div class="row"><div class="b r">案件保密，别告诉家人！钱转到安全账户 622202*********3445</div></div>
-      </div>
-      <div class="hc-intel" id="hcIntel">已提取　银行卡 622202*********3445</div>
-    </div>
+<main id="main">
+<div class="call-stage">
+<section class="home-poster" aria-labelledby="home-title">
+  <div class="poster-title">
+    <p class="project-label" data-i18n="hero.kicker">开源 · 防御性研究 · 中文场景优先</p>
+    <h1 id="home-title" data-i18n="hero.title">让骗子把时间<br><em>浪费在 AI 身上</em></h1>
+    <p class="poster-description" data-i18n="hero.lead">DeepSuck 是一个开源的 AI 反诈“拖住”机器人：用像普通人一样的受害人人设陪骗子聊天，慢慢回、反复确认、偶尔没听清，同时自动提取对方暴露的收款账户、钱包地址、电话与网址，脱敏后形成情报，用于预防与早期预警。</p>
+    <div class="poster-actions"><a class="btn primary" href="demo.html"><span data-i18n="cta.demo">扮演骗子，试试能骗到谁</span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ds-arrow"/></svg></a><a class="text-link" href="intel.html"><span data-i18n="cta.intel">查诈骗情报库</span> ↗</a></div>
   </div>
+  <div class="poster-art"><div class="receiver-scroll"><div class="stage-light" aria-hidden="true"></div><div class="stage-floor" aria-hidden="true"></div><div class="stage-shadow" aria-hidden="true"></div><div class="receiver-rig"><div class="receiver-float"><img class="red-receiver" fetchpriority="high" src="assets/brand/on-hold-960.webp" srcset="assets/brand/on-hold-480.webp 480w, assets/brand/on-hold-960.webp 960w, assets/brand/on-hold-1254.webp 1254w" sizes="(max-width: 700px) 94vw, 720px" width="1254" height="1254" alt=""><span class="receiver-light" aria-hidden="true"></span></div></div></div></div>
+  <div class="poster-caption"><a class="text-link" href="#experience"><span data-i18n="s2.t">周旋</span> ↓</a></div>
+</section>
+
+<section class="experience-section" id="experience">
+  <div class="wrap">
+    <div class="center-heading"><p class="chapter" data-i18n="s2.t">周旋</p><h2 data-i18n="s2.d">慢慢回、反复确认、偶尔没听清，每一轮都在消耗骗子的时间与精力。</h2></div>
+    <!-- 四个人设：身份取自 personas/prompts/*.yaml 的 archetype；台词由 assets/js/home.js 从 hero-chat.js 的 SCRIPTS（正式首页示例对话）读取 -->
+    <div class="team-console" id="heroChat">
+      <div class="team-roster" role="group" aria-label="人设"><button type="button" class="team-member active" data-persona="retiree" aria-pressed="true" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/retired-800.webp" srcset="assets/brand/round6/retired-400.webp 400w, assets/brand/round6/retired-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">01</span><b>退休老人</b></span></button><button type="button" class="team-member" data-persona="mom" aria-pressed="false" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/parent-800.webp" srcset="assets/brand/round6/parent-400.webp 400w, assets/brand/round6/parent-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">02</span><b>宝妈</b></span></button><button type="button" class="team-member" data-persona="graduate" aria-pressed="false" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/graduate-800.webp" srcset="assets/brand/round6/graduate-400.webp 400w, assets/brand/round6/graduate-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">03</span><b>刚毕业学生</b></span></button><button type="button" class="team-member" data-persona="shop_owner" aria-pressed="false" aria-controls="personaConversation"><span class="team-photo"><img src="assets/brand/round6/owner-800.webp" srcset="assets/brand/round6/owner-400.webp 400w, assets/brand/round6/owner-800.webp 800w" sizes="(max-width:700px) 46vw, 380px" width="800" height="1000" alt="" loading="lazy" decoding="async"><span class="team-indicator" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span></span><span class="team-label"><span class="team-number">04</span><b>个体小老板</b></span></button></div>
+      <div class="team-conversation" id="personaConversation">
+        <div class="persona-exchange" aria-live="off">
+          <p class="scammer-prompt" id="scamPrompt"><span>骗子</span><span id="scamLine"></span></p>
+          <p class="reply-speaker" id="botSpeaker"></p>
+          <blockquote class="persona-response" id="personaReply"></blockquote>
+        </div>
+        <div class="team-footer"><a id="personaLink" class="persona-try" href="demo.html"><span data-i18n="cta.demo">扮演骗子，试试能骗到谁</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a><div class="carousel-control"><span id="portraitNumber" aria-hidden="true">01 / 04</span><button type="button" id="carouselToggle" aria-label="暂停自动轮播" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="carousel-pause" d="M9 6v12M15 6v12"/><path class="carousel-play" d="m9 6 9 6-9 6Z"/></svg></button></div></div>
+      </div>
+    </div>
+    <div class="persona-notes"><p class="persona-disclosure" id="personaSource" data-i18n="hero.sample">据公开反诈宣传改写<span class="hc-x"> · 号码虚构</span></p><a class="voice-link" data-live-voice href="#" target="_blank" rel="noopener" hidden>语音演示 ↗</a></div>
+  </div>
+</section>
+
+<section class="clues-section" id="extract">
+  <div class="wrap">
+    <figure class="signal-art brand-art" aria-hidden="true"><img src="assets/brand/round7/acoustic-1536.webp" srcset="assets/brand/round7/acoustic-768.webp 768w, assets/brand/round7/acoustic-1536.webp 1536w" sizes="(max-width:700px) 100vw, 560px" width="1536" height="1024" alt="" loading="lazy" decoding="async"></figure>
+    <div class="center-heading"><p class="chapter" data-i18n="s3.t">提取情报</p><h2 data-i18n="chip4">情报默认脱敏</h2><p data-i18n="s3.d">识别银行卡、手机号、QQ/微信/支付宝、BTC/ETH/TRON 地址、网址，以及“安全账户”“索要验证码”等话术。</p></div>
+    <!-- 结果表：由 home.js 从 SCRIPTS 第一段（正式首页示例）的 r / i / t 字段生成，值均为已打码的虚构值 -->
+    <div class="clue-sheet" id="clueSheet">
+      <div class="sheet-head"><span id="clueTitle"></span><span id="clueSource"></span></div>
+      <dl>
+        <div><dt>骗子</dt><dd id="clueSaid"></dd></div>
+        <div><dt>已提取情报（脱敏）</dt><dd class="account-number" id="clueIntel"></dd></div>
+        <div><dt>识别到的诈骗话术</dt><dd id="clueTactics"></dd></div>
+      </dl>
+      <p data-i18n="s4.d">沙盒里的情报在展示与导出前统一打码，如 622202*********1234（银行卡按 PCI DSS 只留前 6 位与后 4 位）、138****5678、0x12ab...9f3e。提交到情报库时按<a href="intel.html#policy">发布策略</a>处理。</p>
+    </div>
+    <a class="text-link clue-link" href="intel.html"><span data-i18n="c8.t">公开诈骗情报库</span> ↗</a>
+  </div>
+</section>
 </div>
 
-<section id="how">
+<section class="letter-section" id="how">
   <div class="wrap">
-    <h2 data-i18n="how.title">它如何工作</h2>
-    <p class="sub" data-i18n="how.sub">五个环节，全部在你的浏览器里完成（规则引擎）；接入大模型时，发给模型的内容也已先在本地脱敏。</p>
+    <div class="section-head"><h2 data-i18n="how.title">它如何工作</h2><p class="sub" data-i18n="how.sub">五个环节，全部在你的浏览器里完成（规则引擎）；接入大模型时，发给模型的内容也已先在本地脱敏。</p></div>
     <div class="steps">
       <div class="step"><div class="n">01</div><h3 data-i18n="s1.t">诱敌</h3><p data-i18n="s1.d">以“潜在受害人”的人设出现：反诈部署方可将其接到诱饵号码或举报转接渠道。机器人从不主动联系任何真实的人。</p></div>
       <div class="step"><div class="n">02</div><h3 data-i18n="s2.t">周旋</h3><p data-i18n="s2.d">慢慢回、反复确认、偶尔没听清，每一轮都在消耗骗子的时间与精力。</p></div>
       <div class="step"><div class="n">03</div><h3 data-i18n="s3.t">提取情报</h3><p data-i18n="s3.d">识别银行卡、手机号、QQ/微信/支付宝、BTC/ETH/TRON 地址、网址，以及“安全账户”“索要验证码”等话术。</p></div>
       <div class="step"><div class="n">04</div><h3 data-i18n="s4.t">脱敏</h3><p data-i18n="s4.d">沙盒里的情报在展示与导出前统一打码，如 622202*********1234（银行卡按 PCI DSS 只留前 6 位与后 4 位）、138****5678、0x12ab...9f3e。提交到情报库时按<a href="intel.html#policy">发布策略</a>处理。</p></div>
       <div class="step"><div class="n">05</div><h3 data-i18n="s5.t">预警</h3><p data-i18n="s5.d">汇总成结构化情报报告（JSON），可一键按发布策略提交到<a href="intel.html">公开诈骗情报库</a>，供任何人检索与预警。</p></div>
-    </div>
   </div>
 </section>
 
-<section id="scenarios">
+<section class="run-section" id="scenarios">
   <div class="wrap">
-    <h2 data-i18n="sc.title">七个高发中文诈骗场景</h2>
-    <p class="sub" data-i18n="sc.sub">在沙盒里由你扮演骗子，机器人扮演“受害人”。每个场景都内置一键样例台词与话术标签，开箱即玩。</p>
+    <div class="section-head"><h2 data-i18n="sc.title">七个高发中文诈骗场景</h2><p class="sub" data-i18n="sc.sub">在沙盒里由你扮演骗子，机器人扮演“受害人”。每个场景都内置一键样例台词与话术标签，开箱即玩。</p></div>
     <div class="cards3 cards-sc">
       <a class="card" href="demo.html?scenario=refund"><div class="num">01</div><h3 data-i18n="c1.t">冒充客服 · 退款理赔</h3><p data-i18n="c1.d">“商品质量问题双倍理赔”“会员自动扣费”，诱导下载 APP、共享屏幕、报验证码。</p>
         <div class="tags"><span class="tag">冒充客服</span><span class="tag">诱导下载APP</span><span class="tag">索要验证码</span></div></a>
@@ -137,12 +157,19 @@
   </div>
 </section>
 
-<section id="engine">
+<section class="run-section engine-section" id="engine">
   <div class="wrap two">
     <div>
       <h2 data-i18n="eng.title">零成本，开箱即用</h2>
       <p class="sub" data-i18n="eng.sub">默认的规则/模板人设引擎完全运行在浏览器中，无需任何 API Key、无需服务器，可直接托管在 GitHub Pages、Cloudflare Pages 或阿里云 OSS。</p>
       <p class="body" data-i18n="eng.llm">想要更自然的对话？可选接入阿里云百炼（通义千问 qwen-plus）或任何 OpenAI 兼容的国产大模型：自带一个零依赖的 Node 小后端做代理，API Key 只放在你自己服务器的 .env 里，不暴露给浏览器。默认关闭。</p>
+      <ul class="facts">
+        <li data-i18n="chip1">纯静态 · 无需 API Key</li>
+        <li data-i18n="chip2">浏览器本地规则引擎</li>
+        <li data-i18n="chip3">可选接入通义千问（百炼）</li>
+        <li data-i18n="chip4">情报默认脱敏</li>
+        <li>Apache-2.0</li>
+      </ul>
     </div>
     <pre class="code">git clone https://github.com/deepsucksi/deepsuck.git && cd deepsuck
 # 1) 纯静态（无需 Key）
@@ -155,10 +182,9 @@ npm start      # http://127.0.0.1:8787</pre>
   </div>
 </section>
 
-<section id="ethics">
+<section class="ethics-section" id="ethics">
   <div class="wrap">
-    <h2 data-i18n="eth.title">底线与使用声明</h2>
-    <p class="sub" data-i18n="eth.sub">DeepSuck 只用于防御、研究与教育。以下底线写进了代码，也写进了贡献规范。</p>
+    <div class="section-head"><h2 data-i18n="eth.title">底线与使用声明</h2><p class="sub" data-i18n="eth.sub">DeepSuck 只用于防御、研究与教育。以下底线写进了代码，也写进了贡献规范。</p></div>
     <ul class="ethics">
       <li data-i18n="e1"><b>不主动出击：</b>机器人从不主动联系任何真实的人，只应对主动找上门的诈骗方；演示中由访客自己扮演骗子。</li>
       <li data-i18n="e2"><b>默认脱敏：</b>所有账户、电话、地址在展示与导出时都经过脱敏模块打码；原文只存在于当前页面内存中，不上传、不落盘。</li>
@@ -170,18 +196,18 @@ npm start      # http://127.0.0.1:8787</pre>
   </div>
 </section>
 
-<section id="oss">
-  <div class="wrap two">
-    <div>
-      <h2 data-i18n="oss.title">开源共建</h2>
-      <p class="sub" data-i18n="oss.sub">Apache-2.0 协议。纯 HTML/CSS/JS，模块清晰，欢迎一起完善。</p>
-      <ul class="plain">
+<section class="join-section" id="oss">
+  <figure class="community-art brand-art" aria-hidden="true"><img src="assets/brand/round7/connections-1536.webp" srcset="assets/brand/round7/connections-768.webp 768w, assets/brand/round7/connections-1536.webp 1536w" sizes="(max-width:700px) 100vw, 1000px" width="1536" height="1024" alt="" loading="lazy" decoding="async"></figure>
+  <div class="join-inner">
+    <h2 data-i18n="oss.title">开源共建</h2>
+    <p data-i18n="oss.sub">Apache-2.0 协议。纯 HTML/CSS/JS，模块清晰，欢迎一起完善。</p>
+    <ul class="plain">
         <li data-i18n="o1">补充新的诈骗场景与真实（已脱敏）话术样本</li>
         <li data-i18n="o2">设计更“磨人”的人设与拖延策略</li>
         <li data-i18n="o3">改进提取器正则与话术分类规则，补充测试用例</li>
         <li data-i18n="o4">路线图：大模型人设、语音通话（ASR/TTS）、情报共享 API</li>
       </ul>
-    </div>
+    <div class="join-links"><a href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><span data-i18n="cta.gh">GitHub 点个星</span> ↗</a><a href="demo.html"><span data-i18n="nav.demo">进入沙盒</span> ↗</a><a href="intel.html"><span data-i18n="nav.intel">情报库</span> ↗</a></div>
     <pre class="code">site/assets/js/
 ├── redact.js      # 脱敏
 ├── extractors.js  # 情报提取（银行卡/手机/QQ/微信/支付宝/钱包/URL）
@@ -202,17 +228,24 @@ tests/             # node --test</pre>
 </section>
 </main>
 
-<footer>
+<footer class="brand-footer">
   <div class="wrap">
+    <a class="brand brand-reverse" href="./" aria-label="DeepSuck"><span class="brand-symbol"><img src="assets/brand/on-hold-mono-96.png" alt="" width="96" height="96"></span><img class="brand-wordmark" src="assets/brand/wordmark.svg" alt="DeepSuck" width="146" height="40"></a>
     <span>DeepSuck · deepsuck.si</span>
     <span>Apache-2.0</span>
     <span data-i18n="foot.110">遇到诈骗请拨打 110 / 96110</span>
-    <a href="demo.html" data-i18n="nav.demo">进入沙盒</a>
-    <a href="intel.html" data-i18n="nav.intel">情报库</a>
-    <a href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">GitHub</a>
+    <button class="motion-toggle" id="motionToggle" type="button" aria-pressed="false"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ds-pause"/></svg><span>暂停动效</span></button>
+    <div class="footer-links"><a href="demo.html" data-i18n="nav.demo">进入沙盒</a><a href="intel.html" data-i18n="nav.intel">情报库</a><a href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">GitHub ↗</a></div>
   </div>
 </footer>
 <script src="assets/js/i18n.js"></script>
+<script src="assets/js/live-config.js"></script>
 <script src="assets/js/hero-chat.js"></script>
+<script src="assets/js/home.js"></script>
+<script src="assets/vendor/gsap/gsap.min.js"></script>
+<script src="assets/vendor/gsap/ScrollTrigger.min.js"></script>
+<script src="assets/vendor/gsap/SplitText.min.js"></script>
+<script src="assets/vendor/gsap/CustomEase.min.js"></script>
+<script src="assets/js/brand-motion.js"></script>
 </body>
 </html>
