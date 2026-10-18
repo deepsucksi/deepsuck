@@ -7,7 +7,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
+      # EN 无中文测试（tests/i18n_en.test.js）要用无头 Chrome；不写入 package.json，项目仍零依赖
+      - run: npm i --no-save playwright-core@1
       - run: npm test
+        env: { I18N_EN_REQUIRED: '1', CHROME_PATH: /usr/bin/google-chrome }
   python:
     runs-on: ubuntu-latest
     strategy:
