@@ -94,7 +94,7 @@ def test_calm_tts_text():
     assert calm("嗯……", pauses=False) == "嗯"
     assert calm("退…退款？哪…哪个啊。。。") == "退…退款？哪…哪个啊…"
     assert speakable("好的！", calm_tts=False) == "好的！"
-    assert "……" in speakable("卡号是 6222 **** 3456！")
+    assert speakable("卡号是 6222 **** 3456！") == "卡号是 尾号三四五六。"
 
 
 def test_voice_prompt_is_restrained():
@@ -176,3 +176,25 @@ def test_system_prompt_uses_voice_style_and_shots():
     # 字段缺失时退回原提示词，不报错
     assert P.voice_style({}, "refund") == []
     assert P.voice_style({"voiceShots": [{"scenario": "x", "scammer": "a", "reply": "b"}]}, "refund") == []
+
+
+def test_speakable_reads_numbers_digitwise_and_no_stars():
+    from voice.persona import say_digits, speakable, unmask
+
+    s = speakable("130****8600？尾号是8600？你再说一遍。", calm_tts=True)
+    assert "*" not in s and "＊" not in s
+    assert "尾号八六零零" in s
+    assert say_digits("幺三零…你说130开头") == "幺三零…你说幺三零开头"
+    assert "幺三零" in speakable("号码是130开头的吧", calm_tts=True)
+    assert "一百三十" not in speakable("号码是130开头的吧", calm_tts=True)
+    # 金额、日期照旧
+    assert "300" in speakable("要我转300元？", calm_tts=True)
+    assert "300" in speakable("先转300过去？", calm_tts=True)
+    assert "2026年" in speakable("2026年的事", calm_tts=True)
+    assert say_digits("验证码是032") == "验证码是零三二"
+    assert say_digits("工号110") == "工号幺幺零"
+    # 打码值给模型前改成自然说法
+    assert unmask("我的号是130****8600") == "我的号是尾号8600"
+    assert unmask("卡号622202*********3445") == "卡号尾号3445"
+    assert unmask("尾号是130-***-8600") == "尾号是8600"
+    assert unmask("号码 ****") == "号码那个号"

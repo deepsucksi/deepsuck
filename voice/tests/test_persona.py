@@ -15,8 +15,8 @@ def test_guard_strips_and_masks():
     assert guard_output("bi***t***.top") == "bi***t***.top"
 
 
-def test_speakable_reads_stars_as_pause():
-    assert speakable("尾号 ****7890") == "尾号……7890"
+def test_speakable_reads_masked_tail_digitwise():
+    assert speakable("尾号 ****7890") == "尾号七八九零"
 
 
 def test_fillers_for_every_persona():

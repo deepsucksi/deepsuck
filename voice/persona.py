@@ -91,7 +91,7 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
         "2. 保持人设，不要出戏，不要承认自己是 AI 或机器人。",
         "3. 绝不说出任何真实或看似真实的验证码、卡号、密码、身份证号、住址；需要时就说找不到、没弄好、要再确认一下。",
         "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
-        "5. 对方话里的 * 号是已脱敏的信息；提到号码时只说“尾号几位”之类，不要念星号，也不要自己编号码。",
+        "5. 号码只复述一部分，比如“尾号8600是吧…”“幺三零…后面是多少来着”；不要念星号，不要把整串号码念全，也不要自己编号码。",
         STYLE_RULE,
     ] + voice_style(p, s["id"]) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
           "也不要重复这句。"] if said_first else []))
@@ -154,11 +154,48 @@ def calm(text: str, pauses: bool | None = None) -> str:
     return re.sub(r"^[，。\s]+", "", s).rstrip("，")
 
 
+# 打码值（130****8600、622202*********3445、130-***-8600）：只在看板和日志里出现，进模型、进 TTS 前改成“尾号8600”。
+_MASKED = re.compile(r"[0-9]{0,8}[-\s]?[*＊]{2,}(?:[-\s]?[*＊]+)*[-\s]?([0-9]*)")
+_TAIL_WORD = re.compile(r"尾号(?:是)?\s*$")
+
+
+def unmask(text: str) -> str:
+    """把打码值换成自然说法：有 3 位以上可见尾号就说“尾号XXXX”，否则说“那个号”。不留任何星号。"""
+    def rep(m: re.Match) -> str:
+        tail = m.group(1) or ""
+        before = m.string[:m.start()]
+        if len(tail) >= 3:
+            return tail if _TAIL_WORD.search(before) else f"尾号{tail}"
+        return "那个号"
+    return _MASKED.sub(rep, str(text or ""))
+
+
+# 号码逐位读（送 TTS 前）：连续 3 位以上的数字按位读，1 读“幺”；金额、日期、数量照旧按数值读。
+_DIGIT_NAMES = dict(zip("0123456789", "零幺二三四五六七八九"))
+_DIGIT_RUN = re.compile(r"(?<![0-9.,])([0-9]{3,})(?![0-9.,%])")
+_UNIT_AFTER = re.compile(r"^\s*(?:元|块|万|千|百|亿|毛|角|岁|年|月|日|号|点|分|秒|个|次|天|周|台|件|单|笔|人|斤|米|公里|%|美元|刀|U\b|USDT|倍|多)")
+_MONEY_BEFORE = re.compile(r"(?:[¥￥$]|转|给|打|付|交|还|借|赔|退|充|花|垫|汇|存|取|贷|赚|亏|收|罚)\s*$")
+_CODE_BEFORE = re.compile(r"(?:尾号|号码|电话|手机|卡号|账号|账户|验证码|工号|编号|警号|单号|订单|QQ|微信|密码)(?:是|为)?\s*$")
+
+
+def say_digits(text: str) -> str:
+    def rep(m: re.Match) -> str:
+        run, before, after = m.group(1), m.string[:m.start()], m.string[m.end():]
+        if not _CODE_BEFORE.search(before):
+            if _UNIT_AFTER.match(after):
+                return run
+            if run[0] != "0" and len(run) <= 6 and _MONEY_BEFORE.search(before):
+                return run
+        return "".join(_DIGIT_NAMES[c] for c in run)
+    return _DIGIT_RUN.sub(rep, text)
+
+
 def speakable(text: str, calm_tts: bool | None = None) -> str:
-    """给 TTS 用：在 guard_output 基础上降调，再把打码星号读成停顿。"""
-    s = guard_output(text)
+    """给 TTS 用：在 guard_output 基础上把打码值改成“尾号XXXX”，降调，号码逐位读，残留星号读成停顿。"""
+    s = unmask(guard_output(text))
     if _CALM if calm_tts is None else calm_tts:
         s = calm(s)
+    s = say_digits(s)
     return _STARS.sub("……", s)
 
 

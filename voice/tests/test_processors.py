@@ -37,7 +37,7 @@ def test_intel_llm_mode_redacts_and_updates_prompt():
                        rng=lambda: 0.0)
     down, _ = asyncio.run(run_test(p, frames_to_send=[_tf(f"您好我是淘宝客服，请转到安全账户，卡号{CARD}")],
                                    expected_down_frames=[OutputAudioRawFrame, TranscriptionFrame]))
-    assert CARD not in down[1].text and "****" in down[1].text  # 大模型只看到脱敏文本
+    assert CARD not in down[1].text and "*" not in down[1].text and "尾号8901" in down[1].text  # 大模型只看到脱敏后的尾号，不见星号
     sysmsg = ctx.get_messages()[0]
     assert sysmsg["role"] == "system" and "王阿姨" in sysmsg["content"]
     kinds = [m["type"] for m in msgs]
@@ -87,7 +87,7 @@ def test_bot_text_tap_records_guarded_reply():
 
 
 def test_guard_text_filter():
-    assert asyncio.run(GuardTextFilter().filter("**好的** 尾号 ****7890")) == "好的 尾号……7890"
+    assert asyncio.run(GuardTextFilter().filter("**好的** 尾号 ****7890")) == "好的 尾号七八九零"
 
 
 def test_synth_fillers_cached(tmp_path):

@@ -42,7 +42,7 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
-from .persona import FILLERS, guard_output, speakable, system_prompt
+from .persona import FILLERS, guard_output, speakable, system_prompt, unmask
 
 Notify = Callable[[dict], Awaitable[None]]
 
@@ -303,7 +303,8 @@ class IntelProcessor(FrameProcessor):
         await self.notify(self.snapshot())
         self.update_prompt()
         # 与网页版一致：只把脱敏后的文本交给大模型（卡号等原值只留在本进程内存）
-        frame.text = a["redacted"]
+        # 打码值（130****8600）改成“尾号8600”再给模型，免得模型照着念出星号
+        frame.text = unmask(a["redacted"])
         await self.push_frame(frame, direction)
 
     async def _check_blocklist(self):
