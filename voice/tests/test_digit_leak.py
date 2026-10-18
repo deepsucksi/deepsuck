@@ -59,3 +59,28 @@ def test_summary_digit_leak_fields():
             row(1, 6, "尾号8600", ["8600"]), row(2, 5, "我找找卡", [])]
     s = AB.summarize(rows, "qwen3.7-flash")
     assert s["digit_leak_replies"] == 3 and s["digit_leak_calls"] == 2 and s["digit_leak_hits"] == ["130", "8600"]
+
+
+def _all_prompts():
+    from voice import persona as P
+    for pid in P.PERSONA_BY_ID:
+        for sid in P.SCENARIO_BY_ID:
+            for hint in P.INTENT_HINTS:
+                for first in (True, False):
+                    for topics in (None, set(), {"url", "bank", "phone", "invest", "wallet"}):
+                        yield P.system_prompt(pid, sid, hint, ["卡号"], said_first="嗯…", topics=topics, first_turn=first)
+
+
+def test_prompts_have_no_literal_number_examples():
+    from voice import persona as P
+    assert "8600" not in P.RULE_DIGITS and not AB.prompt_digits(P.RULE_DIGITS)
+    assert "后四位" in P.RULE_DIGITS and "不要自己编号码" in P.RULE_DIGITS
+    for sp in _all_prompts():
+        assert not AB.prompt_digits(sp), AB.prompt_digits(sp)
+        assert P.RULE_DIGITS in sp
+
+
+def test_voice_openings_and_fillers_have_no_number_strings():
+    from voice import persona as P
+    for lst in list(P.VOICE_OPENINGS.values()) + list(P.FILLERS.values()):
+        assert not any(AB.prompt_digits(x) for x in lst)
