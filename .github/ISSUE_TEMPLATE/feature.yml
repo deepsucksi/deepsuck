@@ -1,0 +1,58 @@
+name: 功能建议 / Feature request
+description: 新功能、改进现有行为或文档。Propose a new feature or an improvement.
+title: "[Feature] "
+labels: ["type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        DeepSuck 只做防御：不接受主动外呼、群发、骚扰、“反向诈骗”、攻击或入侵类功能。想法还不成熟时，可以先到 Discussions 讨论。
+
+        DeepSuck is defensive only: no outbound calling, bulk messaging, harassment, counter-scamming, attacks or intrusion. For early ideas, start in Discussions.
+  - type: dropdown
+    id: area
+    attributes:
+      label: 模块 / Area
+      options:
+        - 网站与沙盒 / site
+        - 语音与电话 / voice
+        - 情报提取与脱敏 / intel
+        - 人设与语料 / corpus
+        - 部署与 CI / infra
+        - 文档 / docs
+        - 不确定 / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题 / Problem
+      description: 谁在什么场景下遇到什么困难。Who has what problem, in which situation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案 / Proposal
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准 / Acceptance criteria
+      description: 做到什么程度算完成，最好可测试。How do we know it is done? Testable if possible.
+      placeholder: |
+        - [ ] …
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考虑过的其他方案 / Alternatives considered
+  - type: checkboxes
+    id: check
+    attributes:
+      label: 自查 / Checklist
+      options:
+        - label: 已搜索过现有 issue 和 Discussions / I searched existing issues and discussions
+          required: true
+        - label: 该功能只用于防御 / This feature is defensive only
+          required: true

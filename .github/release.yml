@@ -1,0 +1,26 @@
+# 自动生成的 Release Notes 分类（按 PR 标签）。正式说明以 CHANGELOG.md 对应版本为准。
+# Categories for auto-generated release notes, by PR label. CHANGELOG.md remains the source of truth.
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+      - duplicate
+      - invalid
+      - wontfix
+  categories:
+    - title: 新功能 / Features
+      labels: [type:feature, enhancement]
+    - title: 修复 / Bug fixes
+      labels: [type:bug, bug]
+    - title: 情报数据 / Intel data
+      labels: [intel-submission, area:intel]
+    - title: 语音与电话 / Voice
+      labels: [area:voice]
+    - title: 人设与语料 / Corpus
+      labels: [area:corpus]
+    - title: 文档 / Documentation
+      labels: [documentation, area:docs]
+    - title: 部署、CI 与维护 / Infra & maintenance
+      labels: [area:infra, type:tech-debt]
+    - title: 其他 / Other changes
+      labels: ["*"]

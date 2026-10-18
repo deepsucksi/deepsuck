@@ -1,5 +1,11 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
   - name: 正在被骗 / 已经转账？立即拨打 110
     url: https://deepsuck.si/intel.html#report
     about: 请先报警并联系银行止付；96110 为全国反诈预警劝阻专线，也可在「国家反诈中心」App 举报。
+  - name: 提问与讨论 / Questions & ideas (Discussions)
+    url: https://github.com/deepsucksi/deepsuck/discussions
+    about: 使用问题、想法、经验交流请到 Discussions。Ask questions and share ideas in Discussions.
+  - name: 安全漏洞（私密报告）/ Security vulnerability (private)
+    url: https://github.com/deepsucksi/deepsuck/security/advisories/new
+    about: 请勿公开提交漏洞，使用私密漏洞报告。Please report vulnerabilities privately.

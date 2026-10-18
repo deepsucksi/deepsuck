@@ -1,6 +1,14 @@
 # 参与贡献 DeepSuck
 
-感谢你愿意一起让骗子更累一点！
+感谢你愿意一起让骗子更累一点！参与本项目即表示你同意遵守[行为准则](CODE_OF_CONDUCT.md)。安全漏洞请勿公开提交，按 [SECURITY.md](SECURITY.md) 私密报告。
+
+## 提交流程
+
+1. 先开或认领一个 issue（缺陷、功能建议、情报数据问题都有模板）；想法还不成熟可以先到 [Discussions](https://github.com/deepsucksi/deepsuck/discussions) 聊。
+2. Fork 仓库，从最新 `main` 拉一个分支，命名 `<area>/<issue>-<slug>`，如 `intel/33-otp-redact`（area：`site` `voice` `intel` `corpus` `infra` `docs`）。一个分支只做一件事。
+3. 提交信息用 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/v1.0.0/)：`feat(intel): …`、`fix(site): …`、`docs: …`。
+4. 开 PR 到 `main`，按模板填写并写上 `Closes #N`。CI 全绿后由维护者 squash 合并，PR 标题就是最终提交标题。
+5. 行为有变化时，在 [CHANGELOG.md](CHANGELOG.md)「未发布」下补一条。
 
 ## 开发
 
@@ -13,7 +21,7 @@
 - 博客文章在 `content/blog/{zh,en}/*.md`，改完运行 `npm run blog` 重新生成 `site/blog/` 与 `site/sitemap.xml` 并一起提交（写法见 `content/blog/README.md`）。
 - 情报库数据在 `site/data/intel.json`，必须通过 `intel.js` 的校验（`npm test` 会检查）。真实情报请走 Issue 模板提交，由维护者审核收录。
 
-- 维护者日常流程（分支命名、PR 关联 issue、完成定义）见 [docs/CONTRIBUTING-dev.md](docs/CONTRIBUTING-dev.md)，关键架构决策见 [docs/adr/](docs/adr/)。
+- 维护者与常驻贡献者的完整流程（分支、合并、worktree、部署、发版、完成定义）见 [docs/CONTRIBUTING-dev.md](docs/CONTRIBUTING-dev.md)，关键架构决策见 [docs/adr/](docs/adr/)。
 
 ## 规则
 
@@ -22,7 +30,7 @@
 3. **只做防御**：不接受主动外呼、群发、骚扰、"反向诈骗"、攻击或入侵类功能。
 4. 人设模板不得给出真实或看似真实的验证码/卡号/密码/身份证号。
 5. 新增场景请在 `scenarios.js` 中写清 `goals`（希望诱导暴露的情报类型）。
-6. 提交信息建议使用简洁的中文或英文，PR 描述中说明动机与测试方式。
+6. 公开文案（站点、README、docs）不点名任何商业公司或产品，`npm test` 里的 `brand_copy` 测试会检查。
 
 ## 许可
 
