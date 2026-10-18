@@ -6,13 +6,16 @@
     python eval/realism_blind.py make --scammer-file site/assets/core/scam_scripts.json --out-dir eval/realism
     # 2) 评测者在 form-A.csv / form-B.csv 里填 human / bot / unreadable 三列后
     python eval/realism_blind.py score --key eval/realism/key.json eval/realism/rated-*.csv --json eval/results-realism.json
+    # 3) 可选：大模型评委代理指标（默认关闭，需显式 --judge llm；见 eval/realism_judge.py）
+    python eval/realism_blind.py score --key eval/realism/key.json --judge llm --dry-run   # 只估算费用
+    python eval/realism_blind.py score --key eval/realism/key.json --judge llm --json eval/realism/judge-llm.json
 
 设计：
 - 每道题 = 一条骗子消息 + 一条人设回复；回复有三种条件：
   raw（人设原句）、humanized（同一句经 personas.humanize 真人化，固定种子）、human（可选：--human-replies 提供的真人回复，作为上限参照）；
 - 同一句的 raw / humanized 分到 A、B 两份表的不同位置（A 表第 k 题是 raw，B 表就是 humanized），同一个评测者不会看到同一句的两个版本；
 - 评测者只看到骗子消息和回复，不知道条件；key.json 记录每题的条件、人设、种子与来源，不发给评测者。
-- 不调用大模型、不联网；骗子消息里的占位符一律填虚构的打码值。
+- make 和人工评分不调用大模型、不联网；只有显式 --judge llm 时才调用评委模型；骗子消息里的占位符一律填虚构的打码值。
 """
 from __future__ import annotations
 
@@ -215,6 +218,16 @@ def read_ratings(paths: Iterable[Path]) -> List[dict]:
     return rows
 
 
+def read_forms(forms_dir: Path) -> Dict[str, List[dict]]:
+    """读回 make 生成的 form-A.csv / form-B.csv（只取 id / scammer / reply，不读评分列）。"""
+    out = {}
+    for form in ("A", "B"):
+        p = forms_dir / f"form-{form}.csv"
+        with open(p, encoding="utf-8-sig", newline="") as f:
+            out[form] = [{"id": r["id"].strip(), "scammer": r["scammer"], "reply": r["reply"]} for r in csv.DictReader(f)]
+    return out
+
+
 def _mean_ci(xs: List[float]):
     if not xs:
         return None, None
@@ -289,6 +302,18 @@ def auto_stats(key: Dict[str, dict]) -> dict:
     return out
 
 
+def load_judge():
+    """按文件路径加载 eval/realism_judge.py（eval/ 不是包）。"""
+    import importlib.util
+    if "realism_judge" in sys.modules:
+        return sys.modules["realism_judge"]
+    spec = importlib.util.spec_from_file_location("realism_judge", Path(__file__).with_name("realism_judge.py"))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["realism_judge"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="像不像真人：盲测表生成与评分")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -300,17 +325,57 @@ def main(argv=None) -> int:
     mk.add_argument("--human-replies", type=Path, default=None, help="可选：真人回复（JSONL/JSON）")
     mk.add_argument("--out-dir", type=Path, default=ROOT / "eval" / "realism")
     sc = sub.add_parser("score")
-    sc.add_argument("ratings", nargs="+", type=Path)
+    sc.add_argument("ratings", nargs="*", type=Path, help="评测者填好的表（rated-*.csv）；只跑大模型评委时可省略")
     sc.add_argument("--key", type=Path, required=True)
     sc.add_argument("--json", type=Path, default=None)
+    sc.add_argument("--judge", choices=("none", "llm"), default="none",
+                    help="自动评委代理指标；默认 none，llm = 百炼 qwen-plus（需要 DASHSCOPE_API_KEY，会产生费用）")
+    sc.add_argument("--forms-dir", type=Path, default=None, help="form-A/B.csv 所在目录，默认与 key.json 相同")
+    sc.add_argument("--judge-n", type=int, default=60, help="评委评前多少个句对（每对 A、B 各一题），默认 60")
+    sc.add_argument("--judge-batch", type=int, default=10, help="每次请求放几道题（同一份表），默认 10")
+    sc.add_argument("--judge-seed", type=int, default=1)
+    sc.add_argument("--judge-model", default="qwen-plus")
+    sc.add_argument("--max-cost", type=float, default=1.0, help="费用上限（元），不能超过 1 元")
+    sc.add_argument("--dry-run", action="store_true", help="只估算 token 与费用，不调用")
+    sc.add_argument("--refresh-cache", action="store_true", help="忽略缓存重新调用（会再次计费）")
     a = ap.parse_args(argv)
     if a.cmd == "make":
         data = make(a.n, a.seed, a.scammer_file, a.human_replies)
         write_make(data, a.out_dir)
         print(json.dumps({"meta": data["meta"], "auto": auto_stats(data["key"])}, ensure_ascii=False, indent=2))
         return 0
+    if not a.ratings and a.judge == "none":
+        ap.error("score 需要评分表，或显式 --judge llm")
     key = json.loads(a.key.read_text(encoding="utf-8"))["key"]
-    res = {"score": score(key, read_ratings(a.ratings)), "auto": auto_stats(key)}
+    res = {}
+    if a.ratings:
+        res["score"] = score(key, read_ratings(a.ratings))
+    res["auto"] = auto_stats(key)
+    if a.judge == "llm":
+        J = load_judge()  # 只在显式打开时加载
+        forms_dir = a.forms_dir or a.key.parent
+        try:
+            out = J.run_judge(key, read_forms(forms_dir), J.default_client_factory(), n_pairs=a.judge_n,
+                              batch_size=a.judge_batch, seed=a.judge_seed, model=a.judge_model, max_cost=a.max_cost,
+                              cache_dir=J.CACHE_DIR, dry_run=a.dry_run, refresh=a.refresh_cache, log=lambda m: print(m, file=sys.stderr))
+        except J.BudgetError as e:
+            print(f"拒绝运行：{e}", file=sys.stderr)
+            return 2
+        except RuntimeError as e:
+            print(f"大模型评委未运行：{e}", file=sys.stderr)
+            return 3
+        judge = {"note": "代理指标：大模型评委的判断，不能代替人工盲测，可能有评委偏差",
+                 "model": out["model"], "date": out["date"], "seed": out["seed"], "estimate": out["estimate"],
+                 "dry_run": out["dry_run"]}
+        if not out["dry_run"]:
+            judge.update({"items": len(out["ratings"]), "invalid_items": out["invalid_items"], "usage": out["usage"],
+                          "score": score(key, out["ratings"])})
+            with open(forms_dir / "judge-llm.csv", "w", encoding="utf-8-sig", newline="") as f:
+                w = csv.writer(f)
+                w.writerow(["id", "rater", "human", "bot", "unreadable", "reason"])
+                for q, j in sorted(out["judgments"].items()):
+                    w.writerow([q, f"llm:{out['model']}", j["human"], j["bot"], j["unreadable"], j["reason"]])
+        res["llm_judge"] = judge
     text = json.dumps(res, ensure_ascii=False, indent=2)
     if a.json:
         a.json.write_text(text + "\n", encoding="utf-8")

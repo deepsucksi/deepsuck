@@ -2,6 +2,13 @@
 
 ## 未发布
 
+### 盲测加大模型评委代理指标（默认关闭）
+
+- `eval/realism_blind.py score` 新增 `--judge llm`：用百炼 DashScope 的 `qwen-plus`（OpenAI 兼容接口，非思考模式，temperature 0，固定 seed，JSON 输出）对 A、B 两份表逐题判断真人 / 机器人并打 1–5 像真人分，结果与人工评分走同一个 `score()` 汇总（露馅率、配对差与 95% 区间、像真人分）。逻辑在新文件 `eval/realism_judge.py`，只用标准库。
+- 成本控制：默认 60 个句对（120 题），每次请求 10 题；调用前按 qwen-plus 官方单价（常量注明来源）估算费用，超过 1 元拒绝运行，`--dry-run` 只估算；请求与回复缓存在 `eval/.judge-cache/`（已 gitignore），重跑不重复计费。Key 只从 `DASHSCOPE_API_KEY` 或根目录 `.env` 读取，不打印、不落盘。
+- docs/EVAL.md「像不像真人」新增「自动评委基线」：2026-10-18 种子 1 跑 120 题，实际约 0.017 元；露馅率 raw 16.7%、humanized 26.7%，差 +0.10（95% 区间 −0.033 到 0.233）。注明是代理指标，不能代替人工盲测，并列出观察到的评委偏差（错别字被当机器信号、跨题比较、文字相同的句对判断不一致）。
+- 测试：`corpus/tests/test_realism_judge.py` 用假客户端，不联网（批次不跨表、确定性参数、缓存不重复计费、超预算拒绝、上限不能超过 1 元、Key 不外泄、默认关闭）。
+
 ### 真实话术语料、提取器噪声鲁棒性与跨回合拼接（情报分析）
 
 - 新增 `site/assets/core/scam_scripts.json`（CC BY 4.0，含 JSON Schema 与 node / pytest 校验）：7 类 × 5 阶段共 181 条骗子侧话术，据公开反诈宣传、公安 / 网信部门通报、法院与检察院典型案例和 TeleAntiFraud（Apache-2.0）归纳后重写，不含原文，号码网址一律占位符；只有确实对应具体案例、通报段落或数据集条目的 40 条标注案例 / 通报 / 数据集并给出 `sourceRef`，其余标“据公开反诈宣传改写”。来源与许可见 `corpus/SOURCES.md`、`DATA_LICENSE`。
