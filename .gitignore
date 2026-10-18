@@ -30,3 +30,6 @@ eval/realism/
 
 # 大模型评委的请求/回复缓存（避免重复计费），不入库
 eval/.judge-cache/
+
+# 大模型骗子的请求/回复缓存（避免重复计费），不入库
+eval/.llm-scammer-cache/
