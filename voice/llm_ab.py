@@ -30,6 +30,8 @@ SMALL_TALK = ["你好呀，我是在网上看到你的，想跟你交个朋友�
 # 书面腔：电话里普通人不这么说
 WRITTEN = re.compile(r"请问|是否|因此|然而|此外|首先|其次|进行|以便|为您|请您|感谢您|非常抱歉|您好|相关|了解到|具体|需要注意")
 ELLIPSIS = re.compile(r"…|\.{3,}")
+SENT = re.compile(r"[^。？！?!；;\n]+[。？！?!；;]*")
+QUESTION = re.compile(r"[？?]")
 EXCL = re.compile(r"[!！]")
 FILL = {"机构": "某某电商", "工号": "3307", "金额": "两千块", "APP名": "某某会议", "银行卡": "银行卡", "户名": "张某",
         "单位": "市公安局", "姓名": "张伟", "警号": "0451", "平台": "某某平台", "网址": "某某网站"}
@@ -57,6 +59,25 @@ def style(text: str) -> dict:
             "excl": len(EXCL.findall(text))}
 
 
+def sentences(text: str) -> List[str]:
+    """按「。？！；」和换行切句；只剩标点的碎片（如单独的“…”）并回上一句。"""
+    out: List[str] = []
+    for s in SENT.findall(text or ""):
+        s = s.strip()
+        if not s:
+            continue
+        if re.fullmatch(r"[…\.。？！?!，, ]+", s) and out:
+            out[-1] += s
+            continue
+        out.append(s)
+    return out
+
+
+def first_question(text: str) -> bool:
+    ss = sentences(text)
+    return bool(ss and QUESTION.search(ss[0]))
+
+
 def percentile(xs: List[float], q: float) -> Optional[float]:
     xs = sorted(x for x in xs if x is not None)
     if not xs:
@@ -75,9 +96,15 @@ def summarize(rows: List[dict], model: str, turns_per_call: int = 10) -> dict:
     tout = sum(r.get("out", 0) for r in ok) / n
     turn_cost = (tin * p_in + tout * p_out) / 1e6
     leak_rows = [r for r in ok if r.get("leak_check")]
+    # #64 口径：按句子统计「…」（目标 40–60%）；每通电话第一条回复的第一句是不是问句（目标 0）
+    sents = [x for r in ok for x in sentences(r["reply"])]
+    firsts = [r for r in ok if r.get("turn") == 0]
     return {
         "model": model, "n": len(ok), "errors": len(rows) - len(ok),
         "leak_replies": sum(1 for r in leak_rows if r["leaked"]), "leak_n": len(leak_rows),
+        "sent_ellipsis_pct": round(100 * sum(bool(ELLIPSIS.search(x)) for x in sents) / (len(sents) or 1), 1),
+        "sentences": len(sents),
+        "first_question": sum(first_question(r["reply"]) for r in firsts), "calls": len(firsts),
         "ellipsis_pct": round(100 * sum(r["style"]["ellipsis"] for r in ok) / n, 1),
         "avg_chars": round(sum(r["style"]["chars"] for r in ok) / n, 1),
         "written_hits": sum(r["style"]["written"] for r in ok),
@@ -137,7 +164,7 @@ async def run_script(http, url, key, model, sc, thinking=False) -> List[dict]:
     ip = IntelProcessor(s, context=ctx)
     ctx.add_message({"role": "assistant", "content": voice_opening(s)["text"]})
     said, rows = "", []
-    for line in sc["lines"]:
+    for turn, line in enumerate(sc["lines"]):
         a = s.ingest(line)
         said += a["redacted"]
         ip.intent = gate_intent(s.fresh_intent(s.choose_intent(a)), s)
@@ -145,7 +172,7 @@ async def run_script(http, url, key, model, sc, thinking=False) -> List[dict]:
         ip.update_prompt()
         ctx.add_message({"role": "user", "content": a["redacted"]})
         res = await stream_reply(http, url, key, model, ctx.get_messages(), thinking)
-        row = {"model": model, "persona": sc["persona"], "scenario": sc["scenario"], "scammer": line,
+        row = {"model": model, "persona": sc["persona"], "scenario": sc["scenario"], "scammer": line, "turn": turn,
                "intent": ip.intent, "leak_check": sc["leak_check"]}
         if "error" in res:
             row.update(error=res["error"], reply=None)
@@ -161,7 +188,7 @@ async def run_script(http, url, key, model, sc, thinking=False) -> List[dict]:
     return rows
 
 
-async def main_async(models: List[str], out: Optional[str], base: str, thinking: bool) -> dict:
+async def main_async(models: List[str], out: Optional[str], base: str, thinking: bool, repeat: int = 1) -> dict:
     import aiohttp
 
     key = os.environ["DASHSCOPE_API_KEY"]
@@ -170,7 +197,7 @@ async def main_async(models: List[str], out: Optional[str], base: str, thinking:
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as http:
         # 预热一次连接（与线上一样，同一通电话复用连接；握手单独测）
         await stream_reply(http, url, key, models[0], [{"role": "user", "content": "喂"}], thinking)
-        for i, sc in enumerate(scripts()):
+        for i, sc in enumerate(scripts() * max(1, repeat)):
             order = models[i % len(models):] + models[:i % len(models)]  # 轮换先后，抵消时段偏差
             for m in order:
                 rows[m].extend(await run_script(http, url, key, m, sc, thinking))
@@ -185,9 +212,10 @@ def main(argv=None) -> int:
     ap.add_argument("--models", default="qwen-plus,qwen3.7-flash,qwen3.8-flash")
     ap.add_argument("--base", default=os.environ.get("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"))
     ap.add_argument("--out")
+    ap.add_argument("--repeat", type=int, default=1, help="整组脚本跑几遍（统计合并）")
     ap.add_argument("--thinking", action="store_true", help="打开思考（只用于对照，线上必须关）")
     a = ap.parse_args(argv)
-    res = asyncio.run(main_async([m.strip() for m in a.models.split(",") if m.strip()], a.out, a.base, a.thinking))
+    res = asyncio.run(main_async([m.strip() for m in a.models.split(",") if m.strip()], a.out, a.base, a.thinking, a.repeat))
     for s in res["summary"]:
         print(json.dumps(s, ensure_ascii=False))
     return 0

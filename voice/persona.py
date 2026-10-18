@@ -63,14 +63,15 @@ FILLERS = load_fillers()
 
 # 说话风格（与 personas/prompts/retiree.yaml 的规则一致，俊杰定的克制标准）：年龄感只靠节奏和偶尔没听清带出来。
 STYLE_RULE = ("6. 说话平常、克制，像普通人接电话：句子短，不用感叹号，不用“哎哟”“哎呀”开头；想一下、说一半停住的地方用“…”，"
-              "可以重复半个词、说了又改口；多反问、含糊一点，别把话说完整，也别替对方把话说圆；"
+              "大约一半的句子带“…”，另一半说完整的短句，不要每句都带；可以重复半个词、说了又改口；"
+              "可以反问、含糊一点，但不是每句都问，别把话说完整，也别替对方把话说圆；"
               "不主动提年龄，不拿听力、眼神、认字慢、手机用不惯说事；不编孙子、玩具、老花镜、药、锅里炖汤这类小道具和段子，"
               "也不抖机灵。偶尔没听清就说“你再说一遍”。")
 _AGE = re.compile(r"^\s*\d+\s*岁\s*")
 _SHOTS_MAX = 5
 
 
-def voice_style(p: dict, scenario_id: str, topics=None) -> list[str]:
+def voice_style(p: dict, scenario_id: str, topics=None, first_turn: bool = False) -> list[str]:
     """语料组给的语音专用风格规则和少样本例句（personas.json 的 voiceStyle / voiceShots，可选字段）。
 
     topics 不为 None 时（通话中），例句只留“对方台词里的话题都已经在本通电话里出现过”的那几条，
@@ -84,6 +85,8 @@ def voice_style(p: dict, scenario_id: str, topics=None) -> list[str]:
     pick = [x for x in shots if x.get("scenario") == scenario_id] or [x for x in shots if not x.get("scenario")]
     if topics is not None:
         pick = [x for x in pick if topics_in(x["scammer"] + x["reply"]) <= set(topics)]
+    if first_turn:  # 第一轮只给“第一句不是问句”的例句，免得照着例句一开口就反问
+        pick = [x for x in pick if not first_sentence_is_question(x["reply"])]
     if pick:
         out.append("说话口气参考（只学节奏和用词，不要照抄，不要把这些内容当成本次通话发生过的事）：")
         out += [f"对方：{x['scammer']}\n你：{x['reply']}" for x in pick[:_SHOTS_MAX]]
@@ -161,13 +164,27 @@ def voice_opening(session) -> dict:
 
 
 NO_LEAK_RULE = "你不知道对方打电话来干什么，只接对方已经说过的话；对方没提到的事一概不先提，也不要猜对方的目的。"
+# #64：每通电话人设的第一条回复不抢着反问（qwen3.7-flash 18 通里 17 通第一句就是问句，林姐还顺嘴问出了对方没提的事）
+FIRST_TURN_RULE = ("这是对方开口说的第一段话。你这一条的第一句只是应一声、接住对方的话，是陈述句，句尾用句号，"
+                   "不带问号，也不用“啊？”收尾，格式像“哦…是我。”“嗯，衣服的事啊。”“哦…卡的事啊。”“嗯，交朋友啊。”；"
+                   "第一句里不要把对方的词重复一遍再问（不要“衣服？”“卡？”这种）。"
+                   "第二句可以不说；要问（包括上面建议策略里的追问）都放到第二句，只问对方刚才那段话里亲口说过的词，"
+                   "不问对方是从哪儿、怎么找到你的。")
+_Q = re.compile(r"[？?]")
+_SENT = re.compile(r"[^。？！?!；;\n]+[。？！?!；;]*")
+
+
+def first_sentence_is_question(text: str) -> bool:
+    m = _SENT.search(str(text or "").strip())
+    return bool(m and _Q.search(m.group(0)))
 
 
 def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
-                  said_first: str = "", topics=None) -> str:
+                  said_first: str = "", topics=None, first_turn: bool = False) -> str:
     """语音人设提示词。场景名和描述不进提示词（只给后台分析和看板用）；scenario_id 只决定称呼和例句。
     missing：对方已经提到、但还没说清楚的情报（调用方按话题过滤，见 IntelProcessor.update_prompt）。
-    topics：对方已经提到的话题（session_topics）；None 表示不过滤例句（离线工具用）。"""
+    topics：对方已经提到的话题（session_topics）；None 表示不过滤例句（离线工具用）。
+    first_turn：对方刚说完第一段话（本通电话人设的第一条回复），加 FIRST_TURN_RULE。"""
     p = PERSONA_BY_ID.get(persona_id) or PERSONAS[0]
     s = SCENARIO_BY_ID.get(scenario_id) or SCENARIOS[0]
     call = p["call"].get(s["id"], "")
@@ -184,8 +201,8 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
         "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
         "5. 号码只复述一部分，比如“尾号8600是吧…”“幺三零…后面是多少来着”；不要念星号，不要把整串号码念全，也不要自己编号码。",
         STYLE_RULE,
-    ] + voice_style(p, s["id"], topics) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
-          "也不要重复这句。"] if said_first else []))
+    ] + voice_style(p, s["id"], topics, first_turn) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
+          "也不要重复这句。"] if said_first else []) + ([FIRST_TURN_RULE] if first_turn else []))
 
 
 _LONG_DIGITS = re.compile(r"(?<![0-9*])[0-9]{5,}(?![0-9*])")
