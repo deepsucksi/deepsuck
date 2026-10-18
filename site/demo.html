@@ -116,10 +116,10 @@
 </main>
 
 <!-- 情报看板 -->
-<div class="modal" id="summaryModal" role="dialog" aria-modal="true" aria-labelledby="sumTitle">
+<dialog class="modal" id="summaryModal" aria-labelledby="sumTitle">
   <div class="sheet">
     <div class="sheet-head">
-      <h3 id="sumTitle">情报看板</h3>
+      <h3 id="sumTitle" tabindex="-1" autofocus>情报看板</h3>
       <span class="note" id="sumSub"></span>
       <span style="margin-left:auto" class="actions">
         <button class="btn small primary" id="sumSubmit" type="button">提交到情报库</button>
@@ -157,12 +157,12 @@
       <p class="note" style="margin-top:16px">本看板由沙盒演示生成，仅用于防诈研究与教育。真实遇到诈骗请拨打 110 或 96110。</p>
     </div>
   </div>
-</div>
+</dialog>
 
 <!-- 引擎设置 -->
-<div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+<dialog class="modal" id="settingsModal" aria-labelledby="setTitle">
   <div class="sheet" style="max-width:640px">
-    <div class="sheet-head"><h3 id="setTitle">引擎设置</h3><button class="btn small ghost" style="margin-left:auto" id="setClose" type="button">关闭</button></div>
+    <div class="sheet-head"><h3 id="setTitle" tabindex="-1" autofocus>引擎设置</h3><button class="btn small ghost" style="margin-left:auto" id="setClose" type="button">关闭</button></div>
     <div class="sheet-body form">
       <label><span><input type="radio" name="engine" value="rule" checked> <b>规则引擎（默认，推荐）</b> —— 纯浏览器运行，无需 Key，零成本</span></label>
       <label><span><input type="radio" name="engine" value="proxy"> <b>本地代理 · 大模型</b> —— 通过本项目自带的 server（npm start）调用通义千问，Key 只存在服务器 .env</span>
@@ -179,7 +179,7 @@
       <div><button class="btn primary" id="setSave" type="button">保存</button></div>
     </div>
   </div>
-</div>
+</dialog>
 
 <div class="toast" id="toast"></div>
 

@@ -179,7 +179,7 @@
       BL.check(p.type, p.raw).then(function (r) {
         if (r.status === 'skip') r = { status: 'unavailable' };
         s.annotate(p.key, r);
-        if (state.session === s) { renderPanel(); if ($('summaryModal').classList.contains('open')) openSummary(); }
+        if (state.session === s) { renderPanel(); if ($('summaryModal').open) openSummary(); }
       });
     });
   }
@@ -221,6 +221,18 @@
     $('engineLabel').textContent = '引擎：' + ({ rule: '规则引擎（本地）', proxy: '大模型 · 本地代理', direct: '大模型 · 直连 ' + state.direct.model }[state.engine]);
   }
 
+  /* ---------- 弹窗 ---------- */
+  function openDialog(id) {
+    var d = $(id);
+    if (d.open) return;
+    if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+  }
+  function closeDialog(id) {
+    var d = $(id);
+    if (!d.open) return;
+    if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
+  }
+
   /* ---------- 看板 ---------- */
   function openSummary() {
     var s = state.session;
@@ -232,7 +244,8 @@
     $('input').disabled = true; $('sendBtn').disabled = true;
     var r = s.report();
     var st = r.stats;
-    $('sumSub').textContent = r.session.scenario.title + ' · ' + r.session.persona.name + ' · 引擎 ' + r.session.engine;
+    var engLabel = r.session.engine === 'rule' ? '规则引擎' : /^llm/.test(r.session.engine) ? '大模型' : r.session.engine;
+    $('sumSub').textContent = r.session.scenario.title + ' · ' + r.session.persona.name + ' · ' + engLabel;
     $('dashStats').innerHTML = [
       ['估算骗子耗时', fmtHuman(st.estimatedScammerSeconds)], ['实际对话时长', fmtHuman(st.wallClockSeconds)],
       ['消息数', st.messages + '（骗子 ' + st.scammerMessages + '）'], ['情报条数', st.intelCount], ['黑名单命中', r.intel.filter(function (i) { return i.blocklist && i.blocklist.status === 'hit'; }).length], ['风险评分', st.riskScore + '/100']
@@ -268,7 +281,7 @@
         (m.role === 'bot' ? esc(s.persona.name) : '骗子') + '</span>' + esc(m.text) + '</div>';
     }).join('');
     $('submitBox').hidden = true;
-    $('summaryModal').classList.add('open');
+    openDialog('summaryModal');
     if (params.get('submit') === '1') openSubmit();
   }
 
@@ -327,7 +340,7 @@
   function openSettings() {
     document.querySelectorAll('input[name=engine]').forEach(function (r) { r.checked = r.value === state.engine; });
     $('cfgBase').value = state.direct.baseUrl; $('cfgModel').value = state.direct.model; $('cfgKey').value = state.direct.apiKey || '';
-    $('settingsModal').classList.add('open');
+    openDialog('settingsModal');
   }
   function saveSettings() {
     var eng = (document.querySelector('input[name=engine]:checked') || {}).value || 'rule';
@@ -341,7 +354,7 @@
       if ($('cfgRemember').checked) localStorage.setItem('deepsuck.llm', JSON.stringify({ engine: eng, baseUrl: state.direct.baseUrl, model: state.direct.model, apiKey: state.direct.apiKey }));
       else localStorage.removeItem('deepsuck.llm');
     } catch (e) {}
-    $('settingsModal').classList.remove('open');
+    closeDialog('settingsModal');
     state.session.engineName = engineName();
     renderPanel();
     toast('已切换：' + $('engineLabel').textContent);
@@ -373,13 +386,14 @@
   $('sumSubmit').addEventListener('click', openSubmit);
   $('submitCopy').addEventListener('click', copySubmit);
   $('resetBtn').addEventListener('click', newSession);
-  $('sumNew').addEventListener('click', function () { $('summaryModal').classList.remove('open'); newSession(); });
-  $('sumClose').addEventListener('click', function () { $('summaryModal').classList.remove('open'); });
+  $('sumNew').addEventListener('click', function () { closeDialog('summaryModal'); newSession(); });
+  $('sumClose').addEventListener('click', function () { closeDialog('summaryModal'); });
   $('settingsBtn').addEventListener('click', openSettings);
-  $('setClose').addEventListener('click', function () { $('settingsModal').classList.remove('open'); });
+  $('setClose').addEventListener('click', function () { closeDialog('settingsModal'); });
   $('setSave').addEventListener('click', saveSettings);
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { $('summaryModal').classList.remove('open'); $('settingsModal').classList.remove('open'); }
+  // 原生 <dialog>：showModal() 自带焦点陷阱、Esc 关闭与背景 inert；点遮罩也可关闭
+  ['summaryModal', 'settingsModal'].forEach(function (id) {
+    $(id).addEventListener('click', function (e) { if (e.target === e.currentTarget) closeDialog(id); });
   });
 
   loadSettings();

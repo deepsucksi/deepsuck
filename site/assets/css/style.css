@@ -163,9 +163,11 @@ mark.intel{background:transparent;color:inherit;border-bottom:1.5px solid #d9b98
 .side .actions .btn.primary{width:100%}
 
 /* 模态 / 看板 */
-.modal{position:fixed;inset:0;background:rgba(22,21,20,.38);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none;z-index:50;overflow:auto;padding:48px 20px}
-.modal.open{display:block}
-.sheet{max-width:1040px;margin:0 auto;background:var(--bg);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.18)}
+dialog.modal{border:0;margin:0;padding:48px 20px;width:100%;max-width:none;height:100%;max-height:none;background:transparent;color:inherit;overflow:auto}
+dialog.modal:not([open]){display:none}
+dialog.modal::backdrop{background:rgba(22,21,20,.38);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+html:has(dialog[open]){overflow:hidden}
+.sheet{max-width:1040px;margin:0 auto;color:var(--text);background:var(--bg);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.18)}
 .sheet-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:24px 32px;border-bottom:1px solid var(--line)}
 .sheet-head h3{margin:0;font-size:20px}
 .sheet-body{padding:32px}
@@ -368,3 +370,9 @@ section.end{padding:72px 0 96px}
   .chat-foot{padding:0 16px 12px;font-size:11.5px}
   .demo{padding-top:16px}
 }
+
+/* 键盘焦点：统一可见的焦点环（鼠标点击不显示） */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.composer textarea:focus-visible,.form input:focus-visible,.intel-toolbar input:focus-visible,.intel-toolbar select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+[tabindex="-1"]:focus{outline:none}
+.dash-stats .stat .v{font-family:var(--font);font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:0}
