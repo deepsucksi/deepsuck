@@ -18,6 +18,7 @@ REPO="${REPO:-https://github.com/deepsucksi/deepsuck.git}"
 BRANCH="${BRANCH:-main}"
 DIR="${DIR:-/opt/deepsuck}"
 SWAP_MB="${SWAP_MB:-1024}"
+ETC="${DEEPSUCK_ETC:-/etc}"  # 仅供测试把 fail2ban/logrotate 配置写到临时目录
 log() { printf '\033[1;33m[deepsuck]\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31m[deepsuck] %s\033[0m\n' "$*" >&2; exit 1; }
 
@@ -64,7 +65,13 @@ PRIVATE_IP="${PRIVATE_IP:-$(meta private-ipv4)}"
 log "  公网 $PUBLIC_IP / 内网 $PRIVATE_IP"
 
 log "6/7 写入 deploy/.env"
-getv() { grep -E "^$1=" .env | tail -1 | cut -d= -f2-; }
+# getv KEY [默认值]：取 .env 里最后一个 KEY= 的值；缺失或为空时返回默认值。
+# grep 没匹配会返回 1，在 set -euo pipefail 下 v=$(getv ...) 会让脚本静默退出，所以这里吞掉非零。
+getv() {
+  local v=""
+  v="$(grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2-)" || true
+  printf '%s' "${v:-${2:-}}"
+}
 setv() { # 安全替换 KEY=VALUE（通过 ENVIRON 传值，值里有特殊字符也安全）；旧 .env 里没有这一行就追加
   if grep -qE "^$1=" .env; then
     K="$1" V="$2" awk '{ if (index($0, ENVIRON["K"] "=") == 1) print ENVIRON["K"] "=" ENVIRON["V"]; else print }' .env > .env.tmp
@@ -113,7 +120,7 @@ if [ ! -f .env ]; then
   chmod 600 .env
   unset DASHSCOPE_API_KEY
 else
-  LIVE_DOMAIN="$(grep -E '^LIVE_DOMAIN=' .env | cut -d= -f2-)"
+  LIVE_DOMAIN="$(getv LIVE_DOMAIN)"
   [ -n "$LIVE_DOMAIN" ] || die "deploy/.env 里 LIVE_DOMAIN 为空"
   log "  已存在 .env，保留（如需修改：nano $DIR/deploy/.env 后 docker compose up -d）"
   if [ "${WITH_SIP:-0}" = 1 ]; then (umask 077; sip_env); chmod 600 .env; fi
@@ -121,27 +128,27 @@ fi
 
 # 自建 SIP：security 日志目录 + fail2ban 防暴力注册 + 日志轮转
 if [ "${WITH_SIP:-0}" = 1 ]; then
-  sip_log="$(getv SIP_LOG_DIR)"; sip_log="${sip_log:-/var/log/deepsuck-sip}"
+  sip_log="$(getv SIP_LOG_DIR /var/log/deepsuck-sip)"
   mkdir -p "$sip_log" && touch "$sip_log/security" && chown -R 1000:1000 "$sip_log" && chmod 750 "$sip_log"
   if [ "${SKIP_FAIL2BAN:-0}" != 1 ]; then
     apt-get install -y -qq fail2ban >/dev/null
-    sed "s#/var/log/deepsuck-sip#$sip_log#" sip/fail2ban/deepsuck-sip.conf > /etc/fail2ban/jail.d/deepsuck-sip.conf
+    sed "s#/var/log/deepsuck-sip#$sip_log#" sip/fail2ban/deepsuck-sip.conf > "$ETC"/fail2ban/jail.d/deepsuck-sip.conf
     systemctl enable fail2ban >/dev/null 2>&1 || true
     systemctl restart fail2ban >/dev/null 2>&1 || log "  fail2ban 没能启动，请检查：fail2ban-client status deepsuck-sip"
   fi
-  sed "s#/var/log/deepsuck-sip#$sip_log#" sip/logrotate.conf > /etc/logrotate.d/deepsuck-sip
+  sed "s#/var/log/deepsuck-sip#$sip_log#" sip/logrotate.conf > "$ETC"/logrotate.d/deepsuck-sip
 fi
 
 # 主机防火墙（若启用了 ufw）；云厂商控制台的防火墙需另外放行，见 docs/DEPLOY.md
 if command -v ufw >/dev/null && ufw status | grep -q active; then
-  udp=$(grep -E '^VOICE_UDP_PORTS=' .env | cut -d= -f2); udp=${udp:-40000-40199}
+  udp="$(getv VOICE_UDP_PORTS 40000-40199)"
   ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw allow 443/udp >/dev/null
   ufw allow "${udp/-/:}/udp" >/dev/null
   [ "${WITH_TURN:-0}" = 1 ] && { ufw allow 3478 >/dev/null; ufw allow 49160:49200/udp >/dev/null; }
   if [ "${WITH_SIP:-0}" = 1 ]; then
-    rtp=$(getv SIP_RTP_PORTS); ufw allow "${rtp/-/:}/udp" >/dev/null
-    ufw allow "$(getv SIP_PORT)/udp" >/dev/null
-    [ "$(getv SIP_TCP)" = 1 ] && ufw allow "$(getv SIP_PORT)/tcp" >/dev/null
+    rtp="$(getv SIP_RTP_PORTS 40100-40199)"; ufw allow "${rtp/-/:}/udp" >/dev/null
+    ufw allow "$(getv SIP_PORT 25060)/udp" >/dev/null
+    if [ "$(getv SIP_TCP 0)" = 1 ]; then ufw allow "$(getv SIP_PORT 25060)/tcp" >/dev/null; fi
   fi
 fi
 
@@ -149,6 +156,13 @@ log "7/7 构建并启动容器（首次约 3–6 分钟）"
 profiles=""; [ "${WITH_TURN:-0}" = 1 ] && profiles="--profile turn"
 [ "${WITH_SIP:-0}" = 1 ] && profiles="$profiles --profile sip"
 docker compose $profiles up -d --build
+# 迁移：旧版把 deploy/Caddyfile 按单文件挂到 /etc/caddy/Caddyfile，git pull 换 inode 后容器读不到新内容。
+# 现在挂载整个 deploy/caddy/ 目录；若 caddy 容器仍是旧的单文件挂载，强制重建一次（以后不再需要）。
+caddy_id="$(docker compose ps -q caddy 2>/dev/null || true)"
+if [ -n "$caddy_id" ] && docker inspect -f '{{range .Mounts}}{{println .Destination}}{{end}}' "$caddy_id" 2>/dev/null | grep -qx /etc/caddy/Caddyfile; then
+  log "  Caddyfile 改为目录挂载，重建 caddy 容器（一次性）"
+  docker compose up -d --force-recreate caddy
+fi
 for i in $(seq 1 60); do
   if curl -fsS --max-time 3 http://127.0.0.1:8787/api/health >/dev/null 2>&1 && curl -fsS --max-time 3 http://127.0.0.1:7860/api/voice/health >/dev/null 2>&1; then
     log "服务已就绪 ✓"; break
@@ -161,15 +175,15 @@ docker compose ps
 sip_msg=""
 if [ "${WITH_SIP:-0}" = 1 ]; then
   sip_msg="
-  自建 SIP 软电话（docs/PHONE.md 第 10 节）：云防火墙再放行 UDP $(getv SIP_PORT)$( [ "$(getv SIP_TCP)" = 1 ] && echo "、TCP $(getv SIP_PORT)")（信令）和 UDP $(getv SIP_RTP_PORTS)（RTP，若尚未放行）
-  手机 Linphone/Zoiper：服务器 $PUBLIC_IP:$(getv SIP_PORT)，传输 UDP，账号/密码见 grep -E '^SIP_(USER|PASSWORD)=' $DIR/deploy/.env，拨 $(getv SIP_AI_EXTEN)
+  自建 SIP 软电话（docs/PHONE.md 第 10 节）：云防火墙再放行 UDP $(getv SIP_PORT 25060)$( [ "$(getv SIP_TCP 0)" = 1 ] && echo "、TCP $(getv SIP_PORT 25060)")（信令）和 UDP $(getv SIP_RTP_PORTS 40100-40199)（RTP，若尚未放行）
+  手机 Linphone/Zoiper：服务器 $PUBLIC_IP:$(getv SIP_PORT 25060)，传输 UDP，账号/密码见 grep -E '^SIP_(USER|PASSWORD)=' $DIR/deploy/.env，拨 $(getv SIP_AI_EXTEN 9000)
   更新时带上 profile：docker compose --profile sip up -d --build"
 fi
 cat <<MSG
 
   下一步：
   1) DNS：添加 A 记录  ${LIVE_DOMAIN%%.*} → $PUBLIC_IP（Caddy 会在解析生效后自动申请证书）
-  2) 云控制台防火墙放行：TCP 80、443；UDP 443；UDP $(grep -E '^VOICE_UDP_PORTS=' .env | cut -d= -f2)$( [ "${WITH_TURN:-0}" = 1 ] && echo '；TCP/UDP 3478、UDP 49160-49200' )
+  2) 云控制台防火墙放行：TCP 80、443；UDP 443；UDP $(getv VOICE_UDP_PORTS 40000-40199)$( [ "${WITH_TURN:-0}" = 1 ] && echo '；TCP/UDP 3478、UDP 49160-49200' )
   3) 打开 https://$LIVE_DOMAIN/ 试语音；curl https://$LIVE_DOMAIN/api/health 看文字代理
   4) 在仓库 site/assets/js/live-config.js 里把 api 设为 'https://$LIVE_DOMAIN' 并推送，主站沙盒即切到大模型
   更新：cd $DIR && git pull && cd deploy && docker compose up -d --build${sip_msg}

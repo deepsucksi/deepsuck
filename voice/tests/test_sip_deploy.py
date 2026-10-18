@@ -75,7 +75,7 @@ def test_env_example_ports_do_not_overlap():
 
 
 def test_caddy_does_not_expose_asterisk_ws():
-    text = (DEPLOY / "Caddyfile").read_text()
+    text = (DEPLOY / "caddy" / "Caddyfile").read_text()
     block = re.search(r"handle /telephony/asterisk-ws\* \{\s*respond 404\s*\}", text)
     assert block and block.start() < text.index("reverse_proxy 127.0.0.1:7860")
 
@@ -197,3 +197,10 @@ def test_entrypoint_without_public_ip_or_tcp(tmp_path):
     pj = (out / "pjsip.conf").read_text()
     assert "external_media_address" not in pj and "protocol = tcp" not in pj and "type = acl" not in pj
     assert "公网" in p.stdout + p.stderr  # 提醒没有公网 IP
+
+
+# ---- bootstrap.sh 回归（桩替换 docker/systemctl 等，见 deploy/tests/test_bootstrap.sh） ----
+
+def test_bootstrap_script_regressions():
+    r = subprocess.run(["bash", str(DEPLOY / "tests" / "test_bootstrap.sh")], capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, r.stdout + r.stderr

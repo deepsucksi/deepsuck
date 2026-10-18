@@ -2,6 +2,12 @@
 
 ## 未发布
 
+### 部署修复：bootstrap 重跑 WITH_SIP=1、Caddyfile 目录挂载
+
+- 修复 `bootstrap.sh` 在 `deploy/.env` 已存在且没有 `SIP_LOG_DIR` 时用 `WITH_SIP=1` 重跑会静默退出：`getv` 用 `grep` 取值，没匹配时返回 1，在 `set -euo pipefail` 下 `sip_log="$(getv SIP_LOG_DIR)"` 直接终止脚本。`getv KEY [默认值]` 现在不会返回非零，缺失时返回默认值；SIP_* 调用处补上 docs/PHONE.md 6.4 节的默认值（`SIP_LOG_DIR=/var/log/deepsuck-sip`、`SIP_PORT=25060`、`SIP_RTP_PORTS=40100-40199`、`SIP_AI_EXTEN=9000`、`SIP_TCP=0`），`LIVE_DOMAIN`、`VOICE_UDP_PORTS` 也改用 `getv`。
+- Caddyfile 移到 `deploy/caddy/Caddyfile`，compose 挂载整个目录到 `/etc/caddy`，`git pull` 后 `caddy reload` 或重启容器即可生效。已部署的服务器需要执行一次 `docker compose up -d --force-recreate caddy`（bootstrap 会自动检测旧的单文件挂载并重建），见 docs/DEPLOY.md。
+- 新增 `deploy/tests/test_bootstrap.sh`：桩替换 docker、systemctl、apt-get 等，覆盖已有 `.env` + `WITH_SIP=1`、重跑不覆盖密码、caddy 挂载迁移；已接入 CI 与 `python -m pytest voice/tests`。
+
 ### 自建 SIP 软电话接入（零成本演示）
 
 - `deploy/` 新增默认关闭的 `sip` profile：Asterisk 22（`andrius/asterisk:22.11.0-alpine-3.24`，免编译）+ chan_websocket，手机 Linphone/Zoiper 注册后拨一个分机即可跟 AI 通话。只是演示用的分机，不是电话号码，没有外线、没有外呼。见 docs/PHONE.md 第 10 节。

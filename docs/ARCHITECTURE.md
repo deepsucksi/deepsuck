@@ -35,7 +35,7 @@ deepsuck/
 │   ├── telephony/            # 电话接入抽象层：TelephonyAdapter + ws-raw / pipecat-ws 适配器；默认关闭，只接不拨
 │   ├── static/               # 语音演示页面
 │   └── tests/                # 假 WebSocket / 本地回环测试，不联网、不拨打电话
-├── deploy/                   # 公开部署包：Docker Compose、Caddyfile、bootstrap.sh、.env.example
+├── deploy/                   # 公开部署包：Docker Compose、caddy/Caddyfile、bootstrap.sh、.env.example
 ├── eval/                     # 骗子剧本、TeleAntiFraud 评测脚本、评测结果 JSON
 ├── scripts/                  # build-core · gen-fixtures · fetch-blocklists · fetch-cardbin · screenshots · og
 ├── tests/                    # node:test 单元测试 + fixtures/（JS 生成、Python 复用的黄金用例）

@@ -73,7 +73,8 @@ services:
       LIVE_DOMAIN: ${LIVE_DOMAIN:?在 deploy/.env 设置 LIVE_DOMAIN（你自己的域名）}
       ACME_EMAIL: ${ACME_EMAIL:?在 deploy/.env 设置 ACME_EMAIL（证书邮箱）}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # 挂整个目录而不是单个文件：git pull 替换 Caddyfile 后容器能看到新内容（单文件挂载绑的是旧 inode）
+      - ./caddy:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
     mem_limit: 128m

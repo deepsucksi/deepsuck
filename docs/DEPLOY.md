@@ -13,7 +13,7 @@
    └──UDP 40000–40199（WebRTC 音频，直连服务器公网 IP）──▶ voice
 ```
 
-部署包在 [`deploy/`](../deploy)：`Dockerfile.proxy`、`Dockerfile.voice`、`docker-compose.yml`、`Caddyfile`、`.env.example`、`bootstrap.sh`。
+部署包在 [`deploy/`](../deploy)：`Dockerfile.proxy`、`Dockerfile.voice`、`docker-compose.yml`、`caddy/Caddyfile`、`.env.example`、`bootstrap.sh`。
 
 ---
 
@@ -110,7 +110,23 @@ nano /opt/deepsuck/deploy/.env && docker compose up -d                       # �
 docker compose exec voice cat /data/voice-budget.json                       # 当日语音用量
 docker compose exec proxy cat /data/chat-budget.json                        # 当日文字用量
 docker compose down                                                         # 停服（不会产生任何 DashScope 费用）
+docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile        # 改了 deploy/caddy/Caddyfile 后生效（或 docker compose restart caddy）
 ```
+
+### Caddyfile 改为目录挂载（2026-10 一次性迁移）
+
+旧版把 `deploy/Caddyfile` 按单个文件绑定挂载到容器的 `/etc/caddy/Caddyfile`。`git pull` 替换文件时 inode 会变，容器里看到的仍是旧内容，只能手动 force-recreate。现在 Caddyfile 移到 `deploy/caddy/Caddyfile`，整个 `deploy/caddy/` 目录挂载到容器的 `/etc/caddy`（只读）。
+
+已经部署的服务器，这次 `git pull` 之后执行一次：
+
+```bash
+cd /opt/deepsuck && git pull && cd deploy
+docker compose up -d --build
+docker compose up -d --force-recreate caddy   # 仅这一次，把旧的单文件挂载换成目录挂载
+docker compose exec caddy ls /etc/caddy        # 应看到 Caddyfile
+```
+
+重新运行 `bootstrap.sh` 的话会自动检测旧挂载并重建 caddy，不用手动执行。此后修改 Caddyfile 只需 `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile` 或 `docker compose restart caddy`，不再需要 force-recreate。
 
 ## 4. 费用护栏（默认值，全部可在 `deploy/.env` 调）
 
@@ -178,7 +194,7 @@ TTS（字符计费）是语音的大头，ASR 次之，大模型最便宜。
 | **合计** | **≤ 266 元/月** | **≈ 90–100 元/月** |
 
 想更省：`VOICE_DAILY_BUDGET_CNY=2`（封顶 60 元/月）、`VOICE_ENGINE=rule`（不调大模型）、`VOICE_MAX_MINUTES=3`。
-只上文字代理不上语音：`docker compose up -d proxy caddy`（同时把 Caddyfile 的默认路由去掉），1C1G 就够。
+只上文字代理不上语音：`docker compose up -d proxy caddy`（同时把 `deploy/caddy/Caddyfile` 的默认路由去掉），1C1G 就够。
 
 ## 6. 本地验证记录（2026-10-18，未购买任何云资源）
 
@@ -204,4 +220,6 @@ TTS（字符计费）是语音的大头，ASR 次之，大模型最便宜。
 | 证书申请失败 | DNS 未生效或 80 端口没放行；`docker compose logs caddy` |
 | 主站沙盒没切到大模型 | `live-config.js` 没改 / 浏览器缓存；`ALLOWED_ORIGINS` 要包含页面的 Origin；`/api/health` 里 `budget.exhausted` |
 | 503 当前同时通话已满 | 正常护栏（`VOICE_MAX_SESSIONS`） |
+| 改了 Caddyfile 不生效 | 确认改的是 `deploy/caddy/Caddyfile`；`docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`。若 `docker inspect` 里 caddy 仍挂载 `/etc/caddy/Caddyfile` 单文件，执行一次 `docker compose up -d --force-recreate caddy` |
+| `WITH_SIP=1` 重跑 bootstrap 在第 6 步后无输出退出 | 旧版 bootstrap 在 `.env` 缺少 `SIP_LOG_DIR` 等变量时会被 `set -e` 打断，更新到最新代码后重跑即可 |
 | 容器被 OOM 杀 | 1 GB 机器：确认 swap 已开（`swapon --show`），或把 `VOICE_MAX_SESSIONS=1` |
