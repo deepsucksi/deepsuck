@@ -9,7 +9,8 @@
 | 指标 | `PipelineParams(enable_metrics=True, enable_usage_metrics=True)`；`LatencyObserver` 按用户回合拆解 ASR / 大模型首 token / 分句等待 / TTS 首包 / 端到端，通话结束写日志并推给看板 | `voice/latency.py`、`voice/app.py`、`voice/telephony/server.py` |
 | ASR 断句 | Paraformer `max_sentence_silence` 从服务端默认（约 800ms）调到网页 450ms、电话 500ms。比"本地 VAD 判停后强制出最终结果"改动小：不改协议流程，出问题可用环境变量调回 | `voice/dashscope_ws.py`、`voice/services.py` |
 | 流式合成 | `CosyVoiceStreamTTSService`：每通会话一条长连接（开局就建连）；每个大模型回合一个 DashScope 任务，回合一开始就发 run-task，大模型边吐字边按子句 continue-task；打断时若服务端仍在合成就断连取消并立即重连，已合成完只清本地队列。`ClauseTextAggregator` 在句末标点立即切、在逗号等处攒够 6 字就切，括号/引号未闭合不切（保证输出守卫拿到完整片段）。`DEEPSUCK_TTS_STREAM=0` 回退到旧的每句一连接实现 | `voice/services.py`、`voice/textagg.py` |
-| 填充音 | 去掉"每句 60% 随机插播"，改为 `FillerProcessor`（放在大模型之后）：播放时刻 = max(真实停说 + 650ms, 回合判定结束)，到时仍无大模型首 token 才播；首 token、TTS 出声、机器人开口或对方接着说都会取消；每回合最多一次 | `voice/processors.py` |
+| 填充音 | 去掉"每句 60% 随机插播"，改为 `FillerProcessor`（放在大模型之后）：播放时刻 = max(真实停说 + 650ms, 回合判定结束)，到时仍无大模型首 token 才播；首 token、TTS 出声、机器人开口或对方接着说都会取消；每回合最多一次。**现为 `DEEPSUCK_BACKCHANNEL=0` 时的回退行为**，默认改为下文的"短口头语" | `voice/processors.py` |
+| 短口头语 | 回合判定结束就播一条预合成的口头语（"嗯……""啊？""你说啥？"），见下文[短口头语](#短口头语2026-10-18第三轮) | `voice/backchannel.py`、`voice/processors.py` |
 | 打断 | `ChineseMinCharsUserTurnStartStrategy`：Pipecat 的 `MinWordsUserTurnStartStrategy` 用空格分词，对中文无效，这里改数"有效字"（去掉标点和"嗯/对/好/是的"等应答词，"不是/不对"算反驳）。机器人说话时有效字达到门槛才打断，机器人没说话时任何文字都开启回合。VAD 默认 start 0.3s、confidence 0.75 | `voice/interrupt.py` |
 | rule 模式打断 | 管线加 `VADProcessor`（STT 前）和 `UserTurnProcessor`（STT 后），开口达到门槛就广播打断 | `voice/app.py` |
 | 参数 | 网页 / 电话两套，电话线路 VAD 更保守、打断门槛 3 字、断句静音 500ms；`build_pipeline(profile="phone")` 由电话接入层使用 | `voice/tuning.py` |
@@ -26,8 +27,16 @@
 | `VAD_STOP_SECS` | 0.2 | 0.3 | 判定停说所需静音时长 |
 | `VAD_MIN_VOLUME` | 0.6 | 0.5 | 最小音量 |
 | `INTERRUPT_MIN_CHARS` | 2 | 3 | 机器人说话时打断所需有效字数 |
-| `FILLER_DELAY_MS` | 650 | 650 | 停说后多久仍无首 token 就播填充音；0 关闭 |
+| `FILLER_DELAY_MS` | 650 | 650 | 仅 `DEEPSUCK_BACKCHANNEL=0` 时生效：停说后多久仍无首 token 就播填充音；0 关闭 |
+| `BACKCHANNEL_DELAY_MS` | 0 | 0 | 短口头语：回合判定结束后多久播；0 立刻 |
 | `TTS_CLAUSE_MIN_CHARS` | 6 | 6 | 逗号处切分前至少攒的字数 |
+
+另有两个全局开关（网页和电话共用，默认值在代码里，`deploy/` 未改）：
+
+| 变量 | 默认 | 含义 |
+|---|---|---|
+| `DEEPSUCK_BACKCHANNEL` | `1` | 短口头语开关；`0` 回到旧的按延迟触发填充音 |
+| `DEEPSUCK_FILLER_CACHE_DIR` | 空 | 口头语音频缓存目录；为空时用 `$DATA_DIR/voice/fillers`，没有 `DATA_DIR` 时用 `~/.cache/deepsuck/voice` |
 
 ## 测量方法
 
@@ -99,11 +108,54 @@
 
 后续可做：在线上（香港服务器到北京地域）累积更多 `tts_ttfb` 样本（服务端每回合都会记 `latency turn N` 日志），若快慢两档比例与本地一致，再评估赛跑方案；或关注 DashScope 是否提供首包更稳定的模型/地域。
 
+## 短口头语（2026-10-18，第三轮）
+
+我们扮的是反应慢半拍的普通人：对方说完先"嗯……""啊？你说啥"接一声，再说正事。
+
+做法：
+
+- **预合成 + 缓存**：每个人设 8 条（见下表），用该人设的 CosyVoice 音色合成 24k PCM；部署时 `VOICE_PREWARM=1` 启动即合成，否则开场先用缓存、缺的在后台补齐（网页和电话都一样；电话链路由 transport 统一重采样到 8k）。缓存按"音色/采样率/文本"分文件放在 `$DATA_DIR/voice/fillers`（生产在 `voice-data` 卷，重启不再计费），进程内存再留一份。CosyVoice 合成结果开头固定有 0.34–0.47 s 静音（本次 8 条实测），载入时裁掉首尾静音（阈值 500/32768，两端各留 20 ms），播放就是推一帧现成音频，不走 TTS。合成失败只是少几条，全失败就不播。
+- **何时说、说哪条**（`voice/backchannel.py`，纯文本规则）：按本回合转写判断——有效字（汉字/字母数字）少于 4 个（"喂""对""好的"）不说；含催促词（快点、赶紧、听到没、在吗、喂喂……）不说；以问号/吗/呢结尾且不超过 8 个字的追问不说。其余每回合说一条：随机挑选，和上一条不重复，只从已合成好的里挑。
+- **时机**：`FillerProcessor` 收到 `UserStoppedSpeakingFrame`（回合判定结束、同时触发大模型）就播，不等大模型；机器人正在说话时不插；句中停顿不插（只看回合结束）。
+- **写进上下文**：`IntelProcessor` 拿到转写时就定下本回合说哪条，并在系统提示词里加一句"本轮你已经先随口应了一声"X"，开头不要再用嗯、啊、哎、哦之类的语气词，也不要重复这句"。
+- **打断**：口头语就是普通输出音频，对方开口打断时随 `InterruptionFrame` 一起从输出队列清掉（测试用 Pipecat 的 `BaseOutputTransport` 验证：1 s 的口头语播 0.15 s 后打断，只播出一小段）。
+- **指标**：`LatencyObserver` 新增 `first_audible`（对方说完 → 第一个声音，含口头语，取 FillerProcessor 推出口头语帧、`BotStartedSpeakingFrame`、回复首包三者最早）和 `filler`（本回合是否播了口头语/填充音），`e2e_reply`（正式回复首包）保留。probe 汇总多了 `headline`：`first_audible_p50`、`client_first_audible_p50`、`reply_first_packet_p50`、`filler_turns`。
+
+| 人设 | 口头语 |
+|---|---|
+| 王阿姨（wang） | 嗯…… / 啊？ / 哎…… / 哎哟…… / 你说啥？ / 等一下啊…… / 我听听啊…… / 哦…… |
+| 李大爷（li） | 啊？ / 嗯？ / 啥？ / 你说啥？ / 大点声…… / 哦…… / 等会儿…… / 嗯…… |
+| 小林（lin） | 呃…… / 嗯嗯 / 啊？ / 等下哈 / 哦哦 / 啊这…… / 嗯……我想想 / 诶？ |
+
+### 开 / 关对比（本地端到端 probe）
+
+同一段 `scammer16k.wav`（6 句），人设 wang、场景 refund，本机起服务。关 = `DEEPSUCK_BACKCHANNEL=0`（旧的按延迟触发填充音，用的是同一批已裁静音的口头语音频）。开、关交替各跑 2 次（关 1 → 开 1 → 关 2 → 开 2），共 4 次 probe；口头语预合成另计 5 次 TTS（王阿姨 8 条里有 3 条和旧填充音文本相同，直接复用旧缓存）。客户端值按每句骗子话结束 → aiortc 收到第一帧有声音频计算，每次 6 个样本。
+
+| | 关 1 | 关 2 | 开 1 | 开 2 | 关（合并 12） | 开（合并 12） |
+|---|---|---|---|---|---|---|
+| 客户端首个声音 P50（ms） | 1523 | 1283 | 1292 | 1214 | 1283 | 1273 |
+| 服务端 `first_audible` P50（ms） | 1245 | 955 | 979 | 924 | — | — |
+| 服务端 `e2e_reply`（正式回复首包）P50（ms） | 3639 | 2700 | 3245 | 3115 | — | — |
+| 播了口头语/填充音的回合 | 6/6 | 8/8 | 9/9 | 7/7 | | |
+| 正式回复以"嗯/啊/哎/哦"等开头 | 4/7 | 5/7 | 2/7 | 1/7 | 9/14 | 3/14 |
+
+结论（如实）：
+
+- **"对方说完到第一个声音"开关之间没有差别**（合并 P50 1283 vs 1273 ms）。原因是本地大模型首 token 都在 650 ms 以上，旧填充音每回合也会在回合结束那一刻播出；两种模式的首个声音都卡在回合判定（`turn_ms`）上。开关的差别在大模型快的回合（旧逻辑不播、新逻辑照样应一声）和下面两点。
+- **首个声音实际变快来自裁静音**：合成音频开头 0.34–0.47 s 静音被裁掉，两种模式都受益。对比今天上午同一段音频在旧版本上的客户端首个声音（1544 / 1423 / 1723 / 1683 / 1623 / 3882，P50 约 1650 ms），现在约 1280 ms，差值与裁掉的静音长度一致；但那是另一时段的单次测量，只作参考。
+- **正式回复不再重复语气词**：开头带语气词的回复从 9/14 降到 3/14（剩下几乎都是对第一句"您好，我是淘宝客服"的回复"哎哟，客服啊？"）。
+- **口头语没有拖慢正式回复**：口头语最长 0.83 s，回复首包在回合结束后 2 s 左右才到，不会排队等口头语。`e2e_reply` 各次差异主要来自 ASR 和回合判定的波动（见下条）。
+- 上文"已知副作用"仍在：带逗号/句号停顿的骗子话有时被回合判定切成两段（开 1 有 3 次），第一段的回复被第二段打断后重做。开着口头语时，被切的那一段会先听到一声"嗯……"再被打断，和真人"嗯？——哦你接着说"差不多；切分本身与口头语无关（旧版本日志里同样出现：上午 4 次 probe 分别有 0、1、2、3 次）。
+- 每句最后一句"……卡号我现在念给您。"三次都等了约 3.2 s 才判定说完（Smart Turn 判为"没说完"，等超时），这一回合的首个声音在 3.5 s 左右，口头语帮不上，需要另调回合判定。
+
+`e2e_any` 旧字段说明：它取 `BotStartedSpeakingFrame` 与回复首包中较早者，本次实测在有填充音的回合也等于回复首包（输出 transport 的 `BotStartedSpeakingFrame` 没有在口头语开始时被观测到），所以新加了直接以口头语帧计时的 `first_audible`；看"多久出声"请用 `first_audible`。
+
 ## 复现
 
 ```bash
 python -m voice.app --port 7863 &
 python -m voice.probe --url http://127.0.0.1:7863 --wav scammer16k.wav --seconds 96 --json-out after.json
-# 只测回复本身：服务端加 DEEPSUCK_LAT_FILLER_DELAY_MS=0
+# 只测回复本身：服务端加 DEEPSUCK_BACKCHANNEL=0 DEEPSUCK_LAT_FILLER_DELAY_MS=0
+# 口头语开/关对比：服务端 DEEPSUCK_BACKCHANNEL=1 / 0；probe 汇总看 headline
 # 生成同款骗子音频（计费，约 150 字）：python -m voice.probe --make-wav scammer16k.wav
 ```

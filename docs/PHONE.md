@@ -179,6 +179,8 @@
 | `TELNYX_API_KEY` | 空 | 仅 `pipecat-ws` + Telnyx |
 | `PLIVO_AUTH_ID` / `PLIVO_AUTH_TOKEN` | 空 | 仅 `pipecat-ws` + Plivo |
 | `DEEPSUCK_PHONE_LAT_<字段>` | 见 VOICE_LATENCY.md | 电话链路的 ASR 静音、VAD、打断、填充音参数 |
+| `DEEPSUCK_BACKCHANNEL` | `1` | 短口头语（网页和电话共用）：回合结束即播预合成的"嗯……""啊？"；`0` 回到按延迟触发的填充音。音频 24k 预合成，电话输出时统一重采样到 8k |
+| `DEEPSUCK_FILLER_CACHE_DIR` | 空（= `$DATA_DIR/voice/fillers`） | 口头语音频缓存目录 |
 
 ### 6.2 告知语（网页和电话共用）
 
