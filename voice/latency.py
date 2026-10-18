@@ -13,10 +13,18 @@
 agg = tts_start - llm_first（分句等待）；tts_ttfb = tts_first - tts_start；
 e2e_reply = tts_first - speech_end；e2e_any = bot_start - speech_end。
 rule 模式没有大模型，llm_* / agg 为空。
+
+上报时机：回复首包（tts_first）一到就结算并通知客户端（此时各字段都已确定）；没有回复首包的回合
+在下一个用户回合开始或 flush() 时兜底结算。
+
+去重：同一帧在每两个处理器之间都会触发一次 on_push_frame，按 Pipecat 的 Frame.id（进程内单调递增）去重。
+不能用 Python 的 id(frame)：帧释放后内存地址会被新帧复用，新的 UserStartedSpeakingFrame 会被当成
+“已见过”而丢掉，结果整通电话只结算第一个回合、且要到挂断 flush 时才结算（线上 n=0 的根因）。
 """
 from __future__ import annotations
 
 import time
+from collections import deque
 from typing import Awaitable, Callable, Dict, List, Optional
 
 from loguru import logger
@@ -68,7 +76,8 @@ class LatencyObserver(BaseObserver):
         self._cur: Optional[dict] = None   # {"start", "turn_end", "speech_end", "ev": [(t, kind)]}
         self._in_turn = False
         self._last_stop: Optional[float] = None
-        self._seen: set = set()
+        self._seen: set = set()          # 最近见过的 Frame.id
+        self._seen_order: deque = deque()
 
     @staticmethod
     def _first(ev, kind, after):
@@ -95,11 +104,17 @@ class LatencyObserver(BaseObserver):
 
     async def on_push_frame(self, data: FramePushed):
         f = data.frame
-        if not isinstance(f, _TRACKED) or id(f) in self._seen:
+        if not isinstance(f, _TRACKED):
             return
-        self._seen.add(id(f))
-        if len(self._seen) > 4096:
-            self._seen.clear()
+        fid = getattr(f, "id", None)
+        if fid is None:
+            fid = ("py", id(f))
+        if fid in self._seen:
+            return
+        self._seen.add(fid)
+        self._seen_order.append(fid)
+        if len(self._seen_order) > _SEEN_MAX:
+            self._seen.discard(self._seen_order.popleft())
         t = self.clock()
         if isinstance(f, VADUserStoppedSpeakingFrame):
             self._last_stop = t - (getattr(f, "stop_secs", None) or self.vad_stop_secs)
@@ -119,12 +134,18 @@ class LatencyObserver(BaseObserver):
         elif self._cur is not None:
             kind = next((v for k, v in _STAGES if isinstance(f, k)), None)
             if kind:
-                self._cur["ev"].append((t, kind))
+                c = self._cur
+                c["ev"].append((t, kind))
+                # 用户已说完、回复首包到达：各字段都已确定，立即结算上报（不再等下一回合 / 挂断）
+                if kind == "tts_first" and not self._in_turn and c.get("turn_end") is not None \
+                        and t >= c["speech_end"]:
+                    await self._finish()
 
     async def flush(self) -> None:
         await self._finish()
 
 
+_SEEN_MAX = 4096
 _TRACKED = (VADUserStoppedSpeakingFrame, TranscriptionFrame, UserStartedSpeakingFrame, UserStoppedSpeakingFrame,
             LLMFullResponseStartFrame, LLMTextFrame, TTSStartedFrame, TTSAudioRawFrame, BotStartedSpeakingFrame)
 _STAGES = ((TranscriptionFrame, "asr"), (LLMFullResponseStartFrame, "llm_start"), (LLMTextFrame, "llm_first"),

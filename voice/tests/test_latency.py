@@ -533,3 +533,64 @@ def test_probe_speech_segments_and_client_e2e():
     assert client_e2e(segs, 10.0, [11.0, 12.3, 12.4]) == [800, None]
     from voice.probe import window_flags
     assert window_flags(segs, 10.0, [12.0]) == [True, False]
+
+
+def test_latency_observer_real_pipeline_counts_every_turn_and_notifies_before_hangup():
+    """回归：线上 n=0。原实现按 Python id(frame) 去重，帧释放后地址被新帧复用，
+    第二个起的 UserStartedSpeakingFrame 被当成重复帧丢掉；且结算要等下一回合/挂断，客户端收不到。
+    这里用真实 PipelineTask + 多个处理器、帧用完即释放，断言每个回合都在挂断前上报。"""
+    import gc
+
+    from pipecat.frames.frames import (LLMFullResponseEndFrame, LLMFullResponseStartFrame, LLMTextFrame,
+                                       TranscriptionFrame, TTSAudioRawFrame, TTSStartedFrame,
+                                       UserStartedSpeakingFrame, UserStoppedSpeakingFrame,
+                                       VADUserStartedSpeakingFrame, VADUserStoppedSpeakingFrame)
+    from pipecat.pipeline.pipeline import Pipeline
+    from pipecat.pipeline.runner import PipelineRunner
+    from pipecat.pipeline.task import PipelineParams, PipelineTask
+    from pipecat.processors.frame_processor import FrameProcessor
+
+    from voice.latency import LatencyObserver
+
+    class Pass(FrameProcessor):
+        async def process_frame(self, frame, direction):
+            await super().process_frame(frame, direction)
+            await self.push_frame(frame, direction)
+
+    got = []
+
+    async def notify(msg):
+        got.append(msg)
+
+    async def go():
+        lat = LatencyObserver(notify=notify)
+        task = PipelineTask(Pipeline([Pass(), Pass(), Pass()]), params=PipelineParams(), observers=[lat])
+        before_flush = {}
+
+        async def feed():
+            await asyncio.sleep(0.2)
+            for i in range(4):
+                await task.queue_frames([VADUserStartedSpeakingFrame(), UserStartedSpeakingFrame()])
+                await asyncio.sleep(0.05)
+                await task.queue_frames([TranscriptionFrame(f"第{i}句", "u", ""), VADUserStoppedSpeakingFrame(),
+                                         UserStoppedSpeakingFrame()])
+                await asyncio.sleep(0.05)
+                await task.queue_frames([LLMFullResponseStartFrame(), LLMTextFrame("好"), TTSStartedFrame()]
+                                        + [TTSAudioRawFrame(b"\0" * 320, 16000, 1) for _ in range(30)]
+                                        + [LLMFullResponseEndFrame()])
+                await asyncio.sleep(0.1)
+                gc.collect()  # 释放本回合的帧，让下一回合的新帧有机会复用同一地址
+            before_flush["turns"], before_flush["notified"] = len(lat.turns), len(got)
+            await lat.flush()
+            await task.cancel()
+
+        feeder = asyncio.create_task(feed())
+        await PipelineRunner(handle_sigint=False).run(task)
+        await feeder
+        return lat, before_flush
+
+    lat, before = asyncio.run(go())
+    assert before == {"turns": 4, "notified": 4}
+    assert len(lat.turns) == 4
+    assert [m["turn"] for m in got] == [1, 2, 3, 4]
+    assert all(m["e2e_reply"] is not None and m["e2e_reply"] >= 0 for m in got)
