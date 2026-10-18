@@ -465,7 +465,7 @@ def test_latency_observer_turn_breakdown():
                      (3.75, LLMFullResponseStartFrame()), (4.0, LLMTextFrame("哎")), (4.1, TTSStartedFrame()),
                      (4.5, BotStartedSpeakingFrame()), (4.6, AUDIO()), (8.0, UserStartedSpeakingFrame())])
     assert obs.turns == [{"asr": 600, "turn_ms": 700, "llm_ttft": 250, "agg": 100, "tts_ttfb": 500,
-                          "e2e_reply": 1600, "e2e_any": 1500}]
+                          "e2e_reply": 1600, "e2e_any": 1500, "first_audible": 1500, "filler": 0}]
 
 
 def test_latency_observer_mid_turn_pause_and_filler():

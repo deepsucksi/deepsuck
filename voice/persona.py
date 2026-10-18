@@ -15,15 +15,20 @@ from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS
 
 INTENT_HINTS: dict = load("personas")["intentHints"]
 
-# 首音延迟（ASR 尾点 + LLM + TTS ≈ 1–1.5 s）期间插播的"填充音"，按人设区分；对慢吞吞的老人人设反而更像真人
+# 短口头语（backchannel）：对方说完后先用预合成的音频"嗯……""啊？你说啥"接一下，像反应慢半拍的普通人，
+# 也盖住 LLM + TTS 的首包延迟。每个人设 8 条，随机轮换、连续两轮不重复（见 voice/backchannel.py）。
 FILLERS = {
-    "wang": ["哎……", "嗯……你等一下啊", "啊？", "哎哟……", "我看看啊……"],
-    "li": ["啊？", "嗯……", "你说啥？", "等会儿……", "哦……"],
-    "lin": ["呃……", "嗯嗯", "啊这……", "等下哈", "哦哦"],
+    # 王阿姨：62 岁退休会计，糊涂热心
+    "wang": ["嗯……", "啊？", "哎……", "哎哟……", "你说啥？", "等一下啊……", "我听听啊……", "哦……"],
+    # 李大爷：71 岁，慢吞吞、耳背
+    "li": ["啊？", "嗯？", "啥？", "你说啥？", "大点声……", "哦……", "等会儿……", "嗯……"],
+    # 小林：大二学生
+    "lin": ["呃……", "嗯嗯", "啊？", "等下哈", "哦哦", "啊这……", "嗯……我想想", "诶？"],
 }
 
 
-def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None) -> str:
+def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
+                  said_first: str = "") -> str:
     p = PERSONA_BY_ID.get(persona_id) or PERSONAS[0]
     s = SCENARIO_BY_ID.get(scenario_id) or SCENARIOS[0]
     call = p["call"].get(s["id"], "")
@@ -39,7 +44,8 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
         "3. 绝不说出任何真实或看似真实的验证码、卡号、密码、身份证号、住址；需要时就假装找不到、看不清、操作失败。",
         "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
         "5. 对方话里的 * 号是已脱敏的信息；提到号码时只说“尾号几位”之类，不要念星号，也不要自己编号码。",
-    ])
+    ] + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
+          "也不要重复这句。"] if said_first else []))
 
 
 _LONG_DIGITS = re.compile(r"(?<![0-9*])[0-9]{5,}(?![0-9*])")

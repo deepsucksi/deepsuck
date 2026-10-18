@@ -95,7 +95,7 @@ def test_synth_fillers_cached(tmp_path):
 
     async def synth(text, voice, sample_rate):
         calls.append(text)
-        yield b"\x01\x00" * 10
+        yield b"\x00\x10" * 10
 
     a = asyncio.run(synth_fillers("wang", "longlaoyi_v3", 24000, synth=synth, cache_dir=tmp_path))
     n = len(calls)
@@ -119,7 +119,7 @@ def test_synth_fillers_cached_only_and_inplace(tmp_path):
 
     async def synth(text, voice, sample_rate):
         calls.append(text)
-        yield b"\x01\x00" * 10
+        yield b"\x00\x10" * 10
 
     assert asyncio.run(synth_fillers("wang", "v", 24000, synth=synth, cache_dir=tmp_path, cached_only=True)) == {}
     assert calls == []

@@ -40,6 +40,7 @@ from . import records as REC  # noqa: E402
 from .disclosure import disclosure_text  # noqa: E402
 from .dashscope_ws import PERSONA_VOICES  # noqa: E402
 from .persona import system_prompt  # noqa: E402
+from . import backchannel as BC  # noqa: E402
 
 LLM_BASE_URL = os.environ.get("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 LLM_MODEL = os.environ.get("DEEPSUCK_LLM_MODEL", "qwen-plus")
@@ -126,7 +127,12 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         else:
             tts = CosyVoiceStreamTTSService(voice=voice, model=TTS_MODEL, text_filters=[GuardTextFilter()],
                                             meter=meter, clause_min_chars=prof.tts_clause_min_chars)
-    filler = FillerProcessor(fillers, sample_rate=OUT_RATE, delay_ms=prof.filler_delay_ms, notify=notify)
+    fillers = {} if fillers is None else fillers
+    backchannel = None
+    if BC.enabled():  # 短口头语：从已合成好的那几条里挑（同一个字典，后台补齐的也算）
+        backchannel = BC.Backchannel(lambda: [k for k, v in list(fillers.items()) if v])
+    filler = FillerProcessor(fillers, sample_rate=OUT_RATE, delay_ms=prof.filler_delay_ms, notify=notify,
+                             backchannel=backchannel, backchannel_delay_ms=prof.backchannel_delay_ms)
     if vad_analyzer is None:
         from pipecat.audio.vad.silero import SileroVADAnalyzer
 
@@ -139,7 +145,7 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         from pipecat.turns.user_turn_processor import UserTurnProcessor
 
         intel = IntelProcessor(session, notify=notify, mode="rule", fillers=fillers, filler_rate=OUT_RATE,
-                               filler_prob=0.0, blocklist=blocklist)
+                               filler_prob=0.0, blocklist=blocklist, backchannel=backchannel)
         intel.meter = meter
         turns = UserTurnProcessor(user_turn_strategies=strategies)
         procs = [transport.input(), VADProcessor(vad_analyzer=vad_analyzer), stt, turns, intel, filler, tts,
@@ -162,7 +168,7 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         vad_analyzer=vad_analyzer, user_turn_strategies=strategies))
     # 填充音改由 FillerProcessor 按延迟触发，IntelProcessor 不再随机插播
     intel = IntelProcessor(session, context=context, notify=notify, mode="llm", fillers=fillers,
-                           filler_rate=OUT_RATE, filler_prob=0.0, blocklist=blocklist)
+                           filler_rate=OUT_RATE, filler_prob=0.0, blocklist=blocklist, backchannel=backchannel)
     intel.meter = meter
     tap = BotTextTap(intel)
     procs = [transport.input(), stt, intel, agg.user(), llm, filler, tap, tts, transport.output(), agg.assistant()]

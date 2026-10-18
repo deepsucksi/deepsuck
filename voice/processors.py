@@ -68,7 +68,13 @@ class GuardTextFilter(BaseTextFilter):
 
 
 class FillerProcessor(FrameProcessor):
-    """按延迟触发的填充音。
+    """口头语 / 填充音。两种模式：
+
+    短口头语（传入 backchannel，DEEPSUCK_BACKCHANNEL=1，默认）：用户回合结束（UserStoppedSpeakingFrame）后
+    backchannel_delay_ms（默认 0）就播一条预合成的口头语，由 Backchannel 按规则决定说不说、说哪条；
+    不再等 LLM 慢不慢。机器人还在说话时不插；被打断（InterruptionFrame）时输出队列里的口头语会随之清掉。
+
+    按延迟触发（不传 backchannel，旧行为）：
 
     播放时刻 = max(真实停说时刻 + delay_ms, 用户回合判定结束)，且到那时仍没有 LLM 首 token / TTS 音频。
     - 用户回合开始（UserStartedSpeakingFrame）后待命；
@@ -79,9 +85,13 @@ class FillerProcessor(FrameProcessor):
     """
 
     def __init__(self, fillers: Optional[Dict[str, bytes]] = None, *, sample_rate: int = 16000,
-                 delay_ms: int = 650, notify: Optional[Notify] = None, clock=time.monotonic, **kwargs):
+                 delay_ms: int = 650, notify: Optional[Notify] = None, clock=time.monotonic,
+                 backchannel=None, backchannel_delay_ms: int = 0, **kwargs):
         super().__init__(**kwargs)
         self.fillers = fillers if fillers is not None else {}
+        self.backchannel = backchannel
+        self.backchannel_delay_ms = max(0, int(backchannel_delay_ms))
+        self._key: Optional[str] = None
         self.sample_rate = sample_rate
         self.delay_ms = delay_ms
         self.notify = notify or _noop
@@ -122,6 +132,21 @@ class FillerProcessor(FrameProcessor):
         elapsed = 0.0 if self._stop_at is None else max(0.0, self.clock() - self._stop_at)
         self._timer = asyncio.create_task(self._wait(max(0.0, self.delay_ms / 1000.0 - elapsed)))
 
+    async def _backchannel(self):
+        self._cancel()
+        if not self._armed or self._bot_speaking:
+            self.backchannel.discard()
+            return
+        key = self.backchannel.take()
+        if key is None or not self.fillers.get(key):
+            self._armed = False
+            return
+        self._key = key
+        if self.backchannel_delay_ms <= 0:
+            await self._play()
+        else:
+            self._timer = asyncio.create_task(self._wait(self.backchannel_delay_ms / 1000.0))
+
     async def _wait(self, wait: float):
         try:
             await asyncio.sleep(wait)
@@ -137,12 +162,13 @@ class FillerProcessor(FrameProcessor):
         self._pending = False
         if not self._armed or self._bot_speaking:
             return
-        key = self._pick()
-        if key is None:
+        key, self._key = (self._key or self._pick()), None
+        if key is None or not self.fillers.get(key):
             return
         self._armed = False  # 每回合一次
         self.played += 1
-        logger.debug(f"filler: {key}（停说 {self.delay_ms}ms 后仍无首 token）")
+        logger.debug(f"filler: {key}" + ("（口头语）" if self.backchannel is not None
+                                         else f"（停说 {self.delay_ms}ms 后仍无首 token）"))
         await self.notify({"type": "filler", "text": key})
         await self.push_frame(OutputAudioRawFrame(audio=self.fillers[key], sample_rate=self.sample_rate,
                                                   num_channels=1))
@@ -152,6 +178,12 @@ class FillerProcessor(FrameProcessor):
         if isinstance(frame, UserStartedSpeakingFrame):
             self._cancel()
             self._armed, self._turn_ended, self._stop_at = True, False, None
+        elif self.backchannel is not None and isinstance(frame, UserStoppedSpeakingFrame):
+            self._turn_ended = True
+            await self._backchannel()
+        elif self.backchannel is not None and isinstance(frame, (VADUserStartedSpeakingFrame,
+                                                                 VADUserStoppedSpeakingFrame)):
+            pass  # 短口头语只看回合结束，不看 VAD 停顿
         elif isinstance(frame, VADUserStartedSpeakingFrame):
             self._cancel()
             self._stop_at = None
@@ -187,9 +219,11 @@ class IntelProcessor(FrameProcessor):
 
     def __init__(self, session, *, context=None, notify: Optional[Notify] = None, mode: str = "llm",
                  fillers: Optional[Dict[str, bytes]] = None, filler_rate: int = 16000,
-                 filler_prob: float = 0.6, blocklist=None, rng=None, **kwargs):
+                 filler_prob: float = 0.6, blocklist=None, rng=None, backchannel=None, **kwargs):
         super().__init__(**kwargs)
         self.session = session
+        self.backchannel = backchannel  # voice.backchannel.Backchannel：转写到了就决定本回合说不说口头语
+        self.said_first = ""            # 本回合打算先说的口头语，写进系统提示词，免得正式回复开头再"嗯"
         self.context = context
         self.notify = notify or _noop
         self.mode = mode
@@ -211,7 +245,8 @@ class IntelProcessor(FrameProcessor):
 
     def update_prompt(self) -> str:
         missing = [GOAL_LABEL.get(g, g) for g in self.session.missing_goals()]
-        sp = system_prompt(self.session.persona["id"], self.session.scenario["id"], self.intent, missing)
+        sp = system_prompt(self.session.persona["id"], self.session.scenario["id"], self.intent, missing,
+                           said_first=self.said_first)
         if self.context is not None:
             msgs = list(self.context.get_messages())
             rest = msgs[1:] if msgs and msgs[0].get("role") == "system" else msgs
@@ -242,6 +277,8 @@ class IntelProcessor(FrameProcessor):
         if not text:
             return
         a = self.session.ingest(text)
+        if self.backchannel is not None:
+            self.said_first = self.backchannel.note(a["redacted"]) or ""
         if self.mode == "rule":
             msg = self.session.rule_reply(a)  # 规则引擎直接出回复，不调用大模型
             self.intent = msg["intent"]
@@ -306,22 +343,36 @@ class BotTextTap(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
+_MEM: Dict[tuple, bytes] = {}  # (缓存目录, 音色, 采样率, 文本) -> 已裁静音的 PCM，进程内共享
+
+
 async def synth_fillers(persona_id: str, voice: str, sample_rate: int, synth=None, cache_dir=None,
                         meter=None, out: Optional[Dict[str, bytes]] = None,
                         cached_only: bool = False) -> Dict[str, bytes]:
-    """把该人设的填充音合成好（每条一次 TTS 调用，缓存到 ~/.cache/deepsuck/voice）。失败则返回已有部分。
-    out：就地填充的字典（通话中后台补齐时，IntelProcessor 持有同一个字典，合成好一条就能用一条）。
+    """把该人设的口头语合成好（每条一次 TTS 调用）。缓存：进程内存 + 磁盘（DATA_DIR/voice/fillers，见
+    voice.backchannel.cache_dir），按 音色/采样率/文本 区分，载入时裁掉首尾静音。失败则返回已有部分（优雅降级：没合成好的不播）。
+    out：就地填充的字典（通话中后台补齐时，处理器持有同一个字典，合成好一条就能用一条）。
     cached_only：只读缓存、不调用 TTS（开场不等待）。"""
     from . import dashscope_ws as ds
+    from .backchannel import cache_dir as default_cache_dir, trim_silence
 
     synth = synth or ds.synthesize
     out = {} if out is None else out
-    cdir = cache_dir or (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "deepsuck" / "voice")
+    cdir = Path(cache_dir) if cache_dir else default_cache_dir()
     for line in FILLERS.get(persona_id, []):
-        f = Path(cdir) / f"{voice}-{sample_rate}-{hashlib.sha1(line.encode()).hexdigest()[:12]}.pcm"
-        if f.exists():
-            out[line] = f.read_bytes()
+        mk = (str(cdir), voice, sample_rate, line)
+        if mk in _MEM:
+            out[line] = _MEM[mk]
             continue
+        f = cdir / f"{voice}-{sample_rate}-{hashlib.sha1(line.encode()).hexdigest()[:12]}.pcm"
+        try:
+            if f.exists():
+                pcm = trim_silence(f.read_bytes(), sample_rate)
+                if pcm:
+                    out[line] = _MEM[mk] = pcm
+                    continue
+        except OSError as e:
+            logger.warning(f"filler cache read failed ({f.name}): {e}")
         if cached_only:
             continue
         try:
@@ -330,9 +381,15 @@ async def synth_fillers(persona_id: str, voice: str, sample_rate: int, synth=Non
                 meter.tts(len(line))
             async for chunk in synth(line, voice=voice, sample_rate=sample_rate):
                 buf.extend(chunk)
-            f.parent.mkdir(parents=True, exist_ok=True)
-            f.write_bytes(bytes(buf))
-            out[line] = bytes(buf)
+            pcm = trim_silence(bytes(buf), sample_rate)
+            if not pcm:
+                raise RuntimeError("empty audio")
+            try:
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_bytes(bytes(buf))
+            except OSError as e:  # 磁盘不可写也照样用内存里的
+                logger.warning(f"filler cache write failed: {e}")
+            out[line] = _MEM[mk] = pcm
         except Exception as e:
             logger.warning(f"filler synth failed ({line}): {e}")
             break

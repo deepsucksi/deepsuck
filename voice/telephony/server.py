@@ -80,6 +80,7 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
 
     session = Session(scenario=scenario, persona=persona, engine=f"phone-{engine}")
     recorder = REC.recorder_for(call.call_id)  # KEEP_AUDIO=1 才录音
+    bg_fill: Optional[asyncio.Task] = None
     transport = adapter.create_transport(websocket, call, session_timeout=limits.max_minutes * 60 + 30
                                          if limits.max_minutes > 0 else None)
 
@@ -89,11 +90,15 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
     if build is None:
         from .. import app as A
         from ..dashscope_ws import PERSONA_VOICES
-        from ..processors import synth_fillers
+        from ..processors import fillers_missing, synth_fillers
         from deepsuck.blocklist import Client
 
         pid = session.persona["id"]
-        fillers = await synth_fillers(pid, PERSONA_VOICES.get(pid, "longlaoyi_v3"), OUT_RATE, cached_only=True)
+        pvoice = PERSONA_VOICES.get(pid, "longlaoyi_v3")
+        # 和网页一样：先用缓存的口头语（24k 合成，输出时随整条链路重采样到 8k），缺的后台补齐
+        fillers = await synth_fillers(pid, pvoice, OUT_RATE, cached_only=True)
+        if fillers_missing(pid, pvoice, OUT_RATE, fillers):
+            bg_fill = asyncio.create_task(synth_fillers(pid, pvoice, OUT_RATE, meter=ticket, out=fillers))
         pipeline, intel, context = A.build_pipeline(transport, session, notify, engine=engine, fillers=fillers,
                                                     blocklist=Client(), meter=ticket, profile="phone",
                                                     recorder=recorder)
@@ -149,6 +154,8 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
         await PipelineRunner(handle_sigint=False).run(task)
     finally:
         wd.cancel()
+        if bg_fill is not None and not bg_fill.done():
+            bg_fill.cancel()
         session.end()
         if recorder is not None:
             recorder.close()

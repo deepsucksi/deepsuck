@@ -65,6 +65,14 @@ def client_e2e(segs, t0: float, loud: list) -> list:
     return out
 
 
+def headline(server: dict, client: dict, lat: list) -> dict:
+    """一眼能看的几项：对方说完到听到第一个声音（含口头语，服务端/客户端）与正式回复首包（服务端）。"""
+    return {"first_audible_p50": (server.get("first_audible") or {}).get("p50"),
+            "client_first_audible_p50": client.get("p50"),
+            "reply_first_packet_p50": (server.get("e2e_reply") or {}).get("p50"),
+            "filler_turns": sum(1 for t in lat if t.get("filler")), "turns": len(lat)}
+
+
 SCAMMER_LINES = [
     "喂，您好，我是淘宝客服，您上周买的那件衣服有质量问题。",
     "我们这边要给您双倍理赔，您先加一下我们的理赔专员。",
@@ -263,6 +271,7 @@ def main(argv=None) -> int:
     summary["server"] = summarize(lat)
     ce = [x for x in st.get("client_e2e_ms", []) if x is not None]
     summary["client_e2e"] = {"n": len(ce), "p50": percentile(ce, 50), "p90": percentile(ce, 90)}
+    summary["headline"] = headline(summary["server"], summary["client_e2e"], lat)
     code = exit_code(st)
     if a.json_out:
         try:

@@ -7,11 +7,14 @@
   asr_final   TranscriptionFrame
   llm_start / llm_first   LLMFullResponseStartFrame / LLMTextFrame
   tts_start / tts_first   TTSStartedFrame / TTSAudioRawFrame（回复首包，不含填充音）
+  filler      FillerProcessor 推出口头语/填充音音频（OutputAudioRawFrame）的时刻
   bot_start   BotStartedSpeakingFrame 或 tts_first 中较早者（含填充音）
 
 导出（毫秒）：asr = asr_final - speech_end；turn_ms = turn_end - speech_end；llm_ttft = llm_first - llm_start；
 agg = tts_start - llm_first（分句等待）；tts_ttfb = tts_first - tts_start；
-e2e_reply = tts_first - speech_end；e2e_any = bot_start - speech_end。
+e2e_reply = tts_first - speech_end（正式回复首包）；e2e_any = bot_start - speech_end（旧字段，保留）；
+first_audible = min(filler, bot_start, tts_first) - speech_end：对方说完到听到第一个声音（含口头语）；
+filler：本回合播了口头语/填充音为 1，否则 0。
 rule 模式没有大模型，llm_* / agg 为空。
 
 上报时机：回复首包（tts_first）一到就结算并通知客户端（此时各字段都已确定）；没有回复首包的回合
@@ -32,6 +35,7 @@ from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
     LLMFullResponseStartFrame,
     LLMTextFrame,
+    OutputAudioRawFrame,
     TranscriptionFrame,
     TTSAudioRawFrame,
     TTSStartedFrame,
@@ -41,7 +45,7 @@ from pipecat.frames.frames import (
 )
 from pipecat.observers.base_observer import BaseObserver, FramePushed
 
-FIELDS = ("asr", "turn_ms", "llm_ttft", "agg", "tts_ttfb", "e2e_reply", "e2e_any")
+FIELDS = ("asr", "turn_ms", "llm_ttft", "agg", "tts_ttfb", "e2e_reply", "e2e_any", "first_audible")
 
 
 def _ms(a: Optional[float], b: Optional[float]) -> Optional[int]:
@@ -88,14 +92,17 @@ class LatencyObserver(BaseObserver):
         if not c or c.get("turn_end") is None:
             return
         se, ev = c["speech_end"], c["ev"]
-        first = {k: self._first(ev, k, se) for k in ("asr", "llm_start", "llm_first", "tts_start", "tts_first", "bot")}
+        first = {k: self._first(ev, k, se) for k in ("asr", "llm_start", "llm_first", "tts_start", "tts_first", "bot",
+                                                      "filler")}
         bot = min([x for x in (first["bot"], first["tts_first"]) if x is not None], default=None)
+        audible = min([x for x in (bot, first["filler"]) if x is not None], default=None)
         row = {"asr": _ms(se, first["asr"]), "turn_ms": _ms(se, c["turn_end"]),
                "llm_ttft": _ms(first["llm_start"], first["llm_first"]),
                "agg": _ms(first["llm_first"], first["tts_start"]) if first["llm_first"] else None,
                "tts_ttfb": _ms(first["tts_start"], first["tts_first"]),
-               "e2e_reply": _ms(se, first["tts_first"]), "e2e_any": _ms(se, bot)}
-        if row["e2e_reply"] is None and row["e2e_any"] is None:
+               "e2e_reply": _ms(se, first["tts_first"]), "e2e_any": _ms(se, bot),
+               "first_audible": _ms(se, audible), "filler": 1 if first["filler"] is not None else 0}
+        if row["e2e_reply"] is None and row["e2e_any"] is None and row["first_audible"] is None:
             return  # 回合没有得到任何回复（例如被下一句话合并、打断）
         self.turns.append(row)
         logger.info(f"latency turn {len(self.turns)}: {row}")
@@ -132,7 +139,11 @@ class LatencyObserver(BaseObserver):
                 ok = self._last_stop is not None and c["start"] - 1.0 <= self._last_stop <= t
                 c["speech_end"] = self._last_stop if ok else t
         elif self._cur is not None:
-            kind = next((v for k, v in _STAGES if isinstance(f, k)), None)
+            if type(f) is OutputAudioRawFrame:
+                # 只认 FillerProcessor 推出的那一帧（输出 transport 切块后的帧不算）
+                kind = "filler" if type(getattr(data, "source", None)).__name__ == "FillerProcessor" else None
+            else:
+                kind = next((v for k, v in _STAGES if isinstance(f, k)), None)
             if kind:
                 c = self._cur
                 c["ev"].append((t, kind))
@@ -147,6 +158,6 @@ class LatencyObserver(BaseObserver):
 
 _SEEN_MAX = 4096
 _TRACKED = (VADUserStoppedSpeakingFrame, TranscriptionFrame, UserStartedSpeakingFrame, UserStoppedSpeakingFrame,
-            LLMFullResponseStartFrame, LLMTextFrame, TTSStartedFrame, TTSAudioRawFrame, BotStartedSpeakingFrame)
+            LLMFullResponseStartFrame, LLMTextFrame, TTSStartedFrame, OutputAudioRawFrame, BotStartedSpeakingFrame)
 _STAGES = ((TranscriptionFrame, "asr"), (LLMFullResponseStartFrame, "llm_start"), (LLMTextFrame, "llm_first"),
            (TTSStartedFrame, "tts_start"), (TTSAudioRawFrame, "tts_first"), (BotStartedSpeakingFrame, "bot"))
