@@ -88,9 +88,11 @@ def test_stream_service_sends_instruction():
 def test_calm_tts_text():
     from voice.persona import calm, speakable
     assert calm("哎呀！退款啊？那太好了！！") == "哎呀。退款啊？那太好了。"
-    assert calm("我找找……你等会儿啊~~") == "我找找，你等会儿啊"
+    assert calm("我找找……你等会儿啊~~") == "我找找…你等会儿啊"
+    assert calm("我找找……你等会儿啊~~", pauses=False) == "我找找，你等会儿啊"
     assert calm("啊啊啊，真的？") == "啊，真的？"
-    assert calm("嗯……") == "嗯"
+    assert calm("嗯……", pauses=False) == "嗯"
+    assert calm("退…退款？哪…哪个啊。。。") == "退…退款？哪…哪个啊…"
     assert speakable("好的！", calm_tts=False) == "好的！"
     assert "……" in speakable("卡号是 6222 **** 3456！")
 
@@ -99,5 +101,78 @@ def test_voice_prompt_is_restrained():
     from voice.persona import system_prompt
     for pid in ("wang", "li", "lin"):
         sp = system_prompt(pid, "refund")
-        assert "不用感叹号和省略号" in sp and "老花镜" in sp and "看不清" not in sp
+        assert "不用感叹号" in sp and "“…”" in sp and "老花镜" in sp and "看不清" not in sp
         assert "62 岁" not in sp and "62岁" not in sp
+
+
+def test_split_pause_and_range():
+    from voice.persona import pause_range, split_pause
+    assert split_pause("退…") == ("退", True)
+    assert split_pause("…款？") == ("款？", False)
+    assert split_pause("我好像…没买吧。") == ("我好像，没买吧。", False)
+    assert pause_range("300-900") == (300, 900) and pause_range("0") == (0, 0) and pause_range("x") == (300, 900)
+
+
+def test_stream_tts_inserts_pause_between_tasks(monkeypatch):
+    from voice.services import CosyVoiceStreamTTSService
+    import json
+    from pipecat.frames.frames import LLMFullResponseEndFrame, LLMFullResponseStartFrame, LLMTextFrame, TTSAudioRawFrame, TTSStoppedFrame
+    from pipecat.tests.utils import SleepFrame, run_test
+    from voice.tests.test_latency import _stream_connect
+    monkeypatch.setenv("DEEPSUCK_PAUSE_MS", "500")
+    connect = _stream_connect()
+    tts = CosyVoiceStreamTTSService(connect=connect, sample_rate=24000, clause_min_chars=4)
+    frames = [LLMFullResponseStartFrame(), LLMTextFrame("退…"), LLMTextFrame("退款？哪…哪个啊。"),
+              LLMFullResponseEndFrame(), SleepFrame(0.5)]
+    down, _ = asyncio.run(run_test(tts, frames_to_send=frames))
+    ws = connect.made[0]
+    texts = [json.loads(m)["payload"]["input"]["text"] for m in ws.sent if json.loads(m)["header"]["action"] == "continue-task"]
+    assert texts == ["退", "退款？", "哪", "哪个啊。"]
+    assert ws.actions().count("run-task") == 3 and tts.pauses == 2 and tts.connects == 1
+    gaps = [f for f in down if isinstance(f, TTSAudioRawFrame) and len(f.audio) == 24000 and not any(f.audio)]
+    assert len(gaps) == 2
+    assert sum(isinstance(f, TTSStoppedFrame) for f in down) == 1
+
+
+def test_stream_tts_turn_ending_on_pause_still_stops(monkeypatch):
+    from voice.services import CosyVoiceStreamTTSService
+    from pipecat.frames.frames import LLMFullResponseEndFrame, LLMFullResponseStartFrame, LLMTextFrame, TTSStoppedFrame
+    from pipecat.tests.utils import SleepFrame, run_test
+    from voice.tests.test_latency import _stream_connect
+    connect = _stream_connect()
+    tts = CosyVoiceStreamTTSService(connect=connect, sample_rate=24000)
+    frames = [LLMFullResponseStartFrame(), LLMTextFrame("我好像…"), SleepFrame(0.3), LLMFullResponseEndFrame(), SleepFrame(0.3)]
+    down, _ = asyncio.run(run_test(tts, frames_to_send=frames))
+    assert sum(isinstance(f, TTSStoppedFrame) for f in down) == 1
+
+
+def test_ambience_choice_and_mixer(monkeypatch):
+    import numpy as np
+    from voice import ambience as A
+    assert A.choose("wang", "1") == "kitchen" and A.choose("li", "1") == "tv" and A.choose("lin", "1") == "street"
+    assert A.choose("wang", "0") is None and A.choose("wang", "street") == "street"
+    for f in A.SOUNDS.values():
+        assert f.exists() and f.stat().st_size < 600_000
+    m = A.make_mixer("wang", "1")
+    asyncio.run(m.start(8000))  # 电话 8k：加载时重采样
+    out = np.frombuffer(asyncio.run(m.mix(b"\x00\x00" * 160)), dtype=np.int16)
+    assert len(out) == 160 and np.abs(out).max() > 0
+    rms = np.sqrt(np.mean(np.frombuffer(m._sounds["kitchen"], dtype=np.int16).astype(float) ** 2)) * A.volume() / 32768
+    assert 20 * np.log10(rms) < -35  # 混进去后的底噪足够低
+    assert A.make_mixer("wang", "off") is None
+
+
+def test_system_prompt_uses_voice_style_and_shots():
+    from voice import persona as P
+
+    sp = P.system_prompt("wang", "refund")
+    wang = P.PERSONA_BY_ID["wang"]
+    assert wang["voiceStyle"][0] in sp
+    shots = [x for x in wang["voiceShots"] if x["scenario"] == "refund"]
+    assert shots and shots[0]["reply"] in sp
+    other = [x for x in wang["voiceShots"] if x["scenario"] != "refund"]
+    assert all(x["reply"] not in sp for x in other)
+    assert "不用感叹号" in sp
+    # 字段缺失时退回原提示词，不报错
+    assert P.voice_style({}, "refund") == []
+    assert P.voice_style({"voiceShots": [{"scenario": "x", "scammer": "a", "reply": "b"}]}, "refund") == []
