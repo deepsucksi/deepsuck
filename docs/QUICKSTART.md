@@ -37,7 +37,7 @@ curl -s http://127.0.0.1:8787/api/health   # llmConfigured: true
 |---|---|---|
 | `DASHSCOPE_API_KEY` | 空 | 百炼 Key；为空就只用规则引擎 |
 | `LLM_MODEL` | `qwen-plus` | 也可以填 `qwen-turbo`、`qwen-max` 等 |
-| `LLM_BASE_URL` | 百炼兼容模式地址 | 任何 OpenAI 兼容接口都可以 |
+| `LLM_BASE_URL` | 百炼兼容模式地址 | 任何兼容标准聊天接口的服务都可以 |
 | `CHAT_DAILY_BUDGET_CNY` | `0`（不限） | **本地也建议设一个**，例如 `1` |
 | `HOST` / `PORT` | `127.0.0.1` / `8787` | 监听地址 |
 

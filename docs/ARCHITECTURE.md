@@ -24,7 +24,7 @@ deepsuck/
 │           ├── intel.js      # 情报库发布策略、校验、CSV、提交格式
 │           ├── blocklist.js  # 域名/钱包黑名单比对
 │           ├── cardbin.js    # 银行卡 BIN 本地查询（发卡行 + 卡种）
-│           ├── llm.js        # 可选：OpenAI 兼容大模型
+│           ├── llm.js        # 可选：标准聊天接口大模型
 │           ├── live-config.js# 公开实时服务地址（为空 = 纯静态）
 │           └── demo.js / intel-page.js / hero-chat.js / i18n.js  # 页面脚本
 ├── server/                   # 可选：零依赖 Node 后端（静态托管 + /api/chat 代理 + 限流/预算护栏）

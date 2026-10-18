@@ -179,6 +179,6 @@ class TurnAction:
 | 语音服务 · 智能语音交互呼入 | 文本（HTTP 回调） | 否 | 上面的设计；需购买号码、企业资质 |
 | 语音服务 · SIP Trunk（语音中继） | **媒体（SIP，8 kHz PCMA）** | **是**：SIP → FreeSWITCH/Asterisk → `ws-raw` | 邀约制，需商务打标、企业实名与资质、固定公网 IP |
 | 云联络中心 · 数字员工三方大模型 | 文本（SSE：beginSession/dialogue/abortDialogue/endSession） | 否 | 支持流式文本、挂断、DTMF、可打断、CosyVoice 音色参数 |
-| 智能媒体服务 IMS · AI 实时互动 | 文本（自研 LLM 走 OpenAI 规范）+ 平台 ASR/TTS | 否（可选第三方 SIP 呼入） | 可把 DeepSuck 包成 OpenAI 兼容 LLM 端点，支持语义断句、VAD 抗扰 |
+| 智能媒体服务 IMS · AI 实时互动 | 文本（自研 LLM 走标准聊天接口规范）+ 平台 ASR/TTS | 否（可选第三方 SIP 呼入） | 可把 DeepSuck 包成标准聊天接口 LLM 端点，支持语义断句、VAD 抗扰 |
 | 号码隐私保护（AXN/AXB） | 运营商侧转接 | 否 | 只有转接、录音、话单，无实时媒体 |
 | 智能语音交互 ISI（NLS）实时识别 | 仅 ASR | — | 不是电话入口 |

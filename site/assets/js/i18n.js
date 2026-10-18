@@ -24,7 +24,7 @@
     'c7.t': '"Cancel your campus loan"', 'c7.d': '"You opened a student loan, cancel it or ruin your credit" — then borrow from loan apps and move it to a "verification account".',
     'c8.t': 'Public scam intel library', 'c8.d': 'Scam phones, wallets, URLs/apps and scripts published in full; bank cards and names partially masked. Search, download JSON/CSV, contribute.',
     'eng.title': 'Zero cost, works out of the box', 'eng.sub': 'The default rule/template persona engine runs entirely in the browser: no API key, no server. Host it on GitHub Pages, Cloudflare Pages or Aliyun OSS.',
-    'eng.llm': 'Want more natural dialogue? Optionally plug in Alibaba Bailian (Qwen qwen-plus) or any OpenAI-compatible model through the bundled zero-dependency Node proxy — your API key stays in your own server\'s .env. Off by default.',
+    'eng.llm': 'Want more natural dialogue? Optionally plug in Alibaba Bailian (Qwen qwen-plus) or any model that speaks a standard chat API through the bundled zero-dependency Node proxy — your API key stays in your own server\'s .env. Off by default.',
     'eth.title': 'Ethics & usage', 'eth.sub': 'DeepSuck is for defense, research and education only. These rules live in the code and the contribution guide.',
     'e1': '<b>Never initiates:</b> the bot never contacts real people; it only responds to scammers who come to it. In the demo, you play the scammer.',
     'e2': '<b>Masked by default:</b> accounts, phones and addresses are masked by the redaction module for display and export; raw text lives only in page memory.',
