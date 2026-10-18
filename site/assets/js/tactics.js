@@ -16,7 +16,7 @@
 
   // 规则数据见 site/assets/core/tactics.json（关键词正则源码，JS/Python 通用）
   var TACTICS = C.tactics.map(function (t) {
-    return { id: t.id, label: t.label, weight: t.weight, re: new RegExp(t.pattern) };
+    return { id: t.id, label: t.label, weight: t.weight, cap: t.cap || 3, weak: !!t.weak, re: new RegExp(t.pattern) };
   });
 
   var BY_ID = {};
@@ -37,11 +37,14 @@
 
   /** 根据累计命中次数计算 0–100 风险分 */
   function riskScore(counts) {
-    var raw = 0;
+    var raw = 0, strong = false;
     Object.keys(counts || {}).forEach(function (id) {
       var t = BY_ID[id];
-      if (t) raw += t.weight * Math.min(3, counts[id]);
+      if (!t || !(counts[id] > 0)) return;
+      raw += t.weight * Math.min(t.cap, counts[id]); // cap：同一话术最多累计几次
+      if (!t.weak) strong = true;
     });
+    if (!strong) raw /= 2; // 只有弱信号（如“客服”“尽快”）时减半：正常客服来电也常见
     return Math.min(100, Math.round(100 * (1 - Math.exp(-raw / 18))));
   }
 

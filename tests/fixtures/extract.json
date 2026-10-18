@@ -1226,6 +1226,265 @@
    "redacted": "“金盾理财”平台 日赚 500 元，下载金盾理财APP"
   },
   {
+   "text": "电话 ①③⑨⓪⓪①①②②③③，记好了",
+   "entities": [
+    {
+     "type": "phone",
+     "value": "13900112233",
+     "masked": "139****2233",
+     "start": 3,
+     "end": 14,
+     "sensitive": true,
+     "meta": {
+      "kind": "mobile"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "电话 139****2233，记好了"
+  },
+  {
+   "text": "手机 139.0011.2233",
+   "entities": [
+    {
+     "type": "phone",
+     "value": "139.0011.2233",
+     "masked": "139****2233",
+     "start": 3,
+     "end": 16,
+     "sensitive": true,
+     "meta": {
+      "kind": "mobile"
+     }
+    }
+   ],
+   "redacted": "手机 139****2233"
+  },
+  {
+   "text": "加薇❤信 kefu_tb2026，或者Q扣 2876543210",
+   "entities": [
+    {
+     "type": "wechat",
+     "value": "kefu_tb2026",
+     "masked": "ke******26",
+     "start": 5,
+     "end": 16,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    },
+    {
+     "type": "qq",
+     "value": "2876543210",
+     "masked": "28******10",
+     "start": 22,
+     "end": 32,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    }
+   ],
+   "redacted": "加薇❤信 ke******26，或者Q扣 28******10"
+  },
+  {
+   "text": "v❤：kefu_tb2026，企鹅 287 654 321",
+   "entities": [
+    {
+     "type": "wechat",
+     "value": "kefu_tb2026",
+     "masked": "ke******26",
+     "start": 3,
+     "end": 14,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    },
+    {
+     "type": "qq",
+     "value": "287654321",
+     "masked": "28*****21",
+     "start": 18,
+     "end": 29,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": true
+    }
+   ],
+   "redacted": "v❤：ke******26，企鹅 28*****21"
+  },
+  {
+   "text": "微信号码是 kefu_tb2026",
+   "entities": [
+    {
+     "type": "channel",
+     "value": "微信",
+     "masked": "微信",
+     "start": 0,
+     "end": 2,
+     "sensitive": false,
+     "meta": {}
+    },
+    {
+     "type": "wechat",
+     "value": "kefu_tb2026",
+     "masked": "ke******26",
+     "start": 6,
+     "end": 17,
+     "sensitive": true,
+     "meta": {}
+    }
+   ],
+   "redacted": "微信号码是 ke******26"
+  },
+  {
+   "text": "打开 refund-tb丶example 注册",
+   "entities": [
+    {
+     "type": "url",
+     "value": "refund-tb.example",
+     "masked": "re***tb.example",
+     "start": 3,
+     "end": 20,
+     "sensitive": true,
+     "meta": {
+      "bare": true
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "打开 re***tb.example 注册"
+  },
+  {
+   "text": "网址 refund-tb·example",
+   "entities": [
+    {
+     "type": "url",
+     "value": "refund-tb.example",
+     "masked": "re***tb.example",
+     "start": 3,
+     "end": 20,
+     "sensitive": true,
+     "meta": {
+      "bare": true
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "网址 re***tb.example"
+  },
+  {
+   "text": "收款人姓名：王建国",
+   "entities": [
+    {
+     "type": "name",
+     "value": "王建国",
+     "masked": "王**",
+     "start": 6,
+     "end": 9,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    }
+   ],
+   "redacted": "收款人姓名：王**"
+  },
+  {
+   "text": "账户名字写钱伟",
+   "entities": [
+    {
+     "type": "name",
+     "value": "钱伟",
+     "masked": "钱*",
+     "start": 5,
+     "end": 7,
+     "sensitive": true,
+     "meta": {}
+    }
+   ],
+   "redacted": "账户名字写钱*"
+  },
+  {
+   "text": "卡号 ６２２２ ０２０２ ００１１ ２２３３ ４４５",
+   "entities": [
+    {
+     "type": "bank_card",
+     "value": "6222 0202 0011 2233 445",
+     "masked": "6222 **** **** 3445",
+     "start": 3,
+     "end": 26,
+     "sensitive": true,
+     "meta": {
+      "digits": 19,
+      "luhn": false,
+      "unionpay": true,
+      "bank": "中国工商银行",
+      "issuer": {
+       "bank": "中国工商银行",
+       "bankCode": "ICBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "卡号 6222 **** **** 3445"
+  },
+  {
+   "text": "陆贰贰贰零贰零贰零零壹壹贰贰叁叁肆肆伍",
+   "entities": [
+    {
+     "type": "bank_card",
+     "value": "6222020200112233445",
+     "masked": "6222 **** **** 3445",
+     "start": 0,
+     "end": 19,
+     "sensitive": true,
+     "meta": {
+      "digits": 19,
+      "luhn": false,
+      "unionpay": true,
+      "bank": "中国工商银行",
+      "issuer": {
+       "bank": "中国工商银行",
+       "bankCode": "ICBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "6222 **** **** 3445"
+  },
+  {
+   "text": "版本 1.2.3 发布，John·Smith 来了",
+   "entities": [],
+   "redacted": "版本 1.2.3 发布，John·Smith 来了"
+  },
+  {
+   "text": "100 200 300 元",
+   "entities": [
+    {
+     "type": "amount",
+     "value": "300 元",
+     "masked": "300 元",
+     "start": 8,
+     "end": 13,
+     "sensitive": false,
+     "meta": {
+      "number": 300,
+      "unit": "元"
+     }
+    }
+   ],
+   "redacted": "100 200 300 元"
+  },
+  {
    "text": "您好，我是淘宝官方客服，您上周购买的商品检测出质量问题，我们这边要给您双倍理赔 380 元。",
    "entities": [
     {

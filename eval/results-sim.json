@@ -1,7 +1,8 @@
 {
  "config": {
   "seeds": 30,
-  "maxTurns": 40
+  "maxTurns": 40,
+  "reveal": "standard"
  },
  "byPolicy": {
   "rule": {

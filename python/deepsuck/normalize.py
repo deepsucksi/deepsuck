@@ -34,6 +34,13 @@ RE_SPACED_KW = [
 ]
 RE_SPACED_DIGITS = re.compile(r"(?<![0-9])[0-9](?:[ \u00a0\-·.,_/]{1,2}[0-9]){6,}(?![0-9])")
 RE_FULLWIDTH = re.compile("[\uFF01-\uFF5E\u3000]+")
+_DIGIT_CHARS: dict = (_O.get("digitChars") or {}).get("map") or {}
+RE_DIGIT_CHARS = re.compile("[" + "".join(_DIGIT_CHARS) + "]+") if _DIGIT_CHARS else None
+RE_FILLER = re.compile("[" + re.escape(_O["fillerChars"]) + "]+") if _O.get("fillerChars") else None
+RE_DIGIT_GROUPS = (
+    re.compile("(?:" + "|".join(re.escape(w) for w in _O["digitGroupKeywords"]) + r")[^0-9\n]{0,4}[0-9]{2,5}(?:[ \u00a0][0-9]{2,5}){1,4}(?![0-9])")
+    if _O.get("digitGroupKeywords") else None
+)
 
 Replacement = Union[str, Sequence[Tuple[str, int]], None]
 
@@ -108,6 +115,11 @@ def normalize(text: Optional[str]) -> Normalized:
     raw = "" if text is None else str(text)
     state = _init(raw)
     state = _apply(state, RE_FULLWIDTH, _fullwidth)
+    # 圈码数字 ①③⑨ → 139（逐字符）；装饰符号 ❤★ 等直接删除（“薇❤信”→“薇信”）
+    if RE_DIGIT_CHARS:
+        state = _apply(state, RE_DIGIT_CHARS, lambda m: [(_DIGIT_CHARS[c], i) for i, c in enumerate(m)])
+    if RE_FILLER:
+        state = _apply(state, RE_FILLER, lambda m: [])
     for pat, to in RE_SPACED_KW:
         state = _apply(state, pat, lambda m, to=to: None if m == to else to)
     for pat in RE_SPACED_LETTERS:
@@ -123,4 +135,11 @@ def normalize(text: Optional[str]) -> Normalized:
         return [(_NUMERALS.get(c, c), i) for i, c in enumerate(m)]
     state = _apply(state, RE_NUM_RUN, num)
     state = _apply(state, RE_SPACED_DIGITS, lambda m: [(c, i) for i, c in enumerate(m) if "0" <= c <= "9"])
+
+    def groups(m):  # “企鹅 699 700 370” → “企鹅 699700370”：只删除两侧都是数字的空格
+        r = [(c, i) for i, c in enumerate(m)
+             if not (c in " \u00a0" and 0 < i < len(m) - 1 and "0" <= m[i - 1] <= "9" and "0" <= m[i + 1] <= "9")]
+        return None if len(r) == len(m) else r
+    if RE_DIGIT_GROUPS:
+        state = _apply(state, RE_DIGIT_GROUPS, groups)
     return Normalized(raw, state)

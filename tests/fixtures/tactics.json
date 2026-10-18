@@ -345,6 +345,63 @@
    ]
   },
   {
+   "text": "电话 ①③⑨⓪⓪①①②②③③，记好了",
+   "expected": []
+  },
+  {
+   "text": "手机 139.0011.2233",
+   "expected": []
+  },
+  {
+   "text": "加薇❤信 kefu_tb2026，或者Q扣 2876543210",
+   "expected": []
+  },
+  {
+   "text": "v❤：kefu_tb2026，企鹅 287 654 321",
+   "expected": []
+  },
+  {
+   "text": "微信号码是 kefu_tb2026",
+   "expected": []
+  },
+  {
+   "text": "打开 refund-tb丶example 注册",
+   "expected": []
+  },
+  {
+   "text": "网址 refund-tb·example",
+   "expected": []
+  },
+  {
+   "text": "收款人姓名：王建国",
+   "expected": []
+  },
+  {
+   "text": "账户名字写钱伟",
+   "expected": []
+  },
+  {
+   "text": "卡号 ６２２２ ０２０２ ００１１ ２２３３ ４４５",
+   "expected": [
+    {
+     "id": "info_harvest",
+     "match": "卡号"
+    }
+   ]
+  },
+  {
+   "text": "陆贰贰贰零贰零贰零零壹壹贰贰叁叁肆肆伍",
+   "expected": []
+  },
+  {
+   "text": "版本 1.2.3 发布，John·Smith 来了",
+   "expected": []
+  },
+  {
+   "text": "100 200 300 元",
+   "expected": []
+  },
+  {
    "text": "您好，我是淘宝官方客服，您上周购买的商品检测出质量问题，我们这边要给您双倍理赔 380 元。",
    "expected": [
     {
@@ -363,6 +420,10 @@
     {
      "id": "app_download",
      "match": "下载"
+    },
+    {
+     "id": "screen_share",
+     "match": "会议号"
     }
    ]
   },
@@ -389,6 +450,10 @@
     {
      "id": "cs_impersonation",
      "match": "理赔"
+    },
+    {
+     "id": "account_risk",
+     "match": "账户异常"
     },
     {
      "id": "safe_account",
@@ -629,7 +694,7 @@
     },
     {
      "id": "reward_bait",
-     "match": "福利"
+     "match": "恭喜您"
     },
     {
      "id": "task_rebate",
@@ -684,6 +749,10 @@
    "text": "您好，这边是金融服务中心，您有一笔 20 万的无抵押低息贷款额度，年化 2.8%，今天可以秒批。",
    "expected": [
     {
+     "id": "high_return",
+     "match": "年化"
+    },
+    {
      "id": "loan_fraud",
      "match": "无抵押"
     }
@@ -709,6 +778,10 @@
   {
    "text": "系统显示您的银行卡号填写错误，款项已被冻结，需要缴纳 3000 元解冻金证明是本人操作，款项会和贷款一起退还。",
    "expected": [
+    {
+     "id": "transfer",
+     "match": "缴纳"
+    },
     {
      "id": "threat",
      "match": "冻结"
@@ -876,6 +949,10 @@
     {
      "id": "app_download",
      "match": "下载"
+    },
+    {
+     "id": "screen_share",
+     "match": "会议号"
     }
    ]
   },
@@ -980,7 +1057,7 @@
     "otp": 1,
     "urgency": 5
    },
-   "expected": 67
+   "expected": 59
   },
   {
    "counts": {
@@ -996,6 +1073,40 @@
     "romance": 1
    },
    "expected": 11
+  },
+  {
+   "counts": {
+    "cs_impersonation": 2,
+    "urgency": 3
+   },
+   "expected": 15
+  },
+  {
+   "counts": {
+    "app_download": 1
+   },
+   "expected": 11
+  },
+  {
+   "counts": {
+    "app_download": 1,
+    "screen_share": 1
+   },
+   "expected": 39
+  },
+  {
+   "counts": {
+    "kidnap": 1,
+    "urgency": 1
+   },
+   "expected": 32
+  },
+  {
+   "counts": {
+    "urgency": 0,
+    "otp": 0
+   },
+   "expected": 0
   }
  ]
 }

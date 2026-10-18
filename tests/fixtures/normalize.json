@@ -292,6 +292,71 @@
    "changed": true
   },
   {
+   "text": "电话 ①③⑨⓪⓪①①②②③③，记好了",
+   "expected": "电话 13900112233,记好了",
+   "changed": true
+  },
+  {
+   "text": "手机 139.0011.2233",
+   "expected": "手机 139.0011.2233",
+   "changed": false
+  },
+  {
+   "text": "加薇❤信 kefu_tb2026，或者Q扣 2876543210",
+   "expected": "加薇信 kefu_tb2026,或者Q扣 2876543210",
+   "changed": true
+  },
+  {
+   "text": "v❤：kefu_tb2026，企鹅 287 654 321",
+   "expected": "v:kefu_tb2026,企鹅 287654321",
+   "changed": true
+  },
+  {
+   "text": "微信号码是 kefu_tb2026",
+   "expected": "微信号码是 kefu_tb2026",
+   "changed": false
+  },
+  {
+   "text": "打开 refund-tb丶example 注册",
+   "expected": "打开 refund-tb.example 注册",
+   "changed": true
+  },
+  {
+   "text": "网址 refund-tb·example",
+   "expected": "网址 refund-tb.example",
+   "changed": true
+  },
+  {
+   "text": "收款人姓名：王建国",
+   "expected": "收款人姓名:王建国",
+   "changed": true
+  },
+  {
+   "text": "账户名字写钱伟",
+   "expected": "账户名字写钱伟",
+   "changed": false
+  },
+  {
+   "text": "卡号 ６２２２ ０２０２ ００１１ ２２３３ ４４５",
+   "expected": "卡号 6222 0202 0011 2233 445",
+   "changed": true
+  },
+  {
+   "text": "陆贰贰贰零贰零贰零零壹壹贰贰叁叁肆肆伍",
+   "expected": "6222020200112233445",
+   "changed": true
+  },
+  {
+   "text": "版本 1.2.3 发布，John·Smith 来了",
+   "expected": "版本 1.2.3 发布,John.Smith 来了",
+   "changed": true
+  },
+  {
+   "text": "100 200 300 元",
+   "expected": "100 200 300 元",
+   "changed": false
+  },
+  {
    "text": "您好，我是淘宝官方客服，您上周购买的商品检测出质量问题，我们这边要给您双倍理赔 380 元。",
    "expected": "您好,我是淘宝官方客服,您上周购买的商品检测出质量问题,我们这边要给您双倍理赔 380 元。",
    "changed": true

@@ -9,7 +9,7 @@ from .normalize import normalize
 
 _C = load("tactics")
 TACTICS = [
-    {"id": t["id"], "label": t["label"], "weight": t["weight"], "re": compile_js(t["pattern"])}
+    {"id": t["id"], "label": t["label"], "weight": t["weight"], "cap": t.get("cap", 3), "weak": bool(t.get("weak")), "re": compile_js(t["pattern"])}
     for t in _C["tactics"]
 ]
 BY_ID = {t["id"]: t for t in TACTICS}
@@ -32,8 +32,14 @@ def _js_round(x: float) -> int:
 
 def risk_score(counts: Optional[Dict[str, int]]) -> int:
     raw = 0
+    strong = False
     for k, c in (counts or {}).items():
         t = BY_ID.get(k)
-        if t:
-            raw += t["weight"] * min(3, c)
+        if not t or not c > 0:
+            continue
+        raw += t["weight"] * min(t["cap"], c)  # cap：同一话术最多累计几次
+        if not t["weak"]:
+            strong = True
+    if not strong:
+        raw /= 2  # 只有弱信号（如“客服”“尽快”）时减半：正常客服来电也常见
     return min(100, _js_round(100 * (1 - math.exp(-raw / 18))))

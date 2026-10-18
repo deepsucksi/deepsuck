@@ -36,7 +36,8 @@
      "text": "理赔需要您下载我们的\"安心退\"APP，网址是 https://re***fu.top/*** ，下载后加入会议号 886 221 共享屏幕。",
      "tactics": [
       "cs_impersonation",
-      "app_download"
+      "app_download",
+      "screen_share"
      ]
     },
     {
@@ -63,6 +64,7 @@
      "text": "系统显示您的账户异常，需要您先转 2000 元保证金到我们的理赔专用账户 6217 **** **** 0123，户名李*，建设银行。",
      "tactics": [
       "cs_impersonation",
+      "account_risk",
       "safe_account",
       "transfer"
      ]
@@ -157,7 +159,7 @@
    "stats": {
     "estimatedScammerSeconds": 774,
     "intelCount": 5,
-    "riskScore": 83
+    "riskScore": 89
    }
   },
   {
@@ -195,7 +197,8 @@
      "text": "理赔需要您下载我们的\"安心退\"APP，网址是 https://re***fu.top/*** ，下载后加入会议号 886 221 共享屏幕。",
      "tactics": [
       "cs_impersonation",
-      "app_download"
+      "app_download",
+      "screen_share"
      ]
     },
     {
@@ -222,6 +225,7 @@
      "text": "系统显示您的账户异常，需要您先转 2000 元保证金到我们的理赔专用账户 6217 **** **** 0123，户名李*，建设银行。",
      "tactics": [
       "cs_impersonation",
+      "account_risk",
       "safe_account",
       "transfer"
      ]
@@ -316,7 +320,7 @@
    "stats": {
     "estimatedScammerSeconds": 607,
     "intelCount": 5,
-    "riskScore": 83
+    "riskScore": 89
    }
   },
   {
@@ -354,7 +358,8 @@
      "text": "理赔需要您下载我们的\"安心退\"APP，网址是 https://re***fu.top/*** ，下载后加入会议号 886 221 共享屏幕。",
      "tactics": [
       "cs_impersonation",
-      "app_download"
+      "app_download",
+      "screen_share"
      ]
     },
     {
@@ -381,6 +386,7 @@
      "text": "系统显示您的账户异常，需要您先转 2000 元保证金到我们的理赔专用账户 6217 **** **** 0123，户名李*，建设银行。",
      "tactics": [
       "cs_impersonation",
+      "account_risk",
       "safe_account",
       "transfer"
      ]
@@ -475,7 +481,7 @@
    "stats": {
     "estimatedScammerSeconds": 630,
     "intelCount": 5,
-    "riskScore": 83
+    "riskScore": 89
    }
   },
   {
@@ -631,7 +637,7 @@
    "stats": {
     "estimatedScammerSeconds": 616,
     "intelCount": 4,
-    "riskScore": 93
+    "riskScore": 91
    }
   },
   {
@@ -787,7 +793,7 @@
    "stats": {
     "estimatedScammerSeconds": 610,
     "intelCount": 4,
-    "riskScore": 93
+    "riskScore": 91
    }
   },
   {
@@ -943,7 +949,7 @@
    "stats": {
     "estimatedScammerSeconds": 606,
     "intelCount": 4,
-    "riskScore": 93
+    "riskScore": 91
    }
   },
   {
@@ -1082,7 +1088,7 @@
    "stats": {
     "estimatedScammerSeconds": 562,
     "intelCount": 4,
-    "riskScore": 75
+    "riskScore": 78
    }
   },
   {
@@ -1221,7 +1227,7 @@
    "stats": {
     "estimatedScammerSeconds": 555,
     "intelCount": 4,
-    "riskScore": 75
+    "riskScore": 78
    }
   },
   {
@@ -1360,7 +1366,7 @@
    "stats": {
     "estimatedScammerSeconds": 549,
     "intelCount": 4,
-    "riskScore": 75
+    "riskScore": 78
    }
   },
   {
@@ -1512,7 +1518,7 @@
    "stats": {
     "estimatedScammerSeconds": 823,
     "intelCount": 4,
-    "riskScore": 89
+    "riskScore": 87
    }
   },
   {
@@ -1664,7 +1670,7 @@
    "stats": {
     "estimatedScammerSeconds": 813,
     "intelCount": 4,
-    "riskScore": 89
+    "riskScore": 87
    }
   },
   {
@@ -1816,7 +1822,7 @@
    "stats": {
     "estimatedScammerSeconds": 814,
     "intelCount": 4,
-    "riskScore": 89
+    "riskScore": 87
    }
   },
   {
@@ -1841,6 +1847,7 @@
      "role": "scammer",
      "text": "您好，这边是金融服务中心，您有一笔 20 万的无抵押低息贷款额度，年化 2.8%，今天可以秒批。",
      "tactics": [
+      "high_return",
       "loan_fraud"
      ]
     },
@@ -1867,6 +1874,7 @@
      "role": "scammer",
      "text": "系统显示您的银行卡号填写错误，款项已被冻结，需要缴纳 3000 元解冻金证明是本人操作，款项会和贷款一起退还。",
      "tactics": [
+      "transfer",
       "threat",
       "info_harvest",
       "loan_fraud"
@@ -1874,8 +1882,8 @@
     },
     {
      "role": "bot",
-     "text": "解冻金？钱还没借到手就要先交钱？我们老会计做账可没见过这种账。你把收款账户给我，我做个凭证。",
-     "intent": "loan_stall"
+     "text": "好的好的，那钱打到哪个账户？你发清楚，我怕转错了又要麻烦你。",
+     "intent": "elicit_account"
     },
     {
      "role": "scammer",
@@ -1968,9 +1976,9 @@
     }
    ],
    "stats": {
-    "estimatedScammerSeconds": 875,
+    "estimatedScammerSeconds": 813,
     "intelCount": 4,
-    "riskScore": 90
+    "riskScore": 93
    }
   },
   {
@@ -1995,6 +2003,7 @@
      "role": "scammer",
      "text": "您好，这边是金融服务中心，您有一笔 20 万的无抵押低息贷款额度，年化 2.8%，今天可以秒批。",
      "tactics": [
+      "high_return",
       "loan_fraud"
      ]
     },
@@ -2021,6 +2030,7 @@
      "role": "scammer",
      "text": "系统显示您的银行卡号填写错误，款项已被冻结，需要缴纳 3000 元解冻金证明是本人操作，款项会和贷款一起退还。",
      "tactics": [
+      "transfer",
       "threat",
       "info_harvest",
       "loan_fraud"
@@ -2028,8 +2038,8 @@
     },
     {
      "role": "bot",
-     "text": "二十万？我这辈子没见过那么多钱，你等等，我先坐下，心口有点慌。",
-     "intent": "loan_stall"
+     "text": "转钱？往哪转？你把卡号念……不，你打字发过来，我念不清楚。户名、开户行都写上。",
+     "intent": "elicit_account"
     },
     {
      "role": "scammer",
@@ -2122,9 +2132,9 @@
     }
    ],
    "stats": {
-    "estimatedScammerSeconds": 869,
+    "estimatedScammerSeconds": 810,
     "intelCount": 4,
-    "riskScore": 90
+    "riskScore": 93
    }
   },
   {
@@ -2149,6 +2159,7 @@
      "role": "scammer",
      "text": "您好，这边是金融服务中心，您有一笔 20 万的无抵押低息贷款额度，年化 2.8%，今天可以秒批。",
      "tactics": [
+      "high_return",
       "loan_fraud"
      ]
     },
@@ -2175,6 +2186,7 @@
      "role": "scammer",
      "text": "系统显示您的银行卡号填写错误，款项已被冻结，需要缴纳 3000 元解冻金证明是本人操作，款项会和贷款一起退还。",
      "tactics": [
+      "transfer",
       "threat",
       "info_harvest",
       "loan_fraud"
@@ -2182,8 +2194,8 @@
     },
     {
      "role": "bot",
-     "text": "卡号填错了被冻结？可是我还没填呀……要不你把正确格式的收款账户发我参考一下？",
-     "intent": "loan_stall"
+     "text": "那我要转到哪个账户呀？能把卡号、户名、开户行都发我吗？我截图存一下。",
+     "intent": "elicit_account"
     },
     {
      "role": "scammer",
@@ -2276,9 +2288,9 @@
     }
    ],
    "stats": {
-    "estimatedScammerSeconds": 869,
+    "estimatedScammerSeconds": 808,
     "intelCount": 4,
-    "riskScore": 90
+    "riskScore": 93
    }
   },
   {
@@ -2751,7 +2763,8 @@
      "role": "scammer",
      "text": "为了方便指导，您先下载腾讯会议，会议号 912 334 556，打开屏幕共享。",
      "tactics": [
-      "app_download"
+      "app_download",
+      "screen_share"
      ]
     },
     {
@@ -2841,7 +2854,7 @@
    "stats": {
     "estimatedScammerSeconds": 681,
     "intelCount": 3,
-    "riskScore": 91
+    "riskScore": 92
    }
   },
   {
@@ -2894,7 +2907,8 @@
      "role": "scammer",
      "text": "为了方便指导，您先下载腾讯会议，会议号 912 334 556，打开屏幕共享。",
      "tactics": [
-      "app_download"
+      "app_download",
+      "screen_share"
      ]
     },
     {
@@ -2984,7 +2998,7 @@
    "stats": {
     "estimatedScammerSeconds": 676,
     "intelCount": 3,
-    "riskScore": 91
+    "riskScore": 92
    }
   },
   {
@@ -3037,7 +3051,8 @@
      "role": "scammer",
      "text": "为了方便指导，您先下载腾讯会议，会议号 912 334 556，打开屏幕共享。",
      "tactics": [
-      "app_download"
+      "app_download",
+      "screen_share"
      ]
     },
     {
@@ -3127,7 +3142,7 @@
    "stats": {
     "estimatedScammerSeconds": 671,
     "intelCount": 3,
-    "riskScore": 91
+    "riskScore": 92
    }
   },
   {

@@ -7,7 +7,7 @@
   - 重复率（与之前完全相同的机器人回复）与近重复率（字符二元组 Jaccard ≥ 0.8）；
   - 泄露率（机器人回复含 ≥6 位连续数字，即可能给出真实号码/验证码）。
 
-CLI：python -m deepsuck.sim --seeds 30 [--json out.json] [--md out.md]
+CLI：python -m deepsuck.sim --seeds 30 [--reveal standard|hard] [--json out.json] [--md out.md]
 Apache-2.0
 """
 from __future__ import annotations
@@ -78,6 +78,24 @@ def plant(rd: Rand) -> Dict[str, str]:
         "domain": domain,
         "domain_dot": domain.replace(".example", " 点 example"),
     }
+    # --reveal hard 用：全部由上面的真值确定性变换得到，不额外消耗随机数（standard 模式结果不变）
+    fw = {c: chr(0xFF10 + int(c)) for c in "0123456789"}
+    cap = dict(zip("0123456789", "零壹贰叁肆伍陆柒捌玖"))
+    circ = dict(zip("0123456789", "⓪①②③④⑤⑥⑦⑧⑨"))
+    v.update({
+        "bank_fw": " ".join("".join(fw[c] for c in bank[i:i + 4]) for i in range(0, len(bank), 4)),
+        "bank_dash": "-".join(bank[i:i + 4] for i in range(0, len(bank), 4)),
+        "bank_cap": "".join(cap[c] for c in bank),
+        "bank_mix": "".join(c if i % 2 == 0 else CN[c] for i, c in enumerate(bank)),
+        "phone_circled": "".join(circ[c] for c in phone),
+        "phone_dots": f"{phone[:3]}.{phone[3:7]}.{phone[7:]}",
+        "phone_mix": "".join(c if i % 2 == 0 else CN[c] for i, c in enumerate(phone)),
+        "phone_spaced_cn": " ".join(CN[c] for c in phone),
+        "qq_spaced": " ".join(v["qq"][i:i + 3] for i in range(0, len(v["qq"]), 3)),
+        "domain_dun": domain.replace(".example", "丶example"),
+        "domain_mid": domain.replace(".example", "·example"),
+        "domain_dotword": domain.replace(".example", "(dot)example"),
+    })
     return v
 
 
@@ -87,6 +105,10 @@ TRUTH = {
     "name": ("name", "name"), "phone": ("phone", "phone"), "phone_cn": ("phone", "phone"), "phone_dashed": ("phone", "phone"),
     "wx": ("wechat", "wx"), "qq": ("qq", "qq"), "tron": ("crypto_tron", "tron"), "eth": ("crypto_eth", "eth"),
     "domain": ("url", "domain"), "domain_dot": ("url", "domain"),
+    "bank_fw": ("bank_card", "bank"), "bank_dash": ("bank_card", "bank"), "bank_cap": ("bank_card", "bank"), "bank_mix": ("bank_card", "bank"),
+    "phone_circled": ("phone", "phone"), "phone_dots": ("phone", "phone"), "phone_mix": ("phone", "phone"),
+    "phone_spaced_cn": ("phone", "phone"), "qq_spaced": ("qq", "qq"),
+    "domain_dun": ("url", "domain"), "domain_mid": ("url", "domain"), "domain_dotword": ("url", "domain"),
 }
 
 
@@ -109,8 +131,9 @@ def _bigrams(s: str) -> set:
 
 
 class Scammer:
-    def __init__(self, script: dict, common: dict, rd: Rand):
+    def __init__(self, script: dict, common: dict, rd: Rand, reveal: str = "standard"):
         self.s, self.c, self.rd = script, common, rd
+        self.reveal_key = "revealHard" if reveal == "hard" else "reveal"
         self.stage = 0
         self.patience = 6 + rd.random() * 6
         self.values = plant(rd)
@@ -125,7 +148,7 @@ class Scammer:
         return line
 
     def reveal(self, kind: str) -> str:
-        tpl = self.rd.choice(self.c["reveal"][kind])
+        tpl = self.rd.choice(self.c[self.reveal_key][kind])
         for ph in re.findall(r"\{(\w+)\}", tpl):
             if ph not in TRUTH:
                 continue
@@ -212,11 +235,12 @@ class Bot:
         return self.s.record_bot(t, intent)
 
 
-def run_one(scenario: str, persona: str, policy: str, seed: int, scripts: dict, debug: Optional[list] = None) -> dict:
+def run_one(scenario: str, persona: str, policy: str, seed: int, scripts: dict, debug: Optional[list] = None,
+            reveal: str = "standard") -> dict:
     rd = Rand(seed)
     s = Session(scenario, persona, rng=mulberry32(seed ^ 0x5EED), now=lambda: 0)
     bot = Bot(policy, s, Rand(seed ^ 0xB07))
-    sc = Scammer(scripts["scenarios"][scenario], scripts["common"], rd)
+    sc = Scammer(scripts["scenarios"][scenario], scripts["common"], rd, reveal)
     first = s.opening() if policy != "parrot" else s.record_bot("喂？你好，哪位？", "opening")
     seen, grams = {first["text"]}, [_bigrams(first["text"])]
     dup = near = leaks = 0
@@ -271,7 +295,8 @@ def aggregate(rows: List[dict]) -> dict:
     }
 
 
-def run(seeds: int = 30, policies=("rule", "random", "parrot"), scripts_path: Optional[str] = None) -> dict:
+def run(seeds: int = 30, policies=("rule", "random", "parrot"), scripts_path: Optional[str] = None,
+        reveal: str = "standard") -> dict:
     with open(scripts_path or default_scripts_path(), encoding="utf-8") as f:
         scripts = json.load(f)
     rows = []
@@ -279,8 +304,8 @@ def run(seeds: int = 30, policies=("rule", "random", "parrot"), scripts_path: Op
         for sc in SCENARIOS:
             for p in PERSONAS:
                 for k in range(seeds):
-                    rows.append(run_one(sc["id"], p["id"], policy, 1000 + k, scripts))
-    out = {"config": {"seeds": seeds, "maxTurns": MAX_TURNS}, "byPolicy": {}, "byPersona": {}, "byScenario": {}}
+                    rows.append(run_one(sc["id"], p["id"], policy, 1000 + k, scripts, reveal=reveal))
+    out = {"config": {"seeds": seeds, "maxTurns": MAX_TURNS, "reveal": reveal}, "byPolicy": {}, "byPersona": {}, "byScenario": {}}
     for policy in policies:
         pr = [r for r in rows if r["policy"] == policy]
         out["byPolicy"][policy] = aggregate(pr)
@@ -318,8 +343,10 @@ def main(argv=None) -> int:
     ap.add_argument("--scripts", default=None)
     ap.add_argument("--json", default=None)
     ap.add_argument("--md", default=None)
+    ap.add_argument("--reveal", choices=("standard", "hard"), default="standard",
+                    help="骗子暴露情报时的写法：standard（默认）或 hard（更难的去武装写法）")
     a = ap.parse_args(argv)
-    res = run(a.seeds, tuple(a.policies.split(",")), a.scripts)
+    res = run(a.seeds, tuple(a.policies.split(",")), a.scripts, a.reveal)
     md = to_markdown(res)
     print(md)
     if a.json:

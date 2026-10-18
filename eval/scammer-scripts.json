@@ -1,6 +1,6 @@
 {
   "schema": "deepsuck.eval.scammer-scripts/v1",
-  "comment": "骗子模拟器脚本（LLM-free，全部虚构）。pitch：按阶段推进的话术（不含情报）；reveal：被追问时暴露情报的句式（含去武装写法）；urge/repeat/annoyed/quit：被拖延时的反应。情报值由模拟器按 seed 随机生成（域名一律 .example）。",
+  "comment": "骗子模拟器脚本（LLM-free，全部虚构）。pitch：按阶段推进的话术（不含情报）；reveal：被追问时暴露情报的句式（含去武装写法）；urge/repeat/annoyed/quit：被拖延时的反应。情报值由模拟器按 seed 随机生成（域名一律 .example）。revealHard：更难的去武装写法（全角/大写/圈码数字、薇❤信、丶 代替点等，由真值确定性变换得到、不额外消耗随机数），用于 python -m deepsuck.sim --reveal hard。",
   "common": {
     "urge": ["你快点行不行？", "别磨蹭了，时间来不及了！", "你到底弄好没有？", "我这边很忙，你抓紧。", "听清楚了吗？按我说的做。"],
     "repeat": ["我再说一遍，你听好了。", "你听我说，就按刚才说的办。", "不是这个意思，你认真听。"],
@@ -13,6 +13,13 @@
       "phone": ["有事打我电话 {phone}。", "手机 {phone_cn}，记好了。", "加我V信 {wx}，或者扣扣 {qq}。", "电话 {phone_dashed}，微 信 {wx}。"],
       "url": ["网址是 https://{domain}/dl ，你打开下载。", "打开 {domain_dot} 注册一下。", "链接：www.{domain}"],
       "name": ["收款人叫{name}。", "户名写{name}就行。"]
+    },
+    "revealHard": {
+      "bank": ["卡号 {bank_fw}，户名{name}，{bankName}。", "账户 {bank_dash}，收款人姓名：{name}。", "卡号是 {bank_cap}，账户名字{name}。", "转到 {bank_mix} 这张卡，{bankName}，户名{name}。"],
+      "wallet": ["USDT 打到这个 TRC20 地址：{tron}", "用 ERC20 也行：{eth}"],
+      "phone": ["电话 {phone_circled}，记好了。", "手机 {phone_dots}。", "号码 {phone_mix}，打这个。", "电话 {phone_spaced_cn}。", "加薇❤信 {wx}，或者Q扣 {qq}。", "v❤：{wx}，企鹅 {qq_spaced}。", "微信号码是 {wx}，qq号码 {qq}。"],
+      "url": ["打开 {domain_dun} 注册一下。", "网址 {domain_mid}，你记一下。", "链接 {domain_dotword}，打开就能下载。"],
+      "name": ["收款人姓名是{name}。", "账户名字写{name}。", "户名：{name}。"]
     }
   },
   "scenarios": {

@@ -29,6 +29,11 @@
     return { re: new RegExp(w.split('').map(escRe).join('[\\s·_\\-*]+'), 'g'), to: w };
   });
   var RE_SPACED_DIGITS = /(?<![0-9])[0-9](?:[ \u00a0\-·.,_/]{1,2}[0-9]){6,}(?![0-9])/g;
+  var DIGIT_CHARS = (O.digitChars || {}).map || {};
+  var RE_DIGIT_CHARS = Object.keys(DIGIT_CHARS).length ? new RegExp('[' + Object.keys(DIGIT_CHARS).join('') + ']+', 'g') : null;
+  var RE_FILLER = O.fillerChars ? new RegExp('[' + escRe(O.fillerChars) + ']+', 'g') : null;
+  var RE_DIGIT_GROUPS = (O.digitGroupKeywords || []).length
+    ? new RegExp('(?:' + O.digitGroupKeywords.map(escRe).join('|') + ')[^0-9\\n]{0,4}[0-9]{2,5}(?:[ \\u00a0][0-9]{2,5}){1,4}(?![0-9])', 'g') : null;
 
   /** 内部状态：s 为当前文本，st/en 为每个字符对应原文的 [起, 止) */
   function init(text) {
@@ -81,6 +86,9 @@
     var raw = String(text == null ? '' : text);
     var state = init(raw);
     state = fullwidth(state);
+    // 圈码数字 ①③⑨ → 139（逐字符，位置精确）；装饰符号 ❤★ 等直接删除（“薇❤信”→“薇信”）
+    if (RE_DIGIT_CHARS) state = apply(state, RE_DIGIT_CHARS, function (m) { var r = []; for (var i = 0; i < m.length; i++) r.push([DIGIT_CHARS[m[i]], i]); return r; });
+    if (RE_FILLER) state = apply(state, RE_FILLER, function () { return []; });
     RE_SPACED_KW.forEach(function (k) { state = apply(state, k.re, function (m) { return m === k.to ? null : k.to; }); });
     RE_SPACED_LETTERS.forEach(function (re) { state = apply(state, re, function (m) { var t = m.replace(/[\s·]+/g, ''); return t === m ? null : t; }); });
     state = apply(state, RE_DOT, function () { return '.'; });
@@ -94,6 +102,15 @@
       var r = [];
       for (var i = 0; i < m.length; i++) if (/[0-9]/.test(m[i])) r.push([m[i], i]);
       return r;
+    });
+    // “企鹅 699 700 370” → “企鹅 699700370”：只删除两侧都是数字的空格
+    if (RE_DIGIT_GROUPS) state = apply(state, RE_DIGIT_GROUPS, function (m) {
+      var r = [];
+      for (var i = 0; i < m.length; i++) {
+        if (/[ \u00a0]/.test(m[i]) && /[0-9]/.test(m[i - 1] || '') && /[0-9]/.test(m[i + 1] || '')) continue;
+        r.push([m[i], i]);
+      }
+      return r.length === m.length ? null : r;
     });
     var fin = state;
     return {

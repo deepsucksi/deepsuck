@@ -40,7 +40,9 @@ const TEXTS = [
   '卡号 六二二二 零二零二 零零一一 二二三三 四四五', '支付寶 13900112233', '卡号 六二二二 零二零二 零零一一 二二三三 四四五，户名王建国',
   '把钱转到 六二二二 零二零二 零零一一 二二三三 四四五，有问题打 幺三九 零零幺幺 二二三三',
   '收款人是张伟，开户行招商银行 6225 8812 3456 7891', 'http://192.168.1.10:8080/admin 登录', '访问 HTTPS://Example-Refund.CN/a?b=1。',
-  '客服电话 800 123 4567，邮箱 kefu.vip@example.com', '户名写钱伟就行', '户名写张3就行', '收款人李4，工商银行 6222020200112233445', '收款人是吴刚吧', '我记一下：网址/域名 re***fu.top，钱包 0x12ab...9f3e，对吗', '“金盾理财”平台 日赚 500 元，下载金盾理财APP'
+  '客服电话 800 123 4567，邮箱 kefu.vip@example.com', '户名写钱伟就行', '户名写张3就行', '收款人李4，工商银行 6222020200112233445', '收款人是吴刚吧', '我记一下：网址/域名 re***fu.top，钱包 0x12ab...9f3e，对吗', '“金盾理财”平台 日赚 500 元，下载金盾理财APP',
+  '电话 ①③⑨⓪⓪①①②②③③，记好了', '手机 139.0011.2233', '加薇❤信 kefu_tb2026，或者Q扣 2876543210', 'v❤：kefu_tb2026，企鹅 287 654 321', '微信号码是 kefu_tb2026',
+  '打开 refund-tb丶example 注册', '网址 refund-tb·example', '收款人姓名：王建国', '账户名字写钱伟', '卡号 ６２２２ ０２０２ ００１１ ２２３３ ４４５', '陆贰贰贰零贰零贰零零壹壹贰贰叁叁肆肆伍', '版本 1.2.3 发布，John·Smith 来了', '100 200 300 元'
 ];
 for (const sc of S.SCENARIOS) for (const line of sc.samples) TEXTS.push(line);
 
@@ -80,7 +82,8 @@ function build() {
       return { text, entities: ents.map(pickEntity), redacted: R.redactText(text, ents) };
     })
   };
-  const counts = [{}, { otp: 1 }, { safe_account: 2, otp: 1, urgency: 5 }, { authority: 3, threat: 3, secrecy: 1, transfer: 2 }, { romance: 1 }];
+  const counts = [{}, { otp: 1 }, { safe_account: 2, otp: 1, urgency: 5 }, { authority: 3, threat: 3, secrecy: 1, transfer: 2 }, { romance: 1 },
+    { cs_impersonation: 2, urgency: 3 }, { app_download: 1 }, { app_download: 1, screen_share: 1 }, { kidnap: 1, urgency: 1 }, { urgency: 0, otp: 0 }];
   out.tactics = {
     comment: HEADER,
     cases: TEXTS.concat(['加我 微 信 私聊', '把 验 证 码 发我', '转到 安 全 账 户', '我是你领导，在开会，不方便接电话']).map((text) => ({
