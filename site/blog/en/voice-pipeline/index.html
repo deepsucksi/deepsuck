@@ -145,8 +145,35 @@
 <td>5827 ms</td>
 </tr>
 </tbody></table></div>
-<p>Measured before the language model was switched; updated figures are pending.</p>
-<p>In one external probe of the live service, the first packet of the real reply arrived at 2469, 2627 and 2484 ms: about 650 ms recognition, 430–680 ms to the model&#39;s first token and 1050–1340 ms to the first synthesised packet — synthesis is still the largest share (&quot;TTS first-packet breakdown&quot; in VOICE_LATENCY.md).</p>
+<p>The table above was measured on 2026-10-18, still with the model we used before.</p>
+<p>After the switch we re-measured the language-model stage on its own: from sending the request to the first token (first token), and to the end of the full reply (full reply). These figures cover only the language-model stage, over a pre-warmed connection, and exclude speech recognition, deciding that the caller has finished (endpoint detection) and speech synthesis, so they cannot be added to or compared with the table above. Each model ran 86 turns on the production server; the model we used before was measured in the same session as a comparison.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Language-model stage (ms)</th>
+<th>First token P50</th>
+<th>First token P90</th>
+<th>Full reply P50</th>
+<th>Full reply P90</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>The model now in production</td>
+<td>441</td>
+<td>574</td>
+<td>642</td>
+<td>838</td>
+</tr>
+<tr>
+<td>The model we used before (same-session comparison)</td>
+<td>364</td>
+<td>434</td>
+<td>713</td>
+<td>820</td>
+</tr>
+</tbody></table></div>
+<p>The model now in production is about 80 ms slower to the first token (about 140 ms at P90), but its replies are shorter, so its full-reply P50 is about 70 ms faster; full-reply P90 is close for both. Source: the &quot;first token / full reply&quot; section of <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/VOICE_LATENCY.md">docs/VOICE_LATENCY.md</a>.</p>
+<p>In one external probe of the live service, also before the model switch, the first packet of the real reply arrived at 2469, 2627 and 2484 ms: about 650 ms recognition, 430–680 ms to the model&#39;s first token and 1050–1340 ms to the first synthesised packet — synthesis is still the largest share (&quot;TTS first-packet breakdown&quot; in VOICE_LATENCY.md).</p>
 <h2>Extracting intelligence</h2>
 <p>There is a single set of extraction rules in <code>site/assets/core/extractors.json</code>. The browser and Python implementations match byte for byte and check each other through shared test fixtures (INTEL.md, &quot;noise robustness and cross-turn stitching&quot;). The voice server reuses the Python implementation.</p>
 <p>It recognises bank cards, mobile and landline numbers, messaging and payment accounts, email addresses, URLs, crypto wallet addresses and payee names. Spoken transcripts are messy, so text is normalised first:</p>
