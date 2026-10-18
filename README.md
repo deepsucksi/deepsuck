@@ -53,7 +53,11 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 |---|---|---|
 | <img src="screenshots/intel-1280.webp" width="320" alt="情报库页面"> | <img src="screenshots/demo-390.webp" width="160" alt="手机端沙盒"> | <img src="screenshots/intel-390.webp" width="160" alt="手机端情报库"> |
 
-截图由 `npm run screenshots` 生成。王阿姨语音样例：[screenshots/wangayi-sample.wav](screenshots/wangayi-sample.wav)。
+| 语音演示（live.deepsuck.si） | 手机端语音演示：参考话术 |
+|---|---|
+| <img src="screenshots/live-1280.webp" width="480" alt="语音演示页：通话、参考话术与实时看板"> | <img src="screenshots/live-390.webp" width="160" alt="手机端语音演示页，参考话术展开"> |
+
+首页与语音演示页截图为 R11 视觉（2026-10-19）；其余截图由 `npm run screenshots` 生成。王阿姨语音样例：[screenshots/wangayi-sample.wav](screenshots/wangayi-sample.wav)。
 
 ## 文档
 
