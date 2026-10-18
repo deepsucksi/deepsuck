@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   var EN = {
-    'nav.how': 'How', 'nav.menu': 'Menu', 'hero.sample': 'Sample · fictional numbers', 'nav.gh': 'Star on GitHub', 'nav.sc': 'Scenarios', 'nav.ethics': 'Ethics', 'nav.oss': 'Open source', 'nav.demo': 'Try the sandbox', 'nav.intel': 'Intel library',
+    'nav.how': 'How', 'nav.menu': 'Menu', 'hero.sample': 'From public cases<span class="hc-x"> · fictional numbers</span>', 'nav.gh': 'Star on GitHub', 'nav.sc': 'Scenarios', 'nav.ethics': 'Ethics', 'nav.oss': 'Open source', 'nav.demo': 'Try the sandbox', 'nav.intel': 'Intel library',
     'hero.kicker': 'Open source · defensive research · Chinese scenarios first',
     'hero.title': 'Let scammers waste their time<br><em>on an AI instead</em>',
     'hero.lead': 'DeepSuck is an open-source anti-scam "time-waster" bot. Playing personas like a muddled retired auntie, a hard-of-hearing grandpa or a curious student, it misunderstands, asks to repeat, fakes phone trouble — while extracting the bank accounts, wallet addresses, phone numbers and URLs scammers reveal, masked, for prevention and early warning.',
