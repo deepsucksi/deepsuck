@@ -1,0 +1,27 @@
+{
+ "config": {
+  "seeds": 30,
+  "lines": "legacy",
+  "reveal": "standard"
+ },
+ "runs": {
+  "main": {
+   "elicitRate": 0.9785714285714285,
+   "avgTurns": 17.423809523809524,
+   "avgEstMinutes": 27.462089947089947,
+   "suspiciousQuit": 0.0
+  },
+  "no_coop_swap": {
+   "elicitRate": 0.8420634920634921,
+   "avgTurns": 16.273015873015872,
+   "avgEstMinutes": 26.48664021164021,
+   "suspiciousQuit": 0.0
+  },
+  "sim_coop_as_stall": {
+   "elicitRate": 0.828968253968254,
+   "avgTurns": 15.998412698412698,
+   "avgEstMinutes": 24.455873015873017,
+   "suspiciousQuit": 0.0
+  }
+ }
+}

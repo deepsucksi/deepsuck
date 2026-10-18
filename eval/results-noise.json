@@ -1,6 +1,5 @@
 {
- "comment": "python eval/noise_eval.py --json 输出（67b1baf 的 personas.humanize 与提取器，30 个种子）；tiers = 人设预设默认档 / 手写档（E 部分）。上一版（14b7037 时的 humanize，before = 2e6e0a3 提取器）见 results-noise-v1.json",
- "impl": "python",
+ "impl": "/workspace/deepsuck/python",
  "hasStitch": true,
  "seeds": 30,
  "humanize": {
@@ -21,8 +20,8 @@
   },
   "reveal|0.3|voice": {
    "items": 570,
-   "captured": 565,
-   "rate": 0.9912280701754386
+   "captured": 570,
+   "rate": 1.0
   },
   "reveal|0.6|chat": {
    "items": 570,
@@ -31,8 +30,8 @@
   },
   "reveal|0.6|voice": {
    "items": 570,
-   "captured": 563,
-   "rate": 0.987719298245614
+   "captured": 570,
+   "rate": 1.0
   },
   "reveal|0.9|chat": {
    "items": 570,
@@ -41,8 +40,8 @@
   },
   "reveal|0.9|voice": {
    "items": 570,
-   "captured": 556,
-   "rate": 0.9754385964912281
+   "captured": 570,
+   "rate": 1.0
   },
   "revealHard|0.0|chat": {
    "items": 780,
@@ -61,28 +60,28 @@
   },
   "revealHard|0.3|voice": {
    "items": 780,
-   "captured": 777,
-   "rate": 0.9961538461538462
+   "captured": 780,
+   "rate": 1.0
   },
   "revealHard|0.6|chat": {
    "items": 780,
-   "captured": 779,
-   "rate": 0.9987179487179487
+   "captured": 780,
+   "rate": 1.0
   },
   "revealHard|0.6|voice": {
    "items": 780,
-   "captured": 772,
-   "rate": 0.9897435897435898
+   "captured": 778,
+   "rate": 0.9974358974358974
   },
   "revealHard|0.9|chat": {
    "items": 780,
-   "captured": 779,
-   "rate": 0.9987179487179487
+   "captured": 780,
+   "rate": 1.0
   },
   "revealHard|0.9|voice": {
    "items": 780,
-   "captured": 771,
-   "rate": 0.9884615384615385
+   "captured": 779,
+   "rate": 0.9987179487179487
   }
  },
  "digits": {
@@ -163,8 +162,8 @@
   "positive": {
    "2|连写|bank_card": {
     "n": 60,
-    "rate": 0.8666666666666667,
-    "wrongPerCase": 0.13333333333333333
+    "rate": 1.0,
+    "wrongPerCase": 0.0
    },
    "2|连写|phone": {
     "n": 60,
@@ -173,8 +172,8 @@
    },
    "2|空格分组|bank_card": {
     "n": 60,
-    "rate": 0.85,
-    "wrongPerCase": 0.15
+    "rate": 0.9833333333333333,
+    "wrongPerCase": 0.016666666666666666
    },
    "2|空格分组|phone": {
     "n": 60,
@@ -183,8 +182,8 @@
    },
    "2|中文数字空格|bank_card": {
     "n": 60,
-    "rate": 0.8333333333333334,
-    "wrongPerCase": 0.16666666666666666
+    "rate": 0.9333333333333333,
+    "wrongPerCase": 0.06666666666666667
    },
    "2|中文数字空格|phone": {
     "n": 60,
@@ -193,8 +192,8 @@
    },
    "2|幺两|bank_card": {
     "n": 60,
-    "rate": 0.8666666666666667,
-    "wrongPerCase": 0.13333333333333333
+    "rate": 1.0,
+    "wrongPerCase": 0.0
    },
    "2|幺两|phone": {
     "n": 60,
@@ -273,10 +272,10 @@
   }
  },
  "summary": {
-  "humanizeRate": 0.9955555555555555,
+  "humanizeRate": 0.9997222222222222,
   "digitsMean": 1.0,
   "digitsAll100": true,
-  "stitchMean": 0.9625,
+  "stitchMean": 0.99375,
   "falseItems": 0,
   "negCases": 600
  },
@@ -286,23 +285,23 @@
    "humanize": {
     "reveal|wang": {
      "items": 570,
-     "captured": 531,
-     "rate": 0.9315789473684211
+     "captured": 570,
+     "rate": 1.0
     },
     "revealHard|wang": {
      "items": 780,
-     "captured": 749,
-     "rate": 0.9602564102564103
+     "captured": 772,
+     "rate": 0.9897435897435898
     },
     "reveal|li": {
      "items": 570,
-     "captured": 559,
-     "rate": 0.980701754385965
+     "captured": 569,
+     "rate": 0.9982456140350877
     },
     "revealHard|li": {
      "items": 780,
-     "captured": 758,
-     "rate": 0.9717948717948718
+     "captured": 778,
+     "rate": 0.9974358974358974
     },
     "reveal|lin": {
      "items": 570,
@@ -311,18 +310,18 @@
     },
     "revealHard|lin": {
      "items": 780,
-     "captured": 775,
-     "rate": 0.9935897435897436
+     "captured": 780,
+     "rate": 1.0
     },
     "reveal|retiree": {
      "items": 570,
-     "captured": 529,
-     "rate": 0.9280701754385965
+     "captured": 569,
+     "rate": 0.9982456140350877
     },
     "revealHard|retiree": {
      "items": 780,
-     "captured": 757,
-     "rate": 0.9705128205128205
+     "captured": 776,
+     "rate": 0.9948717948717949
     },
     "reveal|mom": {
      "items": 570,
@@ -331,8 +330,8 @@
     },
     "revealHard|mom": {
      "items": 780,
-     "captured": 777,
-     "rate": 0.9961538461538462
+     "captured": 780,
+     "rate": 1.0
     },
     "reveal|graduate": {
      "items": 570,
@@ -341,18 +340,18 @@
     },
     "revealHard|graduate": {
      "items": 780,
-     "captured": 772,
-     "rate": 0.9897435897435898
+     "captured": 780,
+     "rate": 1.0
     },
     "reveal|shop_owner": {
      "items": 570,
-     "captured": 534,
-     "rate": 0.9368421052631579
+     "captured": 569,
+     "rate": 0.9982456140350877
     },
     "revealHard|shop_owner": {
      "items": 780,
-     "captured": 769,
-     "rate": 0.985897435897436
+     "captured": 779,
+     "rate": 0.9987179487179487
     }
    },
    "digits": {
@@ -433,8 +432,8 @@
     "positive": {
      "2|连写|bank_card": {
       "n": 60,
-      "rate": 0.8666666666666667,
-      "wrongPerCase": 0.13333333333333333
+      "rate": 1.0,
+      "wrongPerCase": 0.0
      },
      "2|连写|phone": {
       "n": 60,
@@ -443,8 +442,8 @@
      },
      "2|空格分组|bank_card": {
       "n": 60,
-      "rate": 0.85,
-      "wrongPerCase": 0.15
+      "rate": 0.9833333333333333,
+      "wrongPerCase": 0.016666666666666666
      },
      "2|空格分组|phone": {
       "n": 60,
@@ -453,8 +452,8 @@
      },
      "2|中文数字空格|bank_card": {
       "n": 60,
-      "rate": 0.7166666666666667,
-      "wrongPerCase": 0.16666666666666666
+      "rate": 0.8166666666666667,
+      "wrongPerCase": 0.06666666666666667
      },
      "2|中文数字空格|phone": {
       "n": 60,
@@ -463,8 +462,8 @@
      },
      "2|幺两|bank_card": {
       "n": 60,
-      "rate": 0.8166666666666667,
-      "wrongPerCase": 0.13333333333333333
+      "rate": 0.95,
+      "wrongPerCase": 0.0
      },
      "2|幺两|phone": {
       "n": 60,
@@ -596,10 +595,10 @@
     }
    },
    "summary": {
-    "humanizeRate": 0.9756613756613757,
+    "humanizeRate": 0.9980952380952381,
     "digitsMean": 1.0,
     "digitsAll100": true,
-    "stitchMean": 0.85625,
+    "stitchMean": 0.8875,
     "falseItems": 0,
     "negCases": 600
    }
@@ -609,23 +608,23 @@
    "humanize": {
     "reveal|wang": {
      "items": 570,
-     "captured": 528,
-     "rate": 0.9263157894736842
+     "captured": 570,
+     "rate": 1.0
     },
     "revealHard|wang": {
      "items": 780,
-     "captured": 740,
-     "rate": 0.9487179487179487
+     "captured": 776,
+     "rate": 0.9948717948717949
     },
     "reveal|li": {
      "items": 570,
-     "captured": 558,
-     "rate": 0.9789473684210527
+     "captured": 568,
+     "rate": 0.9964912280701754
     },
     "revealHard|li": {
      "items": 780,
-     "captured": 747,
-     "rate": 0.9576923076923077
+     "captured": 775,
+     "rate": 0.9935897435897436
     },
     "reveal|lin": {
      "items": 570,
@@ -634,18 +633,18 @@
     },
     "revealHard|lin": {
      "items": 780,
-     "captured": 775,
-     "rate": 0.9935897435897436
+     "captured": 780,
+     "rate": 1.0
     },
     "reveal|retiree": {
      "items": 570,
-     "captured": 525,
-     "rate": 0.9210526315789473
+     "captured": 568,
+     "rate": 0.9964912280701754
     },
     "revealHard|retiree": {
      "items": 780,
-     "captured": 739,
-     "rate": 0.9474358974358974
+     "captured": 773,
+     "rate": 0.9910256410256411
     },
     "reveal|mom": {
      "items": 570,
@@ -654,8 +653,8 @@
     },
     "revealHard|mom": {
      "items": 780,
-     "captured": 769,
-     "rate": 0.985897435897436
+     "captured": 780,
+     "rate": 1.0
     },
     "reveal|graduate": {
      "items": 570,
@@ -664,18 +663,18 @@
     },
     "revealHard|graduate": {
      "items": 780,
-     "captured": 768,
-     "rate": 0.9846153846153847
+     "captured": 779,
+     "rate": 0.9987179487179487
     },
     "reveal|shop_owner": {
      "items": 570,
-     "captured": 537,
-     "rate": 0.9421052631578948
+     "captured": 569,
+     "rate": 0.9982456140350877
     },
     "revealHard|shop_owner": {
      "items": 780,
-     "captured": 753,
-     "rate": 0.9653846153846154
+     "captured": 779,
+     "rate": 0.9987179487179487
     }
    },
    "digits": {
@@ -756,8 +755,8 @@
     "positive": {
      "2|连写|bank_card": {
       "n": 60,
-      "rate": 0.8666666666666667,
-      "wrongPerCase": 0.13333333333333333
+      "rate": 1.0,
+      "wrongPerCase": 0.0
      },
      "2|连写|phone": {
       "n": 60,
@@ -766,8 +765,8 @@
      },
      "2|空格分组|bank_card": {
       "n": 60,
-      "rate": 0.85,
-      "wrongPerCase": 0.15
+      "rate": 0.9833333333333333,
+      "wrongPerCase": 0.016666666666666666
      },
      "2|空格分组|phone": {
       "n": 60,
@@ -776,8 +775,8 @@
      },
      "2|中文数字空格|bank_card": {
       "n": 60,
-      "rate": 0.7166666666666667,
-      "wrongPerCase": 0.16666666666666666
+      "rate": 0.8166666666666667,
+      "wrongPerCase": 0.06666666666666667
      },
      "2|中文数字空格|phone": {
       "n": 60,
@@ -786,8 +785,8 @@
      },
      "2|幺两|bank_card": {
       "n": 60,
-      "rate": 0.8,
-      "wrongPerCase": 0.13333333333333333
+      "rate": 0.9166666666666666,
+      "wrongPerCase": 0.016666666666666666
      },
      "2|幺两|phone": {
       "n": 60,
@@ -837,8 +836,8 @@
     },
     "negative": {
      "cases": 600,
-     "falseItems": 2,
-     "misStitchRate": 0.0033333333333333335,
+     "falseItems": 0,
+     "misStitchRate": 0.0,
      "byKind": {
       "0": 0.0,
       "1": 0.0,
@@ -848,7 +847,7 @@
       "5": 0.0,
       "6": 0.0,
       "7": 0.0,
-      "8": 0.03333333333333333,
+      "8": 0.0,
       "9": 0.0
      }
     }
@@ -919,11 +918,11 @@
     }
    },
    "summary": {
-    "humanizeRate": 0.9681481481481482,
+    "humanizeRate": 0.9975661375661375,
     "digitsMean": 1.0,
     "digitsAll100": true,
-    "stitchMean": 0.8541666666666666,
-    "falseItems": 2,
+    "stitchMean": 0.884375,
+    "falseItems": 0,
     "negCases": 600
    }
   }
