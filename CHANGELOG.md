@@ -2,6 +2,8 @@
 
 ## 未发布
 
+- 评测：按 644f2ee（扩人设模板池）重跑模拟器（30 个种子），重新生成 `eval/results-sim-corpus.json`、`results-sim.json`、`results-sim-hard.json`；语料台词下规则引擎拖延 15.9 → 17.0 轮、完全重复率 3.9% → 0.0%、起疑挂断 28% → 0%，提取率 100%、泄露率 0 不变；docs/EVAL.md 第 1 节给出 14b7037 → 644f2ee 对比，并注明骗子由规则脚本扮演、结果偏乐观，需用大模型扮演骗子复验。
+
 ### 盲测加大模型评委代理指标（默认关闭）
 
 - `eval/realism_blind.py score` 新增 `--judge llm`：用百炼 DashScope 的 `qwen-plus`（OpenAI 兼容接口，非思考模式，temperature 0，固定 seed，JSON 输出）对 A、B 两份表逐题判断真人 / 机器人并打 1–5 像真人分，结果与人工评分走同一个 `score()` 汇总（露馅率、配对差与 95% 区间、像真人分）。逻辑在新文件 `eval/realism_judge.py`，只用标准库。
