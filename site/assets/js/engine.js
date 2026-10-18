@@ -218,6 +218,17 @@
           if (p.turn < recent.length - 1 && self.messages[r.msg]) self.messages[r.msg].text = D.redact.redactText(r.raw, r.entities.concat(r.extra));
         });
         stitchedNow.push(e);
+        // #8：断续报卡号拆成三个回合时，前两回合先拼出一段 16–18 位（62 开头）的“卡号”，第三回合拼出完整卡号后撤掉那段前缀
+        if (e.type === 'bank_card') {
+          Object.keys(self.intel).forEach(function (pk) {
+            var it = self.intel[pk], pv = String(it.raw == null ? '' : it.raw);
+            if (pk !== key && it.type === 'bank_card' && it.meta && it.meta.stitched && pv.length < e.value.length && e.value.indexOf(pv) === 0) {
+              delete self.intel[pk];
+              var ix = newIntel.indexOf(it);
+              if (ix >= 0) newIntel.splice(ix, 1);
+            }
+          });
+        }
         if (!self.intel[key]) {
           self.intel[key] = { type: e.type, label: e.label, masked: e.masked, meta: e.meta, count: 0, firstSeenTurn: self.turn };
           Object.defineProperty(self.intel[key], 'raw', { value: e.value, enumerable: false });

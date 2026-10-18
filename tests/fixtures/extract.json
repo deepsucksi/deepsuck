@@ -1694,8 +1694,21 @@
   },
   {
    "text": "TRC20 TQ7xM6hY pCzD8vNp 1qJ3kR5s W9uL2aBc De",
-   "entities": [],
-   "redacted": "TRC20 TQ7xM6hY pCzD8vNp 1qJ3kR5s W9uL2aBc De"
+   "entities": [
+    {
+     "type": "crypto_tron",
+     "value": "TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe",
+     "masked": "TQ7x...BcDe",
+     "start": 6,
+     "end": 44,
+     "sensitive": true,
+     "meta": {
+      "chain": "TRON"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "TRC20 TQ7x...BcDe"
   },
   {
    "text": "2026.10.18 版本 1.2.3",
@@ -2260,6 +2273,137 @@
    "text": "工号 12345678 分机 139",
    "entities": [],
    "redacted": "工号 12345678 分机 139"
+  },
+  {
+   "text": "卡号 6222... 0000... 1234... 5678... 907，户名王某某",
+   "entities": [
+    {
+     "type": "bank_card",
+     "value": "6222000012345678907",
+     "masked": "622200*********8907",
+     "start": 3,
+     "end": 38,
+     "sensitive": true,
+     "meta": {
+      "digits": 19,
+      "luhn": true,
+      "unionpay": true,
+      "bank": "中国工商银行",
+      "issuer": {
+       "bank": "中国工商银行",
+       "bankCode": "ICBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin"
+     },
+     "obfuscated": true
+    },
+    {
+     "type": "name",
+     "value": "王某某",
+     "masked": "王**",
+     "start": 41,
+     "end": 44,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    }
+   ],
+   "redacted": "卡号 622200*********8907，户名王**"
+  },
+  {
+   "text": "电话一三八...零零一三...八零零零…尾号八零零零",
+   "entities": [
+    {
+     "type": "phone",
+     "value": "13800138000",
+     "masked": "138****8000",
+     "start": 2,
+     "end": 19,
+     "sensitive": true,
+     "meta": {
+      "kind": "mobile"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "电话138****8000…尾号八零零零"
+  },
+  {
+   "text": "座机…零二幺…两零零零…零零零零，打这个",
+   "entities": [
+    {
+     "type": "phone",
+     "value": "02120000000",
+     "masked": "021****0000",
+     "start": 3,
+     "end": 16,
+     "sensitive": true,
+     "meta": {
+      "kind": "landline"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "座机…021****0000，打这个"
+  },
+  {
+   "text": "客服热线四零零…零零零…幺二三四",
+   "entities": [
+    {
+     "type": "phone",
+     "value": "4000001234",
+     "masked": "400-***-1234",
+     "start": 4,
+     "end": 16,
+     "sensitive": true,
+     "meta": {
+      "kind": "hotline"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "客服热线400-***-1234"
+  },
+  {
+   "text": "USDT地址是…TABCD…EFGHJ…KLMNP…QRSTU…VWXYZ…abcdef…ghi",
+   "entities": [
+    {
+     "type": "channel",
+     "value": "USDT",
+     "masked": "USDT",
+     "start": 0,
+     "end": 4,
+     "sensitive": false,
+     "meta": {},
+     "raw": "USDT"
+    },
+    {
+     "type": "crypto_tron",
+     "value": "TABCDEFGHJKLMNPQRSTUVWXYZabcdefghi",
+     "masked": "TABC...fghi",
+     "start": 8,
+     "end": 48,
+     "sensitive": true,
+     "meta": {
+      "chain": "TRON"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "USDT地址是…TABC...fghi"
+  },
+  {
+   "text": "开奖号码是03、15、22、23、35、47，特别号码是09",
+   "entities": [],
+   "redacted": "开奖号码是03、15、22、23、35、47，特别号码是09"
+  },
+  {
+   "text": "您尾号1234的卡涉嫌洗钱",
+   "entities": [],
+   "redacted": "您尾号1234的卡涉嫌洗钱"
   },
   {
    "text": "您好，这边是某电商平台售后，您上周买的那件衣服质检不合格，平台要主动给您三倍赔付 380 元。",

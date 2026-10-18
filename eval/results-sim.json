@@ -1,15 +1,20 @@
 {
  "config": {
   "seeds": 30,
+  "seedRange": [
+   1000,
+   1029
+  ],
   "maxTurns": 40,
   "reveal": "standard",
-  "lines": "legacy"
+  "lines": "legacy",
+  "commit": "c71f25d"
  },
  "byPolicy": {
   "rule": {
    "sessions": 630,
    "avgTurns": 17.423809523809524,
-   "avgEstMinutes": 27.462089947089947,
+   "avgEstMinutes": 27.421111111111113,
    "elicitRate": 0.9785714285714285,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -17,20 +22,120 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 627,
+     "captured": 627,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_eth": {
+     "revealed": 48,
+     "captured": 48,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_tron": {
+     "revealed": 42,
+     "captured": 42,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 627,
+     "captured": 627,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 465,
+     "captured": 465,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 155,
+     "captured": 155,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 615,
+     "captured": 615,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 298,
+     "captured": 298,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   },
   "random": {
    "sessions": 630,
-   "avgTurns": 15.095238095238095,
-   "avgEstMinutes": 24.74910052910053,
-   "elicitRate": 0.8313492063492064,
+   "avgTurns": 15.03968253968254,
+   "avgEstMinutes": 24.61931216931217,
+   "elicitRate": 0.8257936507936507,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
-   "repeatRate": 0.012513144058885383,
-   "nearRepeatRate": 0.012513144058885383,
+   "repeatRate": 0.014036939313984169,
+   "nearRepeatRate": 0.014036939313984169,
    "leakRate": 0.0,
    "suspiciousQuit": 0.09047619047619047,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 568,
+     "captured": 568,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_eth": {
+     "revealed": 38,
+     "captured": 38,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_tron": {
+     "revealed": 44,
+     "captured": 44,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 568,
+     "captured": 568,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 378,
+     "captured": 378,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 137,
+     "captured": 137,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 535,
+     "captured": 535,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 215,
+     "captured": 215,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   },
   "parrot": {
    "sessions": 630,
@@ -43,14 +148,64 @@
    "nearRepeatRate": 0.810126582278481,
    "leakRate": 0.0,
    "suspiciousQuit": 1.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 279,
+     "captured": 279,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_eth": {
+     "revealed": 12,
+     "captured": 12,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_tron": {
+     "revealed": 15,
+     "captured": 15,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 279,
+     "captured": 279,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 57,
+     "captured": 57,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 12,
+     "captured": 12,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 291,
+     "captured": 291,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 24,
+     "captured": 24,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   }
  },
  "byPersona": {
   "wang": {
    "sessions": 210,
    "avgTurns": 17.566666666666666,
-   "avgEstMinutes": 27.865238095238094,
+   "avgEstMinutes": 27.793333333333333,
    "elicitRate": 0.9809523809523809,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -58,12 +213,62 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 209,
+     "captured": 209,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_eth": {
+     "revealed": 16,
+     "captured": 16,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_tron": {
+     "revealed": 14,
+     "captured": 14,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 209,
+     "captured": 209,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 152,
+     "captured": 152,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 55,
+     "captured": 55,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 206,
+     "captured": 206,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 102,
+     "captured": 102,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   },
   "li": {
    "sessions": 210,
    "avgTurns": 17.13809523809524,
-   "avgEstMinutes": 26.89611111111111,
+   "avgEstMinutes": 26.85595238095238,
    "elicitRate": 0.9738095238095238,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -71,12 +276,62 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 209,
+     "captured": 209,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_eth": {
+     "revealed": 16,
+     "captured": 16,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_tron": {
+     "revealed": 14,
+     "captured": 14,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 209,
+     "captured": 209,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 161,
+     "captured": 161,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 45,
+     "captured": 45,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 203,
+     "captured": 203,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 94,
+     "captured": 94,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   },
   "lin": {
    "sessions": 210,
    "avgTurns": 17.566666666666666,
-   "avgEstMinutes": 27.624920634920635,
+   "avgEstMinutes": 27.614047619047618,
    "elicitRate": 0.9809523809523809,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -84,14 +339,64 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 209,
+     "captured": 209,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_eth": {
+     "revealed": 16,
+     "captured": 16,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_tron": {
+     "revealed": 14,
+     "captured": 14,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 209,
+     "captured": 209,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 152,
+     "captured": 152,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 55,
+     "captured": 55,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 206,
+     "captured": 206,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 102,
+     "captured": 102,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   }
  },
  "byScenario": {
   "refund": {
    "sessions": 90,
    "avgTurns": 17.58888888888889,
-   "avgEstMinutes": 27.762592592592593,
+   "avgEstMinutes": 27.718888888888888,
    "elicitRate": 1.0,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -99,12 +404,50 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 70,
+     "captured": 70,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 20,
+     "captured": 20,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 43,
+     "captured": 43,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   },
   "police": {
    "sessions": 90,
    "avgTurns": 17.22222222222222,
-   "avgEstMinutes": 25.356666666666666,
+   "avgEstMinutes": 25.30962962962963,
    "elicitRate": 1.0,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -112,12 +455,50 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 70,
+     "captured": 70,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 20,
+     "captured": 20,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 43,
+     "captured": 43,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   },
   "pig": {
    "sessions": 90,
    "avgTurns": 18.366666666666667,
-   "avgEstMinutes": 27.19648148148148,
+   "avgEstMinutes": 27.164444444444445,
    "elicitRate": 1.0,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -125,12 +506,62 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_eth": {
+     "revealed": 48,
+     "captured": 48,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "crypto_tron": {
+     "revealed": 42,
+     "captured": 42,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 67,
+     "captured": 67,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 23,
+     "captured": 23,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 39,
+     "captured": 39,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   },
   "task": {
    "sessions": 90,
    "avgTurns": 18.233333333333334,
-   "avgEstMinutes": 32.34851851851852,
+   "avgEstMinutes": 32.309074074074076,
    "elicitRate": 0.9916666666666667,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -138,12 +569,50 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 60,
+     "captured": 60,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 30,
+     "captured": 30,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 57,
+     "captured": 57,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   },
   "loan": {
    "sessions": 90,
    "avgTurns": 17.166666666666668,
-   "avgEstMinutes": 25.13925925925926,
+   "avgEstMinutes": 25.08185185185185,
    "elicitRate": 1.0,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -151,12 +620,50 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 68,
+     "captured": 68,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 22,
+     "captured": 22,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 32,
+     "captured": 32,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   },
   "boss": {
    "sessions": 90,
    "avgTurns": 15.811111111111112,
-   "avgEstMinutes": 26.098518518518517,
+   "avgEstMinutes": 26.064074074074075,
    "elicitRate": 0.8583333333333333,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -164,12 +671,50 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 87,
+     "captured": 87,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 87,
+     "captured": 87,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 58,
+     "captured": 58,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 22,
+     "captured": 22,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 75,
+     "captured": 75,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 42,
+     "captured": 42,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   },
   "campus": {
    "sessions": 90,
    "avgTurns": 17.57777777777778,
-   "avgEstMinutes": 28.332592592592594,
+   "avgEstMinutes": 28.299814814814816,
    "elicitRate": 1.0,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -177,7 +722,45 @@
    "nearRepeatRate": 0.0,
    "leakRate": 0.0,
    "suspiciousQuit": 0.0,
-   "maxTurnsHit": 0.0
+   "maxTurnsHit": 0.0,
+   "byType": {
+    "bank_card": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "name": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "phone": {
+     "revealed": 72,
+     "captured": 72,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "qq": {
+     "revealed": 18,
+     "captured": 18,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "url": {
+     "revealed": 90,
+     "captured": 90,
+     "false": 0,
+     "extractRate": 1.0
+    },
+    "wechat": {
+     "revealed": 42,
+     "captured": 42,
+     "false": 0,
+     "extractRate": 1.0
+    }
+   }
   }
  }
 }

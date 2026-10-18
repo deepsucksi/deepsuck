@@ -118,6 +118,9 @@
     }
 
     scan(RE.urlFull, 'url', { clean: trimUrl });
+    // 完整的 ETH / TRON 地址先认领：地址里常含 vx / VX 等字母组合，不能先被当成微信号截走（#8）
+    scan(RE.eth, 'crypto_eth', { meta: function () { return { chain: 'Ethereum/EVM' }; } });
+    scan(RE.tron, 'crypto_tron', { meta: function () { return { chain: 'TRON' }; } });
     scan(RE.alipay, 'alipay', { group: 1 });
     scan(RE.qq, 'qq', { group: 1 });
     scan(RE.wechat, 'wechat', { group: 1 });
@@ -126,8 +129,6 @@
       // 排除像 "1.5com" 这类误报：至少含一个字母的主机标签
       return /[a-z]/i.test(raw.split('.')[0]) ? { bare: true } : false;
     } });
-    scan(RE.eth, 'crypto_eth', { meta: function () { return { chain: 'Ethereum/EVM' }; } });
-    scan(RE.tron, 'crypto_tron', { meta: function () { return { chain: 'TRON' }; } });
     scan(RE.btc, 'crypto_btc', { meta: function () { return { chain: 'Bitcoin' }; } });
     scan(RE.idCard, 'id_card', { meta: function (raw, m, start) {
       var before = s.slice(Math.max(0, start - 12), start);
@@ -152,7 +153,11 @@
       return meta;
     } });
     scan(RE.hotline, 'phone', { meta: function () { return { kind: 'hotline' }; } });
-    scan(RE.landline, 'phone', { meta: function () { return { kind: 'landline' }; } });
+    scan(RE.landline, 'phone', { meta: function (raw, m, start) {
+      // 不带横杠的座机（多由断续报号拼接而来）：前面紧挨订单号 / 工号 / 验证码等词时不算电话
+      if (raw.indexOf('-') < 0 && RE_BLOCK_BEFORE && RE_BLOCK_BEFORE.test(unblockTypos(s.slice(Math.max(0, start - 16), start)))) return false;
+      return { kind: 'landline' };
+    } });
     scan(RE.mobile, 'phone', { meta: function () { return { kind: 'mobile' }; } });
     scan(RE.name, 'name', { group: 1, clean: cleanName });
     scan(RE.nameMid, 'name', { group: 1, clean: cleanNameMid });
@@ -195,7 +200,7 @@
   // ---- 跨回合拼接 ----
   var ST = C.stitch || {};
   var SEP_CLS = '[' + C.obfuscation.digitJoin.separators.replace(/[\]\\^\-]/g, '\\$&').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t') + ']';
-  var FRAG = '[0-9](?:' + SEP_CLS + '{0,3}[0-9])*';
+  var FRAG = '[0-9](?:' + SEP_CLS + '{0,' + C.obfuscation.digitJoin.maxSep + '}[0-9])*';
   var RE_TAIL = new RegExp('(' + FRAG + ')(' + (ST.tailFiller || '$').replace(/\$$/, '') + ')$');
   var RE_HEAD = new RegExp('(' + (ST.headFiller || '^').replace(/^\^/, '') + ')(' + FRAG + ')');
   var RE_TAIL_ONLY = new RegExp('^' + (ST.tailFiller || '$'));
@@ -210,6 +215,16 @@
   var RE_BLOCK_TYPOS = BT_KEYS.length ? new RegExp(BT_KEYS.map(function (k) { return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|'), 'g') : null;
   /** 屏蔽词的手写错字（房问号 / 工好）换回正写再判断（等长替换） */
   function unblockTypos(t) { return RE_BLOCK_TYPOS ? t.replace(RE_BLOCK_TYPOS, function (k) { return BLOCK_TYPOS[k]; }) : t; }
+  // #8：钱包地址跨回合拼接（上一回合末尾 0x… / T… + 下一回合开头的十六进制 / Base58 片段）
+  var WST = ST.wallet || null;
+  var B58C = '1-9A-HJ-NP-Za-km-z';
+  // 片段内部也可以带停顿分段（“0x2bc，9fff9efd…”“然后…sNoN，aNDswW，L63c”），每处分隔至多 maxSep 个
+  var WCHUNKS = '[0-9A-Za-z]+(?:' + SEP_CLS + '{1,' + C.obfuscation.digitJoin.maxSep + '}[0-9A-Za-z]+)*';
+  var RE_WTAIL = WST ? new RegExp('(?<![0-9A-Za-z])((?:0x|T)' + WCHUNKS + ')(' + (ST.tailFiller || '$').replace(/\$$/, '') + ')$') : null;
+  var RE_WHEAD = WST ? new RegExp('^(' + (ST.headFiller || '^').replace(/^\^/, '') + ')(' + WCHUNKS + ')(?![0-9A-Za-z])') : null;
+  var RE_PAUSE_END = /^[\s，,、]*(?:…|⋯|\.{2,})/;
+  var RE_W_CTX = WST && WST.context ? new RegExp(WST.context) : null;
+  var WALLET_TYPES = ['crypto_eth', 'crypto_tron', 'crypto_btc'];
   var NUMERALS = C.obfuscation.numerals;
   var RE_NUMERAL_CHAR = new RegExp('[' + Object.keys(NUMERALS).join('') + ']', 'g');
 
@@ -224,13 +239,22 @@
       var sp = norm.span(a, b);
       return !ents.some(function (e) { return e.start < sp[1] && e.end > sp[0]; });
     }
-    /** #1：片段被单回合提取认成 16–18 位、不过 Luhn 的银行卡（多半是拆开的长卡号的一段）：允许参与拼接，结果过 Luhn 时取代它 */
-    function weakCard(a, b) {
+    /**
+     * #1：片段被单回合提取认成 16–18 位、不过 Luhn 的银行卡（多半是拆开的长卡号的一段）：允许参与拼接，结果过 Luhn 时取代它。
+     * #8：断续报卡号时，后半段（“1776…1855…023”“1567…5024…481”）可能整段或部分被认成手机号 / 座机，同样处理（拼接时还要求有卡号上下文）；
+     * 回合以停顿（…）收尾的 16–18 位卡号即使过 Luhn 也允许接上下一回合开头的 1–3 位，拼成 19 位且过 Luhn 时取代（weakLuhn）。
+     */
+    function weakCard(a, b, pauseAfter) {
       var sp = norm.span(a, b);
       var hit = ents.filter(function (e) { return e.start < sp[1] && e.end > sp[0]; });
-      if (hit.length !== 1 || hit[0].type !== 'bank_card') return null;
-      var d = s.slice(a, b).replace(/[^0-9]/g, '');
-      if (String(hit[0].value).replace(/[^0-9]/g, '') !== d || d.length > 18 || luhn(d)) return null;
+      if (hit.length !== 1 || (hit[0].type !== 'bank_card' && hit[0].type !== 'phone')) return null;
+      var d = s.slice(a, b).replace(/[^0-9]/g, ''), v = String(hit[0].value).replace(/[^0-9]/g, '');
+      if (hit[0].type === 'phone') {
+        var joined = v === d && !/[-. ]/.test(String(hit[0].value));
+        return (v.length < d.length && d.indexOf(v) >= 0) || joined ? hit[0] : null;
+      }
+      if (v !== d || d.length > 18 || (luhn(d) && !pauseAfter)) return null;
+      if (luhn(d)) { var o = {}; for (var k in hit[0]) o[k] = hit[0][k]; o.weakLuhn = true; return o; }
       return hit[0];
     }
     function mk(a, b, extra) {
@@ -242,7 +266,7 @@
     var out = { text: s, ents: ents, head: null, tail: null };
     var t = RE_TAIL.exec(s);
     if (t) {
-      var a = t.index, b = a + t[1].length, wk = free(a, b) ? null : weakCard(a, b);
+      var a = t.index, b = a + t[1].length, wk = free(a, b) ? null : weakCard(a, b, RE_PAUSE_END.test(s.slice(b)));
       if ((wk || free(a, b)) && !(RE_BLOCK_BEFORE && RE_BLOCK_BEFORE.test(unblockTypos(s.slice(Math.max(0, a - 16), a))))) {
         out.tail = mk(a, b, { before: s.slice(Math.max(0, a - 16), a) });
         if (wk) out.tail.weak = wk;
@@ -257,6 +281,22 @@
       }
     }
     if (out.tail && RE_UNIT.test(s.slice(out.tail.ne))) out.tail = null;
+    out.wtail = out.whead = null;
+    if (RE_WTAIL) {
+      /** 片段里的字母数字段（原文坐标），拼接时按需要的长度取前缀 / 全部 */
+      var chunks = function (a, b) {
+        var res = [], re = /[0-9A-Za-z]+/g, g, sub = s.slice(a, b);
+        while ((g = re.exec(sub)) !== null) res.push({ sp: norm.span(a + g.index, a + g.index + g[0].length), text: g[0] });
+        return res;
+      };
+      var w = RE_WTAIL.exec(s);
+      if (w) {
+        var wa = w.index, ctx = s.slice(Math.max(0, wa - (WST.contextChars || 24)), wa);
+        if (!RE_W_CTX || RE_W_CTX.test(ctx)) out.wtail = chunks(wa, wa + w[1].length);
+      }
+      var wh = RE_WHEAD.exec(s);
+      if (wh) out.whead = chunks(wh[1].length, wh[1].length + wh[2].length);
+    }
     return out;
   }
 
@@ -264,6 +304,7 @@
     var kind = N.plausibleNumber(d);
     if (!kind) return null;
     if (kind === 'phone') return { type: 'phone', conf: round2(0.6 + (RE_PHONE_CTX.test(ctx) ? 0.3 : 0)), meta: { kind: 'mobile' } };
+    if (kind === 'landline' || kind === 'hotline') return { type: 'phone', conf: round2(0.3 + (RE_PHONE_CTX.test(ctx) ? 0.3 : 0)), meta: { kind: kind } };
     var bin = B ? B.lookup(d) : null, lu = luhn(d);
     var conf = 0.3 + (lu ? 0.3 : 0) + (bin ? 0.2 : 0) + (bin && bin.lengthOk ? 0.1 : 0) + (/^62/.test(d) ? 0.1 : 0) + (RE_BANK_CTX.test(ctx) ? 0.2 : 0);
     var meta = { digits: d.length, luhn: lu, unionpay: /^62/.test(d), bank: null };
@@ -301,7 +342,11 @@
         if (d.length > 19) break;
         var sc = score(d, tail.before + F[i].text.slice(tail.ns, tail.ne));
         // 含被单回合认成卡号的片段：拼接结果必须是过 Luhn 的银行卡才取代它
-        if (sc && parts.some(function (p) { return p.f.weak; }) && !(sc.type === 'bank_card' && sc.meta.luhn)) sc = null;
+        // （#8：含手机号段时另需卡号上下文，含过 Luhn 的段时须拼成 19 位）
+        var weak = parts.filter(function (p) { return p.f.weak; }).map(function (p) { return p.f.weak; });
+        if (sc && weak.length && !(sc.type === 'bank_card' && sc.meta.luhn
+          && (!weak.some(function (x) { return x.type === 'phone'; }) || RE_BANK_CTX.test(tail.before + F[i].text.slice(tail.ns, tail.ne)))
+          && (!weak.some(function (x) { return x.weakLuhn; }) || d.length === 19))) sc = null;
         if (sc && sc.conf >= minConf && (!best || sc.conf > best.sc.conf || (sc.conf === best.sc.conf && d.length > best.d.length))) best = { sc: sc, d: d, parts: parts.slice() };
       }
       if (!best) continue;
@@ -326,6 +371,58 @@
       if (sup.length) o.supersedes = sup;
       out.push(o);
       i = best.parts[best.parts.length - 1].turn - 1; // 已用掉的回合不再作为起点
+    }
+    return out.concat(stitchWallets(F, seen));
+  }
+
+  /** 取片段的全部（take 省略）或前若干个字符段，凑满 take 个字符；返回 { text, start, end, hit } 或 null（与 Python _wallet_part 一致） */
+  function walletPart(chunks, ents, take) {
+    var used = [], n = 0;
+    for (var k = 0; k < chunks.length; k++) {
+      if (take != null && n >= take) break;
+      used.push(chunks[k]);
+      n += chunks[k].text.length;
+    }
+    if (!used.length || (take != null && n !== take)) return null;
+    var sa = used[0].sp[0], sb = used[used.length - 1].sp[1];
+    var hit = ents.filter(function (e) { return e.start < sb && e.end > sa; });
+    if (hit.some(function (e) { return WALLET_TYPES.indexOf(e.type) >= 0 || e.start < sa || e.end > sb; })) return null;
+    return { text: used.map(function (c) { return c.text; }).join(''), start: sa, end: sb, hit: hit };
+  }
+
+  /**
+   * #8：钱包地址拆进相邻两个回合（每段内部也可带停顿）。上一回合末尾片段 + 下一回合开头片段合计正好 0x+40 / T+33、字符集吻合、
+   * 上一回合片段前有钱包上下文词才输出；被单回合误认成微信号等的部分由拼接结果取代（supersedes）。与 Python _stitch_wallets 一致。
+   */
+  function stitchWallets(F, seen) {
+    var out = [];
+    for (var i = 0; i + 1 < F.length; i++) {
+      var tc = F[i].wtail, hc = F[i + 1].whead;
+      if (!tc || !hc) continue;
+      var tp = walletPart(tc, F[i].ents);
+      if (!tp || tp.text.length < (WST.minTail || 4)) continue;
+      var eth = tp.text.slice(0, 2) === '0x', need = (eth ? 42 : 34) - tp.text.length;
+      if (need < (WST.minHead || 3)) continue;
+      var hp = walletPart(hc, F[i + 1].ents, need);
+      if (!hp) continue;
+      var v = tp.text + hp.text, type = eth ? 'crypto_eth' : 'crypto_tron';
+      if (!(eth ? /^[0-9a-fA-F]+$/.test(v.slice(2)) : new RegExp('^[' + B58C + ']+$').test(v))) continue;
+      var key = type + '|' + v.toLowerCase();
+      if (seen[key]) continue;
+      seen[key] = 1;
+      var masked = R.mask(type, v), same = masked.length === v.length, n0 = tp.text.length;
+      var o = {
+        type: type, label: LABELS[type], value: v, masked: masked, sensitive: true, confidence: 0.9, turns: [i, i + 1],
+        parts: [{ turn: i, start: tp.start, end: tp.end, masked: same ? masked.slice(0, n0) : new Array(n0 + 1).join('*') },
+          { turn: i + 1, start: hp.start, end: hp.end, masked: same ? masked.slice(n0) : new Array(hp.text.length + 1).join('*') }],
+        meta: { chain: eth ? 'Ethereum/EVM' : 'TRON', stitched: true }
+      };
+      var sup = [];
+      [[i, tp], [i + 1, hp]].forEach(function (x) {
+        x[1].hit.forEach(function (e) { sup.push({ turn: x[0], type: e.type, value: e.value, start: e.start, end: e.end }); });
+      });
+      if (sup.length) o.supersedes = sup;
+      out.push(o);
     }
     return out;
   }

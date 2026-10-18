@@ -240,6 +240,14 @@ class Session:
                     if p["turn"] < len(recent) - 1 and r["msg"] < len(self.messages):
                         self.messages[r["msg"]]["text"] = R.redact_text(r["raw"], r["entities"] + r["extra"])
                 stitched_now.append(e)
+                # #8：断续报卡号拆成三个回合时，前两回合先拼出一段 16–18 位（62 开头）的“卡号”，第三回合拼出完整卡号后撤掉那段前缀
+                if e["type"] == "bank_card":
+                    for pk in [k for k, it in self.intel.items() if it["type"] == "bank_card" and (it.get("meta") or {}).get("stitched")
+                               and k != key and len(str(self._raw.get(k, ""))) < len(e["value"]) and e["value"].startswith(str(self._raw.get(k, "")))]:
+                        old = self.intel.pop(pk)
+                        self._raw.pop(pk, None)
+                        new_intel[:] = [x for x in new_intel if x is not old]
+                        self._last_new[:] = [x for x in self._last_new if x[0] is not old]
                 if key not in self.intel:
                     self.intel[key] = {"type": e["type"], "label": e["label"], "masked": e["masked"],
                                        "meta": e["meta"], "count": 0, "firstSeenTurn": self.turn}
