@@ -83,3 +83,13 @@ def test_stream_service_sends_instruction():
     asyncio.run(s._open_task("ctx"))
     p = sent[0]["payload"]
     assert p["model"] == "cosyvoice-v3.5-flash" and p["parameters"]["instruction"] == "请用东北话表达。"
+
+
+def test_calm_tts_text():
+    from voice.persona import calm, speakable
+    assert calm("哎呀！退款啊？那太好了！！") == "哎呀。退款啊？那太好了。"
+    assert calm("我找找……你等会儿啊~~") == "我找找，你等会儿啊"
+    assert calm("啊啊啊，真的？") == "啊，真的？"
+    assert calm("嗯……") == "嗯"
+    assert speakable("好的！", calm_tts=False) == "好的！"
+    assert "……" in speakable("卡号是 6222 **** 3456！")

@@ -1,6 +1,7 @@
 """语音端人设：系统提示词、拖延填充音台词、输出守卫（数据全部来自 site/assets/core/*.json）。"""
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -79,9 +80,31 @@ _BOLD = re.compile(r"(?<!\*)\*\*(?![*\s])([^*\n]+?)(?<![*\s])\*\*(?!\*)")
 _STARS = re.compile(r"\s*[*＊]+(?:\s*[*＊]+)*\s*")
 
 
-def speakable(text: str) -> str:
-    """给 TTS 用：在 guard_output 基础上把打码星号读成停顿。"""
-    return _STARS.sub("……", guard_output(text))
+_CALM = os.environ.get("DEEPSUCK_CALM_TTS", "1").strip().lower() not in ("0", "off", "false", "no")
+_EXCL = re.compile(r"[!！]+")
+_ELLIPSIS = re.compile(r"(?:…+|\.{3,}|。{2,})")
+_TILDE = re.compile(r"[~～]+")
+_DRAWL = re.compile(r"([啊呀哎哟嗯哦噢呃诶唉])\1{2,}")
+
+
+def calm(text: str) -> str:
+    """语气降调（只作用于送给 TTS 的文本）：感叹号读成句号，省略号读成逗号，去掉波浪号拖音和「啊啊啊」式重复。
+    俊杰要求王阿姨说话克制；提示词改不干净时这里兜底。DEEPSUCK_CALM_TTS=0 关闭。"""
+    s = _EXCL.sub("。", text)
+    s = _ELLIPSIS.sub("，", s)
+    s = _TILDE.sub("", s)
+    s = _DRAWL.sub(r"\1", s)
+    s = re.sub(r"，\s*([。？?，])", r"\1", s)
+    s = re.sub(r"([。？?])[。，]+", r"\1", s)
+    return re.sub(r"^[，。\s]+", "", s).rstrip("，")
+
+
+def speakable(text: str, calm_tts: bool | None = None) -> str:
+    """给 TTS 用：在 guard_output 基础上降调，再把打码星号读成停顿。"""
+    s = guard_output(text)
+    if _CALM if calm_tts is None else calm_tts:
+        s = calm(s)
+    return _STARS.sub("……", s)
 
 
 def guard_output(text: str) -> str:
