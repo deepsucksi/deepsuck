@@ -126,5 +126,31 @@
   }).catch(function () {});
 
   document.querySelectorAll('.menu-panel a').forEach(function (a) { a.addEventListener('click', function () { var d = a.closest('details'); if (d) d.open = false; }); });
+  // 代码块：复制按钮（只复制命令文字）与横向溢出时右侧渐隐
+  document.querySelectorAll('.cb-copy').forEach(function (btn) {
+    var pre = $(btn.getAttribute('data-copy')), t = btn.querySelector('.cb-copy-t'), timer = 0;
+    function label(done) {
+      var en = lang === 'en';
+      t.textContent = done ? (en ? 'Copied' : '已复制') : (en ? 'Copy' : '复制');
+      btn.setAttribute('aria-label', done ? t.textContent : (en ? 'Copy commands' : '复制命令'));
+      btn.classList.toggle('is-done', !!done);
+    }
+    btn.addEventListener('click', function () {
+      var text = pre ? pre.innerText.replace(/\u00a0/g, ' ') : '';
+      var ok = function () { label(true); clearTimeout(timer); timer = setTimeout(function () { label(false); }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, function () {});
+      else { var r = document.createRange(); r.selectNodeContents(pre); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); try { document.execCommand('copy'); ok(); } catch (_) {} }
+    });
+    document.addEventListener('deepsuck:languagechange', function () { label(btn.classList.contains('is-done')); });
+    label(false);
+  });
+  function fades() {
+    document.querySelectorAll('.cb-body').forEach(function (b) {
+      var p = b.firstElementChild; if (!p) return;
+      b.classList.toggle('has-more', p.scrollWidth - p.clientWidth - p.scrollLeft > 2);
+    });
+  }
+  document.querySelectorAll('.cb-body pre').forEach(function (p) { p.addEventListener('scroll', fades, { passive: true }); });
+  addEventListener('resize', fades); document.addEventListener('deepsuck:languagechange', fades); fades();
   renderPersona(false);
 })();

@@ -160,7 +160,26 @@ html:has(.brand-home){scroll-behavior:smooth;scroll-padding-top:90px}
 .brand-home .engine-section .facts{margin:26px 0 0;font-size:12px}
 .brand-home .engine-section{padding-top:0}
 .brand-home .engine-section>.wrap{border-top:1px solid #1b292015;padding-top:55px}
-.brand-home pre.code{background:#111313;border-radius:8px;font-size:12px;color:#d7dfd9}
+/* 代码块（R11）：暖调墨黑卡片 + 细标题栏；语法色只用三档：注释灰、命令/路径近白、参数/网址低饱和珊瑚 */
+.codeblock{--cb-bg:#1a1d1c;--cb-head:#202423;--cb-edge:#ffffff12;--cb-ink:#eef1ed;--cb-text:#b9c3bc;--cb-dim:#5d6862;--cb-c:#7e8983;--cb-s:#d9906f;
+  margin:0;min-width:0;background:var(--cb-bg);border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px #1b29201f,0 22px 44px -30px #10181566}
+.cb-head{display:flex;align-items:center;gap:12px;height:40px;padding:0 8px 0 18px;background:var(--cb-head);border-bottom:1px solid var(--cb-edge)}
+.cb-lang{font:10.5px var(--mono);letter-spacing:.6px;color:var(--cb-s);text-transform:lowercase}
+.cb-label{font-size:11px;letter-spacing:.8px;color:#8f9a93}
+.cb-copy{margin-left:auto;display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border:1px solid transparent;border-radius:6px;background:none;color:#9aa59e;font:11px var(--font);cursor:pointer;transition:color .2s,border-color .2s,background .2s}
+.cb-copy:hover{color:var(--cb-ink);border-color:var(--cb-edge);background:#ffffff06}
+.cb-copy:focus-visible{outline:2px solid #ed7950;outline-offset:2px}
+.cb-copy svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.cb-copy.is-done{color:var(--cb-s)}
+.cb-body{position:relative}
+.cb-body:after{content:'';position:absolute;top:0;right:0;bottom:0;width:44px;background:linear-gradient(90deg,transparent,var(--cb-bg));pointer-events:none;opacity:0;transition:opacity .2s}
+.cb-body.has-more:after{opacity:1}
+.codeblock pre{margin:0;padding:20px 22px 22px;overflow-x:auto;font:12px/1.95 var(--mono);color:var(--cb-text);tab-size:2;scrollbar-width:thin;scrollbar-color:#ffffff24 transparent}
+.codeblock pre:focus-visible{outline:2px solid #ed7950;outline-offset:-2px}
+.codeblock .k{color:var(--cb-ink)}.codeblock .s{color:var(--cb-s)}.codeblock .c{color:var(--cb-c)}.codeblock .c .s{color:#b98b76}
+.codeblock .o{color:var(--cb-dim)}.codeblock .g{color:var(--cb-dim)}
+.codeblock .r{display:block}
+.codeblock ::selection{background:#ed795040;color:#fff}
 .brand-home .ethics-section{background:#fff;padding:95px 0 70px}
 .brand-home .ethics li{font-size:13px;line-height:2;color:#6d776f;border-color:#1b292015}
 .brand-home .ethics li b{font-weight:550}
@@ -174,7 +193,7 @@ html:has(.brand-home){scroll-behavior:smooth;scroll-padding-top:90px}
 .join-links{display:flex;flex-wrap:wrap;gap:35px;margin:30px 0 0;position:relative;max-width:520px}
 .join-links a{font-size:12px;color:#b54b2f;text-decoration:none;border-bottom:1px solid #b54b2f44;padding-bottom:10px}
 .join-links a:hover{border-color:#b54b2f}
-.join-inner pre.code{max-width:520px;margin-top:40px;overflow-x:auto}
+.join-inner .codeblock{max-width:600px;margin-top:40px}
 .community-art{position:absolute;z-index:0;width:1000px;right:-100px;bottom:-95px;margin:0;pointer-events:none;overflow:hidden}
 .community-art img{display:block;width:100%;height:auto;mix-blend-mode:multiply;mask-image:linear-gradient(90deg,transparent,#000 18%);-webkit-mask-image:linear-gradient(90deg,transparent,#000 18%)}
 .brand-home section.end{background:#fff;padding:20px 0 70px}
@@ -293,3 +312,4 @@ html:has(.brand-home){scroll-behavior:smooth;scroll-padding-top:90px}
 .motion-paused .ds-icon,.motion-paused .team-member,.motion-paused .team-photo img{transition:none}
 .motion-paused .is-rotating .team-member.active .team-label:after{animation:none}
 .motion-paused *{animation-play-state:paused!important}
+@media(max-width:700px){.codeblock pre{font-size:11.5px;line-height:1.9;padding:16px 16px 18px}.cb-head{padding-left:14px;height:38px}.cb-copy-t{display:none}.cb-copy{width:32px;justify-content:center;padding:0}.tree .pad{display:none}.tree .r .c{display:block;white-space:normal;padding-left:2ch;margin:-2px 0 6px;font-size:11px;line-height:1.7}.tree .r:last-child .c{margin-bottom:0}}
