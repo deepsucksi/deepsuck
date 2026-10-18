@@ -78,7 +78,7 @@ html:has(.brand-home){scroll-behavior:smooth;scroll-padding-top:90px}
 .team-number{font:10px var(--mono);color:#8b9992}
 .team-member.active .team-label{background:#252b29;border-bottom-color:#99583e}
 .team-member.active .team-number{color:#f59570}
-.is-rotating .team-member.active .team-label:after{animation:team-progress 7s linear both}
+.is-rotating .team-member.active .team-label:after{animation:team-progress 6s linear both}
 @keyframes team-progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .team-indicator{position:absolute;bottom:14px;right:14px;width:30px;height:30px;display:grid;place-items:center;background:#1113138c;border:1px solid #ffffff60;border-radius:50%;color:#fff;transition:background .3s,transform .3s}
 .team-member.active .team-indicator{background:#ed7950;color:#191b1b;border-color:#ed7950;transform:rotate(-35deg)}

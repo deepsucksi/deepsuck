@@ -52,36 +52,46 @@
     document.dispatchEvent(new CustomEvent('deepsuck:personachange', { detail: { persona: c.id } }));
   }
 
-  // 轮播：7 秒一换；悬停、焦点、离开视口、页面后台、用户暂停、减少动态时暂停；恢复后重新计满 7 秒
+  // 轮播：6 秒一换（计时规则见 carousel.js）。悬停在对话区、键盘焦点在轮播内、离开视口、页面后台、
+  // 用户暂停、减少动态 / 站点动效已关时不自动播放；鼠标点选或触屏点选后从该张继续轮播。
   var button = $('carouselToggle');
   var reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  var timer = 0, visible = false, hover = false, focus = false, paused = false, DELAY = 7000;
-  function sync() {
-    clearTimeout(timer); timer = 0;
-    console_.classList.remove('is-rotating');
-    var motionOff = reduced.matches || document.documentElement.classList.contains('motion-paused');
-    var stop = paused || motionOff;
-    button.disabled = motionOff;
-    button.setAttribute('aria-pressed', String(stop));
-    button.setAttribute('aria-label', motionOff ? (lang === 'en' ? 'Automatic rotation off' : '已关闭自动轮播') : stop ? (lang === 'en' ? 'Start automatic rotation' : '开始自动轮播') : (lang === 'en' ? 'Pause automatic rotation' : '暂停自动轮播'));
-    button.classList.toggle('is-paused', stop);
-    if (stop || !visible || hover || focus || document.hidden) return;
-    void console_.offsetWidth; // 重启进度条动画
-    console_.classList.add('is-rotating');
-    timer = setTimeout(function () { active = (active + 1) % CAST.length; renderPersona(false); sync(); }, DELAY);
-  }
-  document.querySelectorAll('.team-member').forEach(function (b, i) { b.addEventListener('click', function () { active = i; renderPersona(true); sync(); }); });
-  button.addEventListener('click', function () { paused = !paused; sync(); });
-  console_.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') { hover = true; sync(); } });
-  console_.addEventListener('pointerleave', function () { hover = false; sync(); });
-  console_.addEventListener('focusin', function () { focus = true; sync(); });
-  console_.addEventListener('focusout', function (e) { if (!console_.contains(e.relatedTarget)) { focus = false; sync(); } });
-  document.addEventListener('visibilitychange', sync);
-  document.addEventListener('deepsuck:motionchange', sync);
-  document.addEventListener('deepsuck:languagechange', function (e) { lang = e.detail && e.detail.lang === 'en' ? 'en' : 'zh'; sync(); });
-  if (reduced.addEventListener) reduced.addEventListener('change', sync);
-  if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { visible = es[0].intersectionRatio >= .25; sync(); }, { threshold: [0, .25] }).observe(console_);
-  else visible = true;
+  function motionOff() { return reduced.matches || document.documentElement.classList.contains('motion-paused'); }
+  var rot = window.DeepSuckCarousel.createRotator({
+    count: CAST.length, delay: 6000,
+    onChange: function (i, manual) { active = i; renderPersona(manual); },
+    onState: function (st, on) {
+      var off = st.reduced, stop = st.paused || off;
+      console_.classList.remove('is-rotating');
+      button.disabled = off;
+      button.setAttribute('aria-pressed', String(stop));
+      button.setAttribute('aria-label', off ? (lang === 'en' ? 'Automatic rotation off' : '已关闭自动轮播') : stop ? (lang === 'en' ? 'Start automatic rotation' : '开始自动轮播') : (lang === 'en' ? 'Pause automatic rotation' : '暂停自动轮播'));
+      button.classList.toggle('is-paused', stop);
+      if (!on) return;
+      void console_.offsetWidth; // 重启进度条动画
+      console_.classList.add('is-rotating');
+    }
+  });
+  function keyboardFocus(el) { try { return el.matches(':focus-visible'); } catch (_) { return true; } }
+  function syncMotion() { rot.state.reduced = motionOff(); rot.state.hidden = document.hidden; rot.sync(); }
+  document.querySelectorAll('.team-member').forEach(function (b, i) { b.addEventListener('click', function () { rot.go(i); }); });
+  button.addEventListener('click', function () { rot.set('paused', !rot.state.paused); });
+  var talk = $('personaConversation');
+  talk.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') rot.set('hover', true); });
+  talk.addEventListener('pointerleave', function () { rot.set('hover', false); });
+  console_.addEventListener('focusin', function (e) { rot.set('focus', keyboardFocus(e.target)); });
+  console_.addEventListener('focusout', function (e) { if (!console_.contains(e.relatedTarget)) rot.set('focus', false); });
+  console_.addEventListener('keyup', function (e) { if (e.key === 'Tab' && console_.contains(document.activeElement)) rot.set('focus', keyboardFocus(document.activeElement)); });
+  document.addEventListener('visibilitychange', syncMotion);
+  document.addEventListener('deepsuck:motionchange', syncMotion);
+  document.addEventListener('deepsuck:languagechange', function (e) { lang = e.detail && e.detail.lang === 'en' ? 'en' : 'zh'; rot.sync(); });
+  if (reduced.addEventListener) reduced.addEventListener('change', syncMotion); else if (reduced.addListener) reduced.addListener(syncMotion);
+  if ('IntersectionObserver' in window) new IntersectionObserver(function (es) {
+    var e = es[es.length - 1];
+    rot.set('visible', e.isIntersecting && (e.intersectionRatio >= .25 || e.intersectionRect.height >= innerHeight * .4));
+  }, { threshold: [0, .1, .25, .5] }).observe(console_);
+  else rot.state.visible = true;
+  syncMotion();
 
   // 提取结果表：首页第一段示例的骗子原话、已打码情报与话术标签
   (function () {
@@ -116,5 +126,5 @@
   }).catch(function () {});
 
   document.querySelectorAll('.menu-panel a').forEach(function (a) { a.addEventListener('click', function () { var d = a.closest('details'); if (d) d.open = false; }); });
-  renderPersona(false); sync();
+  renderPersona(false);
 })();
