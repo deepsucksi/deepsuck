@@ -55,7 +55,7 @@
     {
       "id": "wang",
       "name": "王阿姨",
-      "avatar": "👵",
+      "avatar": "王",
       "tagline": "62 岁退休会计，糊涂但热心，爱唠家常，老花眼",
       "msPerChar": 85,
       "call": {
@@ -226,7 +226,7 @@
     {
       "id": "li",
       "name": "李大爷",
-      "avatar": "👴",
+      "avatar": "李",
       "tagline": "71 岁退休钳工，慢吞吞，耳背，凡事要问三遍",
       "msPerChar": 140,
       "call": {
@@ -385,7 +385,7 @@
     {
       "id": "lin",
       "name": "小林",
-      "avatar": "🧑‍🎓",
+      "avatar": "林",
       "tagline": "大二学生，好奇心爆棚，什么都想问个明白",
       "msPerChar": 45,
       "call": {

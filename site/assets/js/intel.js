@@ -22,15 +22,15 @@
 
   // 情报库条目类型（比提取器类型更粗一层，便于检索）
   var TYPES = {
-    phone: { label: '诈骗电话', policy: 'full', icon: '📞' },
-    crypto_wallet: { label: '加密钱包地址', policy: 'full', icon: '🪙' },
-    url: { label: '诈骗网址/域名', policy: 'full', icon: '🔗' },
-    app: { label: 'APP/平台名称', policy: 'full', icon: '📱' },
-    script: { label: '话术/手法', policy: 'full', icon: '🗣️' },
-    bank_card: { label: '收款银行卡', policy: 'masked', icon: '💳' },
-    account: { label: '支付宝/微信/QQ 等账号', policy: 'masked', icon: '💬' },
-    name: { label: '收款户名/姓名', policy: 'masked', icon: '👤' },
-    id_card: { label: '身份证号', policy: 'masked', icon: '🪪' }
+    phone: { label: '诈骗电话', policy: 'full' },
+    crypto_wallet: { label: '加密钱包地址', policy: 'full' },
+    url: { label: '诈骗网址/域名', policy: 'full' },
+    app: { label: 'APP/平台名称', policy: 'full' },
+    script: { label: '话术/手法', policy: 'full' },
+    bank_card: { label: '收款银行卡', policy: 'masked' },
+    account: { label: '支付宝/微信/QQ 等账号', policy: 'masked' },
+    name: { label: '收款户名/姓名', policy: 'masked' },
+    id_card: { label: '身份证号', policy: 'masked' }
   };
 
   // 提取器类型 -> 情报库类型

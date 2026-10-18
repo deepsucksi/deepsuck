@@ -5,7 +5,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var lib = null, view = [];
   var SC = {}; D.scenarios.SCENARIOS.forEach(function (s) { SC[s.id] = s; });
-  SC.other = { id: 'other', title: '其他', icon: '❓' };
+  SC.other = { id: 'other', title: '其他' };
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function toast(m) { var t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(function () { t.style.display = 'none'; }, 2600); }
@@ -20,7 +20,7 @@
   }
 
   function card(e) {
-    var t = I.TYPES[e.type] || { label: e.type, icon: '•', policy: 'masked' };
+    var t = I.TYPES[e.type] || { label: e.type, policy: 'masked' };
     var disputed = e.status === 'disputed';
     var sc = SC[e.scenario] || SC.other;
     var meta = [];
@@ -29,14 +29,14 @@
     meta.push('首次 ' + e.firstSeen + (e.lastSeen ? ' · 最近 ' + e.lastSeen : ''));
     if (e.reports) meta.push('举报 ' + e.reports + ' 次');
     return '<article class="icard2' + (e.type === 'script' ? ' wide' : '') + '">' +
-      '<div class="h"><span>' + t.icon + ' ' + esc(t.label) + '</span><span class="badges">' +
+      '<div class="h"><span>' + esc(t.label) + '</span><span class="badges">' +
         (e.example ? '<span class="tag ex">示例数据</span>' : '') +
         (disputed ? '<span class="tag">申诉处理中</span>' : (t.policy === 'full' ? '<span class="tag full">完整公开</span>' : '<span class="tag amber">已打码</span>')) +
       '</span></div>' +
       '<div class="val' + (e.type === 'script' ? ' script' : '') + '">' + (disputed ? '（申诉处理中，暂不展示）' : esc(fmtValue(e))) +
         (!disputed && e.type !== 'script' ? ' <button class="copy" type="button" data-copy="' + esc(e.value) + '" title="复制">复制</button>' : '') + '</div>' +
       '<div class="m">' + esc(meta.join(' · ')) + '</div>' +
-      '<div class="tags"><span class="tag amber">' + (sc.icon || '') + ' ' + esc(sc.title) + '</span>' +
+      '<div class="tags"><span class="tag amber">' + esc(sc.title) + '</span>' +
         (e.tactics || []).map(function (id) { return '<span class="tag">' + esc(tacticLabel(id)) + '</span>'; }).join('') + '</div>' +
       (e.notes ? '<p class="notes">' + esc(e.notes) + '</p>' : '') +
       '<div class="id">' + esc(e.id) + ' · 来源 ' + esc(e.source) + '</div>' +
@@ -61,7 +61,7 @@
     var counts = {};
     lib.entries.forEach(function (e) { if (e.status !== 'removed') counts[e.type] = (counts[e.type] || 0) + 1; });
     $('typeStats').innerHTML = Object.keys(I.TYPES).filter(function (k) { return counts[k]; }).map(function (k) {
-      return '<button class="stat" type="button" data-type="' + k + '"><div class="v">' + counts[k] + '</div><div class="k">' + I.TYPES[k].icon + ' ' + esc(I.TYPES[k].label) + '</div></button>';
+      return '<button class="stat" type="button" data-type="' + k + '"><div class="v">' + counts[k] + '</div><div class="k">' + esc(I.TYPES[k].label) + '</div></button>';
     }).join('');
   }
 
@@ -74,8 +74,8 @@
 
   function init(data) {
     lib = data;
-    Object.keys(I.TYPES).forEach(function (k) { $('fType').insertAdjacentHTML('beforeend', '<option value="' + k + '">' + I.TYPES[k].icon + ' ' + esc(I.TYPES[k].label) + '</option>'); });
-    D.scenarios.SCENARIOS.forEach(function (s) { $('fScenario').insertAdjacentHTML('beforeend', '<option value="' + s.id + '">' + s.icon + ' ' + esc(s.title) + '</option>'); });
+    Object.keys(I.TYPES).forEach(function (k) { $('fType').insertAdjacentHTML('beforeend', '<option value="' + k + '">' + esc(I.TYPES[k].label) + '</option>'); });
+    D.scenarios.SCENARIOS.forEach(function (s) { $('fScenario').insertAdjacentHTML('beforeend', '<option value="' + s.id + '">' + esc(s.title) + '</option>'); });
     var p = new URLSearchParams(location.search);
     $('q').value = p.get('q') || ''; $('fType').value = p.get('type') || ''; $('fScenario').value = p.get('scenario') || '';
     if (!lib.entries.some(function (e) { return e.example; })) $('notice').style.display = 'none';

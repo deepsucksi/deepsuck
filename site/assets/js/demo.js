@@ -47,10 +47,10 @@
   /* ---------- 选择器 ---------- */
   function renderOptions() {
     $('scenarioOpts').innerHTML = D.scenarios.SCENARIOS.map(function (s) {
-      return '<button class="opt' + (s.id === state.scenario ? ' on' : '') + '" data-sc="' + s.id + '">' + s.icon + ' ' + esc(s.title) + '</button>';
+      return '<button class="opt' + (s.id === state.scenario ? ' on' : '') + '" data-sc="' + s.id + '">' + esc(s.title) + '</button>';
     }).join('');
     $('personaOpts').innerHTML = D.personas.PERSONAS.map(function (p) {
-      return '<button class="opt' + (p.id === state.persona ? ' on' : '') + '" data-pe="' + p.id + '">' + p.avatar + ' ' + esc(p.name) + '<small>' + esc(p.tagline) + '</small></button>';
+      return '<button class="opt' + (p.id === state.persona ? ' on' : '') + '" data-pe="' + p.id + '">' + esc(p.name) + '<small>' + esc(p.tagline) + '</small></button>';
     }).join('');
     var sc = D.scenarios.BY_ID[state.scenario];
     $('samples').innerHTML = '<span class="note" style="flex:none;align-self:center">样例：</span>' + sc.samples.map(function (l, i) {
@@ -78,7 +78,7 @@
     $('botName').textContent = p.name;
     $('botTag').textContent = p.tagline;
     $('msgs').innerHTML = '';
-    $('liveDot').textContent = '● 进行中'; $('liveDot').style.color = 'var(--green)';
+    $('liveDot').textContent = '进行中'; $('liveDot').style.color = 'var(--green)';
     $('input').disabled = false; $('sendBtn').disabled = false;
     renderOptions(); renderPanel();
     var gen = state.gen;
@@ -107,7 +107,7 @@
     var p = state.session.persona;
     var el = document.createElement('div');
     el.className = 'msg ' + role;
-    el.innerHTML = '<div class="av">' + (role === 'bot' ? p.avatar : '🕵️') + '</div><div><div class="bub">' + html + '</div>' +
+    el.innerHTML = '<div class="av">' + esc(role === 'bot' ? p.avatar : '骗') + '</div><div><div class="bub">' + html + '</div>' +
       (metaHtml ? '<div class="meta">' + metaHtml + '</div>' : '') + '</div>';
     $('msgs').appendChild(el);
     $('msgs').scrollTop = $('msgs').scrollHeight;
@@ -179,8 +179,8 @@
       });
     });
   }
-  var BL_TEXT = { hit: '⚠ 命中公开黑名单', clean: '✓ 未命中黑名单', unavailable: '黑名单暂不可用', pending: '比对黑名单中…' };
-  var BL_SHORT = { hit: '⚠ 黑名单', clean: '✓ 未命中黑名单', unavailable: '黑名单不可用', pending: '比对中…' };
+  var BL_TEXT = { hit: '命中公开黑名单', clean: '未命中黑名单', unavailable: '黑名单暂不可用', pending: '比对黑名单中…' };
+  var BL_SHORT = { hit: '命中黑名单', clean: '未命中黑名单', unavailable: '黑名单不可用', pending: '比对中…' };
   function blBadge(b, compact) {
     if (!b) return '';
     var title = b.status === 'hit' ? '来源：' + (b.sources || []).join('、') + (b.how === 'parent' ? '（父域名命中）' : '') + ' · 仅供参考，不能作为认定依据'
@@ -218,15 +218,13 @@
   }
 
   /* ---------- 看板 ---------- */
-  var TYPE_ICON = { bank_card: '💳', phone: '📞', crypto_btc: '₿', crypto_eth: '⟠', crypto_tron: '🔺', url: '🔗', email: '✉️', qq: '🐧', wechat: '💬', alipay: '🅰️', id_card: '🪪', name: '👤' };
-
   function openSummary() {
     var s = state.session;
     s.end();
     state.gen++; // 取消尚未显示的回复
     clearInterval(state.timer);
     renderStats();
-    $('liveDot').textContent = '■ 已结束'; $('liveDot').style.color = 'var(--dim)';
+    $('liveDot').textContent = '已结束'; $('liveDot').style.color = 'var(--dim)';
     $('input').disabled = true; $('sendBtn').disabled = true;
     var r = s.report();
     var st = r.stats;
@@ -243,7 +241,7 @@
       if (i.meta.chain) m.push('链：' + i.meta.chain);
       if (i.meta.kind) m.push({ mobile: '手机', hotline: '400/800 热线', landline: '座机' }[i.meta.kind]);
       m.push('首次出现：第 ' + i.firstSeenTurn + ' 轮' + (i.count > 1 ? ' · 重复 ' + i.count + ' 次' : ''));
-      return '<div class="icard' + (i.blocklist && i.blocklist.status === 'hit' ? ' hit' : '') + '"><div class="h"><span>' + (TYPE_ICON[i.type] || '•') + ' ' + esc(i.label) + '</span><span class="tag amber">已脱敏</span></div>' +
+      return '<div class="icard' + (i.blocklist && i.blocklist.status === 'hit' ? ' hit' : '') + '"><div class="h"><span>' + esc(i.label) + '</span><span class="tag amber">已脱敏</span></div>' +
         '<div class="val">' + esc(i.masked) + '</div><div class="m">' + esc(m.join(' · ')) + '</div>' + (i.blocklist ? '<div class="m">' + blBadge(i.blocklist) + '</div>' : '') + '</div>';
     }).join('') : '<div class="empty">本次对话未提取到账户/地址类情报。试试样例台词中带卡号、钱包地址的句子。</div>';
 
@@ -263,7 +261,7 @@
     $('dashTranscript').innerHTML = r.transcript.map(function (m) {
       var sec = Math.round((Date.parse(m.at) - t0) / 1000);
       return '<div class="line"><span class="tm">+' + fmt(sec) + '</span><span class="r ' + (m.role === 'bot' ? 'b' : 's') + '">' +
-        (m.role === 'bot' ? s.persona.avatar + ' ' + esc(s.persona.name) : '🕵️ 骗子') + '</span>' + esc(m.text) + '</div>';
+        (m.role === 'bot' ? esc(s.persona.name) : '骗子') + '</span>' + esc(m.text) + '</div>';
     }).join('');
     $('submitBox').hidden = true;
     $('summaryModal').classList.add('open');
@@ -311,7 +309,7 @@
   function copySubmit() {
     var v = $('submitText').value;
     (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () { toast('已复制，可粘贴到 GitHub 情报提交模板'); },
-      function () { $('submitText').select(); toast('请手动复制（Ctrl/⌘+C）'); });
+      function () { $('submitText').select(); toast('请手动复制（Ctrl/Cmd+C）'); });
   }
 
   /* ---------- 设置 ---------- */
@@ -352,7 +350,7 @@
         $('proxyStatus').textContent = '代理在线，但今日大模型体验额度已用完（使用规则引擎）';
       } else if (j && j.llmConfigured) {
         state.proxyOk = true;
-        $('proxyStatus').textContent = '✓ 已检测到代理：' + j.model + ' @ ' + j.provider;
+        $('proxyStatus').textContent = '已检测到代理：' + j.model + ' @ ' + j.provider;
         if (!localStorage.getItem('deepsuck.llm') && !FAST) { state.engine = 'proxy'; state.session.engineName = engineName(); renderPanel(); toast('检测到已配置的大模型代理，已切换到 ' + j.model); }
       } else if (j) {
         $('proxyStatus').textContent = '代理在线，但未配置 API Key（编辑 .env 中的 DASHSCOPE_API_KEY）';

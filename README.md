@@ -32,7 +32,7 @@ DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会�
 
 ---
 
-## ✨ 功能
+## 功能
 
 - **沙盒演示**：访客扮演骗子，机器人扮演受害人；**7 个场景**（冒充客服、冒充公检法、杀猪盘、刷单返利、虚假贷款/征信修复、冒充领导熟人、注销校园贷）× 3 个人设，内置一键样例台词与话术标签。
 - **规则/模板人设引擎（默认）**：纯浏览器运行，零成本、零依赖、无需 Key；带打字延迟与 23 种拖延/诱导策略（含“反向核验身份”：*单位那盆君子兰是谁养死的？*），台词按情境触发、同一意图不重复。
@@ -48,11 +48,11 @@ DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会�
 - **语音演示**（[voice/](voice/README.md)）：Pipecat 级联管线，浏览器麦克风 → SmallWebRTC → Paraformer 实时 ASR → 实时情报抽取 + 策略选择 → qwen-plus → 输出守卫 → CosyVoice（王阿姨用“龙老姨”老年音色）；插播拖延填充音，看板实时更新。`python -m voice.app` 一条命令启动，**需要 `DASHSCOPE_API_KEY`**。
 - **可选大模型引擎（默认关闭）**：OpenAI 兼容协议，默认对接**阿里云百炼 DashScope（通义千问 qwen-plus）**，也可换成其他国产大模型；自带零依赖 Node 代理，Key 只留在服务器 `.env`。
 
-## 📸 截图
+## 截图
 
-| 沙盒：冒充领导熟人 | 公开诈骗情报库 | 手机端首页 |
+| 沙盒：冒充公检法 | 公开诈骗情报库 | 手机端首页 |
 |---|---|---|
-| <img src="screenshots/demo-boss.png" width="320" alt="冒充领导场景对话"> | <img src="screenshots/intel.png" width="320" alt="情报库页面"> | <img src="screenshots/landing-mobile.png" width="160" alt="手机端首页"> |
+| <img src="screenshots/redesign-demo-1280.png" width="320" alt="冒充公检法场景对话"> | <img src="screenshots/redesign-intel-1280.png" width="320" alt="情报库页面"> | <img src="screenshots/redesign-landing-390.png" width="160" alt="手机端首页"> |
 
 | 语音演示（真实 ASR/LLM/TTS 通话） | 黑名单命中（destroylist / OFAC） | 情报看板 |
 |---|---|---|
@@ -60,7 +60,7 @@ DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会�
 
 王阿姨语音样例：[screenshots/wangayi-sample.wav](screenshots/wangayi-sample.wav)（CosyVoice `longlaoyi_v3`）
 
-## 🚀 快速开始
+## 快速开始
 
 ### 方式 A：纯静态（无需任何 Key）
 
@@ -95,7 +95,7 @@ npm start
 | `HOST` / `PORT` | `127.0.0.1` / `8787` | 监听地址 |
 | `RATE_LIMIT_PER_MIN` | `20` | 每 IP 每分钟 `/api/chat` 上限，防止 Key 被刷 |
 
-> 也可以在演示页“⚙ 引擎设置”中选择“浏览器直连”，填入 Key 直接从浏览器调用（仅适合本机自用，Key 会存在浏览器里，部分服务商不支持跨域）。推荐使用代理方式。
+> 也可以在演示页“引擎设置”中选择“浏览器直连”，填入 Key 直接从浏览器调用（仅适合本机自用，Key 会存在浏览器里，部分服务商不支持跨域）。推荐使用代理方式。
 > 无论选哪种引擎，**情报提取与脱敏始终在本地完成**；大模型失败时自动回退规则引擎。
 
 ### 方式 C：语音演示（浏览器麦克风，需要 DashScope Key）
@@ -130,7 +130,7 @@ python -m deepsuck.sim --seeds 30         # 在 python/ 目录下：骗子模拟
 
 修改 `site/assets/core/*.json`（规则、台词、场景）后运行 `npm run build:core` 重新生成浏览器用的 `core-data.js`（测试会检查是否同步）。
 
-## 🧱 架构
+## 架构
 
 ```
 deepsuck/
@@ -197,7 +197,7 @@ deepsuck/
 }
 ```
 
-## ☁️ 部署（零/低成本）
+## 部署（零/低成本）
 
 纯静态部分（`site/` 目录）可直接部署，无需构建：
 
@@ -208,7 +208,7 @@ deepsuck/
 
 > 官方站点 <https://deepsuck.si/> 由 `.github/workflows/pages.yml` 在推送到 `main` 时自动部署（先跑 `npm test`）。
 
-## 🛡️ 伦理与使用声明（底线）
+## 伦理与使用声明（底线）
 
 详见 [docs/ETHICS.md](docs/ETHICS.md)。要点：
 
@@ -219,7 +219,7 @@ deepsuck/
 5. **交给专业力量**：遇到诈骗请拨打 **110** 或全国反诈专线 **96110**，并通过“国家反诈中心”APP 举报。
 6. **合规优先**：接入真实渠道前，请评估《个人信息保护法》《反电信网络诈骗法》等要求并取得必要授权。
 
-## 🗺️ 路线图
+## 路线图
 
 - [x] **v0.1** 纯静态沙盒、规则人设引擎、提取器/分类器/脱敏、情报看板、可选百炼代理
 - [x] **v0.2** 7 个场景（+刷单返利、虚假贷款/征信修复、冒充领导熟人、注销校园贷）、情境台词与反向核验、**公开诈骗情报库** + 提交/申诉流程、规则数据抽成 `core/*.json`、中文去武装写法识别、首页动画与 OG 图
@@ -233,7 +233,7 @@ deepsuck/
 - [ ] **大模型人设加固**：提示词注入检测、本地模型（Ollama 等）
 - 底线不变：只接不拨、单卡自用、默认脱敏、不冒充真实机构或个人
 
-## 🤝 参与贡献
+## 参与贡献
 
 欢迎 Issue 与 PR！详见 [CONTRIBUTING.md](CONTRIBUTING.md)。几个好上手的方向：
 
@@ -245,7 +245,7 @@ deepsuck/
 
 提交前请运行 `npm test`。请勿在 Issue/PR 中提交任何真实、未脱敏的个人信息或账户。
 
-## 🙏 致谢 / Prior art
+## 致谢 / Prior art
 
 DeepSuck 站在这些开源项目与研究的肩膀上（仅借鉴思路或计划作为依赖，许可证以各项目为准）：
 
@@ -258,10 +258,10 @@ DeepSuck 站在这些开源项目与研究的肩膀上（仅借鉴思路或计�
 - [pppscn/SmsForwarder](https://github.com/pppscn/SmsForwarder)（BSD-2）—— 旧安卓机短信转发
 - 经典的 “Lenny” 电话机器人与 [apate.ai](https://apate.ai) —— “拖住骗子”的产品灵感
 
-## ⚖️ 免责声明
+## 免责声明
 
 本项目按“现状”提供，仅用于防诈研究与公众教育，不构成法律或安全建议。演示中的所有账号、电话、地址与网址均为虚构测试数据，如与真实信息雷同纯属巧合。提取结果可能存在误报/漏报，仅可作为线索参考。使用者须自行遵守所在地法律法规，因不当使用造成的任何后果由使用者自行承担。
 
-## 📄 许可证
+## 许可证
 
 [Apache License 2.0](LICENSE) © DeepSuck contributors

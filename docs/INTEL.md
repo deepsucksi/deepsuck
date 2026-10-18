@@ -32,7 +32,7 @@ DeepSuck 会**公开发布**它收集到的诈骗情报，让任何人都能检�
 ## 提交
 
 1. 在[沙盒](https://deepsuck.si/demo.html)选择场景，把骗子原话逐条粘贴进去（提取与打码都在浏览器本地完成）；
-2. 结束对话 → 「⇪ 提交到情报库」：按上表策略生成内容并复制；
+2. 结束对话 → 「提交到情报库」：按上表策略生成内容并复制；
 3. 打开 [GitHub 情报提交模板](https://github.com/deepsucksi/deepsuck/issues/new?template=intel-submission.yml)，内容会自动预填，补充时间与渠道后提交；
 4. 维护者审核后以 `DS-YYYY-xxxx` 编号收录（`source: community`）。
 

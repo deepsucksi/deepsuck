@@ -32,7 +32,7 @@
   <div class="intel-hero">
     <h1>公开诈骗情报库</h1>
     <p class="lead">DeepSuck 会公开发布它收集到的诈骗情报：<b>诈骗电话、加密钱包地址、诈骗网址 / APP 名称、话术套路</b>完整公开，方便任何人检索、拦截与预警；<b>银行卡号、姓名、个人账号</b>只部分公开——很多收款卡属于被冒用、被利用的普通人。</p>
-    <div class="warn" id="notice">⚠ 当前库中全部为 <b>示例数据</b>（虚构号码、无效地址与 RFC 2606 保留域名 .example），用于展示格式与功能，<b>不对应任何真实个人或网站</b>。真实情报经审核后才会收录。</div>
+    <div class="notice" id="notice">当前库中全部为 <b>示例数据</b>（虚构号码、无效地址与 RFC 2606 保留域名 .example），用于展示格式与功能，<b>不对应任何真实个人或网站</b>。真实情报经审核后才会收录。</div>
   </div>
 
   <div class="intel-stats" id="typeStats"></div>
@@ -42,8 +42,8 @@
     <select id="fType" aria-label="按类型筛选"><option value="">全部类型</option></select>
     <select id="fScenario" aria-label="按场景筛选"><option value="">全部场景</option></select>
     <span class="dl">
-      <button class="btn small" id="dlJson" type="button">⇩ JSON</button>
-      <button class="btn small" id="dlCsv" type="button">⇩ CSV</button>
+      <button class="btn small" id="dlJson" type="button">JSON</button>
+      <button class="btn small" id="dlCsv" type="button">CSV</button>
     </span>
   </div>
   <p class="note" id="resultInfo">加载中…</p>
@@ -54,27 +54,27 @@
     <h2>发布策略</h2>
     <div class="two">
       <div class="card">
-        <h3>✅ 完整公开</h3>
+        <h3>完整公开</h3>
         <ul class="plain">
-          <li>📞 诈骗电话（含 400/800、座机、改号来电显示号码）</li>
-          <li>🪙 加密货币钱包地址（TRON / ETH / BTC 等）</li>
-          <li>🔗 诈骗网址、域名，📱 诈骗 APP / 平台名称</li>
-          <li>🗣️ 话术与手法模式（不含受害人信息）</li>
+          <li>诈骗电话（含 400/800、座机、改号来电显示号码）</li>
+          <li>加密货币钱包地址（TRON / ETH / BTC 等）</li>
+          <li>诈骗网址、域名，诈骗 APP / 平台名称</li>
+          <li>话术与手法模式（不含受害人信息）</li>
         </ul>
         <p class="note">这些是诈骗分子的“基础设施”，公开得越快越完整，越多人能在接到电话、点开链接之前识别它。</p>
       </div>
       <div class="card">
-        <h3>🔒 部分打码</h3>
+        <h3>部分打码</h3>
         <ul class="plain">
-          <li>💳 银行卡号：只留前 4 后 4 位，如 <code>6222 **** **** 1234</code>，并标注开户行</li>
-          <li>👤 收款户名 / 姓名：只留姓，如 <code>王**</code></li>
-          <li>🪪 身份证号：<code>110101********1234</code></li>
-          <li>💬 支付宝 / 微信 / QQ / 邮箱等个人账号：首尾各留 2 位</li>
+          <li>银行卡号：只留前 4 后 4 位，如 <code>6222 **** **** 1234</code>，并标注开户行</li>
+          <li>收款户名 / 姓名：只留姓，如 <code>王**</code></li>
+          <li>身份证号：<code>110101********1234</code></li>
+          <li>支付宝 / 微信 / QQ / 邮箱等个人账号：首尾各留 2 位</li>
         </ul>
         <p class="note">大量“跑分卡”“收款卡”属于被冒用身份、被诱骗出租或出借账户的普通人（不少是学生和老人）。部分打码既能帮助比对，又不至于让无辜者被网暴。</p>
       </div>
     </div>
-    <ul class="ethics" style="margin-top:14px">
+    <ul class="ethics">
       <li><b>只收录诈骗方主动暴露的信息：</b>不收录受害人信息，不做“人肉”，不对任何号码发起骚扰或“反击”。</li>
       <li><b>每条可溯源：</b>标注首次/最近出现时间、场景、话术标签、举报次数与来源（沙盒、社区提交、自有诱饵号码）。</li>
       <li><b>示例与真实分开：</b>示例条目一律标注 <code>example: true</code> 与「示例数据」。</li>
@@ -98,18 +98,18 @@
   <section id="report">
     <h2>遇到诈骗，先报警、再举报</h2>
     <div class="cards3">
-      <div class="card"><div class="ico">☎️</div><h3>110 / 96110</h3><p>已经转账或正在被骗：<b>立即拨打 110</b> 报警，并联系银行尝试止付。<b>96110</b> 是全国反诈预警劝阻专线，接到 96110 来电请务必接听。</p></div>
-      <div class="card"><div class="ico">📲</div><h3>国家反诈中心 App</h3><p>在官方应用商店搜索“国家反诈中心”安装。首页“我要举报”可提交诈骗电话、短信、网址、APP、收款账户等线索，还能开启来电/短信预警。</p></div>
-      <div class="card"><div class="ico">🛡️</div><h3>其他渠道</h3><p>垃圾短信/骚扰电话/不良网址可向 <b>12321</b>（网络不良与垃圾信息举报受理中心）举报；网络违法犯罪线索可通过公安部网络违法犯罪举报网站提交。</p></div>
+      <div class="card"><h3>110 / 96110</h3><p>已经转账或正在被骗：<b>立即拨打 110</b> 报警，并联系银行尝试止付。<b>96110</b> 是全国反诈预警劝阻专线，接到 96110 来电请务必接听。</p></div>
+      <div class="card"><h3>国家反诈中心 App</h3><p>在官方应用商店搜索“国家反诈中心”安装。首页“我要举报”可提交诈骗电话、短信、网址、APP、收款账户等线索，还能开启来电/短信预警。</p></div>
+      <div class="card"><h3>其他渠道</h3><p>垃圾短信/骚扰电话/不良网址可向 <b>12321</b>（网络不良与垃圾信息举报受理中心）举报；网络违法犯罪线索可通过公安部网络违法犯罪举报网站提交。</p></div>
     </div>
-    <p class="note" style="margin-top:12px">DeepSuck 的情报库是公益补充，不能替代报警。请优先通过以上官方渠道举报。</p>
+    <p class="note">DeepSuck 的情报库是公益补充，不能替代报警。请优先通过以上官方渠道举报。</p>
   </section>
 
   <section id="contribute">
     <h2>提交情报</h2>
     <div class="steps steps3">
       <div class="step"><div class="n">01</div><h3>整理</h3><p>打开<a href="demo.html">沙盒</a>，选择最接近的场景，把骗子发给你的原话<b>逐条粘贴</b>进去（或在“骗子”位置复述）。提取与打码全部在你的浏览器本地完成。</p></div>
-      <div class="step"><div class="n">02</div><h3>生成</h3><p>点“结束对话 · 生成情报看板”，再点 <b>“⇪ 提交到情报库”</b>：会按发布策略生成提交内容（电话/地址/网址完整，银行卡/姓名已打码）并复制到剪贴板。</p></div>
+      <div class="step"><div class="n">02</div><h3>生成</h3><p>点“结束对话 · 生成情报看板”，再点 <b>“提交到情报库”</b>：会按发布策略生成提交内容（电话/地址/网址完整，银行卡/姓名已打码）并复制到剪贴板。</p></div>
       <div class="step"><div class="n">03</div><h3>提交</h3><p>在打开的 <a href="https://github.com/deepsucksi/deepsuck/issues/new?template=intel-submission.yml" target="_blank" rel="noopener">GitHub 情报提交模板</a>中粘贴并补充时间、渠道，维护者审核后收录。<b>请勿提交受害人信息或沙盒里的虚构样例。</b></p></div>
     </div>
   </section>

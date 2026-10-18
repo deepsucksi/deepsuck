@@ -12,10 +12,10 @@
   <div class="wrap">
     <a class="brand" href="./"><img src="assets/logo.svg" alt="">DeepSuck</a>
     <nav class="nav">
-      <a class="hide-m" id="liveVoiceLink" href="#" hidden>🎙️ 语音演示</a>
+      <a class="hide-m" id="liveVoiceLink" href="#" hidden>语音演示</a>
       <a class="hide-m" href="intel.html">情报库</a>
       <a class="hide-m" href="./#ethics">使用底线</a>
-      <button class="btn small" id="settingsBtn" type="button">⚙ 引擎设置</button>
+      <button class="btn small" id="settingsBtn" type="button">引擎设置</button>
     </nav>
   </div>
 </header>
@@ -24,20 +24,20 @@
   <div class="demo">
     <div>
       <div class="panel setup">
-        <div class="warn" style="font-size:12.5px">🧪 沙盒说明：<b>你扮演骗子</b>，机器人扮演“潜在受害人”。请勿输入真实个人信息；样例台词中的账号、电话、地址均为虚构测试数据。所有情报仅在本页内存中处理并脱敏展示。</div>
+        <div class="notice"><b>沙盒说明</b>　<b>你扮演骗子</b>，机器人扮演“潜在受害人”。请勿输入真实个人信息；样例台词中的账号、电话、地址均为虚构测试数据。所有情报仅在本页内存中处理并脱敏展示。</div>
         <div>
-          <div class="lbl">① 选择诈骗场景</div>
+          <div class="lbl">诈骗场景</div>
           <div class="opts" id="scenarioOpts"></div>
         </div>
         <div>
-          <div class="lbl">② 选择机器人人设</div>
+          <div class="lbl">机器人人设</div>
           <div class="opts" id="personaOpts"></div>
         </div>
       </div>
 
       <div class="panel chat">
         <div class="chat-head">
-          <span id="botAvatar" style="font-size:20px">👵</span>
+          <span class="av" id="botAvatar">王</span>
           <span class="who" id="botName">王阿姨</span>
           <span class="note" id="botTag"></span>
           <span class="eng" id="engineLabel">引擎：规则引擎（本地）</span>
@@ -53,14 +53,14 @@
 
     <aside class="side">
       <div class="panel">
-        <h4>周旋战况 <span id="liveDot" class="note">● 进行中</span></h4>
+        <h4>周旋战况 <span id="liveDot" class="note">进行中</span></h4>
         <div class="stats">
           <div class="stat"><div class="v" id="stWall">0:00</div><div class="k">已拖住时长（实时）</div></div>
           <div class="stat"><div class="v" id="stEst">0:00</div><div class="k">估算骗子耗时</div></div>
           <div class="stat"><div class="v" id="stMsgs">0</div><div class="k">消息数</div></div>
           <div class="stat"><div class="v" id="stIntel">0</div><div class="k">情报条数</div></div>
         </div>
-        <div style="margin-top:10px;font-size:12.5px;color:var(--dim)">风险评分 <b id="stRisk" style="color:var(--amber)">0</b>/100</div>
+        <div class="risk-l">风险评分 <b id="stRisk">0</b>/100</div>
         <div class="risk"><i id="riskBar"></i></div>
       </div>
       <div class="panel">
@@ -74,9 +74,9 @@
       </div>
       <div class="panel">
         <div class="actions">
-          <button class="btn primary" id="endBtn" type="button">■ 结束对话 · 生成情报看板</button>
-          <button class="btn small" id="exportBtn" type="button">⇩ 导出脱敏 JSON</button>
-          <button class="btn small ghost" id="resetBtn" type="button">↺ 重新开始</button>
+          <button class="btn primary" id="endBtn" type="button">结束对话 · 生成情报看板</button>
+          <button class="btn small" id="exportBtn" type="button">导出脱敏 JSON</button>
+          <button class="btn small ghost" id="resetBtn" type="button">重新开始</button>
         </div>
       </div>
     </aside>
@@ -87,39 +87,38 @@
 <div class="modal" id="summaryModal" role="dialog" aria-modal="true" aria-labelledby="sumTitle">
   <div class="sheet">
     <div class="sheet-head">
-      <img src="assets/logo.svg" alt="" width="30" height="30">
       <h3 id="sumTitle">情报看板</h3>
       <span class="note" id="sumSub"></span>
       <span style="margin-left:auto" class="actions">
-        <button class="btn small primary" id="sumSubmit" type="button">⇪ 提交到情报库</button>
-        <button class="btn small" id="sumExport" type="button">⇩ 导出脱敏 JSON</button>
-        <button class="btn small" id="sumNew" type="button">↺ 新会话</button>
-        <button class="btn small ghost" id="sumClose" type="button">✕ 关闭</button>
+        <button class="btn small primary" id="sumSubmit" type="button">提交到情报库</button>
+        <button class="btn small" id="sumExport" type="button">导出脱敏 JSON</button>
+        <button class="btn small" id="sumNew" type="button">新会话</button>
+        <button class="btn small ghost" id="sumClose" type="button">关闭</button>
       </span>
     </div>
     <div class="sheet-body">
       <div class="submit-box" id="submitBox" hidden>
-        <h4>⇪ 提交到公开情报库</h4>
+        <h4>提交到公开情报库</h4>
         <p class="note">已按<a href="intel.html#policy" target="_blank">发布策略</a>生成：电话 / 钱包地址 / 网址 / APP 完整，银行卡 / 姓名 / 个人账号已打码。<b>只提交你真实遇到的诈骗</b>——沙盒里的虚构样例台词请勿提交。</p>
         <textarea id="submitText" readonly rows="7"></textarea>
         <div class="actions">
           <button class="btn small" id="submitCopy" type="button">复制</button>
-          <a class="btn small primary" id="submitOpen" href="#" target="_blank" rel="noopener">在 GitHub 打开情报提交模板 ↗</a>
+          <a class="btn small primary" id="submitOpen" href="#" target="_blank" rel="noopener">在 GitHub 打开情报提交模板</a>
           <span class="note">需要 GitHub 账号；内容会预填到 Issue 表单中，提交前可再修改。</span>
         </div>
       </div>
       <div class="dash-stats" id="dashStats"></div>
       <div class="dash-grid">
         <div>
-          <h4 style="margin:0 0 10px;color:var(--muted)">情报卡片（已脱敏）</h4>
+          <h4 class="sub-h">情报卡片（已脱敏）</h4>
           <div id="dashIntel"></div>
-          <h4 style="margin:16px 0 10px;color:var(--muted)">上下文线索</h4>
+          <h4 class="sub-h">上下文线索</h4>
           <div class="tags" id="dashContext"></div>
         </div>
         <div>
-          <h4 style="margin:0 0 10px;color:var(--muted)">话术画像</h4>
+          <h4 class="sub-h">话术画像</h4>
           <div id="dashTactics"></div>
-          <h4 style="margin:16px 0 10px;color:var(--muted)">完整对话记录（已脱敏）</h4>
+          <h4 class="sub-h">完整对话记录（已脱敏）</h4>
           <div class="transcript" id="dashTranscript"></div>
         </div>
       </div>
@@ -131,7 +130,7 @@
 <!-- 引擎设置 -->
 <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="sheet" style="max-width:640px">
-    <div class="sheet-head"><h3 id="setTitle">引擎设置</h3><button class="btn small ghost" style="margin-left:auto" id="setClose" type="button">✕</button></div>
+    <div class="sheet-head"><h3 id="setTitle">引擎设置</h3><button class="btn small ghost" style="margin-left:auto" id="setClose" type="button">关闭</button></div>
     <div class="sheet-body form">
       <label><span><input type="radio" name="engine" value="rule" checked> <b>规则引擎（默认，推荐）</b> —— 纯浏览器运行，无需 Key，零成本</span></label>
       <label><span><input type="radio" name="engine" value="proxy"> <b>本地代理 · 大模型</b> —— 通过本项目自带的 server（npm start）调用通义千问，Key 只存在服务器 .env</span>
@@ -142,7 +141,7 @@
         <label>模型<input type="text" id="cfgModel" value="qwen-plus"></label>
         <label>API Key<input type="password" id="cfgKey" placeholder="sk-…（仅保存在本浏览器）" autocomplete="off"></label>
         <label><span><input type="checkbox" id="cfgRemember"> 记住在本浏览器 localStorage（公共电脑请勿勾选）</span></label>
-        <div class="warn">⚠ 直连模式下 Key 位于浏览器中，任何能访问此页面的人/插件都可能读取；部分服务商不允许跨域调用。更推荐使用“本地代理”。发送给模型的对话会先在本地脱敏。</div>
+        <div class="warn">直连模式下 Key 位于浏览器中，任何能访问此页面的人/插件都可能读取；部分服务商不允许跨域调用。更推荐使用“本地代理”。发送给模型的对话会先在本地脱敏。</div>
       </div>
       <p class="note">大模型调用失败时会自动回退到规则引擎。情报提取与脱敏始终在本地完成，与所选引擎无关。</p>
       <div><button class="btn primary" id="setSave" type="button">保存</button></div>

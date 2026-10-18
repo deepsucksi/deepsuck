@@ -7,7 +7,7 @@
     'hero.title': 'Let scammers waste their time<br><em>on an AI instead</em>',
     'hero.lead': 'DeepSuck is an open-source anti-scam "time-waster" bot. Playing personas like a muddled retired auntie, a hard-of-hearing grandpa or a curious student, it misunderstands, asks to repeat, fakes phone trouble — while extracting the bank accounts, wallet addresses, phone numbers and URLs scammers reveal, masked, for prevention and early warning.',
     'chip1': 'Fully static · no API key', 'chip2': 'In-browser rule engine', 'chip3': 'Optional Qwen (Alibaba Bailian)', 'chip4': 'Intel masked by default',
-    'cta.demo': '▶ Play the scammer — try it', 'cta.oss': 'Contribute', 'cta.intel': '🔎 Scam intel library', 'cta.gh': '★ Star on GitHub',
+    'cta.demo': 'Play the scammer', 'cta.oss': 'Contribute', 'cta.intel': 'Scam intel library', 'cta.gh': 'Star on GitHub',
     'how.title': 'How it works', 'how.sub': 'Five stages, all in your browser (rule engine). With an LLM, text is masked locally before it is sent.',
     's1.t': 'Lure', 's1.d': 'Appears as a "potential victim". Deployers can attach it to decoy numbers or report-forwarding channels. It never contacts real people first.',
     's2.t': 'Stall', 's2.d': 'Misunderstand, ask to repeat, fake a frozen phone, go look for reading glasses… every turn costs the scammer time.',
