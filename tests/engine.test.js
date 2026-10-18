@@ -60,3 +60,54 @@ test('拖延句池：secrecy / loan_stall 每个人设 ≥12 条、在轮换链�
     assert.notEqual(s.freshIntent('secrecy'), 'secrecy');
   }
 });
+
+test('复述情报：面对骗子的回复不出现打码星号与原值，报告仍脱敏（与 Python 一致）', () => {
+  const lines = ['收款卡号 6222020200112233445，户名王建国，工商银行', '有问题打 13900112233，或者加QQ 2876543210',
+    '下载 APP：https://refund-tb-kefu.top/dl', 'USDT 转到 TRC20 地址 TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe'];
+  const raws = ['6222020200112233445', '王建国', '13900112233', '2876543210', 'refund-tb-kefu.top', 'TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe'];
+  for (const persona of ['wang', 'li', 'lin']) {
+    for (let seed = 1; seed < 30; seed++) {
+      const s = new E.Session({ scenario: 'police', persona, rng: seeded(seed) });
+      s.opening();
+      for (const l of lines) {
+        const r = s.ruleReply(s.ingest(l));
+        if (r.intent !== 'confirm_intel') continue;
+        assert.ok(!/[*＊]/.test(r.text), r.text);
+        for (const v of raws) assert.ok(r.text.indexOf(v) < 0, r.text);
+      }
+      const json = JSON.stringify(s.report());
+      for (const v of raws) assert.ok(json.indexOf(v) < 0, v);
+    }
+  }
+});
+
+test('纯拖延不连续两轮：第二轮换成小步配合（coop_step）', () => {
+  const stall = ['你快点，别磨蹭', '验证码发我', '听不懂吗？赶紧的', '就差你了', '你到底弄好没有', '嗯', '好的'];
+  const PURE = ['otp_stall', 'urgency_stall', 'tech_trouble', 'slow_walk', 'ask_repeat', 'misunderstand', 'info_stall', 'generic'];
+  for (const persona of ['wang', 'li', 'lin']) {
+    for (let seed = 1; seed < 20; seed++) {
+      const s = new E.Session({ scenario: 'police', persona, rng: seeded(seed) });
+      s.opening();
+      let prev = null, coop = 0;
+      for (let i = 0; i < 30; i++) {
+        const r = s.ruleReply(s.ingest(stall[(i * 3 + seed) % stall.length]));
+        assert.ok(!(PURE.includes(prev) && PURE.includes(r.intent)), persona + ' ' + seed + ' ' + i);
+        coop += r.intent === 'coop_step';
+        prev = r.intent;
+      }
+      assert.ok(coop > 0);
+    }
+  }
+});
+
+test('验证码拖延句池 ≥16，按池大小自适应的去重窗口', () => {
+  for (const persona of ['wang', 'li', 'lin']) {
+    const s = new E.Session({ scenario: 'police', persona, rng: seeded(3) });
+    const n = s.persona.templates.otp_stall.length, w = Math.floor(n / 2);
+    assert.ok(n >= 16, persona);
+    const picks = [];
+    for (let i = 0; i < 60; i++) picks.push(s.pick('otp_stall', '验证码发我'));
+    assert.equal(new Set(picks.slice(0, n)).size, n);
+    picks.forEach((x, i) => assert.ok(picks.slice(Math.max(0, i - w), i).indexOf(x) < 0, persona + ' ' + i));
+  }
+});

@@ -186,9 +186,25 @@ class Humanizer:
         return text, len(chosen)
 
     def _echo(self, context: str) -> Optional[str]:
-        # 只复述完整的短分句（2–12 字）；长分句截断会切断词语（“期资料费转到”），读起来像机器，宁可用通用确认
-        parts = [x for x in _ECHO_SPLIT.split(context or "")
-                 if 2 <= len(x) <= 12 and not re.search(r"[0-9０-９*＊]", x)]
+        """从对方的话里挑一个可以复述的关键短语。
+
+        优先 confusion.ECHO_KEYWORDS 里的名词性关键词（“安全账户”“验证码”）；没有时才用完整的短分句（2–8 字），
+        且分句不能含数字 / 打码、人称或称呼、祈使词——原样复述骗子的半句话（“要不我帮您转接高级专员”）像角色互换。
+        """
+        ctx = context or ""
+        keys, taken = [], [False] * len(ctx)
+        for k in sorted(C.ECHO_KEYWORDS, key=len, reverse=True):
+            for m in re.finditer(re.escape(k), ctx):
+                if not any(taken[m.start():m.end()]):
+                    keys.append((m.start(), k))
+                    for i in range(m.start(), m.end()):
+                        taken[i] = True
+        keys = list(dict.fromkeys(k for _, k in sorted(keys)))
+        if keys:
+            return self.rng.choice(keys)
+        parts = [x for x in _ECHO_SPLIT.split(ctx)
+                 if 2 <= len(x) <= 8 and not re.search(r"[0-9０-９*＊A-Za-z]", x)
+                 and not any(w in x for w in C.ECHO_AVOID)]
         if not parts:
             return None
         return self.rng.choice(parts)

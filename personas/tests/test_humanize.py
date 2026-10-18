@@ -225,3 +225,23 @@ def test_typo_rate_calibrated_band():
     assert all(v <= 1.4 for v in rates.values()), rates
     assert rates["graduate"] < rates["mom"] and rates["graduate"] < rates["retiree"], rates
     assert shape > 0  # 老人有手写输入的形近字
+
+
+def test_repeat_echo_is_framed_and_never_a_role_swap():
+    from personas.humanize import confusion as C
+    for t in C.CONFIRM_TEMPLATES:
+        assert "你" in t and "{echo}" in t  # 复述对方的话总带“你是说 / 你说的”框架
+    swaps = ["要不我帮您转接高级专员", "阿姨您删视频我等", "请您马上转账", "你赶紧把钱转过来"]
+    for seed in range(200):
+        h = Humanizer(profile="retiree", seed=seed, weights={"repeat": 10})
+        for ctx in swaps:
+            out = h.apply("好的，我在弄。", context=ctx + "。验证码五分钟内有效").text
+            for s in swaps:
+                assert s not in out, out
+
+
+def test_repeat_echo_prefers_key_phrase():
+    h = Humanizer(profile="retiree", seed=1)
+    seen = {h._echo("您的资金涉嫌洗钱，必须转到安全账户配合核查") for _ in range(30)}
+    assert seen <= {"洗钱", "安全账户"}, seen
+    assert h._echo("您好我是客服请您配合") is None  # 只有人称 / 祈使分句时宁可用通用确认

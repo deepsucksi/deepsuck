@@ -16,7 +16,7 @@ from .core import utf16_len
 from . import extractors as X
 from . import redact as R
 from . import tactics as T
-from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS
+from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL
 
 REPORT_SCHEMA = "deepsuck.intel-report/v0.1"
 VERSION = "0.4.0"
@@ -34,6 +34,16 @@ def goal_of(type_: str) -> Optional[str]:
     if type_ == "name":
         return "name"
     return None
+
+
+_DIGIT_TYPES = ("bank_card", "phone", "alipay", "qq")
+
+
+def _wrong_digit(t: str) -> str:
+    """把尾号报错一位（让对方纠正）：末两位不同则对调，否则末位 +1。"""
+    if len(t) >= 2 and t[-1] != t[-2]:
+        return t[:-2] + t[-1] + t[-2]
+    return t[:-1] + str((int(t[-1]) + 1) % 10)
 
 
 def _round(x: float) -> int:  # JS Math.round
@@ -66,13 +76,19 @@ class Session:
         self.last_intent = None
         self._recent_picks: list = []  # 近 RECENT_N 次选中的台词（近期去重）
         self._recent: list = []  # 最近几个骗子回合的原文（只在内存里，用于跨回合拼接；不进 report）
+        self._intent_hist: dict = {}  # 每个意图最近选中的台词（按池大小自适应的去重窗口）
+        self._last_new: list = []  # 本回合新情报的 (条目, 原值)，只在内存里，用于自然复述
 
     # 拖延类意图的"兄弟"顺序：某个意图的台词用完时换一种拖法，而不是立刻重复同一句
     # secrecy（被要求保密）与 loan_stall（贷款 / 征信类拖延）也在链上：语料版骗子会反复要求保密、反复催贷款手续
     STALL_FAMILY = ["urgency_stall", "tech_trouble", "slow_walk", "ask_repeat", "misunderstand", "info_stall", "generic",
                     "secrecy", "loan_stall", "task_stall", "campus_stall"]
-    # 近期去重：近 RECENT_N 次选中的台词不再选（除非别无可选），跨意图生效
+    # 近期去重：近 RECENT_N 次选中的台词不再选（除非别无可选），跨意图生效；
+    # 另外同一意图最近 floor(可用台词数 / 2) 次选过的也不选（池子越大窗口越大，用完一轮重置后不会马上回到刚说过的）
     RECENT_N = 8
+    # 纯拖延意图：同一场不连续两轮都用纯拖延，第二轮换成"小步配合"（coop_step）——看起来在配合、卡在某一步、问具体操作
+    PURE_STALL = ["otp_stall", "urgency_stall", "tech_trouble", "slow_walk", "ask_repeat", "misunderstand", "info_stall",
+                  "generic"]
 
     def exhausted(self, intent: str) -> bool:
         lst = self.persona["templates"].get(intent)
@@ -117,13 +133,16 @@ class Session:
             it = g[math.floor(self.rng() * len(g))]
             return it if isinstance(it, str) else it["t"]
         recent = self._recent_picks
+        hist = self._intent_hist.setdefault(intent, [])
+        w = len(avail) // 2
+        recent_i = hist[-w:] if w > 0 else []
 
         def text(i):
             it = lst[i]
             return it if isinstance(it, str) else it["t"]
 
         def fresh(i):
-            return text(i) not in recent
+            return text(i) not in recent and text(i) not in recent_i
         unused = [i for i in avail if i not in used]
         pool = [i for i in ctx_hits if fresh(i)] or [i for i in unused if fresh(i)] or ctx_hits or unused
         if not pool:
@@ -134,6 +153,8 @@ class Session:
         it = lst[idx]
         recent.append(text(idx))
         del recent[:-self.RECENT_N]
+        hist.append(text(idx))
+        del hist[:-len(lst)]
         return it if isinstance(it, str) else it["t"]
 
     def fill(self, tpl: str, vars: Optional[dict] = None) -> str:
@@ -167,6 +188,7 @@ class Session:
         tactics = T.classify(raw_text)
         redacted = R.redact_text(raw_text, entities)
         new_intel = []
+        self._last_new = []
         for e in entities:
             if e["sensitive"]:
                 key = e["type"] + "|" + re.sub(r"[\s-]", "", str(e["value"])).lower()
@@ -175,6 +197,7 @@ class Session:
                                        "meta": e["meta"], "count": 0, "firstSeenTurn": self.turn}
                     self._raw[key] = e["value"]
                     new_intel.append(self.intel[key])
+                    self._last_new.append((self.intel[key], e["value"]))
                 self.intel[key]["count"] += 1
             else:
                 bucket = self.context.setdefault(e["type"], {})
@@ -205,6 +228,7 @@ class Session:
                                        "meta": e["meta"], "count": 0, "firstSeenTurn": self.turn}
                     self._raw[key] = e["value"]
                     new_intel.append(self.intel[key])
+                    self._last_new.append((self.intel[key], e["value"]))
                 self.intel[key]["count"] += 1
         if stitched_now:
             redacted = R.redact_text(raw_text, entities + recent[-1]["extra"])
@@ -269,12 +293,33 @@ class Session:
         stalls = ["ask_repeat", "misunderstand", "tech_trouble", "slow_walk", "generic"]
         return stalls[math.floor(r * len(stalls))]
 
+    def speak_intel(self, item: dict, raw) -> str:
+        """对骗子复述情报的说法：不念打码星号，只说尾号 / 姓氏 /“你发的那个网址”，或把尾号报错一位让对方纠正。
+
+        说出来的只是打码值里本来就公开的部分（尾号、姓氏），所以对外的 transcript 不需要再打码。
+        """
+        typ = item["type"]
+        forms = SPEAK_INTEL.get("crypto" if typ.startswith("crypto_") else typ) or SPEAK_INTEL["default"]
+        f = forms[math.floor(self.rng() * len(forms))]
+        masked = str(item["masked"])
+        raw = "" if raw is None else str(raw)
+        d = re.sub(r"[^0-9]", "", raw) if typ in _DIGIT_TYPES else raw
+        t = next((d[-k:] for k in (4, 2) if len(d) > k and masked.endswith(d[-k:])), "")
+        s = raw[:1] if typ == "name" and raw[:1] and masked.startswith(raw[:1]) else ""
+        if (("{t}" in f or "{x}" in f) and not t) or ("{x}" in f and not t.isdigit()) or ("{s}" in f and not s):
+            f = SPEAK_INTEL["default"][0]
+        return (f.replace("{t}", t).replace("{x}", _wrong_digit(t) if t.isdigit() else t)
+                 .replace("{s}", s).replace("{label}", item["label"]))
+
     def rule_reply(self, analysis: dict) -> dict:
         intent = self.fresh_intent(self.choose_intent(analysis))
+        if (intent in self.PURE_STALL and self.last_intent in self.PURE_STALL
+                and self.persona["templates"].get("coop_step")):
+            intent = "coop_step"
         self.last_intent = intent
         vars = {}
         if intent == "confirm_intel":
-            vars["intel"] = "，".join(i["label"] + " " + i["masked"] for i in analysis["newIntel"])
+            vars["intel"] = "，".join(self.speak_intel(i, raw) for i, raw in self._last_new)
             missing = self.missing_goals()
             asks = self.persona["asks"]
             vars["ask"] = (asks.get(missing[0]) if missing else None) or asks["none"]

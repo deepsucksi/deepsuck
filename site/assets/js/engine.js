@@ -47,6 +47,8 @@
     // 最近几个骗子回合的原文（只在内存里，用于跨回合拼接；不进 report）
     Object.defineProperty(this, 'recentTurns', { value: [], writable: true, enumerable: false });
     Object.defineProperty(this, 'recentPicks', { value: [], writable: true, enumerable: false }); // 近 RECENT_N 次选中的台词（近期去重）
+    Object.defineProperty(this, 'intentHist', { value: {}, writable: true, enumerable: false }); // 每个意图最近选中的台词（自适应去重窗口）
+    Object.defineProperty(this, 'lastNew', { value: [], writable: true, enumerable: false }); // 本回合新情报（含内存原值），用于自然复述
   }
 
   /**
@@ -67,8 +69,11 @@
     }
     if (!avail.length) { list = this.persona.templates.generic; return list[Math.floor(this.rng() * list.length)]; }
     var recent = this.recentPicks;
+    var hist = this.intentHist[intent] = this.intentHist[intent] || [];
+    var w = Math.floor(avail.length / 2);
+    var recentI = w > 0 ? hist.slice(-w) : [];
     function text(i) { var it = list[i]; return typeof it === 'string' ? it : it.t; }
-    function fresh(i) { return recent.indexOf(text(i)) < 0; }
+    function fresh(i) { return recent.indexOf(text(i)) < 0 && recentI.indexOf(text(i)) < 0; }
     var unused = avail.filter(function (i) { return used.indexOf(i) < 0; });
     var pool = ctxHits.filter(fresh);
     if (!pool.length) pool = unused.filter(fresh);
@@ -79,14 +84,26 @@
     var it = list[idx];
     recent.push(text(idx));
     while (recent.length > RECENT_N) recent.shift();
+    hist.push(text(idx));
+    while (hist.length > list.length) hist.shift();
     return typeof it === 'string' ? it : it.t;
   };
 
   // 拖延类意图的"兄弟"顺序：某个意图的台词用完时换一种拖法，而不是立刻重复同一句（评测发现重复是骗子起疑挂断的主因）
   // secrecy（被要求保密）与 loan_stall（贷款 / 征信类拖延）也在链上：语料版骗子会反复要求保密、反复催贷款手续，台词用完要换一种拖法
   var STALL_FAMILY = ['urgency_stall', 'tech_trouble', 'slow_walk', 'ask_repeat', 'misunderstand', 'info_stall', 'generic', 'secrecy', 'loan_stall', 'task_stall', 'campus_stall'];
-  // 近期去重：近 RECENT_N 次选中的台词不再选（除非别无可选），跨意图生效
+  // 近期去重：近 RECENT_N 次选中的台词不再选（除非别无可选），跨意图生效；
+  // 另外同一意图最近 floor(可用台词数 / 2) 次选过的也不选（池子越大窗口越大，用完一轮重置后不会马上回到刚说过的）
   var RECENT_N = 8;
+  // 纯拖延意图：同一场不连续两轮都用纯拖延，第二轮换成"小步配合"（coop_step）——看起来在配合、卡在某一步、问具体操作
+  var PURE_STALL = ['otp_stall', 'urgency_stall', 'tech_trouble', 'slow_walk', 'ask_repeat', 'misunderstand', 'info_stall', 'generic'];
+  var DIGIT_TYPES = ['bank_card', 'phone', 'alipay', 'qq'];
+  /** 把尾号报错一位（让对方纠正）：末两位不同则对调，否则末位 +1 */
+  function wrongDigit(t) {
+    var n = t.length;
+    if (n >= 2 && t[n - 1] !== t[n - 2]) return t.slice(0, n - 2) + t[n - 1] + t[n - 2];
+    return t.slice(0, n - 1) + String((Number(t[n - 1]) + 1) % 10);
+  }
 
   /** 该意图的无条件台词是否都已用过（本轮） */
   Session.prototype.exhausted = function (intent) {
@@ -146,6 +163,7 @@
     var tactics = D.tactics.classify(rawText);
     var redacted = D.redact.redactText(rawText, entities);
     var newIntel = [];
+    this.lastNew = newIntel;
 
     entities.forEach(function (e) {
       if (e.sensitive) {
@@ -240,13 +258,35 @@
     return stalls[Math.floor(r * stalls.length)];
   };
 
+  /**
+   * 对骗子复述情报的说法：不念打码星号，只说尾号 / 姓氏 /“你发的那个网址”，或把尾号报错一位让对方纠正。
+   * 说出来的只是打码值里本来就公开的部分（尾号、姓氏），所以对外的 transcript 不需要再打码。
+   */
+  Session.prototype.speakIntel = function (item) {
+    var SP = D.personas.SPEAK_INTEL;
+    var typ = item.type;
+    var forms = SP[/^crypto_/.test(typ) ? 'crypto' : typ] || SP['default'];
+    var f = forms[Math.floor(this.rng() * forms.length)];
+    var masked = String(item.masked);
+    var raw = item.raw == null ? '' : String(item.raw);
+    var d = DIGIT_TYPES.indexOf(typ) >= 0 ? raw.replace(/[^0-9]/g, '') : raw;
+    var t = '';
+    [4, 2].some(function (k) { if (d.length > k && masked.slice(-k) === d.slice(-k) && masked.length >= k) { t = d.slice(-k); return true; } return false; });
+    var s = typ === 'name' && raw.slice(0, 1) && masked.indexOf(raw.slice(0, 1)) === 0 ? raw.slice(0, 1) : '';
+    var isNum = /^[0-9]+$/.test(t);
+    if (((f.indexOf('{t}') >= 0 || f.indexOf('{x}') >= 0) && !t) || (f.indexOf('{x}') >= 0 && !isNum) || (f.indexOf('{s}') >= 0 && !s)) f = SP['default'][0];
+    return f.split('{t}').join(t).split('{x}').join(isNum ? wrongDigit(t) : t).split('{s}').join(s).split('{label}').join(item.label);
+  };
+
   /** 规则引擎回复 */
   Session.prototype.ruleReply = function (analysis) {
+    var self = this;
     var intent = this.freshIntent(this.chooseIntent(analysis));
+    if (PURE_STALL.indexOf(intent) >= 0 && PURE_STALL.indexOf(this.lastIntent) >= 0 && this.persona.templates.coop_step) intent = 'coop_step';
     this.lastIntent = intent;
     var vars = {};
     if (intent === 'confirm_intel') {
-      vars.intel = analysis.newIntel.map(function (i) { return i.label + ' ' + i.masked; }).join('，');
+      vars.intel = this.lastNew.map(function (i) { return self.speakIntel(i); }).join('，');
       var missing = this.missingGoals();
       vars.ask = this.persona.asks[missing[0]] || this.persona.asks.none;
     }
