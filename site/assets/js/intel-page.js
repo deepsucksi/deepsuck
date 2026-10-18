@@ -27,6 +27,8 @@
     var meta = [];
     if (e.chain) meta.push('链：' + e.chain);
     if (e.bank) meta.push('开户行：' + e.bank);
+    if (e.issuer && (!e.bank || e.issuer.indexOf(e.bank) < 0)) meta.push('发卡行：' + e.issuer);
+    if (e.cardType) meta.push(e.cardType + '（按 BIN 推断）');
     meta.push('首次 ' + e.firstSeen + (e.lastSeen ? ' · 最近 ' + e.lastSeen : ''));
     if (e.reports) meta.push('举报 ' + e.reports + ' 次');
     return '<article class="icard2' + (e.type === 'script' ? ' wide' : '') + '">' +

@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   var EN = {
-    'nav.how': 'How', 'nav.menu': 'Menu', 'nav.gh': 'Star on GitHub', 'nav.sc': 'Scenarios', 'nav.ethics': 'Ethics', 'nav.oss': 'Open source', 'nav.demo': 'Try the sandbox', 'nav.intel': 'Intel library',
+    'nav.how': 'How', 'nav.menu': 'Menu', 'hero.sample': 'Sample · fictional numbers', 'nav.gh': 'Star on GitHub', 'nav.sc': 'Scenarios', 'nav.ethics': 'Ethics', 'nav.oss': 'Open source', 'nav.demo': 'Try the sandbox', 'nav.intel': 'Intel library',
     'hero.kicker': 'Open source · defensive research · Chinese scenarios first',
     'hero.title': 'Let scammers waste their time<br><em>on an AI instead</em>',
     'hero.lead': 'DeepSuck is an open-source anti-scam "time-waster" bot. Playing personas like a muddled retired auntie, a hard-of-hearing grandpa or a curious student, it misunderstands, asks to repeat, fakes phone trouble — while extracting the bank accounts, wallet addresses, phone numbers and URLs scammers reveal, masked, for prevention and early warning.',
@@ -12,7 +12,7 @@
     's1.t': 'Lure', 's1.d': 'Appears as a "potential victim". Deployers can attach it to decoy numbers or report-forwarding channels. It never contacts real people first.',
     's2.t': 'Stall', 's2.d': 'Misunderstand, ask to repeat, fake a frozen phone, go look for reading glasses… every turn costs the scammer time.',
     's3.t': 'Extract', 's3.d': 'Detects bank cards, phones, QQ/WeChat/Alipay, BTC/ETH/TRON addresses, URLs, and tactics like "safe account" or OTP requests.',
-    's4.t': 'Redact', 's4.d': 'All intel is masked before display and export, e.g. 622202*********1234, 138****5678, 0x12ab...9f3e.',
+    's4.t': 'Redact', 's4.d': 'In the sandbox, all intel is masked before display and export, e.g. 622202*********1234 (bank cards keep only the first 6 and last 4 digits, per PCI DSS), 138****5678, 0x12ab...9f3e. Submissions to the library follow the <a href="intel.html#policy">publishing policy</a>.',
     's5.t': 'Warn', 's5.d': 'Produces a structured JSON intel report that can be submitted (per the publishing policy) to the <a href="intel.html">public scam intel library</a> for anyone to search.',
     'sc.title': 'Seven common Chinese scam scenarios', 'sc.sub': 'In the sandbox you play the scammer and the bot plays the "victim". Each scenario ships with one-click sample lines and tactic tags.',
     'c1.t': 'Fake customer service · refunds', 'c1.d': '"Double compensation for a defective item", "membership auto-charge" — pushes app downloads, screen sharing, OTP codes.',
