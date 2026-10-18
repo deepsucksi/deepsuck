@@ -35,7 +35,7 @@ python -m personas.prompt retiree "冒充公检法 · 安全账户"
 
 | 操作 | 说明 |
 |---|---|
-| `typo` | 同音词误选（已经→以经、转账→转帐）、单字同音（的/得/地、在/再）、形近字（己/已、候/侯，仅打字模式） |
+| `typo` | 同音词误选（已经→以经、转账→转帐）、单字同音（的/得/地、在/再）、形近字（己/已、候/侯；打字模式默认有，语音模式需 `handwriting=True`，`retiree` 预设已打开）。每百字错字数按真人样本校准，见 docs/REALISM.md |
 | `punct` | 标点缺失或乱用：去掉句末标点、逗号换空格、全用逗号、`？？`、半角标点、`~`、整段无标点 |
 | `asr` | 语音转文字式口语：去掉句号、按空格或逗号随意断句、插入“呃”“那个”“就是说”、口吃式重复 |
 | `repeat` | 重复确认：复述对方上一条消息中的片段（“你是说……是吧？”），不复述含数字或打码的片段 |
@@ -57,7 +57,7 @@ r.text, r.ops                                     # ops 记录实际生效的操
 python -m personas.humanize "你说的账户是哪个银行的？" --profile shop_owner --seed 1 -n 3 --json
 ```
 
-参数：`intensity`（0–1，0 原样返回）、`seed`（同一 seed 结果完全一致，不使用全局随机数）、`mode`（`chat` / `voice`）、`dialect`、`ops`、`weights`（每种操作的强度倍数）、`digressions`、`keep`、`max_typos`、`profile`。
+参数：`intensity`（0–1，0 原样返回）、`seed`（同一 seed 结果完全一致，不使用全局随机数）、`mode`（`chat` / `voice`）、`dialect`、`ops`、`weights`（每种操作的强度倍数）、`digressions`、`keep`、`max_typos`、`profile`、`handwriting`（形近字开关）。
 
 注意：
 

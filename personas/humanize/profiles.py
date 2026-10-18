@@ -1,13 +1,18 @@
-"""人设对应的真人化预设（与 personas/prompts/*.yaml 的 humanize_profile 一一对应）。"""
+"""人设对应的真人化预设（与 personas/prompts/*.yaml 的 humanize_profile 一一对应）。
+
+错字率按真人样本校准（2026-10-18，见 docs/REALISM.md「错字率校准」）：中老年公开随笔小样本约每百字 0.5 处错字、
+以同音为主，形近字少量；聊天比成文随意，老人取样本的约 2 倍并保留手写输入的形近字，其他人设取 0.4–0.8。
+"""
 from __future__ import annotations
 
 PROFILES = {
-    # 退休老人：用语音输入，句子断得碎，口头语多，经常重复确认、跑题
+    # 退休老人：语音输入为主、夹着手写输入，句子断得碎，口头语多，经常重复确认、跑题；手写输入会出形近字
     "retiree": {
         "intensity": 0.55,
         "mode": "voice",
         "dialect": "北方",
-        "weights": {"repeat": 1.5, "digress": 1.4, "typo": 0.8},
+        "handwriting": True,
+        "weights": {"repeat": 1.5, "digress": 1.4, "typo": 0.55},
         "digressions": [
             "哎呀水开了我去关一下",
             "哎我老花镜放哪了",
@@ -21,7 +26,7 @@ PROFILES = {
         "intensity": 0.4,
         "mode": "chat",
         "dialect": None,
-        "weights": {"digress": 1.5, "punct": 1.2},
+        "weights": {"digress": 1.5, "punct": 1.2, "typo": 0.5},
         "digressions": [
             "等下娃在哭",
             "我先给孩子冲个奶粉",
@@ -34,7 +39,7 @@ PROFILES = {
         "intensity": 0.3,
         "mode": "chat",
         "dialect": None,
-        "weights": {"typo": 0.5, "punct": 1.4, "repeat": 0.8},
+        "weights": {"typo": 0.3, "punct": 1.4, "repeat": 0.8},
         "digressions": [
             "等下我室友喊我拿外卖",
             "我这边在面试间隙",
@@ -46,7 +51,7 @@ PROFILES = {
         "intensity": 0.45,
         "mode": "voice",
         "dialect": "西南",
-        "weights": {"digress": 1.2, "repeat": 1.0},
+        "weights": {"digress": 1.2, "repeat": 1.0, "typo": 0.5},
         "digressions": [
             "等一哈有客人来买东西",
             "我这边在盘货",

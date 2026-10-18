@@ -85,14 +85,16 @@ class Humanizer:
         digressions: 跑题句子池，默认用 confusion.DIGRESSIONS；
         keep: 额外保护、不做任何改动的词（例如人设名字）；
         profile: personas/humanize/profiles.py 中的预设名，显式参数优先于预设；
-        max_typos: 每条最多几处错别字，默认 1 + round(3 * intensity)。
+        max_typos: 每条最多几处错别字，默认 1 + round(3 * intensity)；
+        handwriting: 是否出现形近字（手写输入识别错、看错）；默认打字模式开、语音模式关，预设可单独打开
+            （例如老人语音和手写输入混用：retiree 预设在 voice 模式下也有形近字）。
     """
 
     def __init__(self, intensity: Optional[float] = None, seed: Optional[int] = None, *, mode: Optional[str] = None,
                  dialect: Optional[str] = None, ops: Optional[Iterable[str]] = None,
                  weights: Optional[Dict[str, float]] = None, digressions: Optional[Sequence[str]] = None,
                  keep: Sequence[str] = (), profile: Optional[str] = None, max_typos: Optional[int] = None,
-                 rng: Optional[random.Random] = None):
+                 rng: Optional[random.Random] = None, handwriting: Optional[bool] = None):
         prof = dict(PROFILES[profile]) if profile else {}
         if profile and profile not in PROFILES:
             raise KeyError(profile)
@@ -117,6 +119,9 @@ class Humanizer:
         self.digressions = list(digressions or prof.get("digressions") or C.DIGRESSIONS)
         self.keep = tuple(keep) + tuple(prof.get("keep", ()))
         self.max_typos = max_typos if max_typos is not None else 1 + round(3 * self.intensity)
+        if handwriting is None:
+            handwriting = prof.get("handwriting", self.mode == "chat")
+        self.handwriting = bool(handwriting)
         self.rng = rng or random.Random(seed)
         self._used_digressions: List[str] = []
 
@@ -165,7 +170,7 @@ class Humanizer:
             if mask[i] or taken[i]:
                 continue
             alts = list(C.HOMOPHONE_CHARS.get(ch, ()))
-            if self.mode == "chat":
+            if self.handwriting:
                 alts += C.SHAPE_CHARS.get(ch, [])
             if alts:
                 sites.append((i, i + 1, alts))

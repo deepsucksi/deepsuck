@@ -180,3 +180,48 @@ def test_digressions_do_not_repeat_within_one_conversation():
         used += [d for d in pool if d in r.text]
     assert sorted(used) == sorted(pool)
 
+
+def test_handwriting_shape_typos_switch():
+    """形近字：打字模式默认开、语音模式默认关；handwriting=True 时语音模式也有（retiree 预设：老人夹着手写输入）。"""
+    shape_only = "".join(k for k in C.SHAPE_CHARS if k not in C.HOMOPHONE_CHARS)
+    hv = Humanizer(1.0, seed=2, mode="voice", ops=["typo"], max_typos=10, handwriting=True)
+    assert any(hv(shape_only) != shape_only for _ in range(20))
+    hc = Humanizer(1.0, seed=2, mode="chat", ops=["typo"], max_typos=10, handwriting=False)
+    assert all(hc(shape_only) == shape_only for _ in range(20))
+    r = Humanizer(profile="retiree", seed=1)
+    assert r.mode == "voice" and r.handwriting is True
+    assert Humanizer(profile="shop_owner", seed=1).handwriting is False
+    assert Humanizer(profile="mom", seed=1).handwriting is True
+
+
+def test_typo_rate_calibrated_band():
+    """每百字错字数落在 docs/REALISM.md「错字率校准」写的区间：老人保留手写形近字且不低于真人样本（约 0.5），各预设都不超过 1.4。"""
+    import re as _re
+    hz = lambda s: sum("\u4e00" <= c <= "\u9fff" for c in s)
+    yaml = pytest.importorskip("yaml")
+    prompts = Path(__file__).resolve().parents[1] / "prompts"
+
+    def pool(pid):  # 与 docs/REALISM.md 的测量口径相同：人设原句池（sample_lines + elicit_moves + stall_pools）
+        d = yaml.safe_load((prompts / f"{pid}.yaml").read_text(encoding="utf-8"))
+        out = list(d["sample_lines"]) + list(d["elicit_moves"])
+        for v in (d.get("stall_pools") or {}).values():
+            out += list(v)
+        return out
+    rates, shape = {}, 0
+    shapes = {a for v in C.SHAPE_CHARS.values() for a in v}
+    for pid in PROFILES:
+        typ = n = 0
+        lines = pool(pid)
+        for seed in range(60):
+            h = Humanizer(profile=pid, seed=seed)
+            for x in lines:
+                r = h.apply(x)
+                typ += sum(int(o.split(":")[1]) for o in r.ops if o.startswith("typo:"))
+                n += hz(r.text)
+                if pid == "retiree" and any(ch in shapes and ch not in x for ch in r.text):
+                    shape += 1
+        rates[pid] = 100 * typ / n
+    assert 0.5 <= rates["retiree"] <= 1.4, rates
+    assert all(v <= 1.4 for v in rates.values()), rates
+    assert rates["graduate"] < rates["mom"] and rates["graduate"] < rates["retiree"], rates
+    assert shape > 0  # 老人有手写输入的形近字
