@@ -1,0 +1,84 @@
+id: loan_credit
+name: 贷款征信
+aliases: [虚假贷款, 征信修复, 注销校园贷, 清空网贷额度, 解冻费]
+version: 1
+related:
+  scenario: loan
+  tactics: [loan_fraud, campus_loan, threat, app_download, transfer, info_harvest, screen_share]
+targets: 急需资金的个体户和上班族、有过网贷记录的年轻人、征信有瑕疵的人。
+summary: 一类以“低息秒批”为诱饵，下载虚假贷款 APP 后以流水不足、卡号填错为由收取各种费用；另一类冒充网贷客服，称校园贷未注销会影响征信，诱导在正规平台借款后转出“清空额度”。
+stages:
+  - id: hook
+    name: 开场
+    goal: 用低门槛贷款或征信问题引起关注。
+    lines:
+      - 您好，您有一笔无抵押低息贷款额度，最快十分钟到账，需要了解一下吗？
+      - 您大学期间开通过校园贷，现在需要注销，否则会影响您的个人征信。
+  - id: app
+    name: 下载与填资料
+    goal: 引导下载虚假 APP，填写身份证、银行卡等信息。
+    lines:
+      - 您下载{APP名}，按提示填写身份证和银行卡信息，系统自动审核。
+      - 您打开屏幕共享，我帮您看一下名下有哪些网贷平台的额度。
+  - id: obstacle
+    name: 制造放款障碍
+    goal: 以各种理由声称款项被冻结。
+    lines:
+      - 您的银行卡号填错了一位，款项被冻结了，需要交一笔解冻金证明还款能力。
+      - 您的流水不够，需要先存入一笔资金刷一下流水，审核通过后连同贷款一起转给您。
+  - id: credit_threat
+    name: 征信恐吓
+    goal: 用征信黑名单制造恐慌。
+    lines:
+      - 不处理的话会上征信黑名单，以后买房买车都贷不了款。
+      - 这些网贷额度必须全部借出来再转到我们的监管账户，系统才能清零。
+  - id: cashout
+    name: 收款
+    goal: 收取解冻费、服务费或“清空额度”的资金。
+    lines:
+      - 解冻金转到 {银行卡}，户名 {户名}，到账后款项马上释放。
+      - 先交{金额}的会员服务费，我们帮您做征信修复。
+keywords: [无抵押, 低息, 秒批, 额度, 放款, 解冻金, 流水, 保证金, 会员费, 服务费, 征信, 黑名单, 征信修复, 校园贷, 注销, 清空额度, 监管账户, 卡号填错]
+pressure_tactics:
+  - id: credit_threat
+    name: 征信威胁
+    desc: 以影响征信、上黑名单恐吓。
+    lines:
+      - 今天不注销的话，系统会自动上报征信，影响你一辈子。
+  - id: sunk_cost
+    name: 沉没成本
+    desc: 已交的费用不再交就作废。
+    lines:
+      - 前面交的解冻金已经在系统里了，再交最后一笔就能全部放款。
+  - id: fake_regulation
+    name: 冒用监管名义
+    desc: 声称是银保监会、央行要求。
+    lines:
+      - 这是金融监管部门的统一要求，所有校园贷账户必须本月内注销。
+  - id: deadline
+    name: 时限压迫
+    desc: 要求当天完成。
+    lines:
+      - 今天是最后一天，下班前不处理就来不及了。
+intel_exposed: [app, url, bank, phone, name]
+red_flags:
+  - 正规贷款放款前不会收取任何费用；凡是先交钱才放款的都是诈骗。
+  - 征信不能“修复”，也不存在“注销校园贷账户”“清空额度”的说法。
+  - 征信问题请通过中国人民银行征信中心官方渠道查询。
+examples:
+  - id: loan-01
+    turns:
+      - {role: scammer, text: "您好，您有一笔无抵押贷款额度，最快十分钟放款，需要吗？"}
+      - {role: victim, text: "利息多少？要什么手续？"}
+      - {role: scammer, text: "利息很低，您下载我们的APP填一下资料就行，不看征信。"}
+  - id: loan-02
+    turns:
+      - {role: scammer, text: "系统显示您的银行卡号填错了，贷款被冻结，需要交解冻金。"}
+      - {role: victim, text: "我能改一下卡号吗？"}
+      - {role: scammer, text: "冻结后只能人工处理，您交了解冻金证明还款能力，马上解冻放款。"}
+  - id: loan-03
+    turns:
+      - {role: scammer, text: "您上学时开通的校园贷账户还没注销，不处理会影响征信。"}
+      - {role: victim, text: "我不记得开过啊。"}
+      - {role: scammer, text: "那是系统自动开通的。您打开屏幕共享，我帮您看名下的网贷额度，借出来转到监管账户清零。"}
+source: 维护者根据公开反诈宣传归纳改写，不含真实案例原文。

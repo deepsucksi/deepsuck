@@ -1,0 +1,85 @@
+id: investment
+name: 投资理财
+aliases: [虚假网络投资理财, 荐股群, 内幕消息, 虚拟币投资, 原始股]
+version: 1
+related:
+  scenario: null
+  tactics: [high_return, authority, app_download, crypto, transfer, urgency, off_platform]
+targets: 有一定积蓄、关注股票基金或想“稳健增值”的人；退休人员。
+summary: 通过短信、直播或投资群引流，由“导师”“分析师”带单，先在免费荐股中制造准确的假象，再引导到虚假交易平台充值，平台数据可被操控，最终无法提现。
+stages:
+  - id: lure
+    name: 引流
+    goal: 用免费荐股、财经课程把人拉进群。
+    lines:
+      - 免费领取三只牛股，加入投资交流群，由资深分析师每日解盘。
+      - 我们是{机构}的投资顾问，正在做一个公益理财课程，限额报名。
+  - id: build_trust
+    name: 树立权威
+    goal: 展示导师资历、群友晒收益，营造氛围。
+    lines:
+      - 这位是我们的首席分析师，从业十几年，上周推荐的票已经涨了三成。
+      - 群里很多老师傅都跟着赚了，你可以先观察几天。
+  - id: platform
+    name: 引入交易平台
+    goal: 以内部通道、新股配售为由，引导到虚假平台。
+    lines:
+      - 有一个机构专用通道，能拿到普通账户买不到的配售额度，你在{APP名}上开户。
+      - 这个平台是国外持牌的，收益比国内高很多，年化百分之几十很正常。
+  - id: deposit
+    name: 充值与加码
+    goal: 让对方不断入金。
+    lines:
+      - 资金转到平台的对公账户 {银行卡}，到账后马上给你分配额度。
+      - 这一波是大行情，追加资金收益翻倍，名额只剩最后几个。
+  - id: block_withdraw
+    name: 阻止提现
+    goal: 以各种费用和审核拖延，直到失联。
+    lines:
+      - 提现需要先缴纳百分之十五的个人所得税，不能从本金里扣。
+      - 你的账户涉嫌违规交易，需要交保证金才能解冻。
+keywords: [牛股, 荐股, 内幕消息, 分析师, 导师, 带单, 投资群, 机构通道, 配售, 原始股, 年化收益, 稳赚不赔, 保本, 对公账户, 个人所得税, 解冻, 保证金, 数字货币]
+pressure_tactics:
+  - id: high_return
+    name: 高收益承诺
+    desc: 承诺远超正常水平的稳定收益。
+    lines:
+      - 跟着老师操作，月收益百分之二十起步，保本保息。
+  - id: social_proof
+    name: 群体证明
+    desc: 群内“托儿”晒收益、晒提现截图。
+    lines:
+      - 大家看，这是今天群友提现到账的截图。
+  - id: scarcity
+    name: 稀缺与时限
+    desc: 名额有限、窗口期短。
+    lines:
+      - 配售额度只剩最后五个，今天收盘前不入金就没有了。
+  - id: authority
+    name: 冒用权威背书
+    desc: 冒用持牌机构、监管备案名义。
+    lines:
+      - 我们是正规持牌机构，你可以看我们官网上的备案信息。
+intel_exposed: [url, app, bank, wallet, wechat, phone]
+red_flags:
+  - 承诺高收益、保本保息的投资都是诈骗信号。
+  - 只在正规券商、银行的官方 APP 交易，不在群里给的链接或 APP 上开户。
+  - 提现要先交“税费”“保证金”，平台必然是假的。
+examples:
+  - id: inv-01
+    turns:
+      - {role: scammer, text: "您好，我们是投资交流群的助理，老师今天免费推荐三只票，要不要进群看看？"}
+      - {role: victim, text: "免费的吗？要交会员费吗？"}
+      - {role: scammer, text: "完全免费，老师是做公益，您先跟着看几天，觉得准再说。"}
+  - id: inv-02
+    turns:
+      - {role: scammer, text: "老师拿到了一个机构通道，可以买到打折的配售股，您在这个平台开个户。"}
+      - {role: victim, text: "不能在我自己的证券账户里买吗？"}
+      - {role: scammer, text: "普通账户没有这个权限，只有机构平台才有，名额今天就截止了。"}
+  - id: inv-03
+    turns:
+      - {role: victim, text: "我想把收益提出来。"}
+      - {role: scammer, text: "按规定要先缴百分之十五的所得税，交完二十四小时到账。"}
+      - {role: victim, text: "不能直接从收益里扣吗？"}
+      - {role: scammer, text: "不行，这是监管要求，必须单独缴纳。"}
+source: 维护者根据公开反诈宣传归纳改写，不含真实案例原文。

@@ -1,0 +1,84 @@
+id: pig_butchering
+name: 杀猪盘
+aliases: [网络婚恋交友诈骗, 感情投资, 网恋诱导投资]
+version: 1
+related:
+  scenario: pig
+  tactics: [romance, high_return, crypto, off_platform, secrecy, transfer, app_download]
+targets: 单身或情感空窗的中青年、离异人群、通过婚恋或社交平台结识陌生人的人。
+summary: 以恋爱或交友为名长期培养感情（“养猪”），再以内部渠道、平台漏洞为由引导到虚假投资或博彩平台，先小额返利，后以各种费用为由不断加码（“杀猪”）。
+stages:
+  - id: contact
+    name: 搭讪与人设展示
+    goal: 塑造成功、体贴的形象，建立好感。
+    lines:
+      - 不好意思加错人了，不过感觉你挺有眼缘的，可以认识一下吗？
+      - 我在国外做贸易，平时比较忙，难得遇到聊得来的人。
+  - id: grooming
+    name: 培养感情
+    goal: 每天问候、分享生活，形成依赖。
+    lines:
+      - 早安，今天降温了记得多穿点。
+      - 跟你聊天特别放松，感觉认识你很久了。
+  - id: pitch
+    name: 引入投资
+    goal: 不经意提到赚钱渠道，引起兴趣。
+    lines:
+      - 我舅舅在交易平台做技术，发现一个数据漏洞，每天固定时段操作稳赚。
+      - 我只带你一个人，你先注册一个账号，小额试试。
+  - id: small_win
+    name: 小额返利
+    goal: 让对方小额提现成功，建立信任。
+    lines:
+      - 你看，昨天投的已经赚了，先提一点出来试试，放心。
+  - id: escalate
+    name: 加码与收割
+    goal: 引导大额充值，再以税费、保证金等理由阻止提现。
+    lines:
+      - 这次是大行情，机会难得，能投多少投多少，用 USDT 充值到钱包地址 {钱包地址}。
+      - 你的账户被风控了，要先交{金额}的保证金才能提现。
+keywords: [加错人, 缘分, 宝贝, 亲爱的, 内部消息, 平台漏洞, 稳赚, 带你赚钱, 导师, 注册账号, USDT, 充值, 提现, 风控, 保证金, 个人所得税, 解冻]
+pressure_tactics:
+  - id: emotional_bond
+    name: 情感绑架
+    desc: 用感情和共同未来施压。
+    lines:
+      - 我都是为了我们的将来，你连这点都不相信我吗？
+  - id: fomo
+    name: 错失恐惧
+    desc: 强调机会稍纵即逝。
+    lines:
+      - 这个窗口只开今天，错过就要等好几个月。
+  - id: sunk_cost
+    name: 沉没成本
+    desc: 不交费前面的钱就拿不回来。
+    lines:
+      - 你已经投了这么多，现在不交手续费，前面的都提不出来。
+  - id: secrecy
+    name: 要求保密
+    desc: 以“内部渠道”为由不让对方告诉他人。
+    lines:
+      - 这是内部渠道，千万别跟别人说，说了平台会封号。
+intel_exposed: [url, app, wallet, wechat, bank]
+red_flags:
+  - 网上认识、从未见面的人主动带你投资或博彩，几乎都是诈骗。
+  - 提现要先交税费、保证金、解冻费，说明平台是假的。
+  - 不要在对方提供的网址或 APP 上充值，不要用 USDT 等虚拟币给陌生人转账。
+examples:
+  - id: pig-01
+    turns:
+      - {role: scammer, text: "早啊，昨晚梦到你了，今天心情特别好。"}
+      - {role: victim, text: "哈哈，你又贫嘴。"}
+      - {role: scammer, text: "跟你说个事，我舅舅在交易平台，最近有个内部机会，你想不想一起赚点？"}
+  - id: pig-02
+    turns:
+      - {role: scammer, text: "你在{网址}注册一下，先充一点试试，我带你操作。"}
+      - {role: victim, text: "这个平台正规吗？我搜不到。"}
+      - {role: scammer, text: "这是海外平台，国内当然搜不到，所以才有漏洞可以赚。"}
+  - id: pig-03
+    turns:
+      - {role: victim, text: "我想把钱提出来，怎么显示失败？"}
+      - {role: scammer, text: "你的收益太高触发风控了，要先交百分之二十的保证金才能解冻。"}
+      - {role: victim, text: "我已经没钱了。"}
+      - {role: scammer, text: "你找朋友借一点，提出来就能还，不然前面的都白投了。"}
+source: 维护者根据公开反诈宣传归纳改写，不含真实案例原文。

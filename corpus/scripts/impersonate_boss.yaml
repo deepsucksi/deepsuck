@@ -1,0 +1,82 @@
+id: impersonate_boss
+name: 冒充领导熟人
+aliases: [冒充领导, 冒充老板, 冒充亲友, 换号借钱, 冒充老师]
+version: 1
+related:
+  scenario: boss
+  tactics: [acquaintance, transfer, secrecy, urgency, off_platform, kidnap]
+targets: 企业财务与行政人员、学生家长、中老年人（冒充子女或亲戚）。
+summary: 用与领导、亲友相同的头像昵称或“换了新号”加好友，以开会不便、急需周转为由，要求代付或借钱，并阻止电话核实。
+stages:
+  - id: hook
+    name: 换号接触
+    goal: 让对方相信这是认识的人。
+    lines:
+      - 在吗？我是{姓氏}总，这是我的新微信，旧号不用了。
+      - 猜猜我是谁？我换手机号了，你存一下。
+      - 你好，我是孩子的班主任，这是家长群的新群，请扫码加入。
+  - id: rapport
+    name: 寒暄与铺垫
+    goal: 用简短关心和忙碌状态建立情境，减少对方追问。
+    lines:
+      - 最近工作怎么样？我在外面开会，说话不方便，先打字。
+      - 我这边跟客户吃饭呢，等会儿有事要你帮忙。
+  - id: request
+    name: 提出转账请求
+    goal: 给出看似合理的借钱或代付理由。
+    lines:
+      - 我有个合作方的款要急着付，我这边转账限额了，你先帮我垫一下。
+      - 我在外地出了点事，急需一笔钱，回去马上还你。
+      - 下学期的资料费请家长统一转到{二维码}，今天截止。
+  - id: payout
+    name: 给出收款账户
+    goal: 提供第三方账户，并制造“已转账”的假象。
+    lines:
+      - 你转到这个账户 {银行卡}，户名 {户名}，是合作方的对公账户。
+      - 我先给你转过去了，你看这张转账截图，到账有延迟，你先帮我付。
+keywords: [新微信, 换号, 在开会, 不方便接电话, 合作方, 垫付, 周转, 转账限额, 急用, 回头还你, 别跟别人说, 转账截图, 家长群, 资料费]
+pressure_tactics:
+  - id: hierarchy
+    name: 上下级压力
+    desc: 利用对领导的服从心理。
+    lines:
+      - 这件事很急，你办好了我记着，别耽误。
+  - id: no_call
+    name: 阻止电话核实
+    desc: 借口开会、信号不好拒绝通话。
+    lines:
+      - 现在不方便接电话，有事打字说，别打过来。
+  - id: secrecy
+    name: 要求保密
+    desc: 不让对方问其他同事或家人。
+    lines:
+      - 这事先别跟财务其他人讲，回头我亲自跟他们说。
+  - id: fake_receipt
+    name: 伪造转账凭证
+    desc: 发送伪造的转账截图，让对方以为钱已到。
+    lines:
+      - 截图发你了，银行显示两小时内到账，你先替我转出去。
+intel_exposed: [bank, wechat, phone, name]
+red_flags:
+  - 熟人突然换号并要求转账，一定要用原来的电话号码打过去核实，或当面确认。
+  - 对方以开会、信号差为由拒绝通话，是高危信号。
+  - 不要相信转账截图，以自己账户实际到账为准。
+examples:
+  - id: boss-01
+    turns:
+      - {role: scammer, text: "在吗？我是{姓氏}总，这是我的私人微信。"}
+      - {role: victim, text: "{姓氏}总好，有什么事吗？"}
+      - {role: scammer, text: "我在开会不方便说话，有个合作方的款急着付，你先帮我转一下。"}
+      - {role: victim, text: "我打您电话确认一下吧？"}
+      - {role: scammer, text: "别打，会议室不能接电话，你直接转到 {银行卡} 就行。"}
+  - id: boss-02
+    turns:
+      - {role: scammer, text: "妈，我手机掉水里了，这是同学的号。"}
+      - {role: victim, text: "你声音怎么怪怪的？"}
+      - {role: scammer, text: "感冒了嗓子哑。我学校要交一笔培训费，今天截止，你转到老师这个账户。"}
+  - id: boss-03
+    turns:
+      - {role: scammer, text: "各位家长好，这是新开的班级群，请把下学期资料费转到群里的二维码。"}
+      - {role: victim, text: "原来的群为什么不用了？"}
+      - {role: scammer, text: "原来的群人太多，学校要求换群，今天下午五点前必须交齐。"}
+source: 维护者根据公开反诈宣传归纳改写，不含真实案例原文。
