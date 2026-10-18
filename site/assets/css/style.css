@@ -24,7 +24,7 @@ code,kbd,.mono{font-family:var(--mono);font-size:.92em}
 .topbar{position:sticky;top:0;z-index:20;background:rgba(247,246,243,.88);backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid transparent;transition:border-color .2s}
 .topbar .wrap{display:flex;align-items:center;gap:28px;height:68px}
 .brand{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:600;font-size:17px;letter-spacing:-.01em;text-decoration:none}
-.brand img{width:26px;height:26px;filter:grayscale(1) contrast(1.2) brightness(.35)}
+.brand img{width:26px;height:26px}
 .nav{display:flex;gap:26px;margin-left:auto;align-items:center;font-size:var(--fs-s)}
 .nav a{color:var(--muted);text-decoration:none} .nav a:hover{color:var(--ink)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;border:1px solid var(--line2);background:transparent;color:var(--ink)!important;padding:11px 20px;border-radius:999px;font:inherit;font-size:var(--fs-s);font-weight:500;line-height:1.2;cursor:pointer;text-decoration:none;transition:background .15s,border-color .15s,color .15s}

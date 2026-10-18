@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DeepSuck logo">
   <title>DeepSuck — 对话气泡里的沙漏：把骗子的时间耗掉</title>
-  <rect width="64" height="64" rx="15" fill="#1d1813"/>
-  <path d="M15 12h34a7 7 0 0 1 7 7v20a7 7 0 0 1-7 7H31l-11 8.5V46h-5a7 7 0 0 1-7-7V19a7 7 0 0 1 7-7z" fill="none" stroke="#f5a524" stroke-width="3.6" stroke-linejoin="round"/>
-  <path d="M24.5 19.5h15M24.5 38.5h15" stroke="#ffd27a" stroke-width="3" stroke-linecap="round"/>
-  <path d="M26.5 19.5c0 6.5 10.5 6 10.5 9.5s-10.5 3-10.5 9.5M37.5 19.5c0 6.5-10.5 6-10.5 9.5s10.5 3 10.5 9.5" fill="none" stroke="#f5a524" stroke-width="2.6" stroke-linecap="round"/>
-  <path d="M28.6 37.2c1.2-2.6 2.4-3.6 3.4-3.6s2.2 1 3.4 3.6z" fill="#ffd27a"/>
-  <circle cx="32" cy="24.6" r="1.4" fill="#ffd27a"/>
+  <rect width="64" height="64" rx="15" fill="#161514"/>
+  <path d="M15 12h34a7 7 0 0 1 7 7v20a7 7 0 0 1-7 7H31l-11 8.5V46h-5a7 7 0 0 1-7-7V19a7 7 0 0 1 7-7z" fill="none" stroke="#f7f6f3" stroke-width="3.6" stroke-linejoin="round"/>
+  <path d="M24.5 19.5h15M24.5 38.5h15" stroke="#f7f6f3" stroke-width="3" stroke-linecap="round"/>
+  <path d="M26.5 19.5c0 6.5 10.5 6 10.5 9.5s-10.5 3-10.5 9.5M37.5 19.5c0 6.5-10.5 6-10.5 9.5s10.5 3 10.5 9.5" fill="none" stroke="#f7f6f3" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M28.6 37.2c1.2-2.6 2.4-3.6 3.4-3.6s2.2 1 3.4 3.6z" fill="#c08a52"/>
+  <circle cx="32" cy="24.6" r="1.4" fill="#c08a52"/>
 </svg>
