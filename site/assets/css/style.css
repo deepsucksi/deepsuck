@@ -133,8 +133,8 @@ mark.intel{background:transparent;color:inherit;border-bottom:1.5px solid #d9b98
 .composer textarea:focus{outline:none;border-color:var(--ink)}
 .side{display:flex;flex-direction:column;gap:20px}
 .side .panel{padding:22px 24px}
-.side h4{margin:0 0 16px;font-size:13px;color:var(--ink);font-weight:600;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.side h4 .note{font-weight:400}
+.side h2,.side h4{margin:0 0 16px;font-size:13px;line-height:1.6;letter-spacing:0;color:var(--ink);font-weight:600;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.side h2 .note,.side h4 .note{font-weight:400}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:20px 16px}
 .stat{background:transparent;border:0;padding:0}
 .stat .v{font-size:24px;font-weight:500;color:var(--ink);font-family:var(--mono);letter-spacing:-.02em;line-height:1.3}
