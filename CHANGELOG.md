@@ -9,6 +9,15 @@
 - docs/EVAL.md「像不像真人」新增「自动评委基线」：2026-10-18 种子 1 跑 120 题，实际约 0.017 元；露馅率 raw 16.7%、humanized 26.7%，差 +0.10（95% 区间 −0.033 到 0.233）。注明是代理指标，不能代替人工盲测，并列出观察到的评委偏差（错别字被当机器信号、跨题比较、文字相同的句对判断不一致）。
 - 测试：`corpus/tests/test_realism_judge.py` 用假客户端，不联网（批次不跨表、确定性参数、缓存不重复计费、超预算拒绝、上限不能超过 1 元、Key 不外泄、默认关闭）。
 
+### 拖延句池扩充：修复语料版模拟器的起疑挂断与重复（人设语料）
+
+- 换上 `scam_scripts.json` 后骗子会反复要求保密、反复催贷款手续，人设的 `secrecy` / `loan_stall` 池只有 1–4 句且不在拖延轮换链上，起疑挂断由 1% 升到 28%、完全重复率由 0.3% 升到 3.9%（14b7037 情报分析报告）。
+- `site/assets/core/personas.json`（JS / Python 共用的单一数据源，`core-data.js` 已重新生成）：王阿姨、李大爷、小林的 `secrecy` 各 12–13 句、`loan_stall` 各 13–14 句，均为全新虚构改写句，表现配合、犹豫、跑题、重复确认，不拒绝、不识破；小林原有一句暗示识破的保密句已替换。同样会被反复触发的 `fake_progress`、`romance`、`elicit_url` 各补 4–7 句。
+- `personas/prompts/*.yaml` 新增 `stall_pools`：周伯、小陈妈妈、小宇、郑老板的 `secrecy` / `loan_stall` 各 12 句，供大模型模式与语料生成使用。
+- 引擎最小接线（JS / Python 同步）：`secrecy`、`loan_stall`、`task_stall`、`campus_stall` 接入 `STALL_FAMILY` 轮换链；`pick` 加近期去重（近 8 次选中的台词不再选，除非别无可选）。模拟器代码未改。`tests/fixtures/sessions.json` 已用 `npm run fixtures` 重新生成。
+- 模拟器（语料台词，30 个种子，规则引擎）：起疑挂断 28% → 0%，完全重复率 3.9% → 0.0%，平均拖延轮数 15.9 → 17.0，提取率 100% → 100%；手写台词下起疑挂断 1% → 0%、重复率 0.3% → 0.1%。
+- 新增回归测试：`python/tests/test_stall_pools.py`（池大小下限、在轮换链上、用完轮换不重复、近期去重窗口、模拟器指标阈值）、`personas/tests/test_stall_pools.py`、`tests/engine.test.js` 新增一例。
+
 ### 真实话术语料、提取器噪声鲁棒性与跨回合拼接（情报分析）
 
 - 新增 `site/assets/core/scam_scripts.json`（CC BY 4.0，含 JSON Schema 与 node / pytest 校验）：7 类 × 5 阶段共 181 条骗子侧话术，据公开反诈宣传、公安 / 网信部门通报、法院与检察院典型案例和 TeleAntiFraud（Apache-2.0）归纳后重写，不含原文，号码网址一律占位符；只有确实对应具体案例、通报段落或数据集条目的 40 条标注案例 / 通报 / 数据集并给出 `sourceRef`，其余标“据公开反诈宣传改写”。来源与许可见 `corpus/SOURCES.md`、`DATA_LICENSE`。

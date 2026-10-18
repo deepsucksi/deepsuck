@@ -64,10 +64,15 @@ class Session:
         self.est_seconds = 0
         self.turn = 0
         self.last_intent = None
+        self._recent_picks: list = []  # 近 RECENT_N 次选中的台词（近期去重）
         self._recent: list = []  # 最近几个骗子回合的原文（只在内存里，用于跨回合拼接；不进 report）
 
     # 拖延类意图的"兄弟"顺序：某个意图的台词用完时换一种拖法，而不是立刻重复同一句
-    STALL_FAMILY = ["urgency_stall", "tech_trouble", "slow_walk", "ask_repeat", "misunderstand", "info_stall", "generic"]
+    # secrecy（被要求保密）与 loan_stall（贷款 / 征信类拖延）也在链上：语料版骗子会反复要求保密、反复催贷款手续
+    STALL_FAMILY = ["urgency_stall", "tech_trouble", "slow_walk", "ask_repeat", "misunderstand", "info_stall", "generic",
+                    "secrecy", "loan_stall", "task_stall", "campus_stall"]
+    # 近期去重：近 RECENT_N 次选中的台词不再选（除非别无可选），跨意图生效
+    RECENT_N = 8
 
     def exhausted(self, intent: str) -> bool:
         lst = self.persona["templates"].get(intent)
@@ -111,13 +116,24 @@ class Session:
             g = self.persona["templates"]["generic"]
             it = g[math.floor(self.rng() * len(g))]
             return it if isinstance(it, str) else it["t"]
-        pool = ctx_hits or [i for i in avail if i not in used]
+        recent = self._recent_picks
+
+        def text(i):
+            it = lst[i]
+            return it if isinstance(it, str) else it["t"]
+
+        def fresh(i):
+            return text(i) not in recent
+        unused = [i for i in avail if i not in used]
+        pool = [i for i in ctx_hits if fresh(i)] or [i for i in unused if fresh(i)] or ctx_hits or unused
         if not pool:
             used.clear()
-            pool = avail
+            pool = [i for i in avail if fresh(i)] or avail
         idx = pool[math.floor(self.rng() * len(pool))]
         used.append(idx)
         it = lst[idx]
+        recent.append(text(idx))
+        del recent[:-self.RECENT_N]
         return it if isinstance(it, str) else it["t"]
 
     def fill(self, tpl: str, vars: Optional[dict] = None) -> str:

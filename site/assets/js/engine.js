@@ -46,6 +46,7 @@
     this.turn = 0;
     // 最近几个骗子回合的原文（只在内存里，用于跨回合拼接；不进 report）
     Object.defineProperty(this, 'recentTurns', { value: [], writable: true, enumerable: false });
+    Object.defineProperty(this, 'recentPicks', { value: [], writable: true, enumerable: false }); // 近 RECENT_N 次选中的台词（近期去重）
   }
 
   /**
@@ -65,16 +66,27 @@
       if (used.indexOf(i) < 0 && typeof list[i] !== 'string') ctxHits.push(i);
     }
     if (!avail.length) { list = this.persona.templates.generic; return list[Math.floor(this.rng() * list.length)]; }
-    var pool = ctxHits.length ? ctxHits : avail.filter(function (i) { return used.indexOf(i) < 0; });
-    if (!pool.length) { used.length = 0; pool = avail; }
+    var recent = this.recentPicks;
+    function text(i) { var it = list[i]; return typeof it === 'string' ? it : it.t; }
+    function fresh(i) { return recent.indexOf(text(i)) < 0; }
+    var unused = avail.filter(function (i) { return used.indexOf(i) < 0; });
+    var pool = ctxHits.filter(fresh);
+    if (!pool.length) pool = unused.filter(fresh);
+    if (!pool.length) pool = ctxHits.length ? ctxHits : unused;
+    if (!pool.length) { used.length = 0; pool = avail.filter(fresh); if (!pool.length) pool = avail; }
     var idx = pool[Math.floor(this.rng() * pool.length)];
     used.push(idx);
     var it = list[idx];
+    recent.push(text(idx));
+    while (recent.length > RECENT_N) recent.shift();
     return typeof it === 'string' ? it : it.t;
   };
 
   // 拖延类意图的"兄弟"顺序：某个意图的台词用完时换一种拖法，而不是立刻重复同一句（评测发现重复是骗子起疑挂断的主因）
-  var STALL_FAMILY = ['urgency_stall', 'tech_trouble', 'slow_walk', 'ask_repeat', 'misunderstand', 'info_stall', 'generic'];
+  // secrecy（被要求保密）与 loan_stall（贷款 / 征信类拖延）也在链上：语料版骗子会反复要求保密、反复催贷款手续，台词用完要换一种拖法
+  var STALL_FAMILY = ['urgency_stall', 'tech_trouble', 'slow_walk', 'ask_repeat', 'misunderstand', 'info_stall', 'generic', 'secrecy', 'loan_stall', 'task_stall', 'campus_stall'];
+  // 近期去重：近 RECENT_N 次选中的台词不再选（除非别无可选），跨意图生效
+  var RECENT_N = 8;
 
   /** 该意图的无条件台词是否都已用过（本轮） */
   Session.prototype.exhausted = function (intent) {

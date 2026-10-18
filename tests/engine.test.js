@@ -43,3 +43,20 @@ test('LLM：发送给模型的消息已脱敏，输出过滤长数字串', () =>
   assert.equal(msgs[0].role, 'system');
   assert.ok(!/\d{5,}/.test(L.sanitizeReply('验证码是 834921，你记一下')));
 });
+
+test('拖延句池：secrecy / loan_stall 每个人设 ≥12 条、在轮换链上、用完轮换不重复、近期去重', () => {
+  const P = require('../site/assets/core/personas.json');
+  for (const p of P.personas) {
+    for (const k of ['secrecy', 'loan_stall']) {
+      const t = p.templates[k].map((x) => (typeof x === 'string' ? x : x.t));
+      assert.ok(new Set(t).size >= 12, p.id + ' ' + k);
+    }
+  }
+  for (const pid of ['wang', 'li', 'lin']) {
+    const s = new E.Session({ scenario: 'loan', persona: pid, rng: () => 0, now: () => 0 });
+    const out = [];
+    for (let i = 0; i < 16; i++) out.push(s.pick(s.freshIntent('secrecy'), '别告诉家人'));
+    assert.equal(new Set(out).size, out.length, pid);
+    assert.notEqual(s.freshIntent('secrecy'), 'secrecy');
+  }
+});
