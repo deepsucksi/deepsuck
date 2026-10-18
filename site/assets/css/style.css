@@ -87,6 +87,7 @@ section .sub{color:var(--muted);margin:0 0 64px;max-width:640px;font-size:var(--
 .tag.full{color:var(--ink);border-color:var(--ink)}
 .personas-line{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:32px}
 .personas-line .note{margin-right:6px}
+.personas-line .tag{white-space:normal;max-width:100%}
 .ethics{display:grid;grid-template-columns:repeat(2,1fr);gap:0 56px}
 .ethics li{list-style:none;border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:15px;line-height:1.85}
 .ethics li b{display:block;color:var(--ink);margin-bottom:4px}
@@ -286,7 +287,7 @@ a.card:hover h3{text-decoration:underline;text-underline-offset:4px;text-decorat
   .cards3,.ethics{grid-template-columns:1fr}
   .demo{grid-template-columns:1fr}
   .dash-stats{grid-template-columns:repeat(3,1fr)}
-  .nav a.hide-m{display:none}
+  .nav a.hide-m,.nav button.hide-m{display:none}
   .hero{padding-top:72px;padding-bottom:80px}
   .hero h1{font-size:40px}
   .hero-chat{height:440px}
@@ -408,3 +409,13 @@ section.end{padding:72px 0 96px}
 .more [hidden]{display:none}
 .icard2[tabindex="-1"]:focus{outline:none}
 @media (max-width:640px){.intel-stats{grid-template-columns:repeat(2,1fr);gap:0 16px;--stats-h:360px}.more .btn{width:100%}}
+/* 英文模式窄屏：顶栏按钮文字比中文长（Engine settings / Try the sandbox），提前用 360px 档的紧凑顶栏，避免横向溢出（#36） */
+@media (max-width:420px){
+  html[lang="en"] .brand .brand-wordmark{width:96px}
+  html[lang="en"] .brand-symbol{width:36px}
+  html[lang="en"] .topbar .nav{gap:8px}
+  html[lang="en"] .topbar .btn.small{padding:8px 10px}
+  html[lang="en"] .topbar .wrap{gap:8px}
+}
+/* 筛选下拉的英文选项较长：不撑破工具栏（#36） */
+.intel-toolbar select{max-width:100%;min-width:0}

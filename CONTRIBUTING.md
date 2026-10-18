@@ -18,6 +18,7 @@
 - 模块为 UMD 风格：浏览器挂在 `window.DeepSuck.*`，Node 中 `require` 使用。请保持零依赖。
 - **规则与台词在 `site/assets/core/*.json`**（提取正则、话术关键词、人设台词、场景样例）。改完运行 `npm run build:core` 生成 `core-data.js`；正则请只用 JS 与 Python `re` 都支持的语法（不用命名分组、`\p{}`）。
 - 台词可以写成 `{"when": "流水|冻结", "t": "……"}`：只在骗子本轮提到相关词时才会出现，避免答非所问。
+- 博客文章在 `content/blog/{zh,en}/*.md`，改完运行 `npm run blog` 重新生成 `site/blog/` 与 `site/sitemap.xml` 并一起提交（写法见 `content/blog/README.md`）。
 - 情报库数据在 `site/data/intel.json`，必须通过 `intel.js` 的校验（`npm test` 会检查）。真实情报请走 Issue 模板提交，由维护者审核收录。
 
 - 维护者与常驻贡献者的完整流程（分支、合并、worktree、部署、发版、完成定义）见 [docs/CONTRIBUTING-dev.md](docs/CONTRIBUTING-dev.md)，关键架构决策见 [docs/adr/](docs/adr/)。

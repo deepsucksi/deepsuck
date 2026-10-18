@@ -17,7 +17,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 CN = timezone(timedelta(hours=8))
 
@@ -40,18 +40,74 @@ def _env_i(name: str, default: int) -> int:
         return default
 
 
+# 大模型单价表（元 / 百万 token，华北 2（北京）原价、非思考模式、最低一档输入长度；以百炼控制台为准）。
+# 来源（2026-10-19 查询）：
+#   qwen-plus      https://help.aliyun.com/zh/model-studio/qwen-plus       输入≤128K：0.8 / 2
+#   qwen3.7-flash  https://help.aliyun.com/zh/model-studio/qwen3-7-flash   输入≤32K：0.2 / 0.8
+#   qwen3.8-flash  https://help.aliyun.com/zh/model-studio/qwen3-8-flash   输入≤1M：0.8 / 2.7
+# 每轮输入约 1–3K token，都落在最低一档。快照名（如 qwen-plus-2025-12-01）按前缀取价。
+# 覆盖优先级：VOICE_PRICE_LLM_IN/OUT_PER_M（语音专用）> PRICE_LLM_IN/OUT_PER_M（Node 代理那份，只在语音模型
+# 与代理的 LLM_MODEL 相同时才套用）> PRICE_LLM_TABLE="模型:输入:输出,..." > 下表。
+LLM_PRICES: Dict[str, Tuple[float, float]] = {
+    "qwen-plus": (0.8, 2.0),
+    "qwen3.7-flash": (0.2, 0.8),
+    "qwen3.8-flash": (0.8, 2.7),
+}
+DEFAULT_LLM_MODEL = "qwen3.7-flash"   # 语音默认模型（#40 选型，见 docs/LLM_AB.md）
+PROXY_LLM_MODEL = "qwen-plus"         # Node 文字代理 LLM_MODEL 的默认值（server/index.js）
+
+
+def llm_price_table(env=None) -> Dict[str, Tuple[float, float]]:
+    e = os.environ if env is None else env
+    table = dict(LLM_PRICES)
+    for item in (e.get("PRICE_LLM_TABLE") or "").split(","):
+        parts = [x.strip() for x in item.split(":")]
+        if len(parts) == 3 and parts[0]:
+            try:
+                table[parts[0]] = (float(parts[1]), float(parts[2]))
+            except ValueError:
+                pass
+    return table
+
+
+def llm_price(model: str, env=None) -> Tuple[float, float]:
+    """按模型取（输入, 输出）单价。精确名优先，其次最长前缀（快照名）；查不到按表里最贵的算（预算宁高勿低）。"""
+    table = llm_price_table(env)
+    if model in table:
+        return table[model]
+    hits = [k for k in table if model.startswith(k + "-")]
+    if hits:
+        return table[max(hits, key=len)]
+    return max(table.values(), key=lambda p: p[0] + p[1])
+
+
 @dataclass
 class Prices:
     """单价（元）。默认值为 2026-10 百炼北京地域原价，以控制台为准。"""
     asr_per_sec: float = 0.00024      # paraformer-realtime-v2
     tts_per_char: float = 0.0001      # cosyvoice-v3-flash：1 元 / 万字符
-    llm_in_per_m: float = 0.8         # qwen-plus 输入：元 / 百万 token
-    llm_out_per_m: float = 2.0        # qwen-plus 输出
+    llm_in_per_m: float = 0.2         # qwen3.7-flash 输入：元 / 百万 token
+    llm_out_per_m: float = 0.8        # qwen3.7-flash 输出
+    llm_model: str = DEFAULT_LLM_MODEL
 
     @classmethod
-    def from_env(cls) -> "Prices":
-        return cls(_env_f("PRICE_ASR_PER_SEC", 0.00024), _env_f("PRICE_TTS_PER_10K_CHARS", 0.8) / 10000,
-                   _env_f("PRICE_LLM_IN_PER_M", 0.8), _env_f("PRICE_LLM_OUT_PER_M", 2.0))
+    def from_env(cls, model: Optional[str] = None, env=None) -> "Prices":
+        e = os.environ if env is None else env
+        model = model or e.get("DEEPSUCK_LLM_MODEL") or DEFAULT_LLM_MODEL
+        p_in, p_out = llm_price(model, e)
+
+        def f(name: str, default: float) -> float:
+            try:
+                return float(e.get(name, default))
+            except (TypeError, ValueError):
+                return default
+
+        # PRICE_LLM_* 是 Node 代理按 LLM_MODEL 记账用的；语音换了别的模型时不能沿用，否则预算算错
+        same = model == (e.get("LLM_MODEL") or PROXY_LLM_MODEL)
+        p_in = f("VOICE_PRICE_LLM_IN_PER_M", f("PRICE_LLM_IN_PER_M", p_in) if same else p_in)
+        p_out = f("VOICE_PRICE_LLM_OUT_PER_M", f("PRICE_LLM_OUT_PER_M", p_out) if same else p_out)
+        out = cls(f("PRICE_ASR_PER_SEC", 0.00024), f("PRICE_TTS_PER_10K_CHARS", 0.8) / 10000, p_in, p_out, model)
+        return out
 
 
 @dataclass
