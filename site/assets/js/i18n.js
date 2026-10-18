@@ -18,7 +18,7 @@
     'c1.t': 'Fake customer service · refunds', 'c1.d': '"Double compensation for a defective item", "membership auto-charge" — pushes app downloads, screen sharing, OTP codes.',
     'c2.t': 'Fake police · "safe account"', 'c2.d': '"You are suspected of money laundering", "keep it secret", "move funds to a safe account for checks".',
     'c3.t': 'Pig-butchering · romance/investment', 'c3.d': 'Romance first, then an "insider platform" with a "mentor", pushing USDT deposits.',
-    'c4.t': 'Task / click-farming rebates', 'c4.d': '"Like videos, paid daily", a ¥5 starter bonus, then "advance payment tasks", "complete 3 combo orders to withdraw", "unfreeze fees".',
+    'c4.t': 'Task scam (fake order-brushing rebates)', 'c4.d': '"Like videos, paid daily", a ¥5 starter bonus, then "advance payment tasks", "complete 3 combo orders to withdraw", "unfreeze fees".',
     'c5.t': 'Fake loans · credit repair', 'c5.d': '"Instant unsecured loan", then "card number typo froze your funds", "show repayment ability by transferring", "credit repair fee".',
     'c6.t': 'Fake boss / acquaintance', 'c6.d': '"It\'s your boss, new number", "in a meeting, don\'t call", "advance a deposit to our partner for me". Auntie asks who killed the office orchid.',
     'c7.t': '"Cancel your campus loan"', 'c7.d': '"You opened a student loan, cancel it or ruin your credit" — then borrow from loan apps and move it to a "verification account".',
@@ -75,7 +75,8 @@
     'tag.情感操控': 'Emotional manipulation',
     'tag.高收益承诺': 'Promises high returns',
     'tag.涉加密货币': 'Involves crypto',
-    'tag.刷单返利': 'Click-farming rebates',
+    'tag.刷单返利': 'Task scam',
+    'tag.刷单返利.full': 'Task scam (fake order-brushing rebates)',
     'tag.连单卡单': 'Combo orders, stuck orders',
     'tag.诱导垫付': 'Pushes advance payments',
     'tag.冒充金融机构': 'Fake financial institution',
@@ -213,16 +214,16 @@
   // 由 JS 渲染的数据文案（场景、人设、话术标签、情报类型等；原文在 assets/core/*.json 与各页 JS 中，不改动）：中文原文 → 英文
   var DATA = {
     '冒充客服 · 退款理赔': 'Fake customer service · refunds', '冒充公检法 · 安全账户': 'Fake police · "safe account"',
-    '杀猪盘 · 投资/感情': 'Pig-butchering · romance/investment', '刷单返利 · 做任务赚佣金': 'Click-farming rebates · paid tasks for commission',
+    '杀猪盘 · 投资/感情': 'Pig-butchering · romance/investment', '刷单返利 · 做任务赚佣金': 'Task scam · paid tasks for commission',
     '虚假贷款 · 征信修复': 'Fake loans · credit repair', '冒充领导/熟人 · 借钱转账': 'Fake boss / acquaintance · borrowing and transfers',
     '注销校园贷 · 清空网贷额度': '"Cancel your campus loan" · draining loan-app credit', '其他': 'Other',
-    '王阿姨': 'Auntie Wang', '李大爷': 'Uncle Li', '小林': 'Xiao Lin', '小陈妈妈': 'Xiao Chen\'s mom', '小宇': 'Xiaoyu', '郑老板': 'Boss Zheng',
+    '王阿姨': 'Auntie Wang', '李大爷': 'Uncle Li', '小林': 'Xiao Lin', '小陈妈妈': 'Xiao Chen\'s Mom', '小宇': 'Xiaoyu', '郑老板': 'Boss Zheng',
     '王': 'W', '李': 'L', '林': 'L', '骗': 'S',
     '62 岁退休会计，热心，爱确认，爱唠家常': 'Retired accountant, 62; warm-hearted, always double-checks, loves small talk',
     '71 岁退休钳工，说话慢，不着急，凡事要问清楚': 'Retired fitter, 71; speaks slowly, never in a hurry, wants everything made clear',
     '大二学生，好奇心爆棚，什么都想问个明白': 'Second-year college student, bursting with curiosity, wants to understand everything',
-    '冒充公检法': 'Fake police', '刷单返利': 'Click-farming rebates', '冒充领导': 'Fake boss', '冒充供应商': 'Fake supplier',
-    '要求保密': 'Demands secrecy', '安全账户': '"Safe account"', '刷单返佣': 'Click-farming commission', '诱导垫付': 'Pushes advance payments',
+    '冒充公检法': 'Fake police', '刷单返利': 'Task scam', '冒充领导': 'Fake boss', '冒充供应商': 'Fake supplier',
+    '要求保密': 'Demands secrecy', '安全账户': '"Safe account"', '刷单返佣': 'Order-brushing commission', '诱导垫付': 'Pushes advance payments',
     '下载APP': 'App download', '要求转账': 'Demands a transfer', '阻止核实': 'Blocks verification', '冒充熟人': 'Poses as an acquaintance', '更换收款账户': 'Switches receiving account',
     '银行卡': 'Bank card', '户名': 'Account name', '电话': 'Phone', 'APP': 'App', '网址': 'URL',
     '据公开反诈宣传改写': 'Adapted from public anti-scam PSAs', '据法院公开典型案例改写': 'Adapted from published court cases',
@@ -232,7 +233,7 @@
     '要求转账/付款': 'Demands transfer/payment', '诱导下载APP/屏幕共享': 'Pushes app download/screen sharing', '屏幕共享/远程控制': 'Screen sharing/remote control',
     '高收益承诺': 'Promises high returns', '要求保密/隔离受害人': 'Demands secrecy/isolates the victim', '威胁恐吓': 'Threats and intimidation',
     '情感操控': 'Emotional manipulation', '套取个人信息': 'Harvests personal information', '涉加密货币': 'Involves crypto',
-    '引流至私聊/其他平台': 'Moves to private chat/another platform', '中奖/补贴诱饵': 'Prize/subsidy bait', '刷单/做任务返佣': 'Click-farming/task commissions',
+    '引流至私聊/其他平台': 'Moves to private chat/another platform', '中奖/补贴诱饵': 'Prize/subsidy bait', '刷单/做任务返佣': 'Order-brushing/task commissions',
     '虚假贷款/征信修复': 'Fake loans/credit repair', '冒充熟人/领导': 'Poses as acquaintance/boss', '虚假绑架/家人出事': 'Fake kidnapping/family emergency',
     '注销校园贷/清空额度': '"Cancel campus loan"/drain credit',
     '银行卡号': 'Bank card number', '电话号码': 'Phone number', 'BTC 地址': 'BTC address', 'ETH/ERC20 地址': 'ETH/ERC20 address', 'TRON/TRC20 地址': 'TRON/TRC20 address',
@@ -267,7 +268,10 @@
       var k = n.getAttribute('data-i18n');
       n.innerHTML = lang === 'en' && EN[k] ? EN[k] : ZH[i];
     });
-    attrNodes.forEach(function (a) { a.n.setAttribute(a.name, lang === 'en' && EN[a.key] ? EN[a.key] : a.zh); });
+    attrNodes.forEach(function (a) {
+      var v = lang === 'en' && EN[a.key] ? EN[a.key] : a.zh;
+      if (v == null) a.n.removeAttribute(a.name); else a.n.setAttribute(a.name, v); // 中文里没有的属性（如只给英文短标签加的 title）切回中文时去掉
+    });
     document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
     links.forEach(function (a) { a.setAttribute('href', a.getAttribute(lang === 'en' ? 'data-href-en' : 'data-href-zh')); });
     document.querySelectorAll('.lang-toggle').forEach(function (b) {
