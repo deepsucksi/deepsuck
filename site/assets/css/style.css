@@ -38,7 +38,6 @@ code,kbd,.mono{font-family:var(--mono);font-size:.92em}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .gh-btn{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)!important;text-decoration:none}
 .gh-btn:hover{color:var(--ink)!important}
-.gh-count{display:block;height:18px;width:auto;border-radius:4px}
 
 /* 首页 */
 .hero{padding-top:120px;padding-bottom:120px}
@@ -315,7 +314,8 @@ a.card:hover h3{text-decoration:underline;text-underline-offset:4px;text-decorat
   .intel-toolbar .dl{width:100%}
   .intel-toolbar .dl .btn{flex:1}
 }
-.hc-body{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 48px);mask-image:linear-gradient(to bottom,transparent 0,#000 48px)}
+/* 顶部 32px 全透明，任何时刻滚出的气泡都不会露出硬切口；再用 104px 柔和过渡 */
+.hc-body{-webkit-mask-image:linear-gradient(to bottom,transparent 0,transparent 32px,rgba(0,0,0,.35) 72px,#000 136px);mask-image:linear-gradient(to bottom,transparent 0,transparent 32px,rgba(0,0,0,.35) 72px,#000 136px)}
 .two .sub{margin-bottom:24px}
 section.end{padding:72px 0 96px}
 @media (max-width:640px){.chat-head .note{display:none}.chat-head .who{white-space:nowrap}}
