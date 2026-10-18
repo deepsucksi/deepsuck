@@ -124,7 +124,7 @@ const chrome = findChrome();
 const missing = !pw ? '找不到 playwright-core' : !chrome ? '找不到 Chrome' : '';
 const required = process.env.I18N_EN_REQUIRED === '1';
 
-test('EN 模式：渲染后的可见文本与 aria/title/alt/placeholder 不含中文（白名单除外）', { skip: missing && !required ? missing + '，跳过（CI 设 I18N_EN_REQUIRED=1 时会失败）' : false, timeout: 180000 }, async () => {
+test('EN 模式：渲染后的可见文本与 aria/title/alt/placeholder 不含中文（白名单除外），且无横向溢出', { skip: missing && !required ? missing + '，跳过（CI 设 I18N_EN_REQUIRED=1 时会失败）' : false, timeout: 180000 }, async () => {
   assert.ok(!missing, missing);
   const srv = await serve();
   const base = 'http://127.0.0.1:' + srv.address().port;
@@ -149,6 +149,9 @@ test('EN 模式：渲染后的可见文本与 aria/title/alt/placeholder 不含�
         await page.waitForLoadState('networkidle').catch(() => {});
         await page.waitForTimeout(300);
         const hits = await page.evaluate(collect, args);
+        // 英文文案普遍比中文长：顺带检查页面没有横向溢出
+        const ovf = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (ovf > 1) hits.push('横向溢出 ' + ovf + 'px');
         for (const h of hits) report.push(`[${vp.width}] ${pg.name} ${pg.url}  ${h}`);
         for (const e of errors) report.push(`[${vp.width}] ${pg.name} ${pg.url}  页面脚本错误: ${e}`);
         await ctx.close();

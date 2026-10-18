@@ -31,6 +31,7 @@ from loguru import logger
 from ..disclosure import disclosure_text
 from ..persona import voice_opening
 from .. import records as REC
+from ..guard import DEFAULT_LLM_MODEL
 from .. import trace as TR
 from .base import CallInfo, TelephonyAdapter, get_adapter, list_adapters
 
@@ -84,7 +85,7 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
     session = Session(scenario=scenario, persona=persona, engine=f"phone-{engine}")
     recorder = None  # 电话线路没法勾选同意：不录音，只存脱敏文字
     trace = TR.CallTrace(channel="phone", consent=TR.SIP_CONSENT, persona=session.persona["id"], scenario=session.scenario["id"],
-                         model=os.environ.get("DEEPSUCK_LLM_MODEL", "qwen-plus") if engine == "llm" else "rule",
+                         model=os.environ.get("DEEPSUCK_LLM_MODEL", DEFAULT_LLM_MODEL) if engine == "llm" else "rule",
                          engine=engine, caller=call.from_number)
     trace.session = session
     reason = {"v": ""}
