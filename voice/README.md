@@ -51,6 +51,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 | `netpatch.py` | UDP 端口段限制、公网 IP 候选（服务器部署用） |
 | `probe.py` | `python -m voice.probe`：aiortc 端到端探针（部署后验证 UDP/ICE） |
 | `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用 qwen-plus → CosyVoice → Paraformer 的冒烟测试 |
+| `telephony/` | 电话接入抽象层（默认关闭）：`TelephonyAdapter` 基类 + 注册表，`ws-raw` 通用 SIP/WebSocket 适配器、`pipecat-ws`（Twilio/Telnyx/Plivo/Exotel）；阿里云呼入适配器设计稿。见 [telephony/README.md](telephony/README.md) |
 
 人设音色：王阿姨 `longlaoyi_v3`（龙老姨），李大爷 `longlaobo_v3`（龙老伯），小林 `longanyang`。
 

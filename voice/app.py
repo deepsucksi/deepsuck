@@ -372,6 +372,11 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
         await handler.handle_patch_request(SmallWebRTCPatchRequest(pc_id=body["pc_id"], candidates=cands))
         return {"status": "ok"}
 
+    # 电话入口（默认关闭；需 VOICE_TELEPHONY=1 + VOICE_TELEPHONY_TOKEN，见 voice/telephony/README.md）
+    from .telephony.server import add_telephony_routes
+
+    app.state.telephony = add_telephony_routes(app, engine=engine, limits=limits, budget=budget, gate=gate)
+
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app
 
