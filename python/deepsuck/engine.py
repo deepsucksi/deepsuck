@@ -334,6 +334,10 @@ class Session:
         if (intent in self.PURE_STALL and self.last_intent in self.PURE_STALL
                 and self.persona["templates"].get("coop_step")):
             intent = "coop_step"
+        # 可选的意图门控（默认无；语音端用它保证只接对方已经说过的话，见 voice/persona.py gate_intent）
+        gate = getattr(self, "intent_gate", None)
+        if gate is not None:
+            intent = gate(intent)
         # 同一场已经要过的情报不再直接索要，改成"我在找"（re_ask）
         goal = self.ELICIT_GOAL.get(intent)
         if goal:

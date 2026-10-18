@@ -28,6 +28,7 @@ from fastapi import WebSocket
 from loguru import logger
 
 from ..disclosure import disclosure_text
+from ..persona import voice_opening
 from .. import records as REC
 from .base import CallInfo, TelephonyAdapter, get_adapter, list_adapters
 
@@ -125,7 +126,7 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
     @transport.event_handler("on_client_connected")
     async def _connected(_t, _c):
         st["connected"] = st["heard"] = time.time()
-        msg = session.opening()
+        msg = voice_opening(session)  # 机器人先开口：只说“喂？哪位”，不按场景预设
         if context is not None:
             context.add_message({"role": "assistant", "content": msg["text"]})
         frames = [TTSSpeakFrame(t) for t in (disclosure_text(), msg["text"]) if t]

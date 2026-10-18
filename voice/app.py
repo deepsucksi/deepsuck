@@ -45,7 +45,7 @@ from . import guard as G  # noqa: E402
 from . import records as REC  # noqa: E402
 from .disclosure import disclosure_text  # noqa: E402
 from .dashscope_ws import PERSONA_VOICES, persona_voice  # noqa: E402
-from .persona import system_prompt  # noqa: E402
+from .persona import system_prompt, voice_opening  # noqa: E402
 from . import backchannel as BC  # noqa: E402
 
 LLM_BASE_URL = os.environ.get("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
@@ -263,7 +263,7 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
         @transport.event_handler("on_client_connected")
         async def _connected(_t, _c):
             st["connected"] = st["heard"] = time.time()
-            msg = session.opening()
+            msg = voice_opening(session)  # 机器人先开口：只说“喂？哪位”，不按场景预设
             if context is not None:
                 context.add_message({"role": "assistant", "content": msg["text"]})
             await notify({"type": "limits", "maxMinutes": limits.max_minutes, "maxTurns": limits.max_turns})

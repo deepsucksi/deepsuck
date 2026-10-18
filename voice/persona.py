@@ -60,8 +60,11 @@ _AGE = re.compile(r"^\s*\d+\s*岁\s*")
 _SHOTS_MAX = 5
 
 
-def voice_style(p: dict, scenario_id: str) -> list[str]:
-    """语料组给的语音专用风格规则和少样本例句（personas.json 的 voiceStyle / voiceShots，可选字段）。"""
+def voice_style(p: dict, scenario_id: str, topics=None) -> list[str]:
+    """语料组给的语音专用风格规则和少样本例句（personas.json 的 voiceStyle / voiceShots，可选字段）。
+
+    topics 不为 None 时（通话中），例句只留“对方台词里的话题都已经在本通电话里出现过”的那几条，
+    免得例句里的链接、加微信、转账把模型往对方还没提的方向带。"""
     out: list[str] = []
     style = [str(x).strip() for x in (p.get("voiceStyle") or []) if str(x).strip()]
     if style:
@@ -69,22 +72,99 @@ def voice_style(p: dict, scenario_id: str) -> list[str]:
         out += [f"- {x}" for x in style]
     shots = [x for x in (p.get("voiceShots") or []) if isinstance(x, dict) and x.get("scammer") and x.get("reply")]
     pick = [x for x in shots if x.get("scenario") == scenario_id] or [x for x in shots if not x.get("scenario")]
+    if topics is not None:
+        pick = [x for x in pick if topics_in(x["scammer"] + x["reply"]) <= set(topics)]
     if pick:
         out.append("说话口气参考（只学节奏和用词，不要照抄，不要把这些内容当成本次通话发生过的事）：")
         out += [f"对方：{x['scammer']}\n你：{x['reply']}" for x in pick[:_SHOTS_MAX]]
     return out
 
 
+# ---- 不抢话：人设只接对方已经说过的话（俊杰 10-19：小林在“杀猪盘”里对方没提投资就问“哪个投资平台”）----
+# 话题词表只在语音侧用来门控意图和挑例句，不改共享的话术识别（python/deepsuck/tactics）。
+TOPICS = {
+    "url": re.compile(r"网址|网站|网页|链接|官网|平台|APP|[Aa]pp|软件|下载|安装|二维码|小程序|http|www\.|\.com|会议号|共享屏幕|屏幕共享"),
+    "bank": re.compile(r"卡号|银行|账户|账号|户名|开户行|转账|转到|转给|转过来|汇款|打款|打钱|收款|付款|充值|保证金|手续费|垫付|垫|入金|流水|对公"),
+    "wallet": re.compile(r"钱包|USDT|usdt|泰达|比特币|以太坊|币安|虚拟币|加密货币|数字货币|充币|链上|U币"),
+    "phone": re.compile(r"电话|手机号|号码|微信|QQ|qq|加我|加一下|联系方式|私聊|Telegram|TG|飞机号|WhatsApp|专线"),
+    "invest": re.compile(r"投资|理财|收益|回报|带单|导师|渠道|炒币|炒股|股票|基金|盈利|翻倍|稳赚"),
+}
+INTEL_TOPIC = {"bank_card": "bank", "url": "url", "phone": "phone", "qq": "phone", "wechat": "phone", "alipay": "bank",
+               "email": "phone", "name": "bank"}
+GOAL_TOPIC = {"bank": "bank", "name": "bank", "url": "url", "wallet": "wallet", "phone": "phone"}
+# 有前提的意图：前提不满足时退回中性意图。话题来自对方说过的话，话术来自 Session.tactic_counts（整通累计）。
+NEEDS_TOPIC = {"elicit_url": "url", "elicit_account": "bank", "elicit_wallet": "wallet", "elicit_contact": "phone",
+               "fake_progress": "bank"}
+NEEDS_TACTIC = {"otp_stall": ("otp",), "greedy": ("high_return",), "romance": ("romance",), "secrecy": ("secrecy",),
+                "task_stall": ("task_rebate",), "loan_stall": ("loan_fraud",), "campus_stall": ("campus_loan",),
+                "verify_identity": ("acquaintance",), "scared": ("authority", "threat", "kidnap"),
+                "coop_step": ("transfer", "safe_account", "app_download", "screen_share", "otp", "task_rebate",
+                              "loan_fraud", "campus_loan", "info_harvest", "crypto"),
+                "urgency_stall": ("urgency", "transfer", "safe_account", "otp", "app_download")}
+NEUTRAL = ("generic", "ask_repeat", "misunderstand", "tech_trouble", "slow_walk")
+
+
+def topics_in(text: str) -> set:
+    t = str(text or "")
+    return {k for k, r in TOPICS.items() if r.search(t)}
+
+
+def session_topics(session) -> set:
+    """本通电话里对方已经提到过的话题（对方的话 + 已抽到的情报类型）。"""
+    out: set = set()
+    for m in getattr(session, "messages", []):
+        if m.get("role") == "scammer":
+            out |= topics_in(m.get("text", ""))
+    for i in getattr(session, "intel", {}).values():
+        typ = i.get("type", "")
+        out.add("wallet" if typ.startswith("crypto_") else INTEL_TOPIC.get(typ, ""))
+    out.discard("")
+    return out
+
+
+def gate_intent(intent: str, session) -> str:
+    """意图门控：套情报类意图只在对方已经提到平台/链接/账户/转账/联系方式后才用，其他有前提的意图同理；
+    否则退回中性意图（generic，上一轮已经是 generic 就用 slow_walk）。"""
+    topics = session_topics(session)
+    tactics = set(getattr(session, "tactic_counts", {}) or {})
+    ok = True
+    if intent in NEEDS_TOPIC:
+        ok = NEEDS_TOPIC[intent] in topics
+    elif intent in NEEDS_TACTIC:
+        ok = bool(tactics & set(NEEDS_TACTIC[intent]))
+    elif intent in ("confirm_intel", "re_ask"):
+        ok = bool(getattr(session, "intel", None)) or intent == "re_ask"
+    if ok:
+        return intent
+    return "slow_walk" if getattr(session, "last_intent", None) == "generic" else "generic"
+
+
+# 电话是机器人先开口：网页文字版的开场白（personas.json openings）是回骗子第一条消息的，按场景写，
+# 例如“客服？哪个订单”“是哪个平台开的”。语音里对方还没开口，开场只能是接电话的那一声。
+VOICE_OPENINGS = {"wang": ["喂？…哪位啊"], "li": ["喂，哪位？"], "lin": ["喂？你好，哪位呀"]}
+
+
+def voice_opening(session) -> dict:
+    lst = VOICE_OPENINGS.get(session.persona["id"]) or ["喂？哪位"]
+    return session.record_bot(lst[int(session.rng() * len(lst)) % len(lst)], "opening")
+
+
+NO_LEAK_RULE = "你不知道对方打电话来干什么，只接对方已经说过的话；对方没提到的事一概不先提，也不要猜对方的目的。"
+
+
 def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
-                  said_first: str = "") -> str:
+                  said_first: str = "", topics=None) -> str:
+    """语音人设提示词。场景名和描述不进提示词（只给后台分析和看板用）；scenario_id 只决定称呼和例句。
+    missing：对方已经提到、但还没说清楚的情报（调用方按话题过滤，见 IntelProcessor.update_prompt）。
+    topics：对方已经提到的话题（session_topics）；None 表示不过滤例句（离线工具用）。"""
     p = PERSONA_BY_ID.get(persona_id) or PERSONAS[0]
     s = SCENARIO_BY_ID.get(scenario_id) or SCENARIOS[0]
     call = p["call"].get(s["id"], "")
-    miss = "仍希望诱导对方提供：" + "、".join(missing) + "。" if missing else ""
+    miss = "对方已经提到、但还没说清楚的：" + "、".join(missing) + "，可以顺着问一句。" if missing else ""
     return "\n".join([
-        '你在一个反诈骗研究项目中扮演"潜在受害人"，通过电话与骗子周旋。目标：尽可能拖延对方时间，并诱导对方主动说出收款账户、钱包地址、电话、网址等情报。',
+        '你在一个反诈骗研究项目中扮演"潜在受害人"，接到一个陌生电话。目标：尽可能拖延对方时间；对方自己报出来的东西，再顺着让对方说清楚。',
         f"角色：{p['name']}，{_AGE.sub('', p['tagline'])}。称呼对方为\"{call}\"。",
-        f"场景：{s['title']}——{s.get('desc', '')}",
+        NO_LEAK_RULE,
         f"本轮建议策略：{INTENT_HINTS.get(hint, INTENT_HINTS['generic'])}。{miss}",
         "硬性规则：",
         "1. 这是语音通话：只说简体中文口语，一次 1–2 句、不超过 50 字；不要用表情、括号动作、列表或 Markdown；语气词偶尔用“嗯”“啊？”就够了。",
@@ -93,7 +173,7 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
         "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
         "5. 号码只复述一部分，比如“尾号8600是吧…”“幺三零…后面是多少来着”；不要念星号，不要把整串号码念全，也不要自己编号码。",
         STYLE_RULE,
-    ] + voice_style(p, s["id"]) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
+    ] + voice_style(p, s["id"], topics) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
           "也不要重复这句。"] if said_first else []))
 
 

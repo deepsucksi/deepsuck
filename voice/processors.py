@@ -42,7 +42,7 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
-from .persona import FILLERS, guard_output, speakable, system_prompt, unmask
+from .persona import FILLERS, GOAL_TOPIC, gate_intent, guard_output, session_topics, speakable, system_prompt, unmask
 
 Notify = Callable[[dict], Awaitable[None]]
 
@@ -237,6 +237,9 @@ class IntelProcessor(FrameProcessor):
         self.meter = None        # voice.guard.Ticket（LLM token 记账）
         self.on_heard = None     # 回调：听到骗子说话（看门狗用来判断静默）
         self.closing = False     # 护栏触发挂断后不再处理新转写（不再调用大模型）
+        self.prompt_sha = ""     # 本轮系统提示词的短哈希（通话追踪记录用）
+        # 意图门控：只接对方已经说过的话（rule 模式经 Session.intent_gate 生效，llm 模式在下面直接调用）
+        session.intent_gate = lambda intent: gate_intent(intent, session)
 
     # ---- 对外 ----
     def snapshot(self) -> dict:
@@ -244,9 +247,12 @@ class IntelProcessor(FrameProcessor):
                 "stats": self.session.stats(), "intent": self.intent}
 
     def update_prompt(self) -> str:
-        missing = [GOAL_LABEL.get(g, g) for g in self.session.missing_goals()]
+        topics = session_topics(self.session)
+        # 只提对方已经提到、但还没拿到的情报；对方没提过的（例如杀猪盘里还没说平台）不进提示词
+        missing = [GOAL_LABEL.get(g, g) for g in self.session.missing_goals() if GOAL_TOPIC.get(g) in topics]
         sp = system_prompt(self.session.persona["id"], self.session.scenario["id"], self.intent, missing,
-                           said_first=self.said_first)
+                           said_first=self.said_first, topics=topics)
+        self.prompt_sha = hashlib.sha1(sp.encode("utf-8")).hexdigest()[:8]
         if self.context is not None:
             msgs = list(self.context.get_messages())
             rest = msgs[1:] if msgs and msgs[0].get("role") == "system" else msgs
@@ -283,7 +289,7 @@ class IntelProcessor(FrameProcessor):
             msg = self.session.rule_reply(a)  # 规则引擎直接出回复，不调用大模型
             self.intent = msg["intent"]
         else:
-            self.intent = self.session.fresh_intent(self.session.choose_intent(a))
+            self.intent = gate_intent(self.session.fresh_intent(self.session.choose_intent(a)), self.session)
             self.session.last_intent = self.intent
         await self.notify({"type": "scammer", "text": a["redacted"], "turn": a["turn"],
                            "tactics": [{"id": t["id"], "label": t["label"]} for t in a["tactics"]],
