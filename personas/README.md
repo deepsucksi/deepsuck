@@ -11,7 +11,10 @@ personas/
 │   ├── graduate.yaml     小宇 · 刚毕业学生
 │   └── shop_owner.yaml   郑老板 · 个体小老板
 ├── prompt.py             拼接完整系统提示词（需要 PyYAML）
-├── humanize/             真人化后处理（零依赖）
+├── humanize/             文字打字特征：真人化后处理（零依赖）
+├── voice_traits.yaml     语音说话特征：每个人设的口头语、听错反问、语速口音、停顿与扯家常节奏（不含错别字）
+├── voice_traits.py       读取上面的 YAML；fillers() 与 voice/persona.py 的 FILLERS 同格式
+├── REALISM.md            真人感设计：文字打字特征与语音说话特征分两章
 └── tests/
 ```
 
@@ -62,6 +65,10 @@ python -m personas.humanize "你说的账户是哪个银行的？" --profile sho
 - 真人化只负责“像人”，不负责安全；输出仍需经过 `voice/persona.py` 的 `guard_output` 等守卫；
 - 语音通话（TTS）一般只需要 `repeat`、`digress`、`dialect`，错别字和标点对 TTS 没有意义；
 - 混淆表是手工整理的小表（`humanize/confusion.py`），扩充来源见 [corpus/SOURCES.md](../corpus/SOURCES.md)。
+
+## 语音说话特征（voice_traits.yaml）
+
+覆盖王阿姨、李大爷、小林和 4 个新人设，字段 `backchannel`（8–12 条）、`mishear`、`speech`、`rhythm`，说明见 [REALISM.md](REALISM.md#二语音说话特征)。`python -m personas.voice_traits` 打印可直接替换 `FILLERS` 的整张表。
 
 ## 测试
 
