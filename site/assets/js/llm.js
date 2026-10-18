@@ -7,7 +7,7 @@
  *   2) direct —— 浏览器直连（Key 存在本机浏览器，仅适合本地自用；部分服务商不支持跨域）。
  * 隐私：发送给大模型的对话记录在本地已脱敏；模型输出也会再经过安全过滤与脱敏。
  * 任何失败都会自动回退到规则引擎。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 (function (root, factory) {
   var isNode = typeof module === 'object' && module.exports;

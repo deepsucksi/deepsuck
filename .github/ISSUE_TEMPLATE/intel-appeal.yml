@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        **DeepSuck 为非官方项目，与 DeepSeek 无关。** 我们会优先处理申诉：先将条目标记为 `disputed`（页面隐藏具体值），核实后下架或恢复。
+        我们会优先处理申诉：先将条目标记为 `disputed`（页面隐藏具体值），核实后下架或恢复。
         **请不要在这里填写你的手机号、银行卡号、姓名等个人信息**——条目 ID 就足够了。
   - type: input
     id: entry_id

@@ -1,6 +1,6 @@
 # 公开诈骗情报库：发布策略与数据格式
 
-> **非官方项目，与 DeepSeek 无关。** 页面：<https://deepsuck.si/intel.html> · 数据：[`site/data/intel.json`](../site/data/intel.json) · 格式：[`site/data/intel.schema.json`](../site/data/intel.schema.json)（`deepsuck.intel-library/v1`）
+> 页面：<https://deepsuck.si/intel.html> · 数据：[`site/data/intel.json`](../site/data/intel.json) · 格式：[`site/data/intel.schema.json`](../site/data/intel.schema.json)（`deepsuck.intel-library/v1`）
 
 DeepSuck 会**公开发布**它收集到的诈骗情报，让任何人都能检索、拦截与预警。
 

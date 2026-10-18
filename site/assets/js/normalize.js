@@ -3,7 +3,7 @@
  * 中文"去武装"写法规范化：骗子常把联系方式写成 "微 信"、"V信"、"扣扣"、"xxx点com"、"幺三九…"、"１３９"、"1 3 9 0 …" 来躲避关键词过滤。
  * 在提取情报与识别话术之前先规范化；同时维护 规范化文本 → 原文 的位置映射，确保脱敏时替换的是原文中的对应片段。
  * 规则数据见 site/assets/core/extractors.json 的 obfuscation 段。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 (function (root, factory) {
   var isNode = typeof module === 'object' && module.exports;

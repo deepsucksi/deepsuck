@@ -4,7 +4,7 @@
     python -m voice.probe --url http://127.0.0.1:7860 --wav scammer.wav --seconds 40
     python -m voice.probe --url https://live.deepsuck.si --origin https://live.deepsuck.si --wav scammer.wav
 
-会真实调用 DashScope（按量计费，受服务端预算护栏约束）。非官方项目，与 DeepSeek 无关。
+会真实调用 DashScope（按量计费，受服务端预算护栏约束）。
 """
 from __future__ import annotations
 

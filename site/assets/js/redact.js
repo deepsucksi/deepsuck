@@ -1,7 +1,7 @@
 /*!
  * DeepSuck — redact.js
  * 脱敏模块：所有对外展示 / 导出的情报都必须经过这里。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 (function (root, factory) {
   var mod = factory();

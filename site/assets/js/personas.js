@@ -2,7 +2,7 @@
  * DeepSuck — personas.js
  * 机器人人设与话术模板。模板变量：{call} 对骗子的称呼，{intel} 刚拿到的情报（已脱敏），{ask} 追问下一条情报。
  * 底线：人设永远不给出真实的验证码、卡号、密码、身份证号；只"假装配合"，拖延并套取对方信息。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 (function (root, factory) {
   var isNode = typeof module === 'object' && module.exports;

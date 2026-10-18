@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DeepSuck 实时服务一键部署（全新 Ubuntu 22.04+/Debian 12+，root 运行）。非官方项目，与 DeepSeek 无关。
+# DeepSuck 实时服务一键部署（全新 Ubuntu 22.04+/Debian 12+，root 运行）。
 #
 #   curl -fsSL https://raw.githubusercontent.com/deepsucksi/deepsuck/main/deploy/bootstrap.sh -o bootstrap.sh
 #   sudo DASHSCOPE_API_KEY=sk-xxx ACME_EMAIL=you@example.com bash bootstrap.sh

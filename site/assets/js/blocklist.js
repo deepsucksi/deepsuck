@@ -5,7 +5,7 @@
  *     浏览器只按需拉取 1–3 个分片（每片几十 KB），查询的域名不会发给第三方。
  *   - 钱包：ScamSniffer（GPL-3.0）、OFAC SDN 地址列表，运行时从 GitHub 拉取整表后本地比对（不打包进本仓库）。
  * 命中仅供参考：域名可能被回收、地址可能被冒用，不能作为认定依据。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 (function (root, factory) {
   var isNode = typeof module === 'object' && module.exports;

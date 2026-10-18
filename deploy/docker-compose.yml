@@ -1,4 +1,4 @@
-# DeepSuck 实时服务：Caddy（HTTPS）+ Node 大模型代理 + Pipecat 语音演示（+ 可选 coturn）。非官方项目，与 DeepSeek 无关。
+# DeepSuck 实时服务：Caddy（HTTPS）+ Node 大模型代理 + Pipecat 语音演示（+ 可选 coturn）。
 #   cd deploy && cp .env.example .env && 编辑 .env && docker compose up -d --build
 #   可选 TURN：docker compose --profile turn up -d
 # 全部使用 host 网络：WebRTC 需要服务器真实 UDP 端口（VOICE_UDP_PORTS），host 网络最省内存也最少 NAT 坑。

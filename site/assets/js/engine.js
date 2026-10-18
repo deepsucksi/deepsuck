@@ -2,7 +2,7 @@
  * DeepSuck — engine.js
  * 规则/模板人设引擎（默认引擎，纯浏览器运行，无需 API Key）。
  * Session 负责：接收骗子消息 → 提取情报 → 识别话术 → 选择拖延意图 → 生成人设回复 → 汇总报告。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 (function (root, factory) {
   var isNode = typeof module === 'object' && module.exports;
@@ -286,7 +286,7 @@
     var st = this.stats();
     return {
       schema: REPORT_SCHEMA,
-      generator: 'DeepSuck ' + VERSION + ' (非官方项目，与 DeepSeek 无关)',
+      generator: 'DeepSuck ' + VERSION,
       generatedAt: new Date(this.now()).toISOString(),
       disclaimer: '本报告由沙盒演示生成，所有敏感信息均已脱敏，仅用于防诈研究与教育，不得用于骚扰、报复或任何违法用途。',
       session: {

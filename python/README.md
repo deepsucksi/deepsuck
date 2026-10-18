@@ -1,6 +1,6 @@
 # deepsuck（Python core）
 
-> **非官方项目，与 DeepSeek 无关。** Apache-2.0
+> Apache-2.0
 
 DeepSuck 浏览器端规则引擎的 Python 等价实现，**直接读取** `site/assets/core/*.json`（同一份正则、台词与场景），供语音端 `voice/`、评测脚本与后端复用：
 

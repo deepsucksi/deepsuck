@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://deepsuck.si/data/intel.schema.json",
   "title": "DeepSuck 公开诈骗情报库 (deepsuck.intel-library/v1)",
-  "description": "非官方项目，与 DeepSeek 无关。发布策略：phone/crypto_wallet/url/app/script 完整公开；bank_card/account/name/id_card 必须部分打码。",
+  "description": "发布策略：phone/crypto_wallet/url/app/script 完整公开；bank_card/account/name/id_card 必须部分打码。",
   "type": "object",
   "required": ["schema", "updatedAt", "policy", "entries"],
   "properties": {

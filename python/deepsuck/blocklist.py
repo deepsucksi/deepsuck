@@ -217,7 +217,7 @@ def _guess_type(v: str) -> str:
 def main(argv=None) -> int:
     import argparse
 
-    ap = argparse.ArgumentParser(description="DeepSuck 黑名单比对（非官方项目，与 DeepSeek 无关）")
+    ap = argparse.ArgumentParser(description="DeepSuck 黑名单比对")
     ap.add_argument("values", nargs="+", help="网址/域名/钱包地址")
     ap.add_argument("--base", default=None, help="域名分片目录或 URL（默认 %s）" % DEFAULT_BASE)
     a = ap.parse_args(argv)

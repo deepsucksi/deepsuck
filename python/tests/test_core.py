@@ -13,7 +13,7 @@ def test_report_never_leaks_raw():
     assert sorted(i["type"] for i in s.intel_list()) == ["bank_card", "phone"]
     raw = {i["type"]: i["raw"] for i in s.raw_intel()}
     assert raw["phone"].replace(" ", "") == "13900112233"
-    assert "非官方项目，与 DeepSeek 无关" in s.report()["generator"]
+    assert s.report()["generator"].startswith("DeepSuck ")
 
 
 def test_bot_output_is_redacted():

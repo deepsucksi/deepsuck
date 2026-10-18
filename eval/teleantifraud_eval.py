@@ -8,7 +8,7 @@
 
 方法：只看来电方（role=left）的话，逐句 classify() 累计话术命中，用 risk_score() 得到 0–100 分，按阈值判为诈骗。
 用法：python eval/teleantifraud_eval.py [--dir 已有的克隆目录] [--json out.json]
-非官方项目，与 DeepSeek 无关 · Apache-2.0
+Apache-2.0
 """
 import argparse
 import collections

@@ -10,7 +10,7 @@ def test_config_and_index():
     assert {p["id"] for p in r["personas"]} >= {"wang", "li", "lin"}
     assert "test-key" not in str(r)  # 不回显 key
     html = c.get("/").text
-    assert "非官方项目，与 DeepSeek 无关" in html
+    assert "DeepSuck" in html
     assert c.get("/static/voice.js").status_code == 200
     assert c.get("/static/logo.svg").status_code == 200
 

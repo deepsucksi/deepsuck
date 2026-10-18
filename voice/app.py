@@ -1,4 +1,4 @@
-"""DeepSuck 语音演示（非官方项目，与 DeepSeek 无关）。
+"""DeepSuck 语音演示。
 
     python -m voice.app            # http://localhost:7860 ，浏览器麦克风扮演"骗子"
     python -m voice.app --engine rule   # 不调用大模型，规则引擎出话（仍需 ASR/TTS）
@@ -273,7 +273,7 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
     if ports or public_ip:
         logger.info(f"WebRTC: UDP 端口 {ports or '随机'}，公网 IP 候选 {public_ip or '无'}，服务端 STUN {server_ice_servers() or '无'}")
 
-    app = FastAPI(title="DeepSuck voice (非官方项目，与 DeepSeek 无关)")
+    app = FastAPI(title="DeepSuck voice")
 
     @app.on_event("startup")
     async def _prewarm():

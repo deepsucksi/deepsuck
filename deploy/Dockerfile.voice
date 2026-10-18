@@ -1,4 +1,4 @@
-# DeepSuck 语音演示（voice/，Pipecat + SmallWebRTC + DashScope）。非官方项目，与 DeepSeek 无关。
+# DeepSuck 语音演示（voice/，Pipecat + SmallWebRTC + DashScope）。
 # 构建上下文：仓库根目录。只装运行时依赖（不含 pytest/httpx）。
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \

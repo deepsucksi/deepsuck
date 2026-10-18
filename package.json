@@ -1,7 +1,7 @@
 {
   "name": "deepsuck",
   "version": "0.4.0",
-  "description": "开源 AI 反诈“拖住”机器人：拖延骗子时间并提取脱敏诈骗情报。非官方项目，与 DeepSeek 无关。",
+  "description": "开源 AI 反诈“拖住”机器人：拖延骗子时间并提取脱敏诈骗情报。",
   "license": "Apache-2.0",
   "private": true,
   "engines": {

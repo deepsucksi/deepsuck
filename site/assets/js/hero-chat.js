@@ -1,4 +1,4 @@
-/*! DeepSuck — hero-chat.js：首页循环播放的示例对话（纯展示，台词与数据均为虚构）。Apache-2.0 · 非官方项目，与 DeepSeek 无关 */
+/*! DeepSuck — hero-chat.js：首页循环播放的示例对话（纯展示，台词与数据均为虚构）。Apache-2.0 */
 (function () {
   'use strict';
   var box = document.getElementById('heroChat');

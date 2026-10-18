@@ -6,7 +6,7 @@
  *   完整公开：诈骗电话、加密货币钱包地址、诈骗网址/域名、APP/平台名称、话术/手法模式
  *   部分打码：银行卡号、收款户名/姓名、身份证号、支付宝/微信/QQ/邮箱等个人账号
  *     —— 很多"跑分卡/收款卡"属于被利用、被冒用的普通人，公开完整信息可能伤及无辜。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 (function (root, factory) {
   var isNode = typeof module === 'object' && module.exports;

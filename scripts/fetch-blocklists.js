@@ -5,7 +5,7 @@
  *   site/data/blocklist/d/00..ff.txt  每行 "domain<TAB>bits"（bits 第 i 位 = meta.sources[i]）
  * 产物不入库（.gitignore），由 .github/workflows/pages.yml 在部署前运行；本地可运行 npm run blocklists。
  * 用法：node scripts/fetch-blocklists.js [--out site/data/blocklist] [--from-dir 本地已下载的 txt 目录]
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 'use strict';
 const fs = require('fs');
@@ -76,7 +76,7 @@ async function main() {
     hash: 'fnv1a32(domain) % shards, hex2',
     total: all.size,
     sources,
-    notice: '数据来自上述公开项目（MIT），按原许可证再分发；命中仅供参考，不能作为认定依据。非官方项目，与 DeepSeek 无关。'
+    notice: '数据来自上述公开项目（MIT），按原许可证再分发；命中仅供参考，不能作为认定依据。'
   };
   fs.writeFileSync(path.join(OUT, 'meta.json'), JSON.stringify(meta, null, 1) + '\n');
   const lic = [];

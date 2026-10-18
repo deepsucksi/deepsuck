@@ -1,4 +1,4 @@
-/*! DeepSuck — intel-page.js：公开情报库页面（检索 / 筛选 / 下载）。Apache-2.0 · 非官方项目，与 DeepSeek 无关 */
+/*! DeepSuck — intel-page.js：公开情报库页面（检索 / 筛选 / 下载）。Apache-2.0 */
 (function () {
   'use strict';
   var D = window.DeepSuck, I = D.intel;

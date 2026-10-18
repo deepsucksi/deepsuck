@@ -2,7 +2,7 @@
  * DeepSuck — extractors.js
  * 情报提取器：从诈骗方消息中识别银行卡、手机号、钱包地址、URL、QQ/微信/支付宝等。
  * 所有敏感结果都附带 masked 字段（来自 redact.js），UI 与导出只能使用 masked。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 (function (root, factory) {
   var isNode = typeof module === 'object' && module.exports;

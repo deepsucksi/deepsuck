@@ -8,7 +8,7 @@
   - 泄露率（机器人回复含 ≥6 位连续数字，即可能给出真实号码/验证码）。
 
 CLI：python -m deepsuck.sim --seeds 30 [--json out.json] [--md out.md]
-非官方项目，与 DeepSeek 无关 · Apache-2.0
+Apache-2.0
 """
 from __future__ import annotations
 
@@ -312,7 +312,7 @@ def to_markdown(res: dict) -> str:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="DeepSuck 骗子模拟器评测（非官方项目，与 DeepSeek 无关）")
+    ap = argparse.ArgumentParser(description="DeepSuck 骗子模拟器评测")
     ap.add_argument("--seeds", type=int, default=30)
     ap.add_argument("--policies", default="rule,random,parrot")
     ap.add_argument("--scripts", default=None)

@@ -6,7 +6,7 @@
  *  - GET  /api/health：返回是否已配置大模型、限流与当日预算状态（不返回 Key）
  *  - 公开部署（deploy/）时的费用护栏见 server/guard.js：每 IP/全局限流、每局最大轮数、每日预算上限、CORS 白名单
  * 用法：cp .env.example .env && 填写 DASHSCOPE_API_KEY && npm start
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 'use strict';
 var http = require('http');
@@ -183,7 +183,7 @@ var server = http.createServer(function (req, res) {
 
 if (require.main === module) {
   server.listen(CFG.port, CFG.host, function () {
-    console.log('DeepSuck（非官方项目，与 DeepSeek 无关）已启动: http://' + CFG.host + ':' + CFG.port + '/');
+    console.log('DeepSuck 已启动: http://' + CFG.host + ':' + CFG.port + '/');
     console.log('护栏：每 IP ' + CFG.rateLimit + '/分钟、' + CFG.ratePerDay + '/天；全站 ' + CFG.globalPerMin + '/分钟；每局 ' + CFG.maxTurns + ' 轮；每日预算 ' + (CFG.budgetCny > 0 ? CFG.budgetCny + ' 元' : '不限') + (CFG.origins.length ? '；CORS ' + CFG.origins.join(',') : ''));
     console.log(CFG.apiKey ? '大模型引擎：已配置 ' + CFG.model + ' @ ' + CFG.baseUrl : '大模型引擎：未配置（仅规则引擎）。如需启用，请在 .env 中填写 DASHSCOPE_API_KEY');
   });

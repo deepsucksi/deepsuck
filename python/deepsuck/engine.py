@@ -296,7 +296,7 @@ class Session:
     def report(self) -> dict:
         return {
             "schema": REPORT_SCHEMA,
-            "generator": f"DeepSuck {VERSION} (非官方项目，与 DeepSeek 无关)",
+            "generator": f"DeepSuck {VERSION}",
             "generatedAt": _iso(self.now()),
             "disclaimer": "本报告由 DeepSuck 生成，所有敏感信息均已脱敏，仅用于防诈研究与教育，不得用于骚扰、报复或任何违法用途。",
             "session": {

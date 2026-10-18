@@ -1,4 +1,4 @@
-# DeepSuck 实时服务反向代理（自动 HTTPS，Let's Encrypt / ZeroSSL）。非官方项目，与 DeepSeek 无关。
+# DeepSuck 实时服务反向代理（自动 HTTPS，Let's Encrypt / ZeroSSL）。
 # 静态站仍在 GitHub Pages（deepsuck.si）；这里只服务 {$LIVE_DOMAIN}（默认 live.deepsuck.si）：
 #   /api/chat、/api/health → Node 大模型代理（127.0.0.1:8787）
 #   其余（语音演示页面、/api/config、/api/offer）→ 语音服务（127.0.0.1:7860）

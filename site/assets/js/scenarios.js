@@ -2,7 +2,7 @@
  * DeepSuck — scenarios.js
  * 沙盒场景定义：访客扮演骗子，机器人扮演"潜在受害人"。
  * goals = 机器人在周旋中希望诱导对方暴露的情报类型（按优先级）。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 (function (root, factory) {
   var isNode = typeof module === 'object' && module.exports;

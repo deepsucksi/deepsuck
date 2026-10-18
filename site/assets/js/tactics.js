@@ -2,7 +2,7 @@
  * DeepSuck — tactics.js
  * 诈骗话术分类器：基于关键词/正则的可解释规则，输出命中的话术标签与风险分。
  * 规则刻意保持简单透明，方便社区审阅与补充（见 CONTRIBUTING.md）。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 (function (root, factory) {
   var isNode = typeof module === 'object' && module.exports;

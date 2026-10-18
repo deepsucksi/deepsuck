@@ -13,7 +13,7 @@ test('server：health / 静态文件 / 未配置 Key 时 /api/chat 返回 503 / 
     assert.equal(h.ok, true); assert.equal(h.llmConfigured, false);
     const idx = await fetch(base + '/');
     assert.equal(idx.status, 200);
-    assert.match(await idx.text(), /非官方项目，与 DeepSeek 无关/);
+    assert.match(await idx.text(), /DeepSuck/);
     const chat = await fetch(base + '/api/chat', { method: 'POST', body: '{}' });
     assert.equal(chat.status, 503);
     const trav = await fetch(base + '/..%2f..%2fpackage.json');

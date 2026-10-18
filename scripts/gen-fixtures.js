@@ -3,7 +3,7 @@
  * 生成 tests/fixtures/*.json：以 JS 实现的输出为"金标准"，供 node:test 与 pytest（python/tests）共用。
  * 用法：npm run fixtures   —— 修改 core/*.json 或提取/脱敏逻辑后运行，并检查 diff 是否符合预期。
  * npm test 会检查夹具是否最新；pytest 会检查 Python 实现与夹具逐项一致（测试即规格）。
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 'use strict';
 const fs = require('fs');

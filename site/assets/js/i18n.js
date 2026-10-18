@@ -1,8 +1,7 @@
-/*! DeepSuck — i18n.js：首页中英切换（中文为默认与权威版本）。Apache-2.0 · 非官方项目，与 DeepSeek 无关 */
+/*! DeepSuck — i18n.js：首页中英切换（中文为默认与权威版本）。Apache-2.0 */
 (function () {
   'use strict';
   var EN = {
-    'badge': 'Unofficial project · not affiliated with DeepSeek',
     'nav.how': 'How', 'nav.sc': 'Scenarios', 'nav.ethics': 'Ethics', 'nav.oss': 'Open source', 'nav.demo': 'Try the sandbox', 'nav.intel': 'Intel library',
     'hero.kicker': 'Open source · defensive research · Chinese scenarios first',
     'hero.title': 'Let scammers waste their time<br><em>on an AI instead</em>',
@@ -36,7 +35,7 @@
     'oss.title': 'Build it together', 'oss.sub': 'Apache-2.0. Plain HTML/CSS/JS with clear modules.',
     'o1': 'Add scenarios and (masked) real-world script samples', 'o2': 'Design more exhausting personas and stalling tactics',
     'o3': 'Improve extractor regexes and tactic rules, add tests', 'o4': 'Roadmap: LLM personas, voice calls (ASR/TTS), intel-sharing API',
-    'disc': '<b>Disclaimer:</b> DeepSuck is an independent community project, <b>unofficial and not affiliated with DeepSeek</b> or its affiliates, nor endorsed by them; the name is a pun. Provided "as is" for anti-fraud research and education; all accounts, phones, addresses and URLs in the demo are fictitious test data. Users must comply with local laws.',
+    'disc': '<b>Disclaimer:</b> DeepSuck is an independent open-source community project. Provided "as is" for anti-fraud research and education; all accounts, phones, addresses and URLs in the demo are fictitious test data. Users must comply with local laws.',
     'foot.soon': '(not live yet)', 'foot.110': 'Scam? Call 110 / 96110'
   };
   var nodes = document.querySelectorAll('[data-i18n]');

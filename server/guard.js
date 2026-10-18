@@ -3,7 +3,7 @@
  *  - 每 IP 每分钟 / 每 IP 每天 / 全局每分钟 限流
  *  - 每日全局预算（人民币，按 DashScope 返回的 usage token 记账；无 usage 时按字数估算），超出即拒绝
  *  - 预算账本按 Asia/Shanghai 自然日持久化到 DATA_DIR，重启不清零
- * Apache-2.0 · 非官方项目，与 DeepSeek 无关
+ * Apache-2.0
  */
 'use strict';
 var fs = require('fs');

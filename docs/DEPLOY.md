@@ -1,6 +1,6 @@
 # 上线“实时服务”：大模型对话 + 语音演示（docs/DEPLOY.md）
 
-> 非官方项目，与 DeepSeek 无关。静态站（https://deepsuck.si）继续由 GitHub Pages 托管、零成本；
+> 静态站（https://deepsuck.si）继续由 GitHub Pages 托管、零成本；
 > 本文只讲**可选**的实时服务 `live.deepsuck.si`：文字沙盒的大模型回复（Node 代理）+ 浏览器麦克风语音演示（Pipecat）。
 > 没有实时服务时，一切照常——沙盒自动用规则引擎。
 
