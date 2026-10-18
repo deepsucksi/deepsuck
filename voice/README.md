@@ -70,7 +70,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 - 用设计音色合成：按目标模型 `cosyvoice-v3.5-flash` 计费，**0.8 元/万字符**（[cosyvoice-v3.5-flash 模型信息](https://help.aliyun.com/zh/model-studio/cosyvoice-v3-5-flash)），一句 50 字左右的回复约 0.004 元；原来的系统音色走 `cosyvoice-v3-flash`，1 元/万字符（[cosyvoice-v3-flash 模型信息](https://help.aliyun.com/zh/model-studio/cosyvoice-v3-flash)）；
 - 音色保有费：官方页面未列出，以百炼控制台计费页为准。每个账号自定义音色（复刻 + 设计）上限 1000 个，不用的可以删掉。
 
-费用护栏 `guard.py` 默认按 1 元/万字符记账（`PRICE_TTS_PER_10K_CHARS`），用设计音色时会略微高估，偏保守；想按实价记账可设 `PRICE_TTS_PER_10K_CHARS=0.8`。
+费用护栏 `guard.py` 默认按 0.8 元/万字符记账（`PRICE_TTS_PER_10K_CHARS`，对应现用的设计音色）；换回系统音色时可设成 1，偏保守。
 
 ## 隐私与安全
 

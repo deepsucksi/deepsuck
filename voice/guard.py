@@ -50,7 +50,7 @@ class Prices:
 
     @classmethod
     def from_env(cls) -> "Prices":
-        return cls(_env_f("PRICE_ASR_PER_SEC", 0.00024), _env_f("PRICE_TTS_PER_10K_CHARS", 1.0) / 10000,
+        return cls(_env_f("PRICE_ASR_PER_SEC", 0.00024), _env_f("PRICE_TTS_PER_10K_CHARS", 0.8) / 10000,
                    _env_f("PRICE_LLM_IN_PER_M", 0.8), _env_f("PRICE_LLM_OUT_PER_M", 2.0))
 
 
