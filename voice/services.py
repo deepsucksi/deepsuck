@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import uuid
 from dataclasses import dataclass
 from typing import AsyncGenerator, Optional
 
@@ -16,16 +18,20 @@ from pipecat.frames.frames import (
     ErrorFrame,
     Frame,
     InterimTranscriptionFrame,
+    InterruptionFrame,
     StartFrame,
     TranscriptionFrame,
+    TTSAudioRawFrame,
     TTSStoppedFrame,
 )
+from pipecat.processors.frame_processor import FrameDirection
 from pipecat.services.settings import STTSettings, TTSSettings
 from pipecat.services.stt_service import STTService
-from pipecat.services.tts_service import TTSService
+from pipecat.services.tts_service import TTSService, WebsocketTTSService
 from pipecat.utils.time import time_now_iso8601
 
 from . import dashscope_ws as ds
+from .textagg import ClauseTextAggregator
 
 
 @dataclass
@@ -40,10 +46,12 @@ class ParaformerSTTService(STTService):
     _settings: Settings
 
     def __init__(self, *, model: str = "paraformer-realtime-v2", key: Optional[str] = None,
-                 connect=None, sample_rate: int = 16000, meter=None, **kwargs):
+                 connect=None, sample_rate: int = 16000, meter=None,
+                 max_sentence_silence: Optional[int] = None, **kwargs):
         super().__init__(sample_rate=sample_rate,
                          settings=self.Settings(model=model, language="zh"), **kwargs)
         self._key, self._connect = key, connect
+        self._max_silence = max_sentence_silence
         self._meter = meter  # voice.guard.Ticket：按发送的音频秒数记账（Paraformer 按音频时长计费）
         self._stream: Optional[ds.ParaformerStream] = None
         self._reader: Optional[asyncio.Task] = None
@@ -70,7 +78,8 @@ class ParaformerSTTService(STTService):
                 return True
             try:
                 st = ds.ParaformerStream(model=self._settings.model, sample_rate=self.sample_rate,
-                                         key=self._key, connect=self._connect)
+                                         key=self._key, connect=self._connect,
+                                         max_sentence_silence=self._max_silence)
                 await st.start()
             except Exception as e:  # 缺 key、网络错误等
                 logger.error(f"{self}: Paraformer 连接失败: {e}")
@@ -158,3 +167,186 @@ class CosyVoiceTTSService(TTSService):
             yield TTSStoppedFrame(context_id=context_id)
         finally:
             await self.stop_ttfb_metrics()
+
+
+class CosyVoiceStreamTTSService(WebsocketTTSService):
+    """CosyVoice 双向流式合成：每通会话一条长连接，每个 LLM 回合一个 DashScope 任务。
+
+    - start() 时就建连，省掉每句话的 TLS 握手；
+    - 回合开始（LLMFullResponseStartFrame / TTSSpeakFrame）时预先发 run-task，
+      LLM 首个分句到达后直接 continue-task，边吐字边合成；
+    - 回合结束 flush_audio() 发 finish-task，task-finished 时补 TTSStoppedFrame；
+    - 打断时若任务还在合成就断开重连（DashScope 没有取消指令，断连即中止计费的合成），
+      已合成完、只剩本地播放的回合则只清本地队列，不重连。
+    同一连接同一时刻只能跑一个任务：新回合会等上一个任务结束（最多 task_wait_secs）。
+    """
+
+    Settings = CosyVoiceTTSSettings
+    _settings: Settings
+
+    def __init__(self, *, voice: str = "longlaoyi_v3", model: str = "cosyvoice-v3-flash",
+                 rate: float = 1.0, key: Optional[str] = None, connect=None, meter=None,
+                 clause_min_chars: int = 6, task_wait_secs: float = 10.0, **kwargs):
+        super().__init__(push_start_frame=True, push_stop_frames=True,
+                         settings=self.Settings(model=model, voice=voice, language="zh"), **kwargs)
+        self._rate, self._key, self._connect_fn = rate, key, connect
+        self._meter = meter
+        self._text_aggregator = ClauseTextAggregator(min_clause_chars=clause_min_chars)
+        self._task_wait = task_wait_secs
+        self._receive_task: Optional[asyncio.Task] = None
+        self._task_id: Optional[str] = None     # 当前 DashScope 任务
+        self._task_ctx: Optional[str] = None    # 该任务对应的 Pipecat 回合 context_id
+        self._task_started = asyncio.Event()
+        self._task_done = asyncio.Event()
+        self._task_done.set()
+        self._finish_sent = False
+        self._conn_lock = asyncio.Lock()
+        self.connects = 0                      # 建连次数（测试/观测用）
+        self.tasks = 0                         # 发起的合成任务数
+
+    def can_generate_metrics(self) -> bool:
+        return True
+
+    # ---- 连接 ----
+    async def start(self, frame: StartFrame):
+        await super().start(frame)
+        try:
+            await self._connect()
+        except Exception as e:  # 首连失败不致命，首次合成时再连
+            logger.warning(f"{self}: CosyVoice 预连接失败: {e}")
+
+    async def _connect(self):
+        await super()._connect()
+        await self._connect_websocket()
+        if self._websocket is not None and self._receive_task is None:
+            self._receive_task = self.create_task(self._receive_task_handler(self._report_error))
+
+    async def _disconnect(self):
+        await super()._disconnect()
+        if self._receive_task is not None:
+            await self.cancel_task(self._receive_task)
+            self._receive_task = None
+        await self._disconnect_websocket()
+
+    async def _connect_websocket(self):
+        async with self._conn_lock:
+            if self._websocket is not None:
+                return
+            fn = self._connect_fn or ds._connect
+            self._websocket = await fn(self._key or ds.api_key())
+            self.connects += 1
+
+    async def _disconnect_websocket(self):
+        ws, self._websocket = self._websocket, None
+        self._reset_task()
+        if ws is not None:
+            try:
+                await ws.close()
+            except Exception:
+                pass
+
+    def _reset_task(self):
+        self._task_id = self._task_ctx = None
+        self._finish_sent = False
+        self._task_started.clear()
+        self._task_done.set()
+
+    async def _ensure_connected(self):
+        if self._websocket is None:
+            await self._connect()
+
+    # ---- 任务 ----
+    async def _open_task(self, context_id: str):
+        if self._task_id is not None and self._task_ctx == context_id:
+            return
+        if self._task_id is not None and not self._task_done.is_set():
+            try:
+                await asyncio.wait_for(self._task_done.wait(), self._task_wait)
+            except asyncio.TimeoutError:
+                logger.warning(f"{self}: 上一个合成任务未结束，重连")
+                await self._disconnect()
+        await self._ensure_connected()
+        tid = uuid.uuid4().hex
+        self._task_id, self._task_ctx, self._finish_sent = tid, context_id, False
+        self._task_started.clear()
+        self._task_done.clear()
+        self.tasks += 1
+        await self._websocket.send(json.dumps(ds.run_task_tts(tid, self._settings.model, self._settings.voice,
+                                                              self.sample_rate, self._rate)))
+
+    async def on_turn_context_created(self, context_id: str):
+        # 回合一开始就发 run-task，与 LLM 首 token 的等待重叠
+        try:
+            await self._open_task(context_id)
+        except Exception as e:
+            logger.warning(f"{self}: 预开合成任务失败: {e}")
+            await self._disconnect_websocket()
+
+    async def run_tts(self, text: str, context_id: str) -> AsyncGenerator[Frame | None, None]:
+        try:
+            await self._open_task(context_id)
+            await asyncio.wait_for(self._task_started.wait(), 10)
+            if self._task_id is None:
+                raise RuntimeError("合成任务已失败")
+            await self.start_tts_usage_metrics(text)
+            if self._meter is not None:
+                self._meter.tts(len(text))
+            await self._websocket.send(json.dumps(ds.continue_task_text(self._task_id, text)))
+            yield None
+        except Exception as e:
+            logger.error(f"{self}: CosyVoice 合成失败: {e}")
+            await self._disconnect_websocket()
+            yield ErrorFrame(error=f"CosyVoice 合成失败: {e}")
+            yield TTSStoppedFrame(context_id=context_id)
+
+    async def flush_audio(self, context_id: Optional[str] = None):
+        ctx = context_id or self._task_ctx
+        if self._task_id is None or ctx != self._task_ctx or self._finish_sent or self._websocket is None:
+            return
+        self._finish_sent = True
+        try:
+            await self._websocket.send(json.dumps(ds.finish_task(self._task_id)))
+        except Exception as e:
+            logger.warning(f"{self}: finish-task 发送失败: {e}")
+            await self._disconnect_websocket()
+
+    async def _receive_messages(self):
+        async for msg in self._websocket:
+            ctx = self._task_ctx
+            if isinstance(msg, (bytes, bytearray)):
+                if ctx:
+                    await self.stop_ttfb_metrics()
+                    await self.append_to_audio_context(
+                        ctx, TTSAudioRawFrame(audio=bytes(msg), sample_rate=self.sample_rate,
+                                              num_channels=1, context_id=ctx))
+                continue
+            try:
+                ev = json.loads(msg)["header"]
+            except Exception:
+                continue
+            if ev.get("task_id") and ev.get("task_id") != self._task_id:
+                continue  # 旧任务的残留事件
+            name = ev.get("event")
+            if name == "task-started":
+                self._task_started.set()
+            elif name in ("task-finished", "task-failed"):
+                if name == "task-failed":
+                    logger.error(f"{self}: CosyVoice 任务失败: {ev.get('error_message')}")
+                    await self.push_error(error_msg=f"CosyVoice 任务失败: {ev.get('error_message')}")
+                if ctx and self.audio_context_available(ctx):
+                    await self.append_to_audio_context(ctx, TTSStoppedFrame(context_id=ctx))
+                    await self.remove_audio_context(ctx)
+                self._reset_task()
+
+    # ---- 打断 ----
+    async def _handle_interruption(self, frame: InterruptionFrame, direction: FrameDirection):
+        busy = self._task_id is not None and not self._task_done.is_set()
+        await super()._handle_interruption(frame, direction)
+        await self.stop_all_metrics()
+        if busy:
+            # 服务端还在合成：断开即取消；立刻重连，让下一回合不必再握手
+            await self._disconnect()
+            try:
+                await self._connect()
+            except Exception as e:
+                logger.warning(f"{self}: 打断后重连失败（下次合成时再连）: {e}")

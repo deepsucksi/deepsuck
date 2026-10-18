@@ -99,24 +99,49 @@ def public_config(engine: str, limits: Optional[G.Limits] = None, budget: Option
 
 
 def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", fillers=None,
-                   blocklist=None, stt=None, tts=None, llm=None, meter=None):
-    """组装管线；stt/tts/llm 可注入（测试用）。返回 (pipeline, intel_processor, context)。"""
+                   blocklist=None, stt=None, tts=None, llm=None, meter=None, profile: str = "web",
+                   vad_analyzer=None):
+    """组装管线；stt/tts/llm/vad_analyzer 可注入（测试用）。返回 (pipeline, intel_processor, context)。
+
+    profile 选延迟/打断参数（voice/tuning.py）："web" 浏览器，"phone" 电话线路。
+    """
     from pipecat.pipeline.pipeline import Pipeline
 
-    from .processors import BotTextTap, GuardTextFilter, IntelProcessor
-    from .services import CosyVoiceTTSService, ParaformerSTTService
+    from .interrupt import user_turn_strategies
+    from .processors import BotTextTap, FillerProcessor, GuardTextFilter, IntelProcessor
+    from .services import CosyVoiceStreamTTSService, CosyVoiceTTSService, ParaformerSTTService
+    from .tuning import get_profile, vad_params
 
+    prof = get_profile(profile)
     pid = session.persona["id"]
-    stt = stt or ParaformerSTTService(model=ASR_MODEL, sample_rate=IN_RATE, meter=meter)
-    tts = tts or CosyVoiceTTSService(voice=PERSONA_VOICES.get(pid, "longlaoyi_v3"), model=TTS_MODEL,
-                                     text_filters=[GuardTextFilter()], meter=meter)
-    if engine == "rule":
-        intel = IntelProcessor(session, notify=notify, mode="rule", fillers=fillers, filler_rate=OUT_RATE,
-                               blocklist=blocklist)
-        intel.meter = meter
-        return Pipeline([transport.input(), stt, intel, tts, transport.output()]), intel, None
+    stt = stt or ParaformerSTTService(model=ASR_MODEL, sample_rate=IN_RATE, meter=meter,
+                                      max_sentence_silence=prof.asr_max_silence_ms)
+    if tts is None:
+        voice = PERSONA_VOICES.get(pid, "longlaoyi_v3")
+        if os.environ.get("DEEPSUCK_TTS_STREAM", "1") == "0":  # 回退：每句一连接的旧实现
+            tts = CosyVoiceTTSService(voice=voice, model=TTS_MODEL, text_filters=[GuardTextFilter()], meter=meter)
+        else:
+            tts = CosyVoiceStreamTTSService(voice=voice, model=TTS_MODEL, text_filters=[GuardTextFilter()],
+                                            meter=meter, clause_min_chars=prof.tts_clause_min_chars)
+    filler = FillerProcessor(fillers, sample_rate=OUT_RATE, delay_ms=prof.filler_delay_ms, notify=notify)
+    if vad_analyzer is None:
+        from pipecat.audio.vad.silero import SileroVADAnalyzer
 
-    from pipecat.audio.vad.silero import SileroVADAnalyzer
+        vad_analyzer = SileroVADAnalyzer(params=vad_params(prof))
+    strategies = user_turn_strategies(prof.interrupt_min_chars)
+
+    if engine == "rule":
+        # 规则模式也要能打断：VAD 在 STT 前，回合处理器在 STT 后，开口超过门槛就广播打断
+        from pipecat.processors.audio.vad_processor import VADProcessor
+        from pipecat.turns.user_turn_processor import UserTurnProcessor
+
+        intel = IntelProcessor(session, notify=notify, mode="rule", fillers=fillers, filler_rate=OUT_RATE,
+                               filler_prob=0.0, blocklist=blocklist)
+        intel.meter = meter
+        turns = UserTurnProcessor(user_turn_strategies=strategies)
+        return Pipeline([transport.input(), VADProcessor(vad_analyzer=vad_analyzer), stt, turns, intel,
+                         filler, tts, transport.output()]), intel, None
+
     from pipecat.processors.aggregators.llm_context import LLMContext
     from pipecat.processors.aggregators.llm_response_universal import (
         LLMContextAggregatorPair,
@@ -129,12 +154,14 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         llm = QwenLLMService(api_key=os.environ.get("DASHSCOPE_API_KEY"), base_url=LLM_BASE_URL,
                              settings=QwenLLMService.Settings(model=LLM_MODEL, temperature=0.8, max_tokens=120))
     context = LLMContext([{"role": "system", "content": system_prompt(pid, session.scenario["id"], "opening")}])
-    agg = LLMContextAggregatorPair(context, user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()))
+    agg = LLMContextAggregatorPair(context, user_params=LLMUserAggregatorParams(
+        vad_analyzer=vad_analyzer, user_turn_strategies=strategies))
+    # 填充音改由 FillerProcessor 按延迟触发，IntelProcessor 不再随机插播
     intel = IntelProcessor(session, context=context, notify=notify, mode="llm", fillers=fillers,
-                           filler_rate=OUT_RATE, blocklist=blocklist)
+                           filler_rate=OUT_RATE, filler_prob=0.0, blocklist=blocklist)
     intel.meter = meter
     tap = BotTextTap(intel)
-    pipeline = Pipeline([transport.input(), stt, intel, agg.user(), llm, tap, tts, transport.output(),
+    pipeline = Pipeline([transport.input(), stt, intel, agg.user(), llm, filler, tap, tts, transport.output(),
                          agg.assistant()])
     return pipeline, intel, context
 
@@ -180,8 +207,13 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
         pipeline, intel, context = build_pipeline(transport, session, notify, engine=engine, fillers=fillers,
                                                   blocklist=Client(), meter=ticket)
         intel.on_heard = lambda: st.__setitem__("heard", time.time())
+        from .latency import LatencyObserver
+        from .tuning import get_profile
+
+        lat = LatencyObserver(vad_stop_secs=get_profile("web").vad_stop_secs, notify=notify)
         task = PipelineTask(pipeline, params=PipelineParams(audio_in_sample_rate=IN_RATE, audio_out_sample_rate=OUT_RATE,
-                                                            enable_usage_metrics=True))
+                                                            enable_metrics=True, enable_usage_metrics=True),
+                            observers=[lat])
 
         @transport.event_handler("on_client_connected")
         async def _connected(_t, _c):
@@ -197,7 +229,10 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
         @transport.event_handler("on_client_disconnected")
         async def _gone(_t, _c):
             session.end()
-            logger.info(f"call ended: {session.stats()} usage={ticket.usage if ticket else None}")
+            await lat.flush()
+            from .latency import summarize
+            logger.info(f"call ended: {session.stats()} usage={ticket.usage if ticket else None} "
+                        f"latency={summarize(lat.turns)}")
             await task.cancel()
 
         async def watchdog():

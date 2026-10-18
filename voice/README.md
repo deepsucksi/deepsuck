@@ -42,14 +42,16 @@ python -m voice.app                 # 打开 http://localhost:7860
 | 文件 | 作用 |
 |---|---|
 | `dashscope_ws.py` | DashScope WebSocket 协议（run-task / continue-task / finish-task）的最小实现：`synthesize()` 流式 TTS、`ParaformerStream` 实时识别。不依赖 dashscope SDK |
-| `services.py` | Pipecat 自定义服务 `ParaformerSTTService`、`CosyVoiceTTSService` |
-| `processors.py` | `IntelProcessor`（情报/话术/策略/填充音）、`BotTextTap`、`GuardTextFilter` |
+| `services.py` | Pipecat 自定义服务 `ParaformerSTTService`、`CosyVoiceStreamTTSService`（长连接、边吐字边合成、打断取消；旧的每句一连接 `CosyVoiceTTSService` 保留作回退） |
+| `processors.py` | `IntelProcessor`（情报/话术/策略）、`FillerProcessor`（按延迟触发的填充音）、`BotTextTap`、`GuardTextFilter` |
+| `interrupt.py` / `tuning.py` / `textagg.py` | 中文打断策略（"嗯/对"不打断）、网页/电话两套延迟参数、流式分句器 |
+| `latency.py` | 每轮延迟拆解（`LatencyObserver`） |
 | `persona.py` | 由 `site/assets/core/personas.json` 生成系统提示词；填充音台词；输出守卫 |
 | `app.py` | FastAPI + SmallWebRTC 信令（`/api/offer`）+ 管线组装；`python -m voice.app` |
 | `static/` | 浏览器端（原生 WebRTC，无构建步骤） |
 | `guard.py` | 费用护栏：每日预算（预占 + 实时记账 + 持久化）、并发/每 IP 限制、时长/轮数/静默看门狗 |
 | `netpatch.py` | UDP 端口段限制、公网 IP 候选（服务器部署用） |
-| `probe.py` | `python -m voice.probe`：aiortc 端到端探针（部署后验证 UDP/ICE） |
+| `probe.py` | `python -m voice.probe`：aiortc 端到端探针（部署后验证 UDP/ICE；`--json-out` 输出逐句端到端延迟） |
 | `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用 qwen-plus → CosyVoice → Paraformer 的冒烟测试 |
 | `telephony/` | 电话接入抽象层（默认关闭）：`TelephonyAdapter` 基类 + 注册表，`ws-raw` 通用 SIP/WebSocket 适配器、`pipecat-ws`（Twilio/Telnyx/Plivo/Exotel）；阿里云呼入适配器设计稿。见 [telephony/README.md](telephony/README.md) |
 
@@ -79,6 +81,18 @@ WebRTC 网络（`netpatch.py`）：`VOICE_UDP_PORTS=40000-40199` 把 aioice 的 
 python -m voice.probe --url http://127.0.0.1:7860 --wav scammer16k.wav --seconds 30
 ```
 
+## 延迟
+
+2026-10-18 一轮优化（同一段 6 句合成骗子音频，客户端测"骗子停说 → 听到机器人"，毫秒）：
+
+| | P50 | P90 |
+|---|---|---|
+| 优化前（回复本身） | 5842 | 6282 |
+| 优化后，首个可听音频（填充音） | 1653 | 2803 |
+| 优化后，回复本身（关闭填充音，3 句） | 4162 | 5827 |
+
+TTS 首包 P50 2781 → 1385，ASR 判停到最终结果 P50 1382 → 1060。做法、参数、测量方法和已知副作用见 [docs/VOICE_LATENCY.md](../docs/VOICE_LATENCY.md)。
+
 ## 测试
 
 ```bash
@@ -89,6 +103,6 @@ python -m pytest voice/tests -q    # 全部用假 WebSocket，不联网、不需
 ## 已知限制
 
 - ~~Paraformer 的数字规整（ITN）会把"张三"转成"张3"，导致姓名抽取漏掉~~：v0.4 起收款户名里的单个阿拉伯数字会还原为汉字（`张3` → `张三`，JS/Python 一致）。
-- 打断（barge-in）依赖 Silero VAD 与 Pipecat 默认轮次策略，没有针对老人人设专门调过。
+- 打断（barge-in）：机器人说话时需要说出 2 个以上有效字（电话 3 个）才打断，"嗯/对/好的"不打断；门槛是按合成音频定的，没用真人通话校准过。
 - 只在 Linux + Chrome（伪造麦克风输入）下做过端到端测试；真实麦克风、回声消除、移动端浏览器未测。
 - 使用 Pipecat 1.12 的 `PipelineTask` / 上下文内 system 消息（2.0 将移除），已在 requirements 中锁 `<2`。

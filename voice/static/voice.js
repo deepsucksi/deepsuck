@@ -58,7 +58,7 @@
     } else if (m.type === "bot") {
       addMsg("bot", m.text, `<div class="meta"><span class="chip intent">${esc(m.intent)}</span></div>`);
     } else if (m.type === "state") renderState(m);
-    else if (m.type === "limit") { addMsg("interim", "⏱ " + m.text + "，通话即将结束"); setStatus("ok", m.text); }
+    else if (m.type === "limit") { addMsg("interim", m.text + "，通话即将结束"); setStatus("ok", m.text); }
   }
 
   async function negotiate(extra) {

@@ -3,6 +3,7 @@
 - GuardTextFilter：TTS 前的输出守卫（去 Markdown/括号动作、脱敏、抹长数字串）。
 - IntelProcessor：对骗子语音转写做实时情报抽取 + 话术识别 + 黑名单比对，按规则引擎选出本轮策略
   并改写 LLM 系统提示词；插播拖延填充音；rule 模式下直接用规则引擎回复（不调用大模型）。
+- FillerProcessor：放在 LLM 之后，用户停说后一段时间仍无 LLM 首 token 才插播填充音，首 token 到了就取消。
 - BotTextTap：收集大模型整句回复，记入会话并推送到浏览器面板。
 
 浏览器面板通过 notify(dict) 回调收消息（SmallWebRTC 数据通道 app message）。
@@ -13,12 +14,16 @@ import asyncio
 import hashlib
 import os
 import random
+import time
 from pathlib import Path
 from typing import Awaitable, Callable, Dict, List, Optional
 
 from loguru import logger
 from pipecat.frames.frames import (
+    BotStartedSpeakingFrame,
+    BotStoppedSpeakingFrame,
     Frame,
+    InterruptionFrame,
     InterimTranscriptionFrame,
     LLMFullResponseEndFrame,
     LLMFullResponseStartFrame,
@@ -26,7 +31,13 @@ from pipecat.frames.frames import (
     MetricsFrame,
     OutputAudioRawFrame,
     TranscriptionFrame,
+    TTSAudioRawFrame,
     TTSSpeakFrame,
+    TTSStartedFrame,
+    UserStartedSpeakingFrame,
+    UserStoppedSpeakingFrame,
+    VADUserStartedSpeakingFrame,
+    VADUserStoppedSpeakingFrame,
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
@@ -54,6 +65,121 @@ class GuardTextFilter(BaseTextFilter):
 
     async def reset_interruption(self):
         return None
+
+
+class FillerProcessor(FrameProcessor):
+    """按延迟触发的填充音。
+
+    播放时刻 = max(真实停说时刻 + delay_ms, 用户回合判定结束)，且到那时仍没有 LLM 首 token / TTS 音频。
+    - 用户回合开始（UserStartedSpeakingFrame）后待命；
+    - VAD 判定停说（VADUserStoppedSpeakingFrame）开始计时，计时从真实停说时刻算起（扣掉 VAD 的 stop_secs）；
+    - 计时到了但回合还没判定结束（可能只是句中停顿），先挂起，等 UserStoppedSpeakingFrame 再播；
+      期间用户又开口（VADUserStartedSpeakingFrame）就作废，避免在对方话说一半时插嘴；
+    - LLM 首 token、TTS 开始/出声、机器人开口都会取消；每个用户回合最多一次，机器人说话时不插。
+    """
+
+    def __init__(self, fillers: Optional[Dict[str, bytes]] = None, *, sample_rate: int = 16000,
+                 delay_ms: int = 650, notify: Optional[Notify] = None, clock=time.monotonic, **kwargs):
+        super().__init__(**kwargs)
+        self.fillers = fillers if fillers is not None else {}
+        self.sample_rate = sample_rate
+        self.delay_ms = delay_ms
+        self.notify = notify or _noop
+        self.clock = clock
+        self.played = 0
+        self.cancelled = 0
+        self._armed = False
+        self._turn_ended = False
+        self._pending = False
+        self._stop_at: Optional[float] = None
+        self._bot_speaking = False
+        self._timer: Optional[asyncio.Task] = None
+        self._last_key: Optional[str] = None
+
+    def _pick(self) -> Optional[str]:
+        keys = sorted(k for k, v in self.fillers.items() if v)
+        if not keys:
+            return None
+        if self._last_key in keys and len(keys) > 1:
+            i = keys.index(self._last_key)
+            keys = keys[i + 1:] + keys[:i]
+        self._last_key = keys[0]
+        return keys[0]
+
+    def _cancel(self, disarm: bool = False):
+        if self._timer is not None and not self._timer.done():
+            self._timer.cancel()
+            self.cancelled += 1
+        self._timer = None
+        self._pending = False
+        if disarm:
+            self._armed = False
+
+    def _start_timer(self):
+        self._cancel()
+        if self.delay_ms <= 0 or not self._armed or self._bot_speaking:
+            return
+        elapsed = 0.0 if self._stop_at is None else max(0.0, self.clock() - self._stop_at)
+        self._timer = asyncio.create_task(self._wait(max(0.0, self.delay_ms / 1000.0 - elapsed)))
+
+    async def _wait(self, wait: float):
+        try:
+            await asyncio.sleep(wait)
+        except asyncio.CancelledError:
+            return
+        self._timer = None
+        if self._turn_ended:
+            await self._play()
+        else:
+            self._pending = True
+
+    async def _play(self):
+        self._pending = False
+        if not self._armed or self._bot_speaking:
+            return
+        key = self._pick()
+        if key is None:
+            return
+        self._armed = False  # 每回合一次
+        self.played += 1
+        logger.debug(f"filler: {key}（停说 {self.delay_ms}ms 后仍无首 token）")
+        await self.notify({"type": "filler", "text": key})
+        await self.push_frame(OutputAudioRawFrame(audio=self.fillers[key], sample_rate=self.sample_rate,
+                                                  num_channels=1))
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, UserStartedSpeakingFrame):
+            self._cancel()
+            self._armed, self._turn_ended, self._stop_at = True, False, None
+        elif isinstance(frame, VADUserStartedSpeakingFrame):
+            self._cancel()
+            self._stop_at = None
+        elif isinstance(frame, VADUserStoppedSpeakingFrame):
+            if self._armed:
+                self._stop_at = self.clock() - max(0.0, getattr(frame, "stop_secs", 0.0) or 0.0)
+                self._start_timer()
+        elif isinstance(frame, UserStoppedSpeakingFrame):
+            if self._armed:
+                self._turn_ended = True
+                if self._pending:
+                    await self._play()
+                elif self._timer is None:
+                    self._start_timer()
+        elif isinstance(frame, (LLMTextFrame, TTSSpeakFrame, TTSStartedFrame, TTSAudioRawFrame)):
+            self._cancel(disarm=True)
+        elif isinstance(frame, BotStartedSpeakingFrame):
+            self._bot_speaking = True
+            self._cancel(disarm=True)
+        elif isinstance(frame, BotStoppedSpeakingFrame):
+            self._bot_speaking = False
+        elif isinstance(frame, InterruptionFrame):
+            self._cancel()
+        await self.push_frame(frame, direction)
+
+    async def cleanup(self):
+        self._cancel(disarm=True)
+        await super().cleanup()
 
 
 class IntelProcessor(FrameProcessor):

@@ -62,13 +62,28 @@ def run_task_tts(task_id: str, model: str, voice: str, sample_rate: int, rate: f
         "input": {}}}
 
 
-def run_task_asr(task_id: str, model: str, sample_rate: int) -> dict:
+ASR_SILENCE_MIN_MS, ASR_SILENCE_MAX_MS = 200, 6000  # Paraformer 实时识别允许的 max_sentence_silence 范围
+
+
+def clamp_sentence_silence(ms: Optional[int]) -> Optional[int]:
+    """把断句静音阈值夹到服务端允许范围；None 表示用服务端默认（约 800ms）。"""
+    if ms is None:
+        return None
+    return max(ASR_SILENCE_MIN_MS, min(ASR_SILENCE_MAX_MS, int(ms)))
+
+
+def run_task_asr(task_id: str, model: str, sample_rate: int,
+                 max_sentence_silence: Optional[int] = None) -> dict:
+    params = {"format": "pcm", "sample_rate": sample_rate, "language_hints": ["zh"],
+              "punctuation_prediction_enabled": True, "inverse_text_normalization_enabled": True,
+              "heartbeat": True}
+    ms = clamp_sentence_silence(max_sentence_silence)
+    if ms is not None:
+        # 句末静音多久判为一句结束。默认约 800ms，调小能让句末结果更早出来
+        params["max_sentence_silence"] = ms
     return {"header": _header("run-task", task_id), "payload": {
         "task_group": "audio", "task": "asr", "function": "recognition", "model": model,
-        "parameters": {"format": "pcm", "sample_rate": sample_rate, "language_hints": ["zh"],
-                       "punctuation_prediction_enabled": True, "inverse_text_normalization_enabled": True,
-                       "heartbeat": True},
-        "input": {}}}
+        "parameters": params, "input": {}}}
 
 
 def continue_task_text(task_id: str, text: str) -> dict:
@@ -126,8 +141,10 @@ class ParaformerStream:
     """Paraformer 实时识别会话：start() → send_audio(pcm)… → finish()；results() 异步产出 Transcript。"""
 
     def __init__(self, model: str = "paraformer-realtime-v2", sample_rate: int = 16000,
-                 key: Optional[str] = None, connect: Optional[Connector] = None):
+                 key: Optional[str] = None, connect: Optional[Connector] = None,
+                 max_sentence_silence: Optional[int] = None):
         self.model, self.sample_rate = model, sample_rate
+        self.max_sentence_silence = max_sentence_silence
         self._key, self._connect = key, connect or _connect
         self.task_id = uuid.uuid4().hex
         self.ws = None
@@ -137,7 +154,8 @@ class ParaformerStream:
 
     async def start(self) -> None:
         self.ws = await self._connect(self._key or api_key())
-        await self.ws.send(json.dumps(run_task_asr(self.task_id, self.model, self.sample_rate)))
+        await self.ws.send(json.dumps(run_task_asr(self.task_id, self.model, self.sample_rate,
+                                                    self.max_sentence_silence)))
         await _await_started(self.ws)
         self._reader = asyncio.create_task(self._read())
 

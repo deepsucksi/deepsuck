@@ -87,14 +87,19 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
         pid = session.persona["id"]
         fillers = await synth_fillers(pid, PERSONA_VOICES.get(pid, "longlaoyi_v3"), OUT_RATE, cached_only=True)
         pipeline, intel, context = A.build_pipeline(transport, session, notify, engine=engine, fillers=fillers,
-                                                    blocklist=Client(), meter=ticket)
+                                                    blocklist=Client(), meter=ticket, profile="phone")
     else:
         pipeline, intel, context = build(transport, session, notify)
     st = {"connected": None, "heard": time.time()}
     if intel is not None:
         intel.on_heard = lambda: st.__setitem__("heard", time.time())
+    from ..latency import LatencyObserver, summarize
+    from ..tuning import get_profile
+
+    lat = LatencyObserver(vad_stop_secs=get_profile("phone").vad_stop_secs)
     task = PipelineTask(pipeline, params=PipelineParams(audio_in_sample_rate=IN_RATE, audio_out_sample_rate=OUT_RATE,
-                                                        enable_usage_metrics=True))
+                                                        enable_metrics=True, enable_usage_metrics=True),
+                        observers=[lat])
 
     @transport.event_handler("on_client_connected")
     async def _connected(_t, _c):
@@ -132,8 +137,10 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
     finally:
         wd.cancel()
         session.end()
+        await lat.flush()
         logger.info(f"phone call ended: provider={call.provider} from={mask_number(call.from_number)} "
-                    f"stats={session.stats()} usage={ticket.usage if ticket else None}")
+                    f"stats={session.stats()} usage={ticket.usage if ticket else None} "
+                    f"latency={summarize(lat.turns)}")
 
 
 def add_telephony_routes(app, *, engine: str, limits, budget, gate, build: Optional[Callable] = None) -> bool:
