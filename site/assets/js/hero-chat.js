@@ -37,15 +37,15 @@
   function fmt(sec) { return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
   function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-  function bubble(line) {
+  function bubble(line, still) {
     var row = document.createElement('div');
-    row.className = 'row hc-in';
+    row.className = still ? 'row' : 'row hc-in';
     var cls = line.r ? 'r' : 's';
     row.innerHTML = '<div class="b ' + cls + '">' + esc(line.r || line.s) + '</div>';
     body.appendChild(row);
     if (line.t) {
       var tag = document.createElement('div');
-      tag.className = 'tag hc-in'; tag.style.textAlign = 'right';
+      tag.className = still ? 'tag' : 'tag hc-in'; tag.style.textAlign = 'right';
       tag.textContent = line.t;
       body.appendChild(tag);
     }
@@ -71,7 +71,20 @@
       var sec = 0, found = [];
       title.textContent = sc.title; body.innerHTML = ''; timer.textContent = fmt(0);
       intel.textContent = '等待骗子露出马脚……'; intel.classList.remove('got');
-      for (var i = 0; i < sc.lines.length; i++) {
+      var start = 0;
+      if (idx === 0) {
+        // 首帧不留白：第一段对话的前 3 句直接铺好，再从第 4 句开始播放
+        for (; start < 3; start++) {
+          var p0 = sc.lines[start];
+          bubble(p0, true);
+          if (p0.w) sec += p0.w;
+          if (p0.i) found.push(p0.i);
+        }
+        timer.textContent = fmt(sec);
+        if (found.length) { intel.textContent = '已提取　' + found.join(' · '); intel.classList.add('got'); }
+        await wait(1200);
+      }
+      for (var i = start; i < sc.lines.length; i++) {
         await whenVisible();
         var l = sc.lines[i];
         if (l.s) { var t = typing(); await wait(1100 + l.s.length * 22); t.remove(); }

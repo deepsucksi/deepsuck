@@ -4,6 +4,7 @@
   var D = window.DeepSuck, I = D.intel;
   var $ = function (id) { return document.getElementById(id); };
   var lib = null, view = [];
+  var PAGE = window.matchMedia && matchMedia('(max-width: 640px)').matches ? 3 : 6, shown = PAGE; // 首屏只渲染前几条，其余点“显示更多”
   var SC = {}; D.scenarios.SCENARIOS.forEach(function (s) { SC[s.id] = s; });
   SC.other = { id: 'other', title: '其他' };
 
@@ -48,7 +49,10 @@
   function render() {
     var f = current();
     view = I.filterEntries(lib.entries, f);
-    $('results').innerHTML = view.length ? view.map(card).join('') : '<div class="empty">没有匹配的情报。换个关键词试试，或<a href="#contribute">提交新情报</a>。</div>';
+    $('results').innerHTML = view.length ? view.slice(0, shown).map(card).join('') : '<div class="empty">没有匹配的情报。换个关键词试试，或<a href="#contribute">提交新情报</a>。</div>';
+    var rest = view.length - Math.min(shown, view.length);
+    $('moreBtn').hidden = rest <= 0;
+    $('moreBtn').textContent = '显示更多（还有 ' + rest + ' 条）';
     var total = lib.entries.filter(function (e) { return e.status !== 'removed'; }).length;
     $('resultInfo').textContent = '共 ' + total + ' 条，当前显示 ' + view.length + ' 条 · 更新于 ' + lib.updatedAt;
     var p = new URLSearchParams();
@@ -80,12 +84,18 @@
     $('q').value = p.get('q') || ''; $('fType').value = p.get('type') || ''; $('fScenario').value = p.get('scenario') || '';
     if (!lib.entries.some(function (e) { return e.example; })) $('notice').style.display = 'none';
     renderStats(); render();
-    $('q').addEventListener('input', render);
-    $('fType').addEventListener('change', render);
-    $('fScenario').addEventListener('change', render);
+    function refilter() { shown = PAGE; render(); }
+    $('q').addEventListener('input', refilter);
+    $('fType').addEventListener('change', refilter);
+    $('fScenario').addEventListener('change', refilter);
+    $('moreBtn').addEventListener('click', function () {
+      var first = Math.min(shown, view.length);
+      shown += PAGE; render();
+      var next = $('results').children[first]; if (next) { next.setAttribute('tabindex', '-1'); next.focus({ preventScroll: true }); }
+    });
     $('typeStats').addEventListener('click', function (e) {
       var b = e.target.closest('[data-type]'); if (!b) return;
-      $('fType').value = $('fType').value === b.dataset.type ? '' : b.dataset.type; render();
+      $('fType').value = $('fType').value === b.dataset.type ? '' : b.dataset.type; shown = PAGE; render();
     });
     $('dlJson').addEventListener('click', function () {
       var out = Object.assign({}, lib, { entries: view, exportedAt: new Date().toISOString(), filter: current() });

@@ -47,8 +47,9 @@ code,kbd,.mono{font-family:var(--mono);font-size:.92em}
 .hero h1{font-size:var(--fs-h1);line-height:1.18;margin:0 0 32px;font-weight:600;letter-spacing:-.02em}
 .hero h1 em{font-style:normal;color:var(--muted);font-weight:500}
 .hero p.lead{font-size:var(--fs-l);line-height:1.9;color:var(--muted);max-width:600px;margin:0 0 32px}
-.facts{list-style:none;padding:0;margin:0 0 44px;display:flex;flex-wrap:wrap;gap:6px 0;font-size:13.5px;color:var(--dim)}
-.facts li:not(:last-child)::after{content:"·";margin:0 12px;color:var(--line2)}
+.facts{list-style:none;padding:0;margin:0 0 44px;display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13.5px;color:var(--dim)}
+.facts li{display:inline-flex;align-items:center;gap:8px}
+.facts li::before{content:"";width:4px;height:4px;border-radius:50%;background:var(--faint)}
 .cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .mock{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px}
 .mock .row{display:flex;margin:10px 0}
@@ -205,7 +206,7 @@ input[type=radio],input[type=checkbox]{accent-color:var(--ink)}
 .intel-hero{padding:96px 0 48px;max-width:820px}
 .intel-hero h1{font-size:44px;line-height:1.2;margin:0 0 24px}
 .intel-hero .lead{color:var(--muted);font-size:var(--fs-l);line-height:1.9;margin:0 0 28px}
-.intel-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0;margin:16px 0 40px;border-top:1px solid var(--line)}
+.intel-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0 24px;margin:16px 0 40px;border-top:1px solid var(--line)}
 .intel-stats button.stat{cursor:pointer;text-align:left;font:inherit;color:inherit;padding:18px 16px 18px 0;border-bottom:1px solid var(--line);border-radius:0}
 .intel-stats button.stat:hover .k{color:var(--ink)}
 .intel-toolbar{display:flex;flex-wrap:wrap;gap:12px;padding:12px;align-items:center}
@@ -376,3 +377,11 @@ section.end{padding:72px 0 96px}
 .composer textarea:focus-visible,.form input:focus-visible,.intel-toolbar input:focus-visible,.intel-toolbar select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 [tabindex="-1"]:focus{outline:none}
 .dash-stats .stat .v{font-family:var(--font);font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:0}
+
+/* 情报库：统计 4 列（手机 2 列）；加载前预留高度，避免布局跳动；分页 */
+.intel-stats:empty{min-height:var(--stats-h,180px)}
+.intel-grid:empty{min-height:100vh}
+.more{display:flex;justify-content:center;margin:8px 0 8px}
+.more [hidden]{display:none}
+.icard2[tabindex="-1"]:focus{outline:none}
+@media (max-width:640px){.intel-stats{grid-template-columns:repeat(2,1fr);gap:0 16px;--stats-h:360px}.more .btn{width:100%}}
