@@ -353,6 +353,10 @@ res["summary"] = summary(res)
 sys.path.insert(0, str(ROOT / "eval"))
 import halting_eval  # noqa: E402
 res["halting"] = halting_eval.run(Session, canon, A.seeds)
+# 模拟器断续句模式（--reveal halting）：规则引擎对练下按类型的召回与误报，台词两种来源各跑一遍
+res["halting"]["sim"] = {lines: {k: v for k, v in sim.run(A.seeds, ("rule",), reveal="halting", lines=lines)["byPolicy"]["rule"].items()
+                                 if k in ("sessions", "extractRate", "falseIntelPerSession", "leakRate", "byType")}
+                         for lines in ("corpus", "legacy")} if hasattr(sim, "halting_groups") else None
 res["tiers"] = {}
 for tier in [x for x in A.tiers.split(",") if x]:
     if tier not in ("default", "handwriting"):

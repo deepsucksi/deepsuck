@@ -279,6 +279,15 @@ def to_markdown(r):
     for k, v in r["byStyle"].items():
         lines.append(f"| {k} | {v['recall']:.1%} | {v['falseItems']} |")
     lines += ["", "负例：" + "，".join(f"{k} {v['falseItems']}/{v['cases']}" for k, v in r["negative"]["byStyle"].items())]
+    if r.get("sim"):
+        lines += ["", "模拟器断续句模式（`--reveal halting`，规则引擎）：", "", "| 台词 | 账户 | 电话 | 钱包 | 误报 / 场 |", "|---|---|---|---|---|"]
+        for k, v in r["sim"].items():
+            bt = v["byType"]
+
+            def rate(ts):
+                n = sum(bt.get(x, {}).get("revealed", 0) for x in ts)
+                return f"{sum(bt.get(x, {}).get('captured', 0) for x in ts) / max(1, n):.1%}（{n}）"
+            lines.append(f"| {k} | {rate(GROUP['account'])} | {rate(GROUP['phone'])} | {rate(GROUP['wallet'])} | {v['falseIntelPerSession']:.3f} |")
     return "\n".join(lines)
 
 
