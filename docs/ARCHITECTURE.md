@@ -1,5 +1,81 @@
 # 架构（docs/ARCHITECTURE.md）
 
+> 本页先给模块级的全景、边界与已知风险，后半部分是文件级目录与细节。关键决策见 [adr/](adr/)，开发流程见 [CONTRIBUTING-dev.md](CONTRIBUTING-dev.md)。
+
+## 全景
+
+三个运行面，共用一份规则数据：
+
+- **静态站点**（GitHub Pages，deepsuck.si）：`site/`，浏览器内跑规则引擎，没有服务器也能用。
+- **实时服务**（阿里云香港单台 VPS，live.deepsuck.si）：`deploy/docker-compose.yml` 起 caddy（TLS）、proxy（`server/`，大模型代理与费用护栏）、voice（`voice/`，语音演示），可选 coturn（profile `turn`）与 Asterisk（profile `sip`）。
+- **离线与自动化**：`python/deepsuck`（Python 核心）、`personas/` `corpus/` `eval/`（人设、语料、评测）、情报提交 IssueOps（`.github/workflows/intel-intake.yml` → `deepsuck.intake`）。
+
+```mermaid
+flowchart LR
+  CORE[("site/assets/core/*.json<br/>提取规则 话术 人设 场景")]
+
+  subgraph PAGES["GitHub Pages deepsuck.si"]
+    SITE["site/ 静态页<br/>JS: normalize extractors redact tactics engine humanize"]
+    INTEL[("site/data/intel.json<br/>+ STIX CSV RSS")]
+  end
+
+  subgraph VPS["阿里云香港 VPS live.deepsuck.si"]
+    CADDY["caddy TLS"]
+    PROXY["proxy server/index.js<br/>/api/chat 代理 限流 预算"]
+    VOICE["voice FastAPI + Pipecat<br/>SmallWebRTC"]
+    TEL["telephony 适配器<br/>asterisk-ws / ws-raw"]
+    SIP["Asterisk profile sip"]
+    TURN["coturn profile turn"]
+    VOL[("卷: 预算账本 脱敏记录 录音")]
+  end
+
+  ASR["Paraformer ASR"] --> LLM["qwen-plus"] --> TTS["CosyVoice"]
+  PY["python/deepsuck<br/>Python 核心移植"]
+  OFF["personas/ corpus/ eval/<br/>模拟器 噪声评测"]
+  GH["GitHub Issue 表单"] --> ACT["intel-intake 工作流<br/>deepsuck.intake"]
+
+  CORE --> SITE
+  CORE --> PY
+  PY --> VOICE
+  PY --> OFF
+  PY --> ACT
+  ACT -- "脱敏后发 PR" --> INTEL
+  SITE -- "可选 /api" --> CADDY
+  CADDY --> PROXY
+  CADDY --> VOICE
+  SIP --> TEL --> VOICE
+  TURN -. "UDP 不通时中继" .- VOICE
+  VOICE <--> ASR
+  VOICE <--> LLM
+  VOICE <--> TTS
+  VOICE -- "先脱敏再落盘" --> VOL
+```
+
+语音一轮的数据流：麦克风 → WebRTC（或电话适配器）→ Paraformer 识别 → `deepsuck` 提取并脱敏 → `voice/persona.py` 组系统提示词 → qwen-plus → 输出守卫（不给真实号码、号码逐位读）→ CosyVoice → 回传。网页与电话共用 `voice/app.py` 的 `build_pipeline`。
+
+## 模块边界
+
+| 模块 | 职责 | 可以依赖 | 不应依赖 |
+|---|---|---|---|
+| `site/assets/core/*.json` | 规则与台词的单一事实来源（ADR 0001） | 无 | 任何代码 |
+| `site/assets/js/` | 浏览器与 Node 共用的 UMD 模块 | `core-data.js`（由 core 生成） | 页面 DOM 以外的运行环境假设 |
+| `server/` | 零依赖 Node 代理与费用护栏 | `site/assets/js/` | `voice/`、Python |
+| `python/deepsuck/` | JS 核心的 Python 移植、模拟器、STIX、intake | core JSON | `voice/`、`personas/`、网络（可注入） |
+| `voice/` | 语音演示与电话入口 | `deepsuck`、core JSON、Pipecat | `site/` 的页面文件（只读 core） |
+| `voice/telephony/` | 电话协议适配，只接不拨 | 语音管线 | 入口模块 `voice/app.py`（目前仍依赖，见 #12） |
+| `personas/` `corpus/` `eval/` | 人设、语料、真人化、评测 | `deepsuck` | 线上服务代码 |
+| `deploy/` | Compose、Caddy、Asterisk、bootstrap | 镜像 | 业务逻辑 |
+
+改动跨两个以上模块时，PR 描述里写清楚原因。
+
+## 已知风险（2026-10 审计）
+
+1. 人设双轨：线上用 `core/personas.json`（wang / li / lin），评测与语料用 `personas/prompts/*.yaml`（retiree 等），评测结论不能直接代表线上（#11）。
+2. `voice/app.py` 职责过多：入口、配置、ICE、管线组装、预热、留存调度都在里面；`telephony/server.py` 反向 `import app`；靠改 `sys.path` 引入 `deepsuck`（#12）。
+3. Pipecat 1.12 的 `PipelineTask`/`PipelineRunner` 与上下文内 system 消息已弃用（锁定 `<2`），FastAPI `on_event` 已弃用（#9）。
+4. 配置散落：约 80 个环境变量在多个模块各自读取，两份 `.env.example`，启动时不校验（#13）。
+5. JS/Python 双实现：已有 `tests/fixtures` 金标准，但只覆盖既有用例；新增规则容易单边补测试（#10）。另有 `voice/static/scam_playbooks.json` 手工副本、评测结果多版本堆积（#14、#15）。
+
 ## 目录
 
 ```
@@ -37,6 +113,7 @@ deepsuck/
 │   └── tests/                # 假 WebSocket / 本地回环测试，不联网、不拨打电话
 ├── deploy/                   # 公开部署包：Docker Compose、caddy/Caddyfile、bootstrap.sh、.env.example
 ├── eval/                     # 骗子剧本、TeleAntiFraud 评测脚本、评测结果 JSON
+├── personas/ · corpus/       # 人设提示词与真人化（Python）、话术语料与评测素材（离线使用，见 #11）
 ├── scripts/                  # build-core · gen-fixtures · fetch-blocklists · fetch-cardbin · screenshots · og
 ├── tests/                    # node:test 单元测试 + fixtures/（JS 生成、Python 复用的黄金用例）
 ├── screenshots/              # README 截图（npm run screenshots 生成）
