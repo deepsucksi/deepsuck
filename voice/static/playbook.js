@@ -1,7 +1,8 @@
 // DeepSuck 语音演示「参考话术」面板：给扮演骗子的测试者当提词用。
 // 独立于 voice.js：只读取 #scenario 的值并监听它的 change；下拉由 voice.js 异步填充，选项晚到时用 MutationObserver 补渲染。
 // 数据：主来源是同源 /static/scam_playbooks.json（语料负责人放在 voice/static/），失败才跨域取主站
-// https://deepsuck.si/assets/core/scam_playbooks.json 作备用；都拿不到就显示一行说明，不影响通话。结构：{"version":1,"scenarios":{"<场景 id>":{"title","steps":[{"stage?","goal","lines":[],"source"}]}}}
+// https://deepsuck.si/assets/core/scam_playbooks.json 作备用；都拿不到就显示一行说明，不影响通话。只读这一份文件。
+// 结构：{"version":1,"stageNames?":{"<场景 id>":{"<stage id>":"中文名"}},"scenarios":{"<场景 id>":{"title","steps":[{"stage?","goal","lines":[],"source"}]}}}
 // 切换场景只静默重绘，不用 aria-live，避免打断 #st 的通话状态播报。
 (() => {
   const SOURCES = ["/static/scam_playbooks.json", "https://deepsuck.si/assets/core/scam_playbooks.json"];
@@ -42,6 +43,30 @@
     return null;
   }
 
+  // stageNames 按场景分组：{"<场景 id>":{"<stage id>":"中文名"}}；任何一层缺失、不是对象，或值不是非空字符串时忽略
+  const isObj = (o) => !!o && typeof o === "object" && !Array.isArray(o);
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  function stageName(scenarioId, stage) {
+    const all = data && data.stageNames;
+    if (!isObj(all) || !own(all, scenarioId) || !isObj(all[scenarioId]) || !own(all[scenarioId], stage)) return "";
+    const v = all[scenarioId][stage];
+    return typeof v === "string" ? v.trim() : "";
+  }
+
+  // 话术里的 {机构}、{工号} 等占位槽：拆成等宽小字，提示测试者自己填
+  const SLOT = /\{[^{}\n]{1,16}\}/g;
+  function lineEl(text) {
+    const li = el("li");
+    let last = 0;
+    for (const m of text.matchAll(SLOT)) {
+      if (m.index > last) li.append(document.createTextNode(text.slice(last, m.index)));
+      li.append(el("span", "pb-slot", m[0].slice(1, -1)));
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) li.append(document.createTextNode(text.slice(last)));
+    return li;
+  }
+
   function setStatus(text) {
     status.textContent = text || "";
     status.hidden = !text;
@@ -58,6 +83,7 @@
     if (key === shown) return;
     shown = key;
     steps.replaceChildren();
+    steps.scrollTop = 0;
     const sc = data && id && Object.prototype.hasOwnProperty.call(data.scenarios, id) ? data.scenarios[id] : null;
     const title = (sc && sc.title) || optionTitle();
     cur.textContent = title;
@@ -72,8 +98,16 @@
       const li = el("li", "pb-step");
       const head = el("div", "pb-step-h");
       head.append(el("span", "pb-n", String(i + 1).padStart(2, "0")));
-      // stage 是分类器阶段 id（如 refund 的 hook/problem/tool/harvest/cashout），原样用等宽小字显示，便于和看板对照
-      if (typeof s.stage === "string" && s.stage) head.append(el("span", "pb-stage", s.stage));
+      // stage 是分类器阶段 id（如 refund 的 hook/problem/tool/harvest/cashout）。顶层 stageNames 有中文名时显示中文名，
+      // id 用等宽小字附在旁边便于和看板对照；没有中文名就只显示 id
+      if (typeof s.stage === "string" && s.stage) {
+        const name = stageName(id, s.stage);
+        if (name) {
+          const tag = el("span", "pb-stage", name);
+          tag.append(el("span", "pb-sid", s.stage));
+          head.append(tag);
+        } else head.append(el("span", "pb-stage pb-sid-only", s.stage));
+      }
       li.append(head);
       const goal = el("h3", "pb-goal");
       goal.append(el("span", "pb-k", "目标"), document.createTextNode(String(s.goal || "—")));
@@ -81,7 +115,7 @@
       const lines = Array.isArray(s.lines) ? s.lines.filter((x) => typeof x === "string" && x.trim()) : [];
       if (lines.length) {
         const ul = el("ul", "pb-lines");
-        lines.forEach((x) => ul.append(el("li", null, x)));
+        lines.forEach((x) => ul.append(lineEl(x)));
         li.append(ul);
       }
       if (s.source) li.append(el("p", "pb-src", "出处 · " + s.source));
