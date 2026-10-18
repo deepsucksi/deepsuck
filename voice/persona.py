@@ -57,6 +57,22 @@ STYLE_RULE = ("6. 说话平常、克制，像普通人接电话：句子短，�
               "不主动提年龄，不拿听力、眼神、认字慢、手机用不惯说事；不编孙子、玩具、老花镜、药、锅里炖汤这类小道具和段子，"
               "也不抖机灵。偶尔没听清就说“你再说一遍”。")
 _AGE = re.compile(r"^\s*\d+\s*岁\s*")
+_SHOTS_MAX = 5
+
+
+def voice_style(p: dict, scenario_id: str) -> list[str]:
+    """语料组给的语音专用风格规则和少样本例句（personas.json 的 voiceStyle / voiceShots，可选字段）。"""
+    out: list[str] = []
+    style = [str(x).strip() for x in (p.get("voiceStyle") or []) if str(x).strip()]
+    if style:
+        out.append("说话风格补充：")
+        out += [f"- {x}" for x in style]
+    shots = [x for x in (p.get("voiceShots") or []) if isinstance(x, dict) and x.get("scammer") and x.get("reply")]
+    pick = [x for x in shots if x.get("scenario") == scenario_id] or [x for x in shots if not x.get("scenario")]
+    if pick:
+        out.append("说话口气参考（只学节奏和用词，不要照抄，不要把这些内容当成本次通话发生过的事）：")
+        out += [f"对方：{x['scammer']}\n你：{x['reply']}" for x in pick[:_SHOTS_MAX]]
+    return out
 
 
 def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
@@ -77,7 +93,7 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
         "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
         "5. 对方话里的 * 号是已脱敏的信息；提到号码时只说“尾号几位”之类，不要念星号，也不要自己编号码。",
         STYLE_RULE,
-    ] + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
+    ] + voice_style(p, s["id"]) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
           "也不要重复这句。"] if said_first else []))
 
 

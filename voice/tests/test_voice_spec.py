@@ -160,3 +160,19 @@ def test_ambience_choice_and_mixer(monkeypatch):
     rms = np.sqrt(np.mean(np.frombuffer(m._sounds["kitchen"], dtype=np.int16).astype(float) ** 2)) * A.volume() / 32768
     assert 20 * np.log10(rms) < -35  # 混进去后的底噪足够低
     assert A.make_mixer("wang", "off") is None
+
+
+def test_system_prompt_uses_voice_style_and_shots():
+    from voice import persona as P
+
+    sp = P.system_prompt("wang", "refund")
+    wang = P.PERSONA_BY_ID["wang"]
+    assert wang["voiceStyle"][0] in sp
+    shots = [x for x in wang["voiceShots"] if x["scenario"] == "refund"]
+    assert shots and shots[0]["reply"] in sp
+    other = [x for x in wang["voiceShots"] if x["scenario"] != "refund"]
+    assert all(x["reply"] not in sp for x in other)
+    assert "不用感叹号" in sp
+    # 字段缺失时退回原提示词，不报错
+    assert P.voice_style({}, "refund") == []
+    assert P.voice_style({"voiceShots": [{"scenario": "x", "scammer": "a", "reply": "b"}]}, "refund") == []
