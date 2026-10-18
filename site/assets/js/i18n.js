@@ -36,12 +36,14 @@
     'o1': 'Add scenarios and (masked) real-world script samples', 'o2': 'Design more exhausting personas and stalling tactics',
     'o3': 'Improve extractor regexes and tactic rules, add tests', 'o4': 'Roadmap: LLM personas, voice calls (ASR/TTS), intel-sharing API',
     'disc': '<b>Disclaimer:</b> DeepSuck is an independent open-source community project. Provided "as is" for anti-fraud research and education; all accounts, phones, addresses and URLs in the demo are fictitious test data. Users must comply with local laws.',
-    'foot.soon': '(not live yet)', 'foot.110': 'Scam? Call 110 / 96110'
+    'foot.soon': '(not live yet)', 'foot.110': 'Scam? Call 110 / 96110', 'nav.skip': 'Skip to content'
   };
   var nodes = document.querySelectorAll('[data-i18n]');
   var ZH = [];
   nodes.forEach(function (n, i) { ZH[i] = n.innerHTML; });
   function apply(lang) {
+    // 首页动效（brand-motion.js）在切换前还原逐字拆分，切换后重建
+    document.dispatchEvent(new CustomEvent('deepsuck:beforelanguagechange'));
     nodes.forEach(function (n, i) {
       var k = n.getAttribute('data-i18n');
       n.innerHTML = lang === 'en' && EN[k] ? EN[k] : ZH[i];
@@ -49,6 +51,7 @@
     document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
     document.querySelectorAll('.lang-toggle').forEach(function (b) { b.textContent = lang === 'en' ? '中文' : 'EN'; });
     try { localStorage.setItem('deepsuck.lang', lang); } catch (e) {}
+    document.dispatchEvent(new CustomEvent('deepsuck:languagechange', { detail: { lang: lang } }));
   }
   var cur = 'zh';
   try { cur = localStorage.getItem('deepsuck.lang') || 'zh'; } catch (e) {}

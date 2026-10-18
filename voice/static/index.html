@@ -6,22 +6,22 @@
 <title>语音演示 · DeepSuck</title>
 <link rel="icon" href="/static/logo.svg">
 <style>
-/* 配色与字体与主站 site/assets/css/style.css 的 :root 保持一致（本页由语音服务单独托管，无法直接引用主站样式表，改动时请两边同步）。 */
+/* 配色与字体与主站 site/assets/css/style.css 的 :root 保持一致（R11 视觉）（本页由语音服务单独托管，无法直接引用主站样式表，改动时请两边同步）。 */
 :root{
-  --bg:#f7f6f3;--surface:#ffffff;--sunk:#f0eee9;--line:#e5e2dc;--line2:#d6d2ca;
-  --ink:#161514;--text:#2b2a28;--muted:#5c5953;--dim:#6c6963;--faint:#a8a49c;
-  --accent:#8a5a2b;--accent-soft:rgba(138,90,43,.08);--alert:#9c3d2c;--alert-soft:rgba(156,61,44,.07);
-  --ok:#3f6b4a;--radius:12px;--radius-s:8px;
-  --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
-  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace}
+  --bg:#ffffff;--surface:#ffffff;--sunk:#f2f4f5;--line:#e3e7e9;--line2:#c8cfd2;
+  --ink:#171c1f;--text:#30373b;--muted:#606b72;--dim:#606b72;--faint:#a9b2b7;
+  --accent:#b74224;--accent-soft:rgba(183,66,36,.08);--alert:#a3301c;--alert-soft:rgba(163,48,28,.07);
+  --ok:#3f6b4a;--radius:10px;--radius-s:6px;
+  --font:Manrope,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
 a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}a:hover{text-decoration-color:var(--ink)}
 code{font-family:var(--mono);font-size:.92em}
-::selection{background:rgba(138,90,43,.18)}
+::selection{background:#e9bda7;color:var(--ink)}
 header{display:flex;align-items:center;gap:10px;max-width:1120px;height:68px;margin:0 auto;padding:0 40px}
-header img{width:26px;height:26px}header b{font-size:17px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+header img{width:40px;height:40px;filter:brightness(0)}header b{font-size:19px;font-weight:740;color:var(--ink);letter-spacing:-.02em}
 header .back{font-size:14px;color:var(--muted);text-decoration:none;margin-left:20px}header .back:hover{color:var(--ink)}
 .status{margin-left:auto;font-size:13px;color:var(--muted);display:inline-flex;align-items:center}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-right:8px}
@@ -39,18 +39,18 @@ aside h2:not(:first-child){margin-top:24px}
 .controls label{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
 select,button{font:inherit;font-size:14px;line-height:1.2;border-radius:var(--radius-s);border:1px solid var(--line2);background:var(--surface);color:var(--ink);padding:9px 12px}
 select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button{cursor:pointer;border-radius:999px;padding:10px 20px;font-weight:500;transition:background .15s,border-color .15s}
+button{cursor:pointer;border-radius:5px;padding:10px 20px;font-weight:500;transition:background .15s,border-color .15s}
 button.primary{background:var(--ink);border-color:var(--ink);color:#fff}button.primary:hover{background:#000}
 button.hang{background:transparent;border-color:var(--alert);color:var(--alert)}button.hang:hover{background:var(--alert-soft)}
 button:disabled{opacity:.4;cursor:not-allowed}
 #log{height:440px;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:16px;margin:0 -8px;background:var(--sunk);border-radius:var(--radius-s)}
 .msg{max-width:86%;padding:10px 14px;border-radius:14px;font-size:15px;line-height:1.65}
-.msg.scammer{align-self:flex-end;background:var(--ink);color:#f7f6f3;border-bottom-right-radius:4px}
+.msg.scammer{align-self:flex-end;background:var(--ink);color:#f4f4f2;border-bottom-right-radius:4px}
 .msg.bot{align-self:flex-start;background:var(--surface);border:1px solid var(--line);color:var(--text);border-bottom-left-radius:4px}
 .msg.interim{align-self:flex-end;color:var(--dim);font-style:italic;background:none;border:1px dashed var(--line2)}
 .meta{font-size:12px;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
 .chip{display:inline-block;font-size:12px;line-height:1.5;padding:1px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);border:1px solid var(--line)}
-.msg.scammer .chip{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16);color:#d9d6cf}
+.msg.scammer .chip{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16);color:#d7dfd9}
 .chip.intent{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
 #tactics .chip,#intent .chip{margin:0 6px 6px 0}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-bottom:8px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius-s);overflow:hidden}
