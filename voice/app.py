@@ -4,7 +4,7 @@
     python -m voice.app --engine rule   # 不调用大模型，规则引擎出话（仍需 ASR/TTS）
 
 级联管线：浏览器麦克风 →(SmallWebRTC)→ Paraformer 实时 ASR → 情报抽取/话术识别/策略选择
-→ qwen-plus（OpenAI 兼容接口）→ 输出守卫 → CosyVoice TTS →(SmallWebRTC)→ 浏览器扬声器。
+→ qwen3.7-flash（OpenAI 兼容接口）→ 输出守卫 → CosyVoice TTS →(SmallWebRTC)→ 浏览器扬声器。
 需要 DASHSCOPE_API_KEY（见 voice/.env.example）。仅供研究/演示，请勿用来拨打真实电话。
 """
 from __future__ import annotations
@@ -50,7 +50,15 @@ from .persona import system_prompt, voice_opening  # noqa: E402
 from . import backchannel as BC  # noqa: E402
 
 LLM_BASE_URL = os.environ.get("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-LLM_MODEL = os.environ.get("DEEPSUCK_LLM_MODEL", "qwen-plus")
+LLM_MODEL = os.environ.get("DEEPSUCK_LLM_MODEL", G.DEFAULT_LLM_MODEL)
+
+
+def llm_settings_extra(env=None) -> dict:
+    """大模型额外请求参数。DEEPSUCK_LLM_THINKING 默认 0：显式发 enable_thinking=false（qwen3.x 系列部分模型默认开思考，
+    开了首字要多等几秒，电话里不能用）。经 OpenAI SDK 的 extra_body 透传给百炼兼容接口。"""
+    e = os.environ if env is None else env
+    on = (e.get("DEEPSUCK_LLM_THINKING") or "0").strip().lower() in ("1", "true", "on", "yes")
+    return {"extra_body": {"enable_thinking": on}}
 TTS_MODEL = os.environ.get("DEEPSUCK_TTS_MODEL", "cosyvoice-v3-flash")
 ASR_MODEL = os.environ.get("DEEPSUCK_ASR_MODEL", "paraformer-realtime-v2")
 OUT_RATE = 24000
@@ -204,7 +212,8 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         from pipecat.services.qwen.llm import QwenLLMService
 
         llm = QwenLLMService(api_key=os.environ.get("DASHSCOPE_API_KEY"), base_url=LLM_BASE_URL,
-                             settings=QwenLLMService.Settings(model=LLM_MODEL, temperature=0.8, max_tokens=120))
+                             settings=QwenLLMService.Settings(model=LLM_MODEL, temperature=0.8, max_tokens=120,
+                                                              extra=llm_settings_extra()))
     context = LLMContext([{"role": "system", "content": system_prompt(pid, session.scenario["id"], "opening")}])
     agg = LLMContextAggregatorPair(context, user_params=LLMUserAggregatorParams(
         vad_analyzer=vad_analyzer, user_turn_strategies=strategies))

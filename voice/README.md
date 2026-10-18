@@ -5,7 +5,7 @@
 一个本地跑的级联语音管线：你对着浏览器麦克风扮演骗子，DeepSuck 用"王阿姨/李大爷/小林"的声音陪你周旋，同时在看板上实时显示抽取到的（已脱敏）情报、识别出的话术和本轮策略。
 
 ```
-浏览器麦克风 ──SmallWebRTC──▶ Paraformer 实时 ASR ──▶ IntelProcessor ──▶ qwen-plus ──▶ 输出守卫 ──▶ CosyVoice TTS ──SmallWebRTC──▶ 浏览器扬声器
+浏览器麦克风 ──SmallWebRTC──▶ Paraformer 实时 ASR ──▶ IntelProcessor ──▶ qwen3.7-flash ──▶ 输出守卫 ──▶ CosyVoice TTS ──SmallWebRTC──▶ 浏览器扬声器
                                                      │ 情报抽取 / 话术识别 / 黑名单比对
                                                      │ 规则引擎选策略 → 改写系统提示词
                                                      │ 插播拖延填充音（"哎……你等一下啊"）
@@ -34,6 +34,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 
 | 参数 | 说明 |
 |---|---|
+| 环境变量 `DEEPSUCK_LLM_MODEL` / `DEEPSUCK_LLM_THINKING` | 语音大模型，默认 `qwen3.7-flash`、思考关（显式发 `enable_thinking=false`）；单价按模型查 `guard.py` 的 `LLM_PRICES`，选型见 [docs/LLM_AB.md](../docs/LLM_AB.md) |
 | `--engine rule` | 不调用大模型，用规则引擎（与网页版同一套模板）出话；仍需 ASR/TTS |
 | `--host` / `--port` | 默认 `127.0.0.1:7860` |
 
@@ -46,6 +47,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 | `processors.py` | `IntelProcessor`（情报/话术/策略）、`FillerProcessor`（回合结束播预合成短口头语；`DEEPSUCK_BACKCHANNEL=0` 时按延迟触发填充音）、`BotTextTap`、`GuardTextFilter` |
 | `backchannel.py` | 短口头语：说不说的规则（话太短/催促/短追问不说）、随机轮换不连续重复、缓存目录与裁静音 |
 | `interrupt.py` / `tuning.py` / `textagg.py` | 中文打断策略（"嗯/对"不打断）、网页/电话两套延迟参数、流式分句器 |
+| `llm_ab.py` | `python -m voice.llm_ab`：同一组诈骗脚本对比几个大模型（抢话、口语风格、守卫触发、首字延迟、每通成本），会真实计费 |
 | `latency.py` | 每轮延迟拆解（`LatencyObserver`） |
 | `persona.py` | 由 `site/assets/core/personas.json` 生成系统提示词；填充音台词；输出守卫 |
 | `app.py` | FastAPI + SmallWebRTC 信令（`/api/offer`）+ 管线组装；`python -m voice.app` |
