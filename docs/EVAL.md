@@ -155,3 +155,51 @@ Hugging Face 上的 TeleAntiFraud-28k（音频 + 标注，Apache-2.0）是 gated
 - dev 与 test 的差距很小（F1 0.952 vs 0.946），说明这轮改动没有明显过拟合到看过的样本；但两者来自同一批多智能体生成的对话，话术风格相近，**在真实来电上效果会更差**；
 - 剩余漏报大多是只有一句开场白的对话（如“恭喜您中了一等奖”“我是 XX 投资公司的理财顾问”），单句信号不足；剩余误报多为正常客服里同时出现“客服 + 贷款/促销”；
 - 下一步：用 HF 版 TeleAntiFraud-28k 的 test 集复评（需要有账号的贡献者）；收集真实（脱敏）诈骗短信/通话转写做独立测试集。
+
+## 像不像真人
+
+> 状态：评测工具与流程已就绪，**还没有评测者数据**，下面只有自动指标。工具：[`eval/realism_blind.py`](../eval/realism_blind.py)。
+
+模拟器和分类器都不衡量“露馅”（骗子看出对面是机器人）。这一节用真人盲评来衡量：评测者只看到“骗子消息 + 回复”，判断回复像不像真人随手发的。
+
+### 题目与条件
+
+- **骗子消息**：默认取自 [`corpus/scripts/*.yaml`](../corpus/scripts/)（7 类，阶段台词与示例对话中骗子一方的话），占位符填虚构的打码值。`--scammer-file` 可以换成情报分析师的真实语料文件：支持 `deepsuck.core.scam-scripts/v1`（`entries[].text / type / stage 或 phase / sourceLabel`），也支持 JSON / YAML 的字符串或对象列表，以及 JSONL；
+- **回复**：4 个新人设（周伯、小陈妈妈、小宇、郑老板）的原句池（`personas/prompts/*.yaml` 的 `sample_lines` 与 `elicit_moves`），按题轮流分配人设，每题随机抽一句；
+- **条件**：`raw` = 人设原句；`humanized` = 同一句经 `personas.humanize` 真人化（人设预设，种子写在 key.json 里），“重复确认”复述的是这道题的骗子消息；`human`（可选，`--human-replies`）= 真人写的回复，两份表都放，作为上限参照；
+- **防止同一人比较**：同一句的 raw / humanized 分在 A、B 两份表（A 表是 raw 的，B 表就是 humanized），每位评测者只做一份表；题目顺序打乱，表里没有条件信息，答案只在 key.json。
+
+```bash
+python eval/realism_blind.py make --n 60 --seed 1 --out-dir eval/realism        # 生成 form-A.csv / form-B.csv / key.json（不入库）
+python eval/realism_blind.py make --scammer-file <情报分析师的语料文件> --out-dir eval/realism
+# 评测者在表里填 human（1–5）、bot（0/1）、unreadable（0/1），另存为 rated-<名字>.csv
+python eval/realism_blind.py score --key eval/realism/key.json eval/realism/rated-*.csv --json eval/results-realism.json
+```
+
+### 指标
+
+| 指标 | 含义 |
+|---|---|
+| 像真人分 | 评测者给的 1–5 分的平均值（附 95% 置信区间） |
+| 露馅率 | 被判为机器人（`bot = 1`）的比例；主要指标 |
+| 露馅率差 | 同一句 humanized 减 raw 的露馅率，按句对配对，自助法 95% 区间；小于 0 说明真人化有用 |
+| 看不懂率 | 评测者标“看不懂 / 读着别扭”的比例；真人化太重时会上升，用来卡住强度 |
+| 评测者一致率 | 同一题不同评测者 `bot` 判断两两一致的比例 |
+| 自动指标 | 不需要评测者：平均字数、每 10 字标点数、句末带标点比例 |
+
+建议规模：60 个句对（每份表 60 题），每份表至少 3 位评测者；评测者不参与项目开发，事先不告诉他们表里有机器人回复的比例。
+
+### 自动指标（`--n 60 --seed 1`，骗子消息来自 corpus/scripts）
+
+| 条件 | 题数 | 平均字数 | 每 10 字标点 | 句末带标点 |
+|---|---|---|---|---|
+| raw | 60 | 21.7 | 0.69 | 22% |
+| humanized | 60 | 25.2 | 0.58 | 15% |
+
+60 句里有 37 句被真人化改动；生效的操作次数：语音转文字断句 18、错别字 15、重复确认 10、标点 10、跑题 7、方言 1。
+
+### 局限
+
+- 回复是从人设原句池里随机抽的，和骗子消息不一定对得上；两个条件用的是同一句，对比是公平的，但绝对分数会偏低。接入大模型后可以把回复换成真实生成结果（下一步：`--replies` 读取机器人在模拟器里的真实回复）；
+- 文字盲评只覆盖打字通道；语音通道（backchannel、听错反问、停顿）需要单独做听音评测；
+- 默认骗子消息是改写的公开话术，不是真实来电；情报分析师的真实语料就绪后用 `--scammer-file` 复评。

@@ -21,6 +21,7 @@
 - 新增 `personas/`：4 个人设提示词（周伯 · 退休老人、小陈妈妈 · 宝妈、小宇 · 刚毕业学生、郑老板 · 个体小老板）与共用硬性规则；`personas.humanize` 真人化后处理（同音/形近错别字、标点缺失乱用、语音转文字断句、重复确认、跑题、方言词），带随机种子与强度参数，不改动数字、打码值、占位符和网址，零依赖。
 - 新增 `personas/voice_traits.yaml`（7 个人设的语音说话特征：8–12 条 backchannel，格式与 `voice/persona.py` 的 `FILLERS` 相同、现有 3 个人设前 8 条不变；听错词对与反问；语速、方言词、口音；开口前停顿与扯家常频率；不含错别字）与读取模块 `personas/voice_traits.py`；`docs/REALISM.md` 分“文字打字特征”“语音说话特征”两章。`voice/` 代码未改动。
 - 真人感文档移到 `docs/REALISM.md`（保留“文字打字特征”“语音说话特征”两章），新增第三章“首页示例对话改写前后”：以 `hero-chat.js` 现有 3 段为改写前，换成新人设（周伯、小陈妈妈、小宇）重写骗子与人设两侧，并用 humanize 固定种子真人化；生成脚本 `corpus/examples/build_hero_rewrite.py`，输出 `corpus/examples/hero_rewrite.json`（`after` 严格按 `SCRIPTS` 结构：`title`「诈骗类型 · 人设名」、`source`「据公开反诈宣传改写」、`lines` 每条 `r`/`s` 二选一并可选 `t`/`i`/`w`，`i` 必须已打码，每段 4–6 条、每条不超过 40 字，生成时校验；`site/` 未改动）。改写前的首页原版 3 段固定在 `corpus/examples/hero_before.json`（取自 `420a81f`），生成脚本与测试不再依赖 `hero-chat.js` 的当前内容，只检查字段名；humanize 混淆表去掉刻意错字（神马、孩纸、好滴、手鸡、钱→前）。
+- 评测：docs/EVAL.md 新增“像不像真人”一节与盲测工具 `eval/realism_blind.py`（A/B 两份表交叉分配 raw / humanized，可选真人回复参照；指标：像真人分、露馅率与配对差、看不懂率、评测者一致率、自动指标）。骗子消息默认取自 `corpus/scripts`，`--scammer-file` 可换成情报分析师的真实语料（`deepsuck.core.scam-scripts/v1` 或 JSON/YAML/JSONL 列表）。humanize 的重复确认只复述完整的短分句（不再截断长分句），并去掉“？，”这类双标点。
 - 测试：`python -m pytest personas corpus`（话术库格式与脱敏检查、人设格式、真人化确定性与保护规则），已加入 CI。
 
 ### 情报数据改用 CC BY 4.0

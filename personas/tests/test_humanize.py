@@ -159,3 +159,11 @@ def test_cli(capsys):
     assert main(["你说什么？", "--profile", "shop_owner", "--seed", "1", "-n", "2", "--json"]) == 0
     lines = capsys.readouterr().out.strip().splitlines()
     assert len(lines) == 2 and all('"ops"' in x for x in lines)
+
+
+def test_repeat_echo_is_whole_short_clause_and_no_double_punct():
+    ctx = "这些网贷额度必须全部借出来再转到我们的监管账户，系统才能清零"
+    for s in range(200):
+        r = Humanizer(1.0, seed=s, ops=["repeat"], weights={"repeat": 10}).apply("先付多少呀？", context=ctx)
+        assert not re.search(r"[？?！!。，,]{2}", r.text.replace("？？", "")), r.text
+        assert "必须全部借出来再转" not in r.text  # 超过 12 字的分句不复述、不截断

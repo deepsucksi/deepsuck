@@ -24,3 +24,6 @@ uv.lock
 site/data/blocklist/
 # deploy secrets
 deploy/.env
+
+# 盲测表（含答案 key.json），只在本地生成，不入库
+eval/realism/

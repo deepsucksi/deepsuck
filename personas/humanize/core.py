@@ -180,14 +180,12 @@ class Humanizer:
         return text, len(chosen)
 
     def _echo(self, context: str) -> Optional[str]:
-        parts = [x for x in _ECHO_SPLIT.split(context or "") if 2 <= len(x) and not re.search(r"[0-9０-９*＊]", x)]
+        # 只复述完整的短分句（2–12 字）；长分句截断会切断词语（“期资料费转到”），读起来像机器，宁可用通用确认
+        parts = [x for x in _ECHO_SPLIT.split(context or "")
+                 if 2 <= len(x) <= 12 and not re.search(r"[0-9０-９*＊]", x)]
         if not parts:
             return None
-        frag = self.rng.choice(parts)
-        if len(frag) > 12:
-            start = self.rng.randrange(0, len(frag) - 8)
-            frag = frag[start:start + self.rng.randint(6, 10)]
-        return frag
+        return self.rng.choice(parts)
 
     def _repeat(self, text: str, context: Optional[str]) -> Tuple[str, bool]:
         if not self._hit(self._p("repeat")):
@@ -195,7 +193,8 @@ class Humanizer:
         echo = self._echo(context) if context else None
         if echo:
             line = self.rng.choice(C.CONFIRM_TEMPLATES).format(echo=echo)
-            return (line + "，" + text) if self.rng.random() < 0.6 else (text.rstrip(_PUNCT) + "。" + line), True
+            joint = "" if line[-1] in _PUNCT else "，"  # 避免“清零？，先付……”这样的双标点
+            return (line + joint + text) if self.rng.random() < 0.6 else (text.rstrip(_PUNCT) + "。" + line), True
         line = self.rng.choice(C.CONFIRM_GENERIC)
         return text.rstrip(_PUNCT) + "，" + line, True
 
