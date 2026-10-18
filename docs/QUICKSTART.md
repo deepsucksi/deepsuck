@@ -111,8 +111,12 @@ curl -s http://127.0.0.1:7860/api/voice/health
 | `INTERRUPT_MIN_CHARS` | 2 | 3 | 机器人说话时打断所需有效字数 |
 | `FILLER_DELAY_MS` | 650 | 650 | 仅 `DEEPSUCK_BACKCHANNEL=0` 时生效：停说后多久仍无首 token 就播填充音；0 关闭 |
 | `TTS_CLAUSE_MIN_CHARS` | 6 | 6 | 逗号处切分前至少攒的字数 |
+| `TURN_DIGIT_HOLD_MS` | 1800 | 1800 | 对方正在念卡号、电话、验证码、金额且位数不够时，停说后至少等这么久才结束回合；预告"我现在念给您"也按这个时长 |
+| `TURN_TEXT_COMPLETE_MS` | 1200 | 1200 | 句子已完整、但回合判定认为没说完时的结束等待；0 关闭 |
 
 默认开启短口头语（`DEEPSUCK_BACKCHANNEL=1`）：回合一结束就播当前人设预合成的口头语，不等大模型；设为 `0` 回到旧的按延迟触发填充音，`FILLER_DELAY_MS` 才生效。口头语音频缓存在 `$DATA_DIR/voice/fillers/`（可用 `DEEPSUCK_FILLER_CACHE_DIR` 指定），首次启动会合成一批，产生少量费用。
+
+数字回合判定默认开启（`DEEPSUCK_TURN_DIGITS=1`），念数字中途停顿不会再把一个号码切成几段，设为 `0` 回到原策略；其他情况的阈值不变，详见 [VOICE_LATENCY.md](VOICE_LATENCY.md)。
 
 另有 `DEEPSUCK_TTS_STREAM=0`，可回退到旧的每句一连接合成。例如 `DEEPSUCK_LAT_ASR_MAX_SILENCE_MS=500` 就是把网页断句静音调到 500ms。
 
