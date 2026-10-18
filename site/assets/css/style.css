@@ -1,7 +1,8 @@
-/* DeepSuck — 克制的纸白 + 墨黑视觉，单一低饱和铜色点缀。原创配色，刻意避开任何第三方品牌风格。 */
+/* DeepSuck — 克制的纸白 + 墨黑视觉，单一低饱和铜色点缀。原创配色，刻意避开任何第三方品牌风格。
+   文字灰阶均满足 WCAG AA（≥ 4.5:1，含 --sunk 底）：--muted 正文次级、--dim 注释/元信息；--faint 只用于装饰（圆点、分隔），不用于文字。 */
 :root{
   --bg:#f7f6f3; --surface:#ffffff; --sunk:#f0eee9; --line:#e5e2dc; --line2:#d6d2ca;
-  --ink:#161514; --text:#2b2a28; --muted:#6f6c66; --dim:#9a968e;
+  --ink:#161514; --text:#2b2a28; --muted:#5c5953; --dim:#6c6963; --faint:#a8a49c;
   --accent:#8a5a2b; --accent-soft:rgba(138,90,43,.08); --alert:#9c3d2c; --alert-soft:rgba(156,61,44,.07);
   --radius:12px; --radius-s:8px;
   --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
@@ -120,7 +121,7 @@ footer a{color:var(--muted);text-decoration:none} footer a:hover{color:var(--ink
 mark.intel{background:transparent;color:inherit;border-bottom:1.5px solid #d9b98f;padding:0 1px;font-family:var(--mono);font-size:13px}
 .msg.bot mark.intel{border-color:var(--accent)}
 .typing .bub{color:var(--dim)}
-.dots span{display:inline-block;width:5px;height:5px;margin:0 2px;border-radius:50%;background:var(--dim);animation:bl 1.2s infinite;vertical-align:middle}
+.dots span{display:inline-block;width:5px;height:5px;margin:0 2px;border-radius:50%;background:var(--faint);animation:bl 1.2s infinite;vertical-align:middle}
 .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
 @keyframes bl{0%,80%,100%{opacity:.25}40%{opacity:1}}
 .samples{padding:14px 24px;border-top:1px solid var(--line);display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin}
@@ -151,7 +152,7 @@ mark.intel{background:transparent;color:inherit;border-bottom:1.5px solid #d9b98
 .bl{display:inline-block;margin-top:4px;font-family:var(--font);font-size:11.5px;padding:0 8px;border-radius:99px;border:1px solid var(--line);color:var(--dim);white-space:normal}
 .bl.hit{color:var(--alert);background:var(--alert-soft);border-color:rgba(156,61,44,.3);font-weight:500}
 .bl.clean{color:var(--muted)}
-.bl.pending{opacity:.7}
+.bl.pending{border-style:dashed}
 .intel-item .bl{white-space:nowrap;font-size:11px}
 .bl-note{margin:16px 0 0;font-size:11.5px;color:var(--dim);line-height:1.75}
 .bl-note a{color:var(--muted)}
