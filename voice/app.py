@@ -28,6 +28,12 @@ from loguru import logger
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = Path(__file__).resolve().parent / "static"
+BRAND_FILES = {  # /static/brand/<name> -> 仓库内路径（相对 ROOT）与类型；Dockerfile.voice 同步 COPY
+    "wordmark.svg": ("site/assets/brand/wordmark.svg", "image/svg+xml"),
+    "symbol.png": ("site/assets/brand/on-hold-mono-96.png", "image/png"),
+    "Manrope.ttf": ("site/assets/fonts/Manrope.ttf", "font/ttf"),
+    "IBMPlexMono-Regular.ttf": ("site/assets/fonts/IBMPlexMono-Regular.ttf", "font/ttf"),
+}
 for p in (ROOT / "python",):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
@@ -390,6 +396,14 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
     @app.get("/static/logo.svg")
     async def logo():
         return FileResponse(ROOT / "site" / "assets" / "logo.svg", media_type="image/svg+xml")
+
+    # R11 品牌文件（与主站同一份，只读白名单）：顶栏听筒标志、字标与字体
+    @app.get("/static/brand/{name}")
+    async def brand(name: str):
+        hit = BRAND_FILES.get(name)
+        if not hit or not (ROOT / hit[0]).is_file():
+            raise HTTPException(404, "not found")
+        return FileResponse(ROOT / hit[0], media_type=hit[1], headers={"Cache-Control": "public, max-age=86400"})
 
     @app.get("/api/config")
     async def config():

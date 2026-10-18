@@ -1,14 +1,12 @@
-<p align="center"><img src="site/assets/logo.svg" width="72" alt="DeepSuck logo"></p>
-
-<h1 align="center">DeepSuck</h1>
+<p align="center"><a href="https://deepsuck.si/"><img src="docs/assets/readme-banner.png" width="100%" alt="DeepSuck：让骗子把时间浪费在 AI 身上"></a></p>
 
 <p align="center"><b>开源 AI 反诈“拖住”机器人：让骗子把时间浪费在 AI 身上，同时提取脱敏的诈骗情报。</b></p>
 
 <p align="center">
   <a href="https://github.com/deepsucksi/deepsuck/actions/workflows/pages.yml"><img alt="Pages" src="https://github.com/deepsucksi/deepsuck/actions/workflows/pages.yml/badge.svg"></a>
-  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-161514"></a>
-  <a href="DATA_LICENSE"><img alt="Data: CC BY 4.0" src="https://img.shields.io/badge/data-CC%20BY%204.0-161514"></a>
-  <a href="https://github.com/deepsucksi/deepsuck/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/deepsucksi/deepsuck?color=8a5a2b"></a>
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-171c1f"></a>
+  <a href="DATA_LICENSE"><img alt="Data: CC BY 4.0" src="https://img.shields.io/badge/data-CC%20BY%204.0-171c1f"></a>
+  <a href="https://github.com/deepsucksi/deepsuck/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/deepsucksi/deepsuck?color=b74224"></a>
 </p>
 
 <p align="center">
