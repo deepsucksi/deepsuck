@@ -50,7 +50,7 @@ issue → 分支 <area>/<issue>-<slug>（独立 worktree）→ Conventional Comm
 
 - `main` 受保护：**禁止直接推送、强推和删除**，所有改动都走 PR；只允许 squash 合并，历史保持线性。
 - PR 标题同样遵守 Conventional Commits，squash 后的提交标题就是 PR 标题；描述按模板填写，必须写 `Closes #N`（或 `Refs #N`）。
-- 必须通过的检查：CI `test` 工作流的必需检查全绿（见 `.github/workflows/test.yml`），且分支与 `main` 同步。落后时执行 `gh pr update-branch <PR号>`（或在分支上 `git fetch && git rebase origin/main` 后 `git push --force-with-lease`，只限自己的分支）。
+- 必须通过的检查：CI `test` 工作流（`.github/workflows/test.yml`）的五项检查全绿：`node`、`voice`、`python (3.9)`、`python (3.12)`、`deploy`，且分支与 `main` 同步。落后时执行 `gh pr update-branch <PR号>`（或在分支上 `git fetch && git rebase origin/main` 后 `git push --force-with-lease`，只限自己的分支）。
 - 开启自动合并：`gh pr merge <PR号> --squash --auto`。CI 通过后 GitHub 自动 squash 合并并删除分支。不要手动绕过 CI 合并。
 - **管理员绕过仅限紧急情况**（线上事故、CI 本身坏了且阻塞修复）：只能通过 PR 绕过（`gh pr merge <PR号> --squash --admin`），任何人（包括管理员和部署密钥）都不能直接推送 `main`。由负责人决定并执行，事后在相关 issue 里写明原因，并补一个正常 PR 修复根因。代理日常一律不用 `--admin`。
 
@@ -61,23 +61,45 @@ gh pr merge  -R $R <PR号> --squash --auto
 gh pr checks -R $R <PR号> --watch
 ```
 
-## 5. 共享开发服务器上的 git worktree
+## 5. git worktree：一个分支一个 worktree
 
-多个代理共用同一台开发服务器时：
+开发可以在两个地方做：开发服务器（VPS）和共享电脑。需要调用大模型的评测，在共享电脑上跑。
 
-- `/opt/deepsuck-dev` 是共享的主仓库，**永远不要在里面 checkout、改文件或提交**，只用它来 `fetch` 和管理 worktree。
-- 每个任务一个 worktree，路径 `/opt/deepsuck-wt/<role>-<branch>`（分支名里的 `/` 换成 `-`）：
+| 位置 | 共用检出目录（只用来 `fetch` 和管理 worktree） | worktree 路径 |
+|---|---|---|
+| VPS | `/opt/deepsuck-dev` | `/opt/deepsuck-wt/<role>-<branch>` |
+| 共享电脑 | `/workspace/deepsuck` | `/workspace/deepsuck-wt/<role>-<branch>` |
+
+`<branch>` 里的 `/` 换成 `-`，例：分支 `voice/21-turn-fallback` 由语音线开发，worktree 为 `voice-voice-21-turn-fallback`。
+
+硬性规定：
+
+- **一个分支对应一个独立的 worktree**。
+- **绝不在共用的检出目录 `/opt/deepsuck-dev` 和 `/workspace/deepsuck` 里 checkout 或提交**，也不在里面改文件、不动里面未提交的东西。
+- 生产目录 `/opt/deepsuck` 只用来执行下面的部署命令，不在里面改文件、切分支或提交。
+- 只推自己的分支；PR 合并（或关闭）后删掉对应的 worktree。
+
+VPS：
 
 ```bash
 git -C /opt/deepsuck-dev fetch origin
-git -C /opt/deepsuck-dev worktree add /opt/deepsuck-wt/<role>-<area>-<issue>-<slug> -b <area>/<issue>-<slug> origin/main
-# 工作、提交、推送分支……
-git -C /opt/deepsuck-dev worktree remove /opt/deepsuck-wt/<role>-<area>-<issue>-<slug>   # PR 合并或关闭后
+git -C /opt/deepsuck-dev worktree add /opt/deepsuck-wt/<role>-<branch> -b <branch> origin/main
+# 工作、提交、推送自己的分支……
+git -C /opt/deepsuck-dev worktree remove /opt/deepsuck-wt/<role>-<branch>   # PR 合并或关闭后
 git -C /opt/deepsuck-dev worktree prune
 ```
 
-- 推送分支用部署密钥（只能推分支，推 `main` 会被拒绝）；开 PR、合并用已登录的 `gh`。
-- 生产目录 `/opt/deepsuck` 只用于执行下面的部署命令，不在里面改文件、切分支或提交。
+共享电脑：
+
+```bash
+git -C /workspace/deepsuck fetch origin && git -C /workspace/deepsuck worktree add /workspace/deepsuck-wt/<role>-<branch> -b <branch> origin/main
+# 工作、提交、推送自己的分支……
+git -C /workspace/deepsuck worktree remove /workspace/deepsuck-wt/<role>-<branch>   # PR 合并或关闭后
+git -C /workspace/deepsuck worktree prune
+```
+
+- 推送认证：VPS 上用部署密钥（只能推分支，推 `main` 会被拒绝）；共享电脑上远端走 HTTPS，推送时临时借用已登录的 `gh` 作为 git 凭据助手，例如 `git -c credential.helper= -c credential.helper='!gh auth git-credential' push -u origin <branch>`。不在文档、命令或日志里写令牌。
+- 开 PR、合并用已登录的 `gh`。
 
 ## 6. 部署
 
