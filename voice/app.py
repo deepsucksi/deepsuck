@@ -36,6 +36,8 @@ from deepsuck.engine import Session  # noqa: E402
 from deepsuck.personas import PERSONAS, SCENARIOS  # noqa: E402
 
 from . import guard as G  # noqa: E402
+from . import records as REC  # noqa: E402
+from .disclosure import disclosure_text  # noqa: E402
 from .dashscope_ws import PERSONA_VOICES  # noqa: E402
 from .persona import system_prompt  # noqa: E402
 
@@ -100,10 +102,11 @@ def public_config(engine: str, limits: Optional[G.Limits] = None, budget: Option
 
 def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", fillers=None,
                    blocklist=None, stt=None, tts=None, llm=None, meter=None, profile: str = "web",
-                   vad_analyzer=None):
+                   vad_analyzer=None, recorder=None):
     """组装管线；stt/tts/llm/vad_analyzer 可注入（测试用）。返回 (pipeline, intel_processor, context)。
 
     profile 选延迟/打断参数（voice/tuning.py）："web" 浏览器，"phone" 电话线路。
+    recorder 为 voice.records.AudioRecorder 时（KEEP_AUDIO=1）在输入后、输出前各插一个录音点。
     """
     from pipecat.pipeline.pipeline import Pipeline
 
@@ -139,8 +142,9 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
                                filler_prob=0.0, blocklist=blocklist)
         intel.meter = meter
         turns = UserTurnProcessor(user_turn_strategies=strategies)
-        return Pipeline([transport.input(), VADProcessor(vad_analyzer=vad_analyzer), stt, turns, intel,
-                         filler, tts, transport.output()]), intel, None
+        procs = [transport.input(), VADProcessor(vad_analyzer=vad_analyzer), stt, turns, intel, filler, tts,
+                 transport.output()]
+        return Pipeline(_with_taps(procs, recorder)), intel, None
 
     from pipecat.processors.aggregators.llm_context import LLMContext
     from pipecat.processors.aggregators.llm_response_universal import (
@@ -161,9 +165,20 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
                            filler_rate=OUT_RATE, filler_prob=0.0, blocklist=blocklist)
     intel.meter = meter
     tap = BotTextTap(intel)
-    pipeline = Pipeline([transport.input(), stt, intel, agg.user(), llm, filler, tap, tts, transport.output(),
-                         agg.assistant()])
-    return pipeline, intel, context
+    procs = [transport.input(), stt, intel, agg.user(), llm, filler, tap, tts, transport.output(), agg.assistant()]
+    return Pipeline(_with_taps(procs, recorder)), intel, context
+
+
+def _with_taps(procs: list, recorder) -> list:
+    """procs[0] 是 transport.input()，倒数第一或第二个是 transport.output()（llm 模式后面还有 assistant 聚合器）。"""
+    if recorder is None:
+        return procs
+    from .records import AudioTap
+
+    out_idx = len(procs) - 1 if len(procs) and procs[-1].__class__.__name__ != "LLMAssistantAggregator" \
+        else len(procs) - 2
+    return ([procs[0], AudioTap(recorder, "in")] + procs[1:out_idx] + [AudioTap(recorder, "out")]
+            + procs[out_idx:])
 
 
 async def run_bot(connection, persona: str, scenario: str, engine: str, *, limits: Optional[G.Limits] = None,
@@ -187,8 +202,12 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
     st = {"t0": time.time(), "connected": None, "heard": time.time()}
     wd: Optional[asyncio.Task] = None
     bg_fill: Optional[asyncio.Task] = None
+    session = recorder = None
+    call_id = ""
     try:
         session = Session(scenario=scenario, persona=persona, engine=f"voice-{engine}")
+        call_id = uuid.uuid4().hex[:12]
+        recorder = REC.recorder_for(call_id)  # KEEP_AUDIO=1 才录音
         transport = SmallWebRTCTransport(webrtc_connection=connection, params=TransportParams(
             audio_in_enabled=True, audio_out_enabled=True, audio_in_sample_rate=IN_RATE, audio_out_sample_rate=OUT_RATE))
 
@@ -205,7 +224,7 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
         if fillers_missing(pid, pvoice, OUT_RATE, fillers):
             bg_fill = asyncio.create_task(synth_fillers(pid, pvoice, OUT_RATE, meter=ticket, out=fillers))
         pipeline, intel, context = build_pipeline(transport, session, notify, engine=engine, fillers=fillers,
-                                                  blocklist=Client(), meter=ticket)
+                                                  blocklist=Client(), meter=ticket, recorder=recorder)
         intel.on_heard = lambda: st.__setitem__("heard", time.time())
         from .latency import LatencyObserver
         from .tuning import get_profile
@@ -222,9 +241,12 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
             if context is not None:
                 context.add_message({"role": "assistant", "content": msg["text"]})
             await notify({"type": "limits", "maxMinutes": limits.max_minutes, "maxTurns": limits.max_turns})
+            disc = disclosure_text()
+            if disc:
+                await notify({"type": "bot", "text": disc, "intent": "disclosure"})
             await notify({"type": "bot", "text": msg["text"], "intent": "opening"})
             await notify(intel.snapshot())
-            await task.queue_frames([TTSSpeakFrame(msg["text"])])
+            await task.queue_frames([TTSSpeakFrame(t) for t in (disc, msg["text"]) if t])
 
         @transport.event_handler("on_client_disconnected")
         async def _gone(_t, _c):
@@ -266,6 +288,11 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
         for t in (wd, bg_fill):
             if t is not None:
                 t.cancel()
+        if recorder is not None:
+            recorder.close()
+        if session is not None:
+            session.end()
+            REC.save_transcript(session, call_id, "web")
         if ticket is not None:
             ticket.close()
         if on_done is not None:
@@ -309,6 +336,18 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
         logger.info(f"WebRTC: UDP 端口 {ports or '随机'}，公网 IP 候选 {public_ip or '无'}，服务端 STUN {server_ice_servers() or '无'}")
 
     app = FastAPI(title="DeepSuck voice")
+
+    @app.on_event("startup")
+    async def _retention():
+        # 通话留存：启动时清一次过期文件，之后每小时一次
+        logger.info(f"通话留存策略: {REC.describe()}")
+        app.state.cleanup_task = asyncio.create_task(REC.cleanup_loop())
+
+    @app.on_event("shutdown")
+    async def _retention_stop():
+        t = getattr(app.state, "cleanup_task", None)
+        if t is not None:
+            t.cancel()
 
     @app.on_event("startup")
     async def _prewarm():

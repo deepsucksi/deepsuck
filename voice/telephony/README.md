@@ -94,7 +94,8 @@ python -m voice.app
 
 - 未设置 token 时路由不注册；token 用常量时间比较。
 - 与浏览器入口共用并发名额（`VOICE_MAX_SESSIONS`）、每日预算、时长/轮数/静默护栏；主叫号码按“每 IP”规则限频。
-- 开场先播告知语 `VOICE_TELEPHONY_DISCLOSURE`（默认“本通话由智能助理接听。”，设为 `off` 关闭，是否关闭由项目负责人决定）。
+- 开场 AI 告知语默认**不播**；`VOICE_AI_DISCLOSURE=1` 打开，`VOICE_AI_DISCLOSURE_TEXT` 自定义文案（与网页入口共用，见 `voice/disclosure.py`）。旧变量 `VOICE_TELEPHONY_DISCLOSURE` 已废弃。
+- 留存：默认只保存脱敏文字记录，`KEEP_AUDIO=1` 才保存原始音频（最多 7 天）。全部电话相关环境变量见 [docs/PHONE.md 第 6 节](../../docs/PHONE.md#6-环境变量清单供-deploy-使用)。
 - 日志里的号码只保留后 4 位。
 - `deploy/` 目前**没有**暴露这个入口；上线前需要单独评审。
 

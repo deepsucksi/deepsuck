@@ -6,7 +6,8 @@
 可选：
   VOICE_TELEPHONY_ADAPTERS=ws-raw,pipecat-ws   允许的适配器（默认只开 ws-raw）
   VOICE_TELEPHONY_PERSONA=wang / VOICE_TELEPHONY_SCENARIO=refund
-  VOICE_TELEPHONY_DISCLOSURE=...   开场前的告知语（默认“本通话由智能助理接听”）；设为 off 可关闭
+  VOICE_AI_DISCLOSURE=1 / VOICE_AI_DISCLOSURE_TEXT=...   开场 AI 告知语（默认不播；与网页入口共用，见 voice/disclosure.py）
+  KEEP_AUDIO / KEEP_AUDIO_DAYS / VOICE_TRANSCRIPTS ...    通话留存（默认只留脱敏文字记录，见 voice/records.py）
 
 与浏览器入口共用并发名额、每日预算和时长/轮数/静默护栏；每个主叫号码按“每 IP”规则限频。
 只接听、不外呼：本模块没有任何发起呼叫的代码。
@@ -23,9 +24,10 @@ from typing import Callable, List, Optional
 from fastapi import WebSocket
 from loguru import logger
 
+from ..disclosure import disclosure_text
+from .. import records as REC
 from .base import CallInfo, TelephonyAdapter, get_adapter, list_adapters
 
-DEFAULT_DISCLOSURE = "本通话由智能助理接听。"
 IN_RATE, OUT_RATE = 16000, 24000
 
 
@@ -55,11 +57,6 @@ def token_ok(websocket) -> bool:
     return bool(got) and hmac.compare_digest(got.encode(), want.encode())
 
 
-def disclosure_text() -> str:
-    t = os.environ.get("VOICE_TELEPHONY_DISCLOSURE", DEFAULT_DISCLOSURE).strip()
-    return "" if t.lower() == "off" else t
-
-
 async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engine: str, persona: str, scenario: str,
                    limits, budget, ticket=None, build: Optional[Callable] = None) -> None:
     """一通电话：适配器 transport → 与浏览器版同一条管线 → 开场白；看门狗按护栏挂断。"""
@@ -72,6 +69,7 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
     from .. import guard as G
 
     session = Session(scenario=scenario, persona=persona, engine=f"phone-{engine}")
+    recorder = REC.recorder_for(call.call_id)  # KEEP_AUDIO=1 才录音
     transport = adapter.create_transport(websocket, call, session_timeout=limits.max_minutes * 60 + 30
                                          if limits.max_minutes > 0 else None)
 
@@ -87,9 +85,14 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
         pid = session.persona["id"]
         fillers = await synth_fillers(pid, PERSONA_VOICES.get(pid, "longlaoyi_v3"), OUT_RATE, cached_only=True)
         pipeline, intel, context = A.build_pipeline(transport, session, notify, engine=engine, fillers=fillers,
-                                                    blocklist=Client(), meter=ticket, profile="phone")
+                                                    blocklist=Client(), meter=ticket, profile="phone",
+                                                    recorder=recorder)
     else:
         pipeline, intel, context = build(transport, session, notify)
+        if recorder is not None:
+            logger.warning("自定义管线不支持录音，本通话不保存音频")
+            recorder.close()
+            recorder = None
     st = {"connected": None, "heard": time.time()}
     if intel is not None:
         intel.on_heard = lambda: st.__setitem__("heard", time.time())
@@ -137,6 +140,9 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
     finally:
         wd.cancel()
         session.end()
+        if recorder is not None:
+            recorder.close()
+        REC.save_transcript(session, call.call_id, "phone")
         await lat.flush()
         logger.info(f"phone call ended: provider={call.provider} from={mask_number(call.from_number)} "
                     f"stats={session.stats()} usage={ticket.usage if ticket else None} "

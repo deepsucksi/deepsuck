@@ -88,3 +88,12 @@ def fake_ws():
 def _no_real_key(monkeypatch):
     # 单元测试绝不使用真实 key
     monkeypatch.setenv("DASHSCOPE_API_KEY", "test-key-not-real")
+
+
+@pytest.fixture(autouse=True)
+def _tmp_data_dir(tmp_path, monkeypatch):
+    # 文字记录 / 录音 / 预算账本都写到临时目录，绝不碰真实数据目录
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    for k in ("KEEP_AUDIO", "KEEP_AUDIO_DAYS", "VOICE_TRANSCRIPTS", "VOICE_TRANSCRIPT_DAYS",
+              "VOICE_AI_DISCLOSURE", "VOICE_AI_DISCLOSURE_TEXT", "VOICE_TELEPHONY_DISCLOSURE"):
+        monkeypatch.delenv(k, raising=False)

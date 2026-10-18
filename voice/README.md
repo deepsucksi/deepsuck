@@ -60,7 +60,8 @@ python -m voice.app                 # 打开 http://localhost:7860
 ## 隐私与安全
 
 - 交给大模型的只有**脱敏后**的转写文本；卡号等原值只在本进程内存里用于黑名单比对，不写盘、不上报。
-- 浏览器看板只收到脱敏值。音频不落盘（填充音缓存在 `~/.cache/deepsuck/voice/`，只是机器人自己的台词）。
+- 浏览器看板只收到脱敏值。默认**不保存原始音频**；每通结束只在 `$DATA_DIR/voice/transcripts/` 写一份脱敏文字记录（落盘前调用 `deepsuck.redact.redact_text`，默认保留 30 天）。`KEEP_AUDIO=1` 才保存双方 WAV，最多保留 7 天，启动时和每小时自动清理（`voice/records.py`）。填充音缓存在 `~/.cache/deepsuck/voice/`，只是机器人自己的台词。
+- 开场 AI 告知语默认不播，`VOICE_AI_DISCLOSURE=1` 打开、`VOICE_AI_DISCLOSURE_TEXT` 自定义（网页和电话都生效）。电话与留存相关环境变量清单见 [docs/PHONE.md 第 6 节](../docs/PHONE.md#6-环境变量清单供-deploy-使用)。
 - 输出守卫会去掉括号动作 / Markdown，抹掉 5 位以上数字串，防止机器人编造"验证码""卡号"。
 - 黑名单比对默认读 `https://deepsuck.si/data/blocklist/`（destroylist、Phishing.Database、OFAC 等，见 `docs/INTEL.md`）。
 
