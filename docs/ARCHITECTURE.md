@@ -84,7 +84,8 @@ deepsuck/
 │   ├── index.html            # 首页（中文，支持 EN 切换）
 │   ├── demo.html             # 沙盒演示 + 情报看板 + 情报库提交
 │   ├── intel.html            # 公开诈骗情报库（检索 / 筛选 / JSON·CSV 导出）
-│   ├── 404.html · robots.txt · sitemap.xml
+│   ├── 404.html · robots.txt · sitemap.xml（sitemap 由 npm run blog 生成）
+│   ├── blog/                 # 博客（由 content/blog/ 生成，勿手改）：/blog/ 中文、/blog/en/ 英文，各带 feed.xml
 │   ├── data/intel.json       # 情报库数据（当前为示例数据）+ intel.schema.json + intel.stix.json（STIX 2.1）+ intel.csv / intel.rss（订阅源）
 │   └── assets/
 │       ├── core/*.json       # 规则与台词的单一事实来源：extractors / tactics / personas / scenarios / blocklists / cardbin（BIN 表，MIT）
@@ -176,3 +177,4 @@ deepsuck/
 | `npm run blocklists` | 拉取公开钓鱼域名黑名单并分片到 `site/data/blocklist/` |
 | `npm run screenshots` | 无头 Chrome 拍三页桌面/手机截图（WebP）到 `screenshots/`；需要 `npm i --no-save playwright-core` |
 | `npm run og` | 用 `scripts/og/og.html` 渲染 1200×630 的 Open Graph 图 |
+| `npm run blog` | `content/blog/{zh,en}/*.md` → `site/blog/`（列表、文章、RSS）并重新生成 `site/sitemap.xml`；草稿不输出，`npm run blog:preview` 含草稿预览到 `.blog-preview/`（见 `content/blog/README.md`） |
