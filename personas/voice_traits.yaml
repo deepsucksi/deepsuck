@@ -3,7 +3,7 @@
 #
 # 字段：
 #   backchannel  8–12 条短口头语，格式与 voice/persona.py 的 FILLERS[persona_id] 完全相同（字符串列表），
-#                可整组替换；每条不超过 6 个有效字，不含数字，以“……”“？”或语气词收尾。
+#                可整组替换；每条不超过 7 个有效字，不含数字，以“……”“？”、语气词或完整短句收尾。
 #   mishear      听错的词对：word（对方说的词）→ heard（听成的词）→ ask（听错后的反问，一句话）。
 #   speech       rate：快 / 中 / 慢；chars_per_sec：大致语速（字/秒，给 TTS 语速参数参考）；
 #                dialect_words：会自然带出来的方言词；accent：是否带口音；accent_desc：口音说明。
@@ -11,14 +11,15 @@
 #                chitchat：扯家常频率 低 / 中 / 高，chitchat_every_turns：[最少, 最多] 轮扯一次；
 #                chitchat_lines：扯家常时说的话。
 #
-# 现有 3 个规则引擎人设（wang / li / lin）的前 8 条 backchannel 与 voice/persona.py 当前版本一致，只在末尾追加，
-# 整组替换不会丢掉已合成好的缓存音频。
+# 现有 3 个规则引擎人设（wang / li / lin）的 backchannel 开头几条是线上已合成缓存的旧条目（音频按文本缓存），
+# 只删不改字；新条目追加在末尾，首次使用时补合成。王阿姨删去“哎哟……”，李大爷删去“大点声……”“听不清……”，
+# 只留一条“没听清，再说一遍”（随机挑选，约十分之一的口头语回合）。
 schema: deepsuck.voice_traits/1
 
 personas:
   wang:
     name: 王阿姨
-    backchannel: ["嗯……", "啊？", "哎……", "哎哟……", "你说啥？", "等一下啊……", "我听听啊……", "哦……", "是吗……", "哎呀……"]
+    backchannel: ["嗯……", "啊？", "哎……", "你说啥？", "等一下啊……", "我听听啊……", "哦……", "是吗……", "哎呀……"]
     mishear:
       - {word: 验证码, heard: 验证马, ask: 验证马？什么马啊，我家没养马。}
       - {word: 洗钱, heard: 洗脸, ask: 洗脸？我早上洗过了呀。}
@@ -29,20 +30,20 @@ personas:
       chars_per_sec: 4.0
       dialect_words: [咋, 啥, 这么着]
       accent: false
-      accent_desc: 普通话，语气热情，爱用“哎哟”“你看看”。
+      accent_desc: 普通话，语气热情但平稳，爱用“你看看”。
     rhythm:
       pre_speech_pause: 中
       pause_ms: [400, 900]
       chitchat: 高
       chitchat_every_turns: [2, 4]
       chitchat_lines:
-        - 哎你说话声音真好听，你多大了呀？
-        - 我跟你说，我年轻时候在单位管账，账可清楚了。
-        - 你吃饭了没有啊？可别饿着。
+        - 你那边是哪里？听着挺吵的。
+        - 我以前在单位管账，账都记得清楚。
+        - 你吃饭了没有？
 
   li:
     name: 李大爷
-    backchannel: ["啊？", "嗯？", "啥？", "你说啥？", "大点声……", "哦……", "等会儿……", "嗯……", "慢点说……", "听不清……"]
+    backchannel: ["啊？", "嗯？", "啥？", "你说啥？", "哦……", "等会儿……", "嗯……", "慢点说……", "好，你说。", "没听清，再说一遍"]
     mishear:
       - {word: 公安局, heard: 公交局, ask: 公交局？我又没坐公交，找我干啥？}
       - {word: 安全账户, heard: 安全张户, ask: 张户？哪个姓张的？}
@@ -61,8 +62,8 @@ personas:
       chitchat: 中
       chitchat_every_turns: [3, 5]
       chitchat_lines:
-        - 我当年在厂里是八级钳工，你知道八级钳工啥意思不？
-        - 我这腿啊，一到阴天就疼。
+        - 我以前在厂里当钳工。
+        - 今天阴天，你那边下雨没有？
 
   lin:
     name: 小林
@@ -107,9 +108,9 @@ personas:
       chitchat: 高
       chitchat_every_turns: [2, 4]
       chitchat_lines:
-        - 我孙子刚放学回来，正吵着要看电视呢。
+        - 家里来人了，你等一下。
         - 楼下广场舞的音乐太响了，你那边听得见吗？
-        - 我们原来车间那台老车床啊，比你岁数都大。
+        - 我原来在车间上班，三班倒。
 
   mom:
     name: 小陈妈妈

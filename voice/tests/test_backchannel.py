@@ -378,9 +378,9 @@ def test_profile_backchannel_delay_env():
 
 # ---------------- 数据源：personas/voice_traits.yaml ----------------
 
-ONLINE_FIRST8 = {  # ccca71b 线上的口头语；音频缓存按文本区分，这几条不能变
-    "wang": ["嗯……", "啊？", "哎……", "哎哟……", "你说啥？", "等一下啊……", "我听听啊……", "哦……"],
-    "li": ["啊？", "嗯？", "啥？", "你说啥？", "大点声……", "哦……", "等会儿……", "嗯……"],
+ONLINE_FIRST8 = {  # ccca71b 线上的口头语；音频缓存按文本区分，留下的这几条不能改字（王阿姨删去“哎哟……”，李大爷删去“大点声……”）
+    "wang": ["嗯……", "啊？", "哎……", "你说啥？", "等一下啊……", "我听听啊……", "哦……"],
+    "li": ["啊？", "嗯？", "啥？", "你说啥？", "哦……", "等会儿……", "嗯……"],
     "lin": ["呃……", "嗯嗯", "啊？", "等下哈", "哦哦", "啊这……", "嗯……我想想", "诶？"],
 }
 
@@ -389,7 +389,7 @@ def test_fillers_come_from_voice_traits_yaml_and_keep_online_lines():
     from personas.voice_traits import fillers
     assert FILLERS == fillers()
     for pid, lines in ONLINE_FIRST8.items():
-        assert FILLERS[pid][:8] == lines
+        assert FILLERS[pid][:len(lines)] == lines
 
 
 def test_load_fillers_direct_yaml_and_missing_file(tmp_path):
@@ -411,4 +411,4 @@ def test_new_yaml_lines_synthesized_on_first_use_old_cache_kept(tmp_path):
         calls.append(text)
         yield LOUD
     got = asyncio.run(synth_fillers("wang", "v", 24000, synth=synth, cache_dir=tmp_path))
-    assert calls == FILLERS["wang"][8:] and set(got) == set(FILLERS["wang"])
+    assert calls == FILLERS["wang"][len(ONLINE_FIRST8["wang"]):] and set(got) == set(FILLERS["wang"])

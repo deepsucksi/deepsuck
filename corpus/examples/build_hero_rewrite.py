@@ -224,7 +224,7 @@ def build() -> dict:
     for k, rw in enumerate(REWRITES):
         seed = BASE_SEED + k
         victim = Humanizer(profile=rw["persona"], seed=seed, keep=KEEP)
-        # 首页每条气泡 ≤40 字、每段 4–6 条：不拆条、不跑题，也不追加报年龄 / 道歉 / 收尾（这些在真实对话里按场计次）
+        # 首页每条气泡 ≤40 字、每段 4–6 条：不拆条、不跑题，也不追加道歉 / 收尾（这些在真实对话里按场计次）
         victim.ops -= {"split", "extras", "digress"}
         scammer = Humanizer(seed=seed + 1000, keep=KEEP, **SCAMMER_HUMANIZE)
         after, trace, last_r = [], [], ""

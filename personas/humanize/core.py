@@ -4,13 +4,13 @@
 
     from personas.humanize import humanize, Humanizer
     humanize("好的，我已经知道了。", intensity=0.5, seed=7)
-    h = Humanizer(profile="wang", seed=1)            # 一个实例 = 一整场对话（错字映射、跑题、报年龄次数都按场记）
+    h = Humanizer(profile="wang", seed=1)            # 一个实例 = 一整场对话（错字映射、跑题、道歉次数都按场记）
     h.apply("你说的账户是哪个银行的？", context="转到这个账户").text
 
 设计约束：
 
 - 只做“看得懂”的扰动：同音/形近错别字、标点风格、语音转文字式断句与口头语、重复确认、跑题、方言词、
-  第三人称自称、报年龄 / 道歉 / “你忙吧”收尾、表情代替逗号、一句话拆成几条发；
+  第三人称自称、道歉 / “你忙吧”收尾、表情代替逗号、一句话拆成几条发；
 - 数字串（号码、卡号、金额、钱包地址、网址、打码值 ``*``）和占位符 ``{...}`` 不改动，而且它们**内部和紧挨着的
   前后一个字符**都不插入错字、表情、标点，也不在那里拆条（情报提取依赖这些位置）；
 - 错字按“每百字错字数”配置（``typoPer100``；``handwriting`` 档用 ``handwritingTypoPer100``），集中在常用词与地名；
@@ -44,7 +44,6 @@ BASE_RATES: Dict[str, float] = {
 }
 STICKY = 0.6          # 已写错过的词再次出现时，照同样的错写的概率（不受本条配额限制，但计入整场错字数）
 DEBT_MAX = 2.0        # 错字“欠账”的上下限：短句攒着、长句还上，整场密度贴近目标
-AGE_MAX = 2           # 每场至多主动报几次年龄
 # 配合类意图：回复本身是在“照做 / 确认 / 找东西”，后面不接跑题句（接了读起来像故意打岔）
 COOP_INTENTS = ("coop_step", "fake_progress", "confirm_intel", "re_ask")
 
@@ -320,9 +319,6 @@ class Humanizer:
                                                                      int(self.typo_per_100 * 0.4) + 1)
         self.self_ref = list(prof.get("selfRef") or [])
         self.self_ref_rate = float(prof.get("selfRefRate", 0.0))
-        self.age = prof.get("age")
-        self.age_lines = list(prof.get("ageLines") or []) if self.age else []
-        self.age_rate = float(prof.get("ageRate", 0.08))
         self.apologies = list(prof.get("apologies") or [])
         self.apology_rate = float(prof.get("apologyRate", 0.0))
         self.closings = list(prof.get("closings") or [])
@@ -335,7 +331,6 @@ class Humanizer:
         self.typo_map: Dict[str, str] = {}
         self._debt = 0.0
         self._turn = 0
-        self._age_used = 0
         self._last_extra = ""
         self._used_digressions: List[str] = []
         self._used_apologies: List[str] = []
@@ -478,17 +473,8 @@ class Humanizer:
         return (out, True) if out is not None else (text, False)
 
     def _extras(self, text: str) -> Tuple[str, List[str]]:
-        """报年龄、道歉、“你忙吧”式收尾；同一种不连续两条出现，报年龄每场至多 AGE_MAX 次。"""
+        """道歉、“你忙吧”式收尾；同一种不连续两条出现。不再主动报年龄（年龄感只靠节奏和偶尔没听清）。"""
         done: List[str] = []
-        me = self.self_ref[0] if self.self_ref else "我"
-        if self.age_lines and self._age_used < AGE_MAX and self._turn >= 2 and self._last_extra != "age" \
-                and self._hit(self.age_rate):
-            line = self.rng.choice(self.age_lines).replace("{self}", me).replace("{age}", str(self.age))
-            out = self._append(text, line, "，")
-            if out is not None:
-                text = out
-                self._age_used += 1
-                done.append("age")
         if self.apologies and self._last_extra != "apology" and not done and self._hit(self.apology_rate):
             line = self._take(self.apologies, self._used_apologies)
             out = self._prepend(line, text, "，")

@@ -75,7 +75,7 @@ test('人设台词、真人化短语池与输出都没有年轻网络用语和�
   C.personas.forEach((p) => { texts.push(...pool(p.id)); texts.push(...Object.values(p.asks)); });
   Object.keys(H.profiles).filter((k) => k !== 'comment').concat(['wang', 'li', 'lin']).forEach((k) => {
     const pr = HZ.resolve(k);
-    ['digressions', 'ageLines', 'apologies', 'closings', 'emojis', 'selfRef'].forEach((f) => texts.push(...(pr[f] || [])));
+    ['digressions', 'apologies', 'closings', 'emojis', 'selfRef'].forEach((f) => texts.push(...(pr[f] || [])));
   });
   texts.forEach((t) => banned.forEach((w) => assert.ok(t.toLowerCase().indexOf(w) < 0, w + ' in ' + t)));
   ['wang', 'li', 'lin'].forEach((pid) => {
@@ -154,4 +154,21 @@ test('整条消息只有一小段逐字报的数字（跨回合拆开报号）�
       assert.ok(nx === undefined || nx === '，', src + ' => ' + out);
     }
   }
+});
+
+test('不再主动报年龄：预设里没有 ageLines，输出不带 age 操作，也不凭空加“今年几十了”', () => {
+  const AGE_DECL = /今年.{1,3}了|一把年纪|[六七]十[一二]?了|岁数大了|年纪大了/;
+  ['wang', 'li', 'lin'].concat(Object.keys(C.humanize.profiles).filter((k) => k !== 'comment')).forEach((pid) => {
+    assert.ok(!('ageLines' in HZ.resolve(pid)), pid);
+    const lines = pool(['wang', 'li', 'lin'].indexOf(pid) >= 0 ? pid : 'wang');
+    for (let s = 0; s < 10; s++) {
+      const h = new HZ.Humanizer({ profile: pid, seed: s });
+      for (let i = 0; i < 40; i++) {
+        const src = lines[(s * 7 + i) % lines.length];
+        const r = h.apply(src);
+        assert.ok(r.ops.indexOf('age') < 0, r.ops.join(','));
+        assert.ok(!AGE_DECL.test(r.text) || AGE_DECL.test(src), r.text);
+      }
+    }
+  });
 });

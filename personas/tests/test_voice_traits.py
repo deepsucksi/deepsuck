@@ -13,10 +13,10 @@ EMOJI = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")
 # 混淆表里的“错误写法”：语音特征的任何文本都不应出现
 WRONG = sorted({w for alts in C.HOMOPHONE_WORDS.values() for w in alts}, key=len, reverse=True)
 
-# voice/persona.py 当前 FILLERS 的前 8 条（不 import voice，避免引入语音依赖）
+# 线上已缓存音频的旧条目（不 import voice，避免引入语音依赖）；王阿姨删去“哎哟……”，李大爷删去“大点声……”，其余顺序不变
 CURRENT = {
-    "wang": ["嗯……", "啊？", "哎……", "哎哟……", "你说啥？", "等一下啊……", "我听听啊……", "哦……"],
-    "li": ["啊？", "嗯？", "啥？", "你说啥？", "大点声……", "哦……", "等会儿……", "嗯……"],
+    "wang": ["嗯……", "啊？", "哎……", "你说啥？", "等一下啊……", "我听听啊……", "哦……"],
+    "li": ["啊？", "嗯？", "啥？", "你说啥？", "哦……", "等会儿……", "嗯……"],
     "lin": ["呃……", "嗯嗯", "啊？", "等下哈", "哦哦", "啊这……", "嗯……我想想", "诶？"],
 }
 
@@ -49,7 +49,7 @@ def test_schema(pid):
     bc = t["backchannel"]
     assert 8 <= len(bc) <= 12 and len(set(bc)) == len(bc)
     for line in bc:
-        assert isinstance(line, str) and 1 <= len(CONTENT.findall(line)) <= 6, line
+        assert isinstance(line, str) and 1 <= len(CONTENT.findall(line)) <= 7, line
         assert not re.search(r"\d", line)
     assert len(t["mishear"]) >= 3
     for m in t["mishear"]:
@@ -94,9 +94,22 @@ def test_fillers_drop_in_compatible():
 
 def test_current_fillers_match_voice_source():
     """voice/persona.py 不再手写 FILLERS，运行时从本 YAML 读取（只读源码文本，不 import voice）；
-    CURRENT（线上已缓存音频的前 8 条）由上面的测试保证与 YAML 一致。"""
+    CURRENT（线上已缓存音频的旧条目）由上面的测试保证与 YAML 一致。"""
     from pathlib import Path
     src = (Path(__file__).resolve().parents[2] / "voice" / "persona.py").read_text(encoding="utf-8")
     assert "voice_traits.yaml" in src and "FILLERS = load_fillers()" in src
     for pid, cur in CURRENT.items():
         assert not re.search(rf'"{pid}": \[', src), f"{pid} 仍在 voice/persona.py 里手写"
+
+
+AGE_HEARING = re.compile(r"大点声|听不清|哎哟|耳朵|耳背|老花|眼神|孙子|年纪|岁数")
+
+
+@pytest.mark.parametrize("pid", sorted(PERSONAS))
+def test_no_age_or_hearing_labels_in_spoken_texts(pid):
+    """口头语、听错反问、扯家常都不拿年龄、听力、眼神、孙子说事；李大爷只留一条“没听清，再说一遍”。"""
+    for line in spoken_texts(PERSONAS[pid]):
+        assert not AGE_HEARING.search(line), (pid, line)
+    if pid == "li":
+        bc = PERSONAS[pid]["backchannel"]
+        assert [x for x in bc if "没听清" in x] == ["没听清，再说一遍"]

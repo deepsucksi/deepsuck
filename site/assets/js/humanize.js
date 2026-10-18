@@ -18,7 +18,7 @@
   var MODES = ['chat', 'voice'];
   var PUNCT_STYLES = ['comma', 'none'];
   var BASE_RATES = { typo: 10.0, punct: 0.9, asr: 1.0, repeat: 0.4, digress: 0.25, dialect: 1.0 };
-  var STICKY = 0.6, DEBT_MAX = 2.0, AGE_MAX = 2;
+  var STICKY = 0.6, DEBT_MAX = 2.0;
   // 配合类意图：回复本身是在“照做 / 确认 / 找东西”，后面不接跑题句
   var COOP_INTENTS = ['coop_step', 'fake_progress', 'confirm_intel', 're_ask'];
   var DIGITS = '0123456789０１２３４５６７８９*＊', CN_NUM = '零〇一二两三四五六七八九十百千万亿', CN_UNIT = '块元';
@@ -221,9 +221,6 @@
       : Math.max(1 + pyRound(3 * this.intensity), Math.floor(this.typoPer100 * 0.4) + 1);
     this.selfRef = g('selfRef', []).slice();
     this.selfRefRate = Number(g('selfRefRate', 0));
-    this.age = g('age', null);
-    this.ageLines = this.age ? g('ageLines', []).slice() : [];
-    this.ageRate = Number(g('ageRate', 0.08));
     this.apologies = g('apologies', []).slice();
     this.apologyRate = Number(g('apologyRate', 0));
     this.closings = g('closings', []).slice();
@@ -233,7 +230,7 @@
     this.splitRate = Number(g('split', 0));
     this.rng = new Rand(opts.seed, opts.rng);
     this.typoMap = {};
-    this._debt = 0; this._turn = 0; this._ageUsed = 0; this._lastExtra = '';
+    this._debt = 0; this._turn = 0; this._lastExtra = '';
     this._usedDigressions = []; this._usedApologies = [];
     var words = [];
     [[CF.placeWords, 4.0], [CF.commonWords, 3.0], [CF.homophoneWords, 2.0]].forEach(function (tw) {
@@ -357,12 +354,8 @@
   };
 
   P._extras = function (text) {
-    var done = [], me = this.selfRef.length ? this.selfRef[0] : '我', out, line;
-    if (this.ageLines.length && this._ageUsed < AGE_MAX && this._turn >= 2 && this._lastExtra !== 'age' && this._hit(this.ageRate)) {
-      line = this.rng.choice(this.ageLines).split('{self}').join(me).split('{age}').join(String(this.age));
-      out = this._append(text, line, '，');
-      if (out !== null) { text = out; this._ageUsed++; done.push('age'); }
-    }
+    // 道歉、“你忙吧”式收尾；不再主动报年龄（年龄感只靠节奏和偶尔没听清）
+    var done = [], out, line;
     if (this.apologies.length && this._lastExtra !== 'apology' && !done.length && this._hit(this.apologyRate)) {
       line = this._take(this.apologies, this._usedApologies);
       out = this._prepend(line, text, '，');

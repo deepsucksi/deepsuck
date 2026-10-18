@@ -1,5 +1,5 @@
 """老人聊天体（docs/REALISM.md「错字率校准」）：可配置错字密度与手写档、会话级错字映射、拆条、表情代逗号、
-固定标点风格、第三人称自称 / 报年龄 / 道歉 / “你忙吧”、禁用年轻网络用语与美篇体、数字串前后不动。"""
+固定标点风格、第三人称自称 / 道歉 / “你忙吧”、禁用年轻网络用语与美篇体、数字串前后不动。"""
 import json
 import re
 import sys
@@ -124,22 +124,28 @@ def test_split_and_emoji_comma_for_elders_only():
     assert not any(EMOJI_RE.search(g.apply(x).text) for x in engine_pool("lin")[:200])
 
 
-def test_selfref_age_apology_closing():
+AGE_DECL = re.compile(r"今年.{1,3}了|一把年纪|[六七]十[一二]?了|岁数大了|年纪大了")
+
+
+def test_selfref_apology_closing_no_age_declaration():
+    """自称、道歉、收尾照常出现；不再主动报年龄（年龄感只靠节奏和偶尔没听清）。"""
     lines = engine_pool("wang")
-    tot = {"selfref": 0, "age": 0, "apology": 0, "closing": 0}
+    tot = {"selfref": 0, "apology": 0, "closing": 0}
+    for pid in ("wang", "li", "retiree"):
+        assert "ageLines" not in PERSONA_PROFILES.get(pid, PROFILES.get(pid, {}))
     for s in range(20):
         h = Humanizer(profile="wang", seed=s)
-        ages = 0
         prev = None
         for i in range(40):
-            r = h.apply(lines[(s * 7 + i) % len(lines)])
+            src = lines[(s * 7 + i) % len(lines)]
+            r = h.apply(src)
             for k in tot:
                 tot[k] += k in r.ops
-            ages += "age" in r.ops
-            extra = next((k for k in ("age", "apology", "closing") if k in r.ops), None)
+            assert "age" not in r.ops, r.ops
+            assert not AGE_DECL.search(r.text) or AGE_DECL.search(src), r.text
+            extra = next((k for k in ("apology", "closing") if k in r.ops), None)
             assert not (extra and extra == prev), r.ops  # 同一种不连续两条
             prev = extra
-        assert ages <= 2
     assert all(v > 0 for v in tot.values()), tot
     h = Humanizer(profile="wang", seed=1, weights={"repeat": 0})
     h.self_ref_rate = 1.0
@@ -166,7 +172,7 @@ def _all_persona_text():
         out += [_t(t) for v in p["templates"].values() for t in v] + list(p["asks"].values())
         out += [_t(t) for v in p["openings"].values() for t in (v if isinstance(v, list) else [v])]
     for prof in list(PROFILES.values()) + list(PERSONA_PROFILES.values()):
-        for k in ("digressions", "ageLines", "apologies", "closings", "emojis", "selfRef"):
+        for k in ("digressions", "apologies", "closings", "emojis", "selfRef"):
             out += list(prof.get(k) or [])
     out += C.DIGRESSIONS + C.CONFIRM_TEMPLATES + C.CONFIRM_GENERIC + C.ASR_FILLERS
     for tab in (C.HOMOPHONE_WORDS, C.COMMON_WORDS, C.PLACE_WORDS, C.HOMOPHONE_CHARS, C.SHAPE_CHARS, C.HANDWRITING_CHARS):
