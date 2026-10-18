@@ -4,6 +4,7 @@
 
 ## 未发布
 
+- 语音页（#59）：页脚底线声明下加一行英文 “Do not use this to contact any real person.”（`lang="en"` 的独立元素，放在 `#keepNote` 外，voice.js 替换 `#keepNote` 文案时不受影响）；只改静态文案与样式。
 - CI（#47）：deploy 任务的 Caddyfile 校验改用线上同一个 caddy-l4 构建（`deploy/Dockerfile.caddy`，buildx + GitHub Actions 缓存），不再用不认 layer4 的官方镜像；`build images` 只构建 proxy、voice。语音电话接起时的那一声（王阿姨、李大爷、小林）改从 `personas/voice_traits.yaml` 新字段 `opening` 读取，内容不变，`voice/persona.py` 不再手写人设条目。
 - 脱敏（#33；JS `redact.js` / Python `redact.py` 一致，规则在 `extractors.json` 的 `redact.otp`）：共享 `redactText` / `redact_text` 按上下文给验证码类短数字打码——“验证码、动态码、动态密码、校验码、短信码、确认码、安全码、OTP”前后几个字以内（可跨一两个短句）的 4–8 位数字逐个换成 `*`，数字间允许空格、“…”“⋯”“...”、连字符和中文数字逐位读出（“验证码是 4 7 2 9 1 5”→“验证码是 * * * * * *”）；手机号、卡号仍走各自实体规则，金额、“尾号1234”、订单号 / 工号、带单位的数字和与关键词无关的数字不打码。没有实体时 `redactText(text, [])` 也会打码（以前原样返回），通话追踪、语音记录、网页大模型上下文都经过这一道。新增 `findOtpSpans` / `find_otp_spans`；`tests/fixtures/redact.json` 新增 `otp`（32 条正负例，gen-fixtures 生成时校验预期）；新增 `tests/redact_otp.test.js`、`python/tests/test_redact_otp.py`。其余 fixtures、模拟器结果不变。
 - 站点英文译名（#61）：小陈妈妈 → Xiao Chen's Mom；刷单返利 → Task scam (fake order-brushing rebates)，标签、场景名等短位置用 Task scam（首页标签 title 给完整写法）；刷单返佣 / 刷单/做任务返佣 → Order-brushing commission / Order-brushing/task commissions。i18n.js 切回中文时移除中文里本没有的属性。

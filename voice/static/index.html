@@ -118,6 +118,7 @@ main>.call{grid-area:call}.playbook{grid-area:pb}.board{grid-area:dash}
 /* 页脚说明：回到白底，与首页页脚一致 */
 .note{border-top:1px solid var(--line);padding:36px 0 56px;color:var(--muted);font-size:12.5px;line-height:1.85}
 .note p{margin:0;max-width:880px}
+.note p.keep-note-en{margin-top:2px}
 .note .foot{display:flex;flex-wrap:wrap;gap:8px 28px;margin-top:16px;font-size:12px}
 .note .foot a{color:var(--muted);text-decoration:none}.note .foot a:hover{color:var(--ink)}
 /* 通话追踪同意与反馈（voice/trace.py）：沿用控制台的灰阶，不加新颜色 */
@@ -271,6 +272,7 @@ button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:
 <footer class="note">
   <div class="wrap">
     <p id="keepNote">勾选同意时保存录音和脱敏文字 30 天用于改进，不勾选则不保存；仅供防诈研究与教育，请勿用于联系任何真实的人。</p>
+    <p class="keep-note-en" lang="en">Do not use this to contact any real person.</p>
     <div class="foot"><a href="https://deepsuck.si/">deepsuck.si</a><a href="https://deepsuck.si/intel.html">公开诈骗情报库</a><a href="https://github.com/deepsucksi/deepsuck">GitHub · Apache-2.0</a></div>
   </div>
 </footer>
