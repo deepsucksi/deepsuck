@@ -1,9 +1,8 @@
 """噪声评测 E 部分（人设默认档 / 手写档）的回归门槛，CI 每次跑。
 
 门槛：两档带噪提取率（A）≥ 99%、跨回合拆数字（C 正例均值）≥ 95%、负例误拼 = 0。
-跨回合 ≥ 95% 目前只靠提取器达不到：剩下的缺口在中文数字逐字 / 幺两写法，humanize 会在短中文数字片段后追加或拆出闲话，
-要等语料组的 humanize 修复（保护「幺」与逐字中文数字），所以先标 xfail(strict=False)；修复落地后会变成 XPASS，届时去掉标记。
-另设一条不低于当前水平的硬下限，防止提取器回退。"""
+跨回合 ≥ 95% 原先标 xfail，等 humanize 保护「幺」与逐字中文数字；712d617 落地后两档均为 99.4%，已改为硬门槛。
+另保留一条 88% 的下限，便于区分是提取器回退还是 humanize 回退。"""
 import json
 import subprocess
 import sys
@@ -12,7 +11,6 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-HUMANIZE_FIX = "等 humanize 修复（保护「幺」与逐字中文数字、户名后逗号）：短中文数字片段后被追加闲话，提取器单独达不到"
 
 
 @pytest.fixture(scope="module")
@@ -54,7 +52,6 @@ def test_cross_turn_floor(noise, tier):
     assert noise["tiers"][tier]["summary"]["stitchMean"] >= 0.88
 
 
-@pytest.mark.xfail(strict=False, reason=HUMANIZE_FIX)
 @pytest.mark.parametrize("tier", ["default", "handwriting"])
 def test_cross_turn(noise, tier):
     assert noise["tiers"][tier]["summary"]["stitchMean"] >= 0.95

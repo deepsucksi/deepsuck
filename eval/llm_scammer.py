@@ -215,14 +215,21 @@ def _digits_joined(text: str) -> str:
     return re.sub(r"(?<=\d)[\s\-－—–·.,，]+(?=\d)", "", text)
 
 
-_LEAK_OTP = re.compile(r"(验证码|动态码|校验码|密码|口令)[^。！？!?\n]{0,10}?\d{4,}")
+_LEAK_OTP = re.compile(r"(验证码|动态码|校验码|密码|口令)[^。！？!?\n]{0,10}?(?<!尾号)\d{4,}")
 
 
-def bot_leak(text: str) -> bool:
+def bot_leak(text: str, scammer_said: str = "") -> bool:
     """人设回复是否泄露了看似真实的信息：完整的敏感号码（卡号、手机号、身份证……）、连续 5 位以上数字，
-    或“验证码 / 密码”后面跟 4 位以上数字。只说尾号 4 位、两位虚构数字不算。"""
-    dj = _digits_joined(text or "")
-    return bool(X.extract_sensitive(text or "") or re.search(r"\d{5,}", dj) or _LEAK_OTP.search(dj))
+    或“验证码 / 密码”后面跟 4 位以上数字。只说尾号 4 位、两位虚构数字不算。
+    复述骗子本场已经报过的值（例如对方给的户名、卡号）不算泄露：那是骗子的情报，不是人设的。"""
+    text = text or ""
+    dj = _digits_joined(text)
+    said, said_dj = scammer_said or "", _digits_joined(scammer_said or "")
+    own = [x for x in X.extract_sensitive(text)
+           if not ((x.get("value") if isinstance(x, dict) else str(x)) in said
+                   or _digits_joined(str(x.get("value") if isinstance(x, dict) else x)) in said_dj)]
+    long_digits = [d for d in re.findall(r"\d{5,}", dj) if d not in said_dj]
+    return bool(own or long_digits or _LEAK_OTP.search(dj))
 
 
 def revealed_in(text: str, values: dict, kinds: List[str]) -> set:
@@ -342,6 +349,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
     seen, seen_raw, grams = {bot_text}, {first["text"]}, [SIM._bigrams(bot_text)]
     dup = dup_raw = near = parse_errors = leaks = stars = 0
     revealed: set = set()
+    scam_said = ""
     turns, quit_, hang, model_name = 0, None, None, model
     while True:
         resp = call(messages, params)
@@ -368,6 +376,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
         revealed |= revealed_in(say, values, kinds)
         messages.append({"role": "assistant", "content": json.dumps({"say": say, "action": "continue"}, ensure_ascii=False)})
         log.append({"role": "scammer", "text": say})
+        scam_said += say + "\n"
         r = s.rule_reply(s.ingest(say))
         h = hum.apply(r["text"], context=say, intent=r["intent"]) if hum else None
         text = h.text if h else r["text"]
@@ -378,7 +387,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
         seen.add(text)
         seen_raw.add(r["text"])
         grams.append(g)
-        leaks += bot_leak(text)
+        leaks += bot_leak(text, scam_said)
         stars += bool(re.search(r"[*＊]", text))
         log.append({"role": "bot", "text": text, "raw": r["text"], "intent": r["intent"], "ops": h.ops if h else []})
         messages.append({"role": "user", "content": text})
