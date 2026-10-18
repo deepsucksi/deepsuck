@@ -65,7 +65,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | 目录结构、数据流、前后端发现机制、报告格式、托管选项 |
 | [DEPLOY](docs/DEPLOY.md) | 公开部署（Docker Compose + Caddy），费用护栏与成本估算 |
 | [VOICE_LATENCY](docs/VOICE_LATENCY.md) | 语音延迟：填充音、打断、流式合成，可调参数与实测数据 |
-| [voice/telephony](voice/telephony/README.md) | 电话接入适配层（`ws-raw`、`pipecat-ws`；默认关闭，只接不拨）与阿里云呼入设计稿 |
+| [voice/telephony](voice/telephony/README.md) | 电话接入适配层（`ws-raw`、`pipecat-ws`、`asterisk-ws`；默认关闭，只接不拨）与阿里云呼入设计稿 |
 | [PHONE](docs/PHONE.md) | 电话接入方案：国内外云号码 / SIP 中继对比、呼叫转移规则、推荐方案与月成本 |
 | [corpus](corpus/README.md) · [personas](personas/README.md) · [REALISM](docs/REALISM.md) | 诈骗话术库（7 类，YAML，脱敏改写）与可复用资源调研；4 个新人设提示词与真人化后处理；真人感设计与首页示例改写对比 |
 | [INTEL](docs/INTEL.md) · [EVAL](docs/EVAL.md) · [ETHICS](docs/ETHICS.md) | 情报库策略 · 评测 · 伦理与使用规范 |
@@ -79,6 +79,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 
 - [x] 在线演示：[live.deepsuck.si](https://live.deepsuck.si/) 已上线（沙盒大模型代理 + 浏览器语音演示）
 - [ ] 语音打磨：真实麦克风/回声场景调参、老人人设的打断策略、Qwen-Omni Realtime 低延迟模式
+- [x] 自建 SIP 软电话：Asterisk 22 连本机 `asterisk-ws` 适配器，`WITH_SIP=1 bash bootstrap.sh` 一键启用，用 Linphone、Zoiper 等软电话注册后拨分机 9000 与 AI 通话；只接不拨、同时 1 路、带 fail2ban，见 [PHONE.md 6.4 节](docs/PHONE.md#64-自建-sip-软电话docker-compose---profile-sip第-10-节)
 - [ ] 电话：接入适配层已有（`voice/telephony/`，默认关闭，只接听、不外呼，可本地联调）；本轮不购买号码，阿里云呼入仅有设计稿，SIP Trunk 需企业资质；长期推荐阿里云 SIP 中继（需企业主体），现阶段用海外号码接 `pipecat-ws` 仅作联调演示，跨境呼转不可行，详见 [docs/PHONE.md](docs/PHONE.md#4-推荐方案与月成本估算)，现状与已定政策见 [QUICKSTART 第 6 节](docs/QUICKSTART.md#6-电话接入适配层已有默认关闭只接不拨)
 - [ ] 短信诱骗通道：旧安卓机 + SmsForwarder
 - [x] 情报增强：银行卡 BIN 本地查询（[hexindai/bcbc](https://github.com/hexindai/bcbc)，MIT）；STIX 2.1 导出（`python -m deepsuck.stix`，[`data/intel.stix.json`](site/data/intel.stix.json)）
