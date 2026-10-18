@@ -345,7 +345,7 @@
   function probeProxy() {
     if (location.protocol === 'file:' && !LIVE) { $('proxyStatus').textContent = '本地文件模式，无代理'; return; }
     fetch(API + 'health', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-      if (j && LIVE && $('liveVoiceLink')) { $('liveVoiceLink').href = LIVE + '/'; $('liveVoiceLink').hidden = false; }
+      if (j && LIVE) document.querySelectorAll('[data-live-voice]').forEach(function (a) { a.href = LIVE + '/'; a.hidden = false; });
       if (j && j.llmConfigured && j.budget && j.budget.exhausted) {
         $('proxyStatus').textContent = '代理在线，但今日大模型体验额度已用完（使用规则引擎）';
       } else if (j && j.llmConfigured) {

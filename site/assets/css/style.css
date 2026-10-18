@@ -317,3 +317,17 @@ a.card:hover h3{text-decoration:underline;text-underline-offset:4px;text-decorat
 .two .sub{margin-bottom:24px}
 section.end{padding:72px 0 96px}
 @media (max-width:640px){.chat-head .note{display:none}.chat-head .who{white-space:nowrap}}
+
+/* 移动端折叠菜单：原生 <details>，零 JS */
+.menu{display:none;position:relative}
+.menu>summary{list-style:none;user-select:none}
+.menu>summary::-webkit-details-marker{display:none}
+.menu>summary::after{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg);margin-left:2px;transition:transform .15s}
+.menu[open]>summary{border-color:var(--ink)}
+.menu[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
+.menu-panel{position:absolute;right:0;top:calc(100% + 10px);min-width:208px;display:flex;flex-direction:column;padding:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 16px 40px rgba(22,21,20,.08)}
+.menu-panel a,.menu-panel button{display:block;width:100%;padding:11px 14px;border:0;border-radius:var(--radius-s);background:none;color:var(--text);font:inherit;font-size:15px;line-height:1.4;text-align:left;text-decoration:none;cursor:pointer}
+.menu-panel a:hover,.menu-panel button:hover{background:var(--sunk);color:var(--ink)}
+.menu-panel button{border-top:1px solid var(--line);border-radius:0 0 var(--radius-s) var(--radius-s);margin-top:4px;color:var(--muted)}
+.menu-panel [hidden]{display:none}
+@media (max-width:980px){.menu{display:block}.topbar .wrap{gap:12px}.nav{gap:14px}}

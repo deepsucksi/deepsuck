@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   var EN = {
-    'nav.how': 'How', 'nav.sc': 'Scenarios', 'nav.ethics': 'Ethics', 'nav.oss': 'Open source', 'nav.demo': 'Try the sandbox', 'nav.intel': 'Intel library',
+    'nav.how': 'How', 'nav.menu': 'Menu', 'nav.sc': 'Scenarios', 'nav.ethics': 'Ethics', 'nav.oss': 'Open source', 'nav.demo': 'Try the sandbox', 'nav.intel': 'Intel library',
     'hero.kicker': 'Open source · defensive research · Chinese scenarios first',
     'hero.title': 'Let scammers waste their time<br><em>on an AI instead</em>',
     'hero.lead': 'DeepSuck is an open-source anti-scam "time-waster" bot. Playing personas like a muddled retired auntie, a hard-of-hearing grandpa or a curious student, it misunderstands, asks to repeat, fakes phone trouble — while extracting the bank accounts, wallet addresses, phone numbers and URLs scammers reveal, masked, for prevention and early warning.',
@@ -47,14 +47,14 @@
       n.innerHTML = lang === 'en' && EN[k] ? EN[k] : ZH[i];
     });
     document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
-    var b = document.getElementById('langBtn');
-    if (b) b.textContent = lang === 'en' ? '中文' : 'EN';
+    document.querySelectorAll('.lang-toggle').forEach(function (b) { b.textContent = lang === 'en' ? '中文' : 'EN'; });
     try { localStorage.setItem('deepsuck.lang', lang); } catch (e) {}
   }
   var cur = 'zh';
   try { cur = localStorage.getItem('deepsuck.lang') || 'zh'; } catch (e) {}
   if (/[?&]lang=en/.test(location.search)) cur = 'en';
   if (cur === 'en') apply('en');
-  var btn = document.getElementById('langBtn');
-  if (btn) btn.addEventListener('click', function () { cur = cur === 'en' ? 'zh' : 'en'; apply(cur); });
+  document.querySelectorAll('.lang-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () { cur = cur === 'en' ? 'zh' : 'en'; apply(cur); });
+  });
 })();
