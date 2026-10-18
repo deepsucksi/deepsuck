@@ -4,7 +4,7 @@
 
 ## 开发
 
-- 纯 HTML/CSS/JS，无构建步骤。`cd site && python3 -m http.server 8080` 即可预览。
+- 纯 HTML/CSS/JS，无构建步骤。`npm start` 或 `cd site && python3 -m http.server 8080` 即可预览；完整上手见 [docs/QUICKSTART.md](docs/QUICKSTART.md)，目录与数据流见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 - 可选后端：`cp .env.example .env && npm start`（Node ≥ 18，零依赖）。
 - 测试：`npm test`（Node 内置 `node:test`）。请为新的提取规则/话术规则补充测试。
 - 模块为 UMD 风格：浏览器挂在 `window.DeepSuck.*`，Node 中 `require` 使用。请保持零依赖。

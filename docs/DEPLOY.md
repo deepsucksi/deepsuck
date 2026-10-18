@@ -42,11 +42,11 @@
 
 | 端口 | 协议 | 用途 | 必需 |
 |---|---|---|---|
-| 22 | TCP | SSH（建议只放行自己的 IP） | ✓ |
-| 80 | TCP | Let's Encrypt 签证书（HTTP-01）+ 跳转 HTTPS | ✓ |
-| 443 | TCP | HTTPS（语音页面、/api/*） | ✓ |
+| 22 | TCP | SSH（建议只放行自己的 IP） | 是 |
+| 80 | TCP | Let's Encrypt 签证书（HTTP-01）+ 跳转 HTTPS | 是 |
+| 443 | TCP | HTTPS（语音页面、/api/*） | 是 |
 | 443 | UDP | HTTP/3（可选，Caddy 默认开启） | 可选 |
-| **40000–40199** | **UDP** | **WebRTC 音频（`VOICE_UDP_PORTS`）** | ✓ |
+| **40000–40199** | **UDP** | **WebRTC 音频（`VOICE_UDP_PORTS`）** | 是 |
 | 3478 | TCP+UDP | TURN（仅启用 coturn 时） | 可选 |
 | 49160–49200 | UDP | TURN 中继端口（仅启用 coturn 时） | 可选 |
 
@@ -91,7 +91,7 @@ DASHSCOPE_API_KEY='sk-...' ACME_EMAIL='你的邮箱' bash bootstrap.sh
    # 输出 connected_after（秒）、bot_audio_sec、turns、intel；connected_after 为 null = UDP 不通，查防火墙 / VOICE_PUBLIC_IP
    ```
 4. **接到主站**：把 `site/assets/js/live-config.js` 里的 `api: ''` 改成 `api: 'https://live.deepsuck.si'`，推送到 main。
-   之后沙盒会探测 `/api/health`：可用且当日额度没用完就自动用大模型，导航栏出现「🎙️ 语音演示」；任何失败都回退规则引擎。
+   之后沙盒会探测 `/api/health`：可用且当日额度没用完就自动用大模型，导航栏出现「语音演示」；任何失败都回退规则引擎。
 5. **百炼控制台再加一道保险**：费用中心设置**预算告警**；用单独的 API Key（只给这个服务用，泄露可单独作废）。
 
 日常运维：
@@ -163,13 +163,13 @@ TTS（字符计费）是语音的大头，ASR 次之，大模型最便宜。
 
 在开发机上用 Docker 26 + compose 2.26 跑完整栈（`LIVE_DOMAIN=localhost`，Caddy 内部 CA 签发证书）：
 
-- `https://localhost/api/health` ✓；带 `Origin: https://deepsuck.si` 的 `/api/chat` 返回 qwen-plus 回复 ✓；预检 204 + `Access-Control-Allow-Origin` ✓；
-  恶意 Origin / 无 Origin → 403 ✓；100 KB 请求体 → 413 ✓。
-- 静态站本地起在 8080、`DEEPSUCK_LIVE.api` 指向 `https://localhost`：沙盒调用 `https://localhost/api/health` 与 `/api/chat`，回复标注“大模型”，导航栏出现语音入口 ✓。
-- 语音：`voice.probe` 经 Caddy → 容器真实通话，Paraformer 把“户名写张三”转成“张3”，现已正确抽取为收款户名 `张*` ✓；
-  服务端 UDP 端口落在 40000–40199 ✓；2 路并发通话 + 第 3 路 503 ✓。
-- 预算护栏：`CHAT_DAILY_BUDGET_CNY=0.0012` → 第 4 次起 429 `budget` 且不再打上游 ✓；
-  `VOICE_DAILY_BUDGET_CNY=0.15` + `VOICE_MAX_MINUTES=0.4` → 第 2 路因预占不足 429、第 1 路 24 秒时“锅里还炖着汤呢，我先挂了啊”并断开 ✓。
+- `https://localhost/api/health`（通过）；带 `Origin: https://deepsuck.si` 的 `/api/chat` 返回 qwen-plus 回复（通过）；预检 204 + `Access-Control-Allow-Origin`（通过）；
+  恶意 Origin / 无 Origin → 403（通过）；100 KB 请求体 → 413（通过）。
+- 静态站本地起在 8080、`DEEPSUCK_LIVE.api` 指向 `https://localhost`：沙盒调用 `https://localhost/api/health` 与 `/api/chat`，回复标注“大模型”，导航栏出现语音入口（通过）。
+- 语音：`voice.probe` 经 Caddy → 容器真实通话，Paraformer 把“户名写张三”转成“张3”，现已正确抽取为收款户名 `张*`（通过）；
+  服务端 UDP 端口落在 40000–40199（通过）；2 路并发通话 + 第 3 路 503（通过）。
+- 预算护栏：`CHAT_DAILY_BUDGET_CNY=0.0012` → 第 4 次起 429 `budget` 且不再打上游（通过）；
+  `VOICE_DAILY_BUDGET_CNY=0.15` + `VOICE_MAX_MINUTES=0.4` → 第 2 路因预占不足 429、第 1 路 24 秒时“锅里还炖着汤呢，我先挂了啊”并断开（通过）。
 - coturn profile 能启动并监听 3478（未做跨网中继实测）。
 
 **尚未在真实云服务器上验证**：公网 IP 候选在阿里云 1:1 NAT 下的连通性、证书签发、国内各运营商 UDP 到香港的质量。上线后先跑第 3 节的 `voice.probe`。

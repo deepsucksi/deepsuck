@@ -16,7 +16,8 @@
     "test:py": "cd python && python -m pytest -q",
     "blocklists": "node scripts/fetch-blocklists.js",
     "screenshots": "node scripts/screenshots.js",
-    "og": "node scripts/og.js"
+    "og": "node scripts/og.js",
+    "dev": "npx --yes concurrently@9 -n proxy,voice -c gray,yellow \"node server/index.js\" \"python3 -m voice.app\""
   },
   "keywords": [
     "anti-scam",

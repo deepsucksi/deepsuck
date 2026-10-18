@@ -1,6 +1,7 @@
-# DeepSuck 电话接入方案（v0.3 规划，写给爱折腾的技术玩家）
+# DeepSuck 电话接入方案（v0.5 规划，写给爱折腾的技术玩家）
 
-> 本文是路线图设计稿，代码尚未实现；欢迎在 Issue 里认领、实测和反馈。
+> **现状**：本文是设计稿，电话接入代码尚未实现；当前只有浏览器麦克风语音演示（[voice/](../voice/README.md)）。项目不提供 Twilio、SIP 中继等云通信接入：单卡自用、只接不拨是刻意的合规取舍（见第 6 节）。上手步骤见 [QUICKSTART.md](QUICKSTART.md)。
+
 > 价格为 2026-10 公开目录价，落地前请自行核对。标注“需实测”的地方是推断或社区经验，不是官方承诺。
 
 目标：**把打到你手机上的陌生/诈骗电话，自动交给 AI 人设（王阿姨、李大爷……）接听**，拖住骗子，并像文字沙盒一样实时提取情报、默认脱敏。
@@ -28,11 +29,11 @@
 
 | 阶段 | 内容 | 需要硬件？ |
 |---|---|---|
-| ✅ **V1 浏览器语音 Demo**（v0.3 已完成，见 [voice/](../voice/README.md)） | 在网页里用麦克风扮演骗子，AI 阿姨/大爷用语音回你；Pipecat SmallWebRTC transport；`python -m voice.app` | ❌ 不需要，只要百炼 Key |
-| V2 拖延策略层（部分完成） | v0.3 已有：规则引擎每轮选策略并改写系统提示词、预合成填充音（“哎……你等一下啊”）缓存与插播。待做：Pipecat Flows 节点、咳嗽/电视声等环境音、长时间沉默 | ❌ |
-| V3 EC20 直连接电话 | AT 状态机（RING → ATA，`AT+CLCC` 取来电号码）+ UAC 音频桥，包装成 Pipecat transport | ✅ 一块 EC20/EG25 + 副卡 |
-| V4 短信诱骗通道 | 旧安卓机装 SmsForwarder，把诈骗短信 webhook 给 DeepSuck，用文字引擎处理 | ✅ 一台旧安卓机 |
-| V5（可选）多线路 | Asterisk + chan_quectel + `pipecat-asterisk` | ✅ 多块模组 |
+| **V1 浏览器语音 Demo**（v0.3 已完成，见 [voice/](../voice/README.md)） | 在网页里用麦克风扮演骗子，AI 阿姨/大爷用语音回你；Pipecat SmallWebRTC transport；`python -m voice.app` | 不需要，只要百炼 Key |
+| V2 拖延策略层（部分完成） | v0.3 已有：规则引擎每轮选策略并改写系统提示词、预合成填充音（“哎……你等一下啊”）缓存与插播。待做：Pipecat Flows 节点、咳嗽/电视声等环境音、长时间沉默 | 不需要 |
+| V3 EC20 直连接电话 | AT 状态机（RING → ATA，`AT+CLCC` 取来电号码）+ UAC 音频桥，包装成 Pipecat transport | 需要：一块 EC20/EG25 + 副卡 |
+| V4 短信诱骗通道 | 旧安卓机装 SmsForwarder，把诈骗短信 webhook 给 DeepSuck，用文字引擎处理 | 需要：一台旧安卓机 |
+| V5（可选）多线路 | Asterisk + chan_quectel + `pipecat-asterisk` | 需要：多块模组 |
 
 ---
 
