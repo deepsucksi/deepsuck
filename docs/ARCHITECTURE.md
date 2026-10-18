@@ -29,7 +29,7 @@ flowchart LR
     VOL[("卷: 预算账本 脱敏记录 录音")]
   end
 
-  ASR["Paraformer ASR"] --> LLM["qwen-plus"] --> TTS["CosyVoice"]
+  ASR["Paraformer ASR"] --> LLM["qwen3.7-flash"] --> TTS["CosyVoice"]
   PY["python/deepsuck<br/>Python 核心移植"]
   OFF["personas/ corpus/ eval/<br/>模拟器 噪声评测"]
   GH["GitHub Issue 表单"] --> ACT["intel-intake 工作流<br/>deepsuck.intake"]
@@ -51,7 +51,7 @@ flowchart LR
   VOICE -- "先脱敏再落盘" --> VOL
 ```
 
-语音一轮的数据流：麦克风 → WebRTC（或电话适配器）→ Paraformer 识别 → `deepsuck` 提取并脱敏 → `voice/persona.py` 组系统提示词 → qwen-plus → 输出守卫（不给真实号码、号码逐位读）→ CosyVoice → 回传。网页与电话共用 `voice/app.py` 的 `build_pipeline`。
+语音一轮的数据流：麦克风 → WebRTC（或电话适配器）→ Paraformer 识别 → `deepsuck` 提取并脱敏 → `voice/persona.py` 组系统提示词 → qwen3.7-flash → 输出守卫（不给真实号码、号码逐位读）→ CosyVoice → 回传。网页与电话共用 `voice/app.py` 的 `build_pipeline`。
 
 ## 模块边界
 
@@ -84,7 +84,8 @@ deepsuck/
 │   ├── index.html            # 首页（中文，支持 EN 切换）
 │   ├── demo.html             # 沙盒演示 + 情报看板 + 情报库提交
 │   ├── intel.html            # 公开诈骗情报库（检索 / 筛选 / JSON·CSV 导出）
-│   ├── 404.html · robots.txt · sitemap.xml
+│   ├── 404.html · robots.txt · sitemap.xml（sitemap 由 npm run blog 生成）
+│   ├── blog/                 # 博客（由 content/blog/ 生成，勿手改）：/blog/ 中文、/blog/en/ 英文，各带 feed.xml
 │   ├── data/intel.json       # 情报库数据（当前为示例数据）+ intel.schema.json + intel.stix.json（STIX 2.1）+ intel.csv / intel.rss（订阅源）
 │   └── assets/
 │       ├── core/*.json       # 规则与台词的单一事实来源：extractors / tactics / personas / scenarios / blocklists / cardbin（BIN 表，MIT）
@@ -105,7 +106,7 @@ deepsuck/
 │           └── demo.js / intel-page.js / hero-chat.js / i18n.js  # 页面脚本
 ├── server/                   # 可选：零依赖 Node 后端（静态托管 + /api/chat 代理 + 限流/预算护栏）
 ├── python/deepsuck/          # Python 核心移植 + 黑名单客户端 + 骗子模拟器 + STIX 2.1 导出（零依赖，stix2 可选）
-├── voice/                    # 语音演示：Pipecat + DashScope（Paraformer / qwen-plus / CosyVoice）+ SmallWebRTC
+├── voice/                    # 语音演示：Pipecat + DashScope（Paraformer / qwen3.7-flash / CosyVoice）+ SmallWebRTC
 │   ├── app.py                # 入口：浏览器 WebRTC 管线（电话入口按开关挂载）
 │   ├── tuning.py · latency.py · interrupt.py · textagg.py  # 网页/电话两套延迟参数、分回合延迟指标、中文打断策略、子句切分（见 docs/VOICE_LATENCY.md）
 │   ├── telephony/            # 电话接入抽象层：TelephonyAdapter + ws-raw / pipecat-ws 适配器；默认关闭，只接不拨
@@ -176,3 +177,4 @@ deepsuck/
 | `npm run blocklists` | 拉取公开钓鱼域名黑名单并分片到 `site/data/blocklist/` |
 | `npm run screenshots` | 无头 Chrome 拍三页桌面/手机截图（WebP）到 `screenshots/`；需要 `npm i --no-save playwright-core` |
 | `npm run og` | 用 `scripts/og/og.html` 渲染 1200×630 的 Open Graph 图 |
+| `npm run blog` | `content/blog/{zh,en}/*.md` → `site/blog/`（列表、文章、RSS）并重新生成 `site/sitemap.xml`；草稿不输出，`npm run blog:preview` 含草稿预览到 `.blog-preview/`（见 `content/blog/README.md`） |

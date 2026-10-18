@@ -575,5 +575,29 @@
       "contextChars": 24,
       "context": "地址|钱包|USDT|usdt|TRC|trc|ERC|erc|ETH|eth|泰达币|以太坊|币|收款|转到|充值|打到"
     }
+  },
+  "redact": {
+    "comment": "redact_text / redactText 的额外规则（JS 与 Python 共用，#33）。otp：验证码类短数字不是情报实体，只在关键词附近按上下文打码——把数字逐个换成 *，分隔符保留。",
+    "otp": {
+      "comment": "关键词（keyword，i）前 after 个字以内或后 before 个字以内出现的数字串：digit 为阿拉伯 / 全角 / 中文逐位数字，数字间至多 maxSep 个 sep（空格、…、⋯、...、·、-）；两段都不超过 joinPartMax 位时可用 join（，、,）连成一串。合计 minLen–maxLen 位才打码。关键词与数字之间不能夹阿拉伯数字，至多跨 maxBreaks 个句末标点。紧挨字母 / 数字 / * 的不算（订单号、已打码值的一部分），前面 blockBefore（尾号、金额、工号等）或后面 unitAfter（元、分钟、位等）的不算；与情报实体重叠的交给实体自己的打码规则。",
+      "keyword": "短信验证码|验证码|动态码|动态密码|校验码|短信码|确认码|安全码|(?<![A-Za-z])otp(?![A-Za-z])",
+      "keywordFlags": "i",
+      "digit": "[0-9０-９零〇一二三四五六七八九幺两]",
+      "sep": "[\\s…⋯.．·・\\-－—_]",
+      "maxSep": 4,
+      "join": "^[\\s…⋯.．·・]*[，,、][\\s…⋯.．·・]*$",
+      "joinPartMax": 4,
+      "minLen": 4,
+      "maxLen": 8,
+      "after": 16,
+      "before": 8,
+      "maxBreaks": 2,
+      "breaks": "[。！？!?；;\\n]",
+      "gapBlock": "[0-9０-９]",
+      "edge": "[0-9A-Za-z０-９*＊]",
+      "blockBefore": "(?:尾号|尾数|末尾|末[四4]位|后[四4]位|后几位|卡号|账号|手机号?|电话|工号|编号|单号|订单号?|金额|余额|额度|价格|费用|手续费|[¥￥$]|RMB|USDT)[\\s:：是为了的]{0,3}$",
+      "blockBeforeChars": 8,
+      "unitAfter": "^\\s*(?:元|块|万|千|百|十|拾|亿|%|％|年|月|日|号|点|分|秒|个|次|位|天|周|小时|岁|毛|角|米|斤|美元|美金|刀|USDT|[uU](?![A-Za-z]))"
+    }
   }
 }
