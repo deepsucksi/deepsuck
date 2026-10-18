@@ -40,7 +40,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 - **话术分类**：19 类诈骗话术，带 0–100 风险评分；结束后生成情报看板和脱敏 JSON 报告。
 - **公开诈骗情报库**（[intel.html](https://deepsuck.si/intel.html)）：电话、钱包、网址/APP、话术完整公开，银行卡与姓名部分打码；可检索、下载，可提交，可申诉下架。详见 [docs/INTEL.md](docs/INTEL.md)。
 - **黑名单比对**：destroylist + Phishing.Database（约 60 万域名）、OFAC 与 ScamSniffer 钱包地址。
-- **可选大模型 / 语音**：OpenAI 兼容协议，默认阿里云百炼（qwen-plus）；浏览器麦克风语音演示（Pipecat + Paraformer + CosyVoice，见 [voice/](voice/README.md)）。在线演示已上线：沙盒自动接入 [live.deepsuck.si](https://live.deepsuck.si/) 的大模型代理（有每日额度，用完回退规则引擎），语音演示直接打开即可。
+- **可选大模型 / 语音**：标准聊天接口协议，默认阿里云百炼（qwen-plus）；浏览器麦克风语音演示（Pipecat + Paraformer + CosyVoice，见 [voice/](voice/README.md)）。在线演示已上线：沙盒自动接入 [live.deepsuck.si](https://live.deepsuck.si/) 的大模型代理（有每日额度，用完回退规则引擎），语音演示直接打开即可。
 - **Python 核心与评测**：与 JS 共用规则和黄金用例（[python/](python/README.md)）；骗子模拟器与 TeleAntiFraud 评测见 [docs/EVAL.md](docs/EVAL.md)。
 
 ## 截图

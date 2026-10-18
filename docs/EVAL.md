@@ -441,7 +441,7 @@ python eval/realism_blind.py score --key eval/realism/key.json eval/realism/rate
 
 > 这是**代理指标**：一个大模型代替评测者判断，不能代替人工盲测，结论以人工评测为准。
 
-评委用百炼 DashScope 的 `qwen-plus`（OpenAI 兼容接口，非思考模式，temperature 0，seed 1，JSON 输出）。它看到的和评测者一样，只有“骗子消息 + 回复”，逐题给出 `bot`（0/1）、`human`（1–5）、`unreadable`（0/1）和一句理由；结果转成与人工评分相同的行，用同一个 `score()` 汇总。默认关闭，必须显式 `--judge llm`：
+评委用百炼 DashScope 的 `qwen-plus`（标准聊天接口，非思考模式，temperature 0，seed 1，JSON 输出）。它看到的和评测者一样，只有“骗子消息 + 回复”，逐题给出 `bot`（0/1）、`human`（1–5）、`unreadable`（0/1）和一句理由；结果转成与人工评分相同的行，用同一个 `score()` 汇总。默认关闭，必须显式 `--judge llm`：
 
 ```bash
 export DASHSCOPE_API_KEY=...   # 或写在仓库根目录 .env；不打印、不写入缓存和结果
