@@ -17,7 +17,7 @@
   <a href="docs/QUICKSTART.md">5 分钟自托管</a>
 </p>
 
-<p align="center"><img src="screenshots/landing-1280.webp" width="820" alt="DeepSuck 首页截图"></p>
+<p align="center"><a href="https://live.deepsuck.si/"><img src="screenshots/live-1280.webp" width="820" alt="语音演示页 live.deepsuck.si：通话、参考话术与实时看板"></a></p>
 
 DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会聊天的“潜在受害人”人设（王阿姨、李大爷、大学生小林）陪骗子周旋，慢慢回、反复确认、偶尔没听清，消耗骗子的时间；同时自动提取对方暴露的收款账户、钱包地址、电话、网址与话术模式，脱敏后形成结构化情报，用于预防与早期预警。
 
@@ -53,11 +53,11 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 |---|---|---|
 | <img src="screenshots/intel-1280.webp" width="320" alt="情报库页面"> | <img src="screenshots/demo-390.webp" width="160" alt="手机端沙盒"> | <img src="screenshots/intel-390.webp" width="160" alt="手机端情报库"> |
 
-| 语音演示（live.deepsuck.si） | 手机端语音演示：参考话术 |
+| 首页 | 手机端语音演示：参考话术 |
 |---|---|
-| <img src="screenshots/live-1280.webp" width="480" alt="语音演示页：通话、参考话术与实时看板"> | <img src="screenshots/live-390.webp" width="160" alt="手机端语音演示页，参考话术展开"> |
+| <img src="screenshots/landing-1280.webp" width="480" alt="DeepSuck 首页"> | <img src="screenshots/live-390.webp" width="160" alt="手机端语音演示页，参考话术展开"> |
 
-首页与语音演示页截图为 R11 视觉（2026-10-19）；其余截图由 `npm run screenshots` 生成。王阿姨语音样例：[screenshots/wangayi-sample.wav](screenshots/wangayi-sample.wav)。
+截图均为 R11 视觉（2026-10-19）；沙盒、情报库截图由 `npm run screenshots` 生成。王阿姨语音样例：[screenshots/wangayi-sample.wav](screenshots/wangayi-sample.wav)。
 
 ## 文档
 
