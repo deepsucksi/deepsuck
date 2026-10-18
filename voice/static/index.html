@@ -47,12 +47,12 @@ code{font-family:var(--mono);font-size:.92em}
 .dot.ok{background:#3f6b4a}.dot.bad{background:#a3301c}.dot.live{background:var(--signal);animation:p 1.4s ease-in-out infinite}
 @keyframes p{50%{opacity:.3}}
 /* 标题区：与首页首屏同一套字号与小标题 */
-.intro{padding:56px 0 64px;background:linear-gradient(to bottom,#fff 0%,#fff 55%,#f3f4f3 100%)}
+.intro{padding:40px 0 44px;background:linear-gradient(to bottom,#fff 0%,#fff 55%,#f3f4f3 100%)}
 .kicker{font-size:11px;font-weight:500;letter-spacing:1.5px;color:var(--kicker);margin:0 0 18px}
-.intro h1{font-size:56px;font-weight:650;line-height:1.2;letter-spacing:-2.4px;margin:0;color:var(--ink)}
+.intro h1{font-size:50px;font-weight:650;line-height:1.2;letter-spacing:-2.2px;margin:0;color:var(--ink)}
 .intro p.lead{font-size:14px;line-height:1.85;color:var(--muted);margin:20px 0 0;max-width:660px}
 /* 深色控制台 */
-.console{background:var(--night);color:var(--d-text);padding:56px 0 64px}
+.console{background:var(--night);color:var(--d-text);padding:40px 0 64px}
 main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:5px;align-items:start}
 .card{background:var(--panel);padding:30px 32px;min-width:0}
 .card.call{background:var(--panel2)}
@@ -91,12 +91,35 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .item code{color:var(--d-ink)}.bl{font-size:11.5px;color:var(--d-dim)}.bl.hit{color:var(--alert);font-weight:600}
 .empty{color:var(--d-dim);font-size:13px}
 #log>.empty{margin:auto;max-width:420px;text-align:center;line-height:1.9}
+/* 参考话术面板（playbook.js）：DOM 中排在通话卡片之前。桌面放在右栏看板上方（首屏可见，步骤区内部滚动）；
+   窄屏单列，收起成可展开区块，自然排在通话卡片上方，阅读顺序与视觉顺序一致。 */
+main{grid-template-areas:"call pb" "call dash";grid-template-rows:auto 1fr}
+main>.call{grid-area:call}.playbook{grid-area:pb}.board{grid-area:dash}
+.playbook h2{margin:0 0 8px}
+.pb-toggle{display:none}
+.pb-intro{margin:0 0 14px;font-size:12px;line-height:1.75;color:var(--d-dim)}
+.pb-scenario{margin:0 0 12px;font:12px/1.5 var(--mono);color:var(--d-muted)}
+.pb-status{margin:0;font-size:13px;color:var(--d-dim)}
+.pb-steps{list-style:none;margin:0;padding:0 8px 0 0;display:flex;flex-direction:column;max-height:min(340px,calc(100vh - 420px));min-height:180px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#ffffff30 transparent}
+.pb-steps:empty{display:none}
+.pb-steps:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+.pb-step{padding:14px 0;border-top:1px solid var(--edge)}
+.pb-step:first-child{border-top:0;padding-top:0}.pb-step:last-child{padding-bottom:0}
+.pb-step-h{display:flex;align-items:baseline;gap:10px;margin-bottom:4px;font:12px/1.5 var(--mono)}
+.pb-n{color:#f59570;font-variant-numeric:tabular-nums}.pb-stage{color:var(--d-muted);font-family:var(--font);font-size:12px}
+.pb-sid,.pb-sid-only{font:11px var(--mono);letter-spacing:.02em;color:var(--d-dim)}.pb-sid{margin-left:6px}
+.pb-goal{margin:0 0 8px;font-size:14px;font-weight:600;line-height:1.6;color:var(--d-ink);letter-spacing:0}
+.pb-k{font-weight:400;color:var(--d-dim);margin-right:8px}
+.pb-lines{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.pb-lines li{padding-left:12px;border-left:2px solid #ed795055;font-size:14px;line-height:1.7;color:var(--d-text);overflow-wrap:anywhere}
+.pb-slot{font-family:var(--mono);font-size:.84em;color:#ffa780;background:#ed79501a;border-radius:3px;padding:0 4px;margin:0 2px;white-space:nowrap}
+.pb-src{margin:8px 0 0;font-size:11.5px;line-height:1.5;color:var(--d-dim)}
 /* 页脚说明：回到白底，与首页页脚一致 */
 .note{border-top:1px solid var(--line);padding:36px 0 56px;color:var(--muted);font-size:12.5px;line-height:1.85}
 .note p{margin:0;max-width:880px}
 .note .foot{display:flex;flex-wrap:wrap;gap:8px 28px;margin-top:16px;font-size:12px}
 .note .foot a{color:var(--muted);text-decoration:none}.note .foot a:hover{color:var(--ink)}
-@media (prefers-reduced-motion:reduce){.dot.live{animation:none}}
+@media (prefers-reduced-motion:reduce){.dot.live{animation:none}.pb-toggle::after{transition:none}}
 @media(max-width:1100px){.wrap{padding:0 32px}.intro h1{font-size:46px;letter-spacing:-1.8px}}
 @media(max-width:860px){
   .wrap{padding:0 20px}
@@ -111,6 +134,20 @@ button:disabled{opacity:.4;cursor:not-allowed}
   .controls button{flex:1 1 100%}
   #log{height:min(56vh,440px);padding:14px}
   .stats{grid-template-columns:repeat(2,1fr)}
+  main{grid-template-areas:none;grid-template-rows:none}
+  main>.call,.playbook,.board{grid-area:auto}
+  .playbook{padding:0}
+  .pb-steps{max-height:none;min-height:0;overflow:visible;padding-right:0}
+  .playbook h2{margin:0}
+  .pb-name{display:none}
+  .pb-toggle{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:14px 18px;border:0;border-radius:0;background:none;font-size:11px;font-weight:500;letter-spacing:1.2px;color:var(--d-label);text-align:left}
+  .pb-toggle:hover{background:#ffffff05}
+  .pb-cur{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px var(--mono);letter-spacing:0;color:var(--d-muted)}
+  .pb-toggle::after{content:"";flex:none;width:7px;height:7px;margin:0 2px 3px 0;border-right:1.5px solid var(--d-muted);border-bottom:1.5px solid var(--d-muted);transform:rotate(45deg);transition:transform .15s}
+  .pb-toggle[aria-expanded="true"]::after{transform:rotate(-135deg);margin-bottom:-3px}
+  .pb-body{display:none;padding:2px 18px 20px}
+  .playbook.is-open .pb-body{display:block}
+  .pb-scenario{display:none}
 }
 </style>
 </head>
@@ -136,6 +173,15 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </section>
 <div class="console">
 <main class="wrap" id="main">
+  <aside class="card playbook" id="playbook" aria-labelledby="pbTitle">
+    <h2 id="pbTitle"><span class="pb-name">参考话术</span><button type="button" id="pbToggle" class="pb-toggle" aria-expanded="false" aria-controls="pbBody">参考话术<span class="pb-cur" id="pbCur"></span></button></h2>
+    <div id="pbBody" class="pb-body">
+      <p class="pb-intro">扮演骗子时的提词，按步骤往下说即可。每一步注明出处类型，仅用于测试本演示。</p>
+      <p id="pbScenario" class="pb-scenario" hidden></p>
+      <p id="pbStatus" class="pb-status">参考话术加载中…</p>
+      <ol id="pbSteps" class="pb-steps" tabindex="0" aria-label="参考话术步骤"></ol>
+    </div>
+  </aside>
   <section class="card call" aria-labelledby="callTitle">
     <h2 id="callTitle">通话</h2>
     <div class="controls">
@@ -173,5 +219,6 @@ button:disabled{opacity:.4;cursor:not-allowed}
   </div>
 </footer>
 <script src="/static/voice.js"></script>
+<script src="/static/playbook.js" defer></script>
 </body>
 </html>
