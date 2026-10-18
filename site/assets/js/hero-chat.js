@@ -49,7 +49,18 @@
       tag.textContent = line.t;
       body.appendChild(tag);
     }
-    while (body.scrollHeight > body.clientHeight && body.children.length > 2) body.removeChild(body.firstChild);
+    trim();
+  }
+
+  // 只保留能完整放下的气泡：最上面一条的顶边必须在可视区内（留 GAP 给渐隐），
+  // 这样任何时刻都不会出现被裁掉半截的气泡；连带移除孤立的话术标签。
+  var GAP = 12;
+  function trim() {
+    var top = body.getBoundingClientRect().top + GAP;
+    while (body.children.length > 2 && body.firstElementChild.getBoundingClientRect().top < top) {
+      body.removeChild(body.firstElementChild);
+      while (body.children.length > 2 && body.firstElementChild.classList.contains('tag')) body.removeChild(body.firstElementChild);
+    }
   }
 
   function typing() {
@@ -57,6 +68,7 @@
     row.className = 'row hc-in';
     row.innerHTML = '<div class="b s"><span class="dots"><span></span><span></span><span></span></span></div>';
     body.appendChild(row);
+    trim();
     return row;
   }
 

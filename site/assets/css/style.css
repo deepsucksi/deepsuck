@@ -314,8 +314,8 @@ a.card:hover h3{text-decoration:underline;text-underline-offset:4px;text-decorat
   .intel-toolbar .dl{width:100%}
   .intel-toolbar .dl .btn{flex:1}
 }
-/* 顶部 32px 全透明，任何时刻滚出的气泡都不会露出硬切口；再用 104px 柔和过渡 */
-.hc-body{-webkit-mask-image:linear-gradient(to bottom,transparent 0,transparent 32px,rgba(0,0,0,.35) 72px,#000 136px);mask-image:linear-gradient(to bottom,transparent 0,transparent 32px,rgba(0,0,0,.35) 72px,#000 136px)}
+/* 顶部柔和渐隐；hero-chat.js 保证最上面的气泡整条可见，不会出现硬切口 */
+.hc-body{-webkit-mask-image:linear-gradient(to bottom,transparent 0,rgba(0,0,0,.25) 12px,#000 64px);mask-image:linear-gradient(to bottom,transparent 0,rgba(0,0,0,.25) 12px,#000 64px)}
 .two .sub{margin-bottom:24px}
 section.end{padding:72px 0 96px}
 @media (max-width:640px){.chat-head .note{display:none}.chat-head .who{white-space:nowrap}}
