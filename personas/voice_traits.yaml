@@ -47,7 +47,7 @@ personas:
       - {word: 公安局, heard: 公交局, ask: 公交局？我又没坐公交，找我干啥？}
       - {word: 安全账户, heard: 安全张户, ask: 张户？哪个姓张的？}
       - {word: 经侦, heard: 京珍, ask: 京珍？卖药的吗？}
-      - {word: 冻结, heard: 动结, ask: 动结？你说动啥？大点声。}
+      - {word: 冻结, heard: 动结, ask: 动结？你说动啥？你再说一遍。}
       - {word: 下载, heard: 下雪, ask: 下雪？今天没下雪啊。}
     speech:
       rate: 慢

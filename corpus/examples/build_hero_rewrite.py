@@ -49,10 +49,10 @@ REWRITES = [
         "script": "impersonate_police",
         "lines": [
             {"r": "我是市公安局经侦支队张警官，你名下银行卡涉嫌洗钱，请配合调查。", "t": "冒充公检法 · 制造紧迫感"},
-            {"s": "啊？警察同志你慢点说，我耳朵背。洗钱？我就一张退休金的卡啊。", "w": 60},
+            {"s": "啊？洗钱？你再说一遍，哪张卡？我就一张卡啊。", "w": 60},
             {"r": "案件保密，别告诉家人！钱转到安全账户 622202*********3445", "t": "要求保密 · 安全账户",
              "i": "银行卡 622202*********3445"},
-            {"s": "等会儿，我找老花镜抄本子上。户名写谁？再留个电话，我手机老断。", "w": 90},
+            {"s": "你等等，我拿笔记一下。户名写谁？再留个电话，我怕记错。", "w": 90},
             {"r": "户名王**，电话 139****2233，两小时内必须办完！", "i": "户名 王** · 电话 139****2233"},
             {"s": "好好好，我先去找存折，好像压在柜子底下了，你别挂啊。", "w": 180},
         ],
@@ -90,6 +90,15 @@ REWRITES = [
         ],
     },
 ]
+
+# 首页已上线的定稿句（见提交 b4eeffe 的 hero-chat.js）：after 段原样使用，不再做真人化，保证与首页一致。
+# 键为 REWRITES 的 id，值为 lines 下标 → 定稿文本（必须与改写稿一致）。
+PUBLISHED = {
+    "police-retiree": {
+        1: "啊？洗钱？你再说一遍，哪张卡？我就一张卡啊。",
+        3: "你等等，我拿笔记一下。户名写谁？再留个电话，我怕记错。",
+    },
+}
 
 # hero-chat.js 的展示约束（网站与增长要求）
 MAX_CHARS = 40
@@ -219,8 +228,16 @@ def build() -> dict:
         victim.ops -= {"split", "extras", "digress"}
         scammer = Humanizer(seed=seed + 1000, keep=KEEP, **SCAMMER_HUMANIZE)
         after, trace, last_r = [], [], ""
-        for line in rw["lines"]:
+        pinned = PUBLISHED.get(rw["id"], {})
+        for idx, line in enumerate(rw["lines"]):
             new = dict(line)
+            if idx in pinned:
+                if line.get("s") != pinned[idx]:
+                    raise ValueError(f"{rw['id']}[{idx}]: 定稿句与改写稿不一致")
+                new["s"] = pinned[idx]
+                after.append(new)
+                trace.append(["published"])
+                continue
             if "r" in line:
                 res = scammer.apply(line["r"])
                 new["r"] = res.text

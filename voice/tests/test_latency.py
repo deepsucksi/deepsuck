@@ -93,9 +93,9 @@ def _agg(text_chunks, n=6):
 
 
 def test_clause_aggregator_splits_early():
-    out, tail = _agg(["哎哟", "，小伙子你", "是哪个单位的啊，", "我耳朵不好。你", "再说一遍"])
+    out, tail = _agg(["哎哟", "，小伙子你", "是哪个单位的啊，", "我没听清楚。你", "再说一遍"])
     # “哎哟，”太短不切；第二个逗号处够字数就切；句号立即切
-    assert out == ["哎哟，小伙子你是哪个单位的啊，", "我耳朵不好。"]
+    assert out == ["哎哟，小伙子你是哪个单位的啊，", "我没听清楚。"]
     assert tail == "你再说一遍"
 
 
@@ -189,7 +189,7 @@ def test_stream_tts_streams_llm_clauses_into_one_task():
     connect = _stream_connect()
     tts = CosyVoiceStreamTTSService(connect=connect, sample_rate=24000, clause_min_chars=4)
     frames = [LLMFullResponseStartFrame(), LLMTextFrame("哎哟小伙子啊，"), LLMTextFrame("你是哪个单位的"),
-              LLMTextFrame("？我耳朵不好。"), LLMFullResponseEndFrame(), SleepFrame(0.3)]
+              LLMTextFrame("？我没听清楚。"), LLMFullResponseEndFrame(), SleepFrame(0.3)]
     down, _ = asyncio.run(run_test(tts, frames_to_send=frames))
     acts = connect.made[0].actions()
     assert acts[0] == "run-task"  # 回合开始就开任务，不等首个分句
