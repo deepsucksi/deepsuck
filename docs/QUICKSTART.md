@@ -79,7 +79,7 @@ curl -s http://127.0.0.1:7860/api/voice/health
 - 入口**默认关闭**：不设置 `VOICE_TELEPHONY=1` 和 `VOICE_TELEPHONY_TOKEN` 时，路由根本不注册。
 - 代码**只接听、不外呼**，仓库里没有任何发起呼叫的代码。电话入口和浏览器入口共用并发名额、每日预算，以及时长、轮数、静默护栏。
 - `deploy/` 已带电话入口开关，默认关闭（`VOICE_TELEPHONY=0`）。
-- 自建 SIP 软电话**已实现**：Asterisk 22（chan_websocket）连本机 voice 的 `asterisk-ws` 适配器，`WITH_SIP=1 bash bootstrap.sh` 一键启用（之后更新带 `--profile sip`），只有分机 9000 接 AI，不接外线、不外呼，同时 1 路。用 Linphone、Zoiper 等软电话注册即可通话。需放行 UDP 25060，变量表见 [PHONE.md 6.4 节](PHONE.md#64-自建-sip-软电话docker-compose---profile-sip第-10-节)，部署后按 [10.9 节](PHONE.md#109-部署后自检)自检。不带 `WITH_SIP=1` 时现有部署不受影响。
+- 自建 SIP 软电话**已实现**：Asterisk 22（chan_websocket）连本机 voice 的 `asterisk-ws` 适配器，`WITH_SIP=1 bash bootstrap.sh` 一键启用（之后更新带 `--profile sip`），只有分机 9000 接 AI，不接外线、不外呼，同时 1 路。用 Linphone、Zoiper 等软电话注册即可通话。首次启用时 bootstrap 会打印完整的 SIP 说明（端口、分机、账号、软电话配置），密码不打印，用 `grep -n ^SIP_PASSWORD /opt/deepsuck/deploy/.env` 查看。需放行 UDP 25060，变量表见 [PHONE.md 6.4 节](PHONE.md#64-自建-sip-软电话docker-compose---profile-sip第-10-节)，部署后按 [10.9 节](PHONE.md#109-部署后自检)自检。不带 `WITH_SIP=1` 时现有部署不受影响。
 - 阿里云语音服务「智能语音交互呼入」适配器**只有设计稿**，尚未实现。阿里云 SIP Trunk（语音中继）是邀约制，需要企业实名与资质、固定公网 IP，个人一般开不了。
 
 **本地联调**：启用方法、`ws-raw` 协议、`pipecat-ws` 的凭据变量和测试命令，统一以 [voice/telephony/README.md](../voice/telephony/README.md) 为准，这里不重复，避免两处不一致。单元测试走本地回环 WebSocket，不连服务商，也不拨打电话。
