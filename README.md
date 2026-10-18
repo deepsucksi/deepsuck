@@ -13,6 +13,7 @@
 <p align="center">
   <a href="https://deepsuck.si/"><b>官网</b></a> ·
   <a href="https://deepsuck.si/demo.html"><b>沙盒演示</b></a> ·
+  <a href="https://live.deepsuck.si/"><b>语音演示（已上线）</b></a> ·
   <a href="https://deepsuck.si/intel.html"><b>公开诈骗情报库</b></a> ·
   <a href="docs/QUICKSTART.md">5 分钟自托管</a>
 </p>
@@ -40,7 +41,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 - **话术分类**：19 类诈骗话术，带 0–100 风险评分；结束后生成情报看板和脱敏 JSON 报告。
 - **公开诈骗情报库**（[intel.html](https://deepsuck.si/intel.html)）：电话、钱包、网址/APP、话术完整公开，银行卡与姓名部分打码；可检索、下载，可提交，可申诉下架。详见 [docs/INTEL.md](docs/INTEL.md)。
 - **黑名单比对**：destroylist + Phishing.Database（约 60 万域名）、OFAC 与 ScamSniffer 钱包地址。
-- **可选大模型 / 语音**：OpenAI 兼容协议，默认阿里云百炼（qwen-plus）；浏览器麦克风语音演示（Pipecat + Paraformer + CosyVoice，见 [voice/](voice/README.md)）。
+- **可选大模型 / 语音**：OpenAI 兼容协议，默认阿里云百炼（qwen-plus）；浏览器麦克风语音演示（Pipecat + Paraformer + CosyVoice，见 [voice/](voice/README.md)）。在线演示已上线：沙盒自动接入 [live.deepsuck.si](https://live.deepsuck.si/) 的大模型代理（有每日额度，用完回退规则引擎），语音演示直接打开即可。
 - **Python 核心与评测**：与 JS 共用规则和黄金用例（[python/](python/README.md)）；骗子模拟器与 TeleAntiFraud 评测见 [docs/EVAL.md](docs/EVAL.md)。
 
 ## 截图
@@ -74,6 +75,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 
 ## 路线图
 
+- [x] 在线演示：[live.deepsuck.si](https://live.deepsuck.si/) 已上线（沙盒大模型代理 + 浏览器语音演示）
 - [ ] 语音打磨：真实麦克风/回声场景调参、老人人设的打断策略、Qwen-Omni Realtime 低延迟模式
 - [ ] 电话：接入适配层已有（`voice/telephony/`，默认关闭，只接听、不外呼，可本地联调）；本轮不购买号码，阿里云呼入仅有设计稿，SIP Trunk 需企业资质；个人可行方案对比见 [docs/PHONE.md](docs/PHONE.md)，现状与已定政策见 [QUICKSTART 第 6 节](docs/QUICKSTART.md#6-电话接入适配层已有默认关闭只接不拨)
 - [ ] 短信诱骗通道：旧安卓机 + SmsForwarder
