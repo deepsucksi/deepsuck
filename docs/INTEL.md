@@ -221,3 +221,21 @@ python -m deepsuck.stix 沙盒提交.json                                       
 - 更新：`node scripts/fetch-cardbin.js [--ref <commit>]` 重新生成 `site/assets/core/cardbin.json`，再运行 `npm run build:core && npm run fixtures`；
 - JS：`DeepSuck.cardbin.lookup(卡号)`；Python：`deepsuck.cardbin.lookup(卡号)`，命令行 `python -m deepsuck.cardbin <卡号>`（只输出发卡行信息，不回显卡号）；
 - BIN 表并非官方注册表，可能过时或不全，结果仅供参考；收款卡常属于被冒用、被诱骗出租的普通人，发卡行信息不能用于对持卡人的任何认定。
+
+## 诈骗话术语料（v0.6）
+
+[`site/assets/core/scam_scripts.json`](../site/assets/core/scam_scripts.json)（`deepsuck.core.scam-scripts/v1`，格式定义 [`scam_scripts.schema.json`](../site/assets/core/scam_scripts.schema.json)）收录骗子侧的典型说法，用于训练与评测“拖住”机器人、话术识别和反诈宣传，仅限防御用途。数据以 CC BY 4.0 发布（见 [DATA_LICENSE](../DATA_LICENSE)），各来源许可见文件内 `sources[].license` 与 [corpus/SOURCES.md](../corpus/SOURCES.md)。
+
+- **结构**：`types[]` 7 类（冒充客服、冒充公检法、冒充领导熟人、杀猪盘、刷单返利、投资理财、贷款征信；id、阶段与施压手法与 `corpus/scripts/*.yaml` 一致）；`phases[]` 统一 5 阶段（开场 / 建立信任 / 施压 / 索要钱款信息 / 收款指令）；`entries[]` 共 181 条，每条有 `type`、`phase`、`stage`（yaml 阶段 id）、`text`、`keywords`、`pressure`（施压手法 id）、`tactics`（当前分类器识别结果）、`intel`（句中情报占位符类型）、`sourceType` / `sourceLabel` / `sourceIds` / `sourceRef` / `sourceUrls`；
+- **来源标注**：只有确实对应某个典型案例、通报段落或数据集条目的才标案例 / 通报 / 数据集，并用 `sourceRef` 指明；其余一律标“据公开反诈宣传改写”。分布：反诈宣传归纳 141 条，通报案例 16、通报话术段落 11、法院典型案例 10、TeleAntiFraud 对话 3；
+- **脱敏**：句子里不出现任何号码、网址、账号，情报一律写成 `{银行卡}`、`{手机号}`、`{网址}`、`{户名}` 等占位符（`placeholders` 给出类型与虚构示例值，域名一律 `.example`）；测试检查无 6 位以上数字、无手机号、无网址、无打码星号、无 emoji；
+- **使用者**：模拟器（`python -m deepsuck.sim`，默认 `--lines corpus`）、`eval/realism_blind.py --scammer-file site/assets/core/scam_scripts.json`；演示页样例台词 `site/assets/core/scenarios.json` 的 `samples` 据它改写，与之一一对应的 `sampleSources[]`（`sourceType`、`label`、`sourceId`、`sourceRef`、`url`）给出来源标注，页面可直接显示 `label`。演示样例需要能被提取，所以其中保留了虚构的完整测试值（`.example` 域名、`某某` 户名、仓库测试用卡号与手机号），不是真实号码。
+
+## 提取器噪声鲁棒性与跨回合拼接（v0.6）
+
+规则都在 [`site/assets/core/extractors.json`](../site/assets/core/extractors.json)，JS 与 Python 两份实现逐字节对齐（`tests/fixtures/*.json` 共享夹具，含 `stitch.json`）：
+
+- **异体字与错别字**：`obfuscation.variantChars`（帐 / 帳 / 賬 → 账，戶 → 户，號、碼、銀、錢、轉、證、驗、機、電、話、網）；`obfuscation.typoKeywords` 由 `scripts/sync_typo_keywords.py` 从 `personas/humanize` 的混淆表生成（只收等长替换，排除歧义与本身就是关键词的变体），测试检查与混淆表同步，不另维护一套；
+- **数字混淆**：全角、圈码、中文 / 大写数字、幺 / 两、腰 / 妖、溜、久 / 酒；数字之间夹空格、横杠、换行、中文标点时，只有拼起来是合法手机号或像银行卡（Luhn、62 开头或命中 BIN）才拼接，带单位的数字与标准分组写法不受影响；ETH / TRON 地址分段也会拼回；
+- **跨回合拼接**：`extractors.stitch(turns)` / `deepsuck.extractors.stitch(turns)` 对同一说话方相邻至多 3 个回合（`stitch.window`），把上一回合末尾与下一回合开头的数字片段拼起来，输出 `confidence`、`turns`、`parts`（各回合的位置与打码切片）、`meta.stitched`；避免误拼：已经完整的号码不再与相邻数字拼接，更正句（“不对，…”）、带单位的数字、工号 / 订单号 / 验证码旁的数字不参与，低于 `minConfidence` 的丢弃。`Session` 每收到一句骗子消息就对最近几个回合做拼接，新情报写入 `intel`，此前已显示的片段回溯打码；
+- 指标与局限见 [EVAL.md](EVAL.md) 第 1 部分“噪声与跨回合拼接”。

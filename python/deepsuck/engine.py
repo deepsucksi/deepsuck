@@ -64,6 +64,7 @@ class Session:
         self.est_seconds = 0
         self.turn = 0
         self.last_intent = None
+        self._recent: list = []  # 最近几个骗子回合的原文（只在内存里，用于跨回合拼接；不进 report）
 
     # 拖延类意图的"兄弟"顺序：某个意图的台词用完时换一种拖法，而不是立刻重复同一句
     STALL_FAMILY = ["urgency_stall", "tech_trouble", "slow_walk", "ask_repeat", "misunderstand", "info_stall", "generic"]
@@ -164,6 +165,33 @@ class Session:
                 bucket[e["value"]] = bucket.get(e["value"], 0) + 1
         for t in tactics:
             self.tactic_counts[t["id"]] = self.tactic_counts.get(t["id"], 0) + 1
+        # 跨回合拼接：语音回合被切断时，卡号 / 手机号会分在相邻两三句里
+        recent = self._recent
+        recent.append({"raw": "" if raw_text is None else str(raw_text), "entities": entities, "extra": [], "msg": len(self.messages)})
+        W = X._ST.get("window", 3)
+        del recent[:-W]
+        stitched_now = []
+        if len(recent) > 1:
+            for e in X.stitch([r["raw"] for r in recent]):
+                if e["turns"][-1] != len(recent) - 1:
+                    continue  # 只处理以本回合结尾的拼接
+                key = e["type"] + "|" + e["value"]
+                for p in e["parts"]:
+                    recent[p["turn"]]["extra"].append({"type": e["type"], "start": p["start"], "end": p["end"],
+                                                       "masked": p["masked"], "sensitive": True})
+                for p in e["parts"]:
+                    r = recent[p["turn"]]
+                    if p["turn"] < len(recent) - 1 and r["msg"] < len(self.messages):
+                        self.messages[r["msg"]]["text"] = R.redact_text(r["raw"], r["entities"] + r["extra"])
+                stitched_now.append(e)
+                if key not in self.intel:
+                    self.intel[key] = {"type": e["type"], "label": e["label"], "masked": e["masked"],
+                                       "meta": e["meta"], "count": 0, "firstSeenTurn": self.turn}
+                    self._raw[key] = e["value"]
+                    new_intel.append(self.intel[key])
+                self.intel[key]["count"] += 1
+        if stitched_now:
+            redacted = R.redact_text(raw_text, entities + recent[-1]["extra"])
         self.est_seconds += 10 + _round(utf16_len(str(raw_text)) * 0.6)
         analysis = {
             "turn": self.turn,
@@ -171,7 +199,7 @@ class Session:
             "tactics": tactics,
             "newIntel": [{"type": i["type"], "label": i["label"], "masked": i["masked"]} for i in new_intel],
             "entities": [{"type": e["type"], "label": e["label"], "masked": e["masked"], "sensitive": e["sensitive"]}
-                         for e in entities],
+                         for e in entities + stitched_now],
         }
         self.messages.append({"role": "scammer", "text": redacted, "t": self.now(),
                               "tactics": [t["id"] for t in tactics], "intel": analysis["newIntel"]})

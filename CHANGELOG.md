@@ -2,6 +2,15 @@
 
 ## 未发布
 
+### 真实话术语料、提取器噪声鲁棒性与跨回合拼接（情报分析）
+
+- 新增 `site/assets/core/scam_scripts.json`（CC BY 4.0，含 JSON Schema 与 node / pytest 校验）：7 类 × 5 阶段共 181 条骗子侧话术，据公开反诈宣传、公安 / 网信部门通报、法院与检察院典型案例和 TeleAntiFraud（Apache-2.0）归纳后重写，不含原文，号码网址一律占位符；只有确实对应具体案例、通报段落或数据集条目的 40 条标注案例 / 通报 / 数据集并给出 `sourceRef`，其余标“据公开反诈宣传改写”。来源与许可见 `corpus/SOURCES.md`、`DATA_LICENSE`。
+- 演示页样例台词（`site/assets/core/scenarios.json` 的 `samples`）据语料改写，字段结构不变，新增一一对应的 `sampleSources`；虚构值统一为 `.example` 域名、`某某` 户名。
+- 模拟器默认改用语料台词（`python -m deepsuck.sim --lines corpus|legacy`），固定种子可复现，语料缺失时退回手写台词；手写台词下的结果与 v0.5 逐项相同。
+- 提取器（JS / Python 同步）：异体字与由 `personas/humanize` 混淆表生成的错字归一（`scripts/sync_typo_keywords.py`）；数字夹空格 / 横杠 / 换行 / 中文标点、中文数字夹标点、腰 / 溜 / 酒等同音数字、分段钱包地址；户名在常见后续字处截断；“13900112233两小时”的量词不并入号码；新增跨回合拼接 `stitch()` 并接入 `Session`（拼接情报带置信度，前一回合回溯打码）。
+- 新增 `eval/noise_eval.py` 与 `eval/results-noise.json`、`eval/results-sim-corpus.json`；数字混淆 18 种写法的提取率由平均 66.7% 升到 100%，跨回合拆分由 0 升到 96%（2 回合银行卡 83–87%），600 组对抗负例误拼 0；话术分类器 F1 不变（0.949 / test 0.946）。详见 docs/EVAL.md。
+- 新增首页示例对话回归测试（动态读取 `corpus/examples/hero_rewrite.json`，只依赖 lines 的 r / s / i）。
+
 ### bootstrap 重跑不再重复首次部署提示
 
 - `bootstrap.sh` 结尾的「下一步」（加 DNS、放行防火墙、改 `live-config.js`）只在首次部署时显示，判断依据是本次运行新建了 `deploy/.env`；重跑只打印一行「已更新」摘要。只是脚本输出的变化，已部署的服务器不需要做任何操作。

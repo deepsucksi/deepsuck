@@ -52,7 +52,7 @@ def _clean_name(n: str, *_):
     n = re.sub(r"[0-9]", lambda m: _NAME_DIGITS[int(m.group(0))], n)
     if _NOT_NAMES.search(n):
         return None
-    m = re.search(r"[开卡银账的是在和与就吧了啊呢哦，]", n)
+    m = re.search(r"[开卡银账的是在和与就吧了啊呢哦，电手微那呃嗯合你我他她这打转加对说哈]", n)
     if m and m.start() >= 2:
         n = n[: m.start()]
     return n if len(n) >= 2 else None
@@ -185,3 +185,141 @@ def extract(text: Optional[str]) -> List[dict]:
 def extract_sensitive(text: Optional[str]) -> List[dict]:
     """只取敏感情报（账户/地址/联系方式等）。"""
     return [e for e in extract(text) if e["sensitive"]]
+
+
+# ---- 跨回合拼接（与 site/assets/js/extractors.js 的 stitch 等价）----
+from .normalize import plausible_number as _plausible  # noqa: E402
+from .cardbin import lookup as _bin_lookup  # noqa: E402
+
+_ST: dict = _C.get("stitch") or {}
+_DJ = _C["obfuscation"]["digitJoin"]
+_SEP_CLS = "[" + "".join("\\" + c if c in "]\\^-" else {"\n": "\\n", "\r": "\\r", "\t": "\\t"}.get(c, c)
+                         for c in _DJ["separators"]) + "]"
+_FRAG = "[0-9](?:" + _SEP_CLS + "{0,3}[0-9])*"
+_RE_TAIL = re.compile("(" + _FRAG + ")(" + re.sub(r"\$$", "", _ST.get("tailFiller", "$")) + ")$")
+_RE_HEAD = re.compile("(" + re.sub(r"^\^", "", _ST.get("headFiller", "^")) + ")(" + _FRAG + ")")
+_RE_TAIL_ONLY = re.compile("^" + _ST.get("tailFiller", "$"))
+_RE_UNIT = re.compile(_DJ["unitAfter"])
+_RE_BANK_CTX = re.compile(_ST.get("bankContext", "卡号"))
+_RE_PHONE_CTX = re.compile(_ST.get("phoneContext", "电话"))
+_RE_BLOCK_BEFORE = re.compile(_ST["blockBefore"]) if _ST.get("blockBefore") else None
+_RE_BLOCK_AFTER = re.compile(_ST["blockAfter"]) if _ST.get("blockAfter") else None
+_NUMERALS: dict = _C["obfuscation"]["numerals"]
+_RE_NUMERAL_CHAR = re.compile("[" + "".join(_NUMERALS) + "]")
+
+
+def _round2(x: float) -> float:
+    import math
+    v = math.floor(x * 100 + 0.5) / 100
+    return int(v) if float(v).is_integer() else v
+
+
+def _fragments(raw: str) -> dict:
+    norm = normalize(raw)
+    ents = extract_sensitive(raw)
+    # 片段可能短于 numeralRunMin（“二二三三”），这里把中文数字逐字换成阿拉伯数字（等长，坐标不变）
+    s = _RE_NUMERAL_CHAR.sub(lambda m: _NUMERALS[m.group(0)], norm.text)
+
+    def free(a, b):
+        sa, sb = norm.span(a, b)
+        return not any(e["start"] < sb and e["end"] > sa for e in ents)
+
+    def mk(a, b, **extra):
+        sa, sb = norm.span(a, b)
+        o = {"start": sa, "end": sb, "digits": re.sub(r"[^0-9]", "", s[a:b]), "ns": a, "ne": b}
+        o.update(extra)
+        return o
+
+    out = {"text": s, "ents": ents, "head": None, "tail": None}
+    t = _RE_TAIL.search(s)
+    if t:
+        a, b = t.start(), t.start() + len(t.group(1))
+        if free(a, b) and not (_RE_BLOCK_BEFORE and _RE_BLOCK_BEFORE.search(s[max(0, a - 16):a])):
+            out["tail"] = mk(a, b, before=s[max(0, a - 16):a])
+    h = _RE_HEAD.match(s)
+    if h:
+        a2 = len(h.group(1))
+        b2 = a2 + len(h.group(2))
+        rest = s[b2:]
+        if free(a2, b2) and not _RE_UNIT.match(rest) and not (_RE_BLOCK_AFTER and _RE_BLOCK_AFTER.search(rest)):
+            out["head"] = mk(a2, b2, only=bool(_RE_TAIL_ONLY.match(rest)))
+    if out["tail"] and _RE_UNIT.match(s[out["tail"]["ne"]:]):
+        out["tail"] = None
+    return out
+
+
+def _score(d: str, ctx: str) -> Optional[dict]:
+    kind = _plausible(d)
+    if not kind:
+        return None
+    if kind == "phone":
+        return {"type": "phone", "conf": _round2(0.6 + (0.3 if _RE_PHONE_CTX.search(ctx) else 0)), "meta": {"kind": "mobile"}}
+    b = _bin_lookup(d)
+    lu = luhn(d)
+    conf = 0.3 + (0.3 if lu else 0) + (0.2 if b else 0) + (0.1 if b and b["lengthOk"] else 0) \
+        + (0.1 if d.startswith("62") else 0) + (0.2 if _RE_BANK_CTX.search(ctx) else 0)
+    md = {"digits": len(d), "luhn": lu, "unionpay": d.startswith("62"), "bank": next((x for x in BANKS if x in ctx), None)}
+    if b:
+        md["issuer"] = {"bank": b["bank"], "bankCode": b["bankCode"], "cardType": b["cardType"],
+                        "cardTypeName": b["cardTypeName"], "lengthOk": b["lengthOk"]}
+        if not md["bank"]:
+            md["bank"] = b["bank"]
+            md["bankFrom"] = "bin"
+    return {"type": "bank_card", "conf": _round2(min(1, conf)), "meta": md}
+
+
+def stitch(turns, window: Optional[int] = None, min_confidence: Optional[float] = None) -> List[dict]:
+    """stitch(turns) -> 拼接得到的情报列表（见 JS 版说明）。turns 为同一说话方相邻回合的原文，按时间顺序。"""
+    W = window or _ST.get("window", 3)
+    min_conf = _ST.get("minConfidence", 0.5) if min_confidence is None else min_confidence
+    F = [_fragments("" if t is None else str(t)) for t in (turns or [])]
+    out, seen = [], set()
+    for f in F:
+        for e in f["ents"]:
+            seen.add(e["type"] + "|" + re.sub(r"[^0-9A-Za-z]", "", str(e["value"])).lower())
+    i = 0
+    while i < len(F):
+        tail = F[i]["tail"]
+        if not tail or len(tail["digits"]) < 3:
+            i += 1
+            continue
+        parts = [(i, tail)]
+        d = tail["digits"]
+        best = None
+        for j in range(i + 1, min(len(F), i + W)):
+            h = F[j]["head"]
+            if not h or (j > i + 1 and not parts[-1][1].get("only")):
+                break
+            if j > i + 1 and not F[j - 1]["head"]:
+                break
+            parts.append((j, h))
+            d += h["digits"]
+            if len(d) > 19:
+                break
+            sc = _score(d, tail["before"] + F[i]["text"][tail["ns"]:tail["ne"]])
+            if sc and sc["conf"] >= min_conf and (best is None or sc["conf"] > best[0]["conf"]
+                                                    or (sc["conf"] == best[0]["conf"] and len(d) > len(best[1]))):
+                best = (sc, d, list(parts))
+        if not best:
+            i += 1
+            continue
+        sc, d, ps = best
+        key = sc["type"] + "|" + d
+        if key in seen:
+            i += 1
+            continue
+        seen.add(key)
+        masked = R.mask(sc["type"], d)
+        same = len(masked) == len(d)
+        off = 0
+        plist = []
+        for turn, f in ps:
+            n = len(f["digits"])
+            plist.append({"turn": turn, "start": f["start"], "end": f["end"], "masked": masked[off:off + n] if same else "*" * n})
+            off += n
+        md = sc["meta"]
+        md["stitched"] = True
+        out.append({"type": sc["type"], "label": LABELS.get(sc["type"], sc["type"]), "value": d, "masked": masked,
+                    "sensitive": True, "confidence": sc["conf"], "turns": [p[0] for p in ps], "parts": plist, "meta": md})
+        i = ps[-1][0]  # 已用掉的回合不再作为起点（JS 版 i = last - 1 后 i++）
+    return out

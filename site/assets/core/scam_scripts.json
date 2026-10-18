@@ -1,0 +1,5826 @@
+{
+  "schema": "deepsuck.core.scam-scripts/v1",
+  "version": "1.0.0",
+  "updated": "2026-10-18",
+  "license": "CC-BY-4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+  "attribution": "DeepSuck (deepsuck.si)",
+  "comment": "诈骗话术语料（骗子侧）。7 类 × 5 阶段，每条都是据公开材料归纳后用自己的话重写的句子，不复制原文；号码、账户、网址一律用 {占位符}（见 placeholders，示例值均为虚构）。sourceType / sourceLabel 标明依据强度：只有确实对应某一典型案例、通报段落或数据集条目的才标注案例 / 通报 / 数据集，并用 sourceRef 指明是哪一个；其余据多篇公开反诈宣传归纳的一律标“据公开反诈宣传改写”，sourceIds 为参考来源。stage 与 corpus/scripts/*.yaml 的阶段 id 一致，phase 为统一的 5 阶段。",
+  "usage": "仅限防御用途：训练与评测“拖住”机器人、话术识别、反诈宣传。",
+  "thirdPartyNotice": "sources[].license 写明各来源的许可。TeleAntiFraud（Apache-2.0，Copyright 2025 Zhiming Ma）只借鉴话术结构并完全重写；政府与法院公开页面版权归原发布方，本库只概括其中描述的作案手法事实并重写，不复制原文。",
+  "phases": [
+    {
+      "id": "opening",
+      "name": "开场",
+      "desc": "报身份、抛出由头（退款、涉案、加错好友、兼职、贷款等）"
+    },
+    {
+      "id": "trust",
+      "name": "建立信任",
+      "desc": "核对个人信息、报工号、嘘寒问暖、小额返利、展示截图"
+    },
+    {
+      "id": "pressure",
+      "name": "施压",
+      "desc": "损失威胁、时限、保密隔离、沉没成本、伪造文书或凭证"
+    },
+    {
+      "id": "request",
+      "name": "索要钱款/信息",
+      "desc": "要验证码、卡号、余额、身份证照片，诱导下载 APP、共享屏幕、借款或充值"
+    },
+    {
+      "id": "payout",
+      "name": "收款指令",
+      "desc": "给出收款账户、钱包地址、网址或联系方式，要求转账并删除记录"
+    }
+  ],
+  "sourceTypes": {
+    "court_case": {
+      "label": "据法院公开典型案例改写",
+      "comment": "条目对应法院公开发布的某一典型案例（sourceRef 指明第几个案例），按其案情描述改写；不是判决书原文。"
+    },
+    "police_case": {
+      "label": "据公开典型案例改写",
+      "comment": "条目对应公安 / 网信部门通报中的某一具体典型案例（sourceRef 指明）。"
+    },
+    "police_bulletin": {
+      "label": "据公安机关公开通报改写",
+      "comment": "条目对应公安机关某篇通报中列出的话术或提示（sourceRef 指明段落），不对应具体案件。"
+    },
+    "dataset": {
+      "label": "据公开数据集改写",
+      "comment": "条目对应公开数据集中的某一条对话（sourceRef 为条目名，sourceUrls 指向该文件）。"
+    },
+    "awareness": {
+      "label": "据公开反诈宣传改写",
+      "comment": "据多篇公开反诈宣传、类型通报归纳改写，不对应某一具体案件；sourceIds 为参考来源。"
+    }
+  },
+  "docTypes": {
+    "police_release": "公安 / 网信部门公开发布",
+    "official_handbook": "官方反诈宣传手册",
+    "procuratorate": "检察机关公开发布",
+    "court": "法院公开典型案例 / 裁判报道",
+    "dataset": "公开数据集",
+    "project_corpus": "本项目既有语料"
+  },
+  "placeholders": {
+    "银行卡": {
+      "intel": "bank",
+      "example": "6200 0000 0000 0000 000"
+    },
+    "户名": {
+      "intel": "name",
+      "example": "王某"
+    },
+    "手机号": {
+      "intel": "phone",
+      "example": "100 0000 0001"
+    },
+    "网址": {
+      "intel": "url",
+      "example": "https://refund-kefu.example/dl"
+    },
+    "微信号": {
+      "intel": "wechat",
+      "example": "demo_wx_example"
+    },
+    "QQ号": {
+      "intel": "qq",
+      "example": "10000"
+    },
+    "钱包地址": {
+      "intel": "wallet",
+      "example": "TDemoExampleAddressNotReal"
+    },
+    "APP名": {
+      "intel": "app",
+      "example": "示例·安心退"
+    },
+    "机构": {
+      "intel": null,
+      "example": "某平台 / 某银行 / 市公安局（泛称）"
+    },
+    "姓氏": {
+      "intel": null,
+      "example": "王"
+    },
+    "金额": {
+      "intel": null,
+      "example": "两千元"
+    },
+    "工号": {
+      "intel": null,
+      "example": "A1234"
+    }
+  },
+  "sources": [
+    {
+      "id": "mps-2022-five",
+      "title": "公安部公布五类高发电信网络诈骗案件",
+      "publisher": "公安部（共产党员网转载）",
+      "date": "2022-05-11",
+      "url": "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "police_release"
+    },
+    {
+      "id": "mps-2023-ten",
+      "title": "公安部：十大电信网络诈骗类型高发 占比近80%",
+      "publisher": "公安部（新华网报道）",
+      "date": "2023-06-15",
+      "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "police_release"
+    },
+    {
+      "id": "mps-2025-handbook",
+      "title": "2025版防范电信网络诈骗宣传手册",
+      "publisher": "公安部刑侦局、国家反诈中心",
+      "date": "2025-06-18",
+      "url": "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm",
+      "altUrls": [
+        "https://fr.china-embassy.gov.cn/zgzfg/zgsg/lsqwc/202601/P020260121816688069095.pdf"
+      ],
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "official_handbook"
+    },
+    {
+      "id": "mps-2025-shopping",
+      "title": "公安部网安局发布网购消费诈骗典型案例",
+      "publisher": "公安部网安局（央视网报道）",
+      "date": "2025-06-18",
+      "url": "https://news.cctv.com/2025/06/18/ARTIyynY2cbTUYzhL9aehole250618.shtml",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "police_release"
+    },
+    {
+      "id": "cac-2022-cases",
+      "title": "国家网信办曝光一批电信网络诈骗典型案例",
+      "publisher": "国家网信办（会同公安部等）",
+      "date": "2022-04-14",
+      "url": "https://www.cac.gov.cn/2022-04/14/c_1651546285887220.htm",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "police_release"
+    },
+    {
+      "id": "hebei-2021",
+      "title": "河北省公安厅发布五类高发电信网络诈骗犯罪典型案例",
+      "publisher": "河北省公安厅（澎湃新闻转载）",
+      "date": "2021-04",
+      "url": "https://m.thepaper.cn/baijiahao_12254985",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "police_release"
+    },
+    {
+      "id": "jiangmen-boss",
+      "title": "假“领导”，真“骗子”！新会公安为公司挽损19万",
+      "publisher": "江门市公安局",
+      "date": "2024",
+      "url": "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "police_release"
+    },
+    {
+      "id": "jiangsu-boss-2024",
+      "title": "防范提示 财务人员警惕“经理”转账指令",
+      "publisher": "江苏省公安厅",
+      "date": "2024-11-14",
+      "url": "https://gat.jiangsu.gov.cn/art/2024/11/14/art_89956_11418671.html",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "police_release"
+    },
+    {
+      "id": "hubei-boss-2021",
+      "title": "“领导”加微信让你汇款？“冒充领导”诈骗的升级版来了",
+      "publisher": "湖北省公安厅（中新网报道）",
+      "date": "2021-01-25",
+      "url": "http://gat.hubei.gov.cn/bmdt/dtyw/202101/t20210125_3303901.shtml",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "police_release"
+    },
+    {
+      "id": "sz-campus-2022",
+      "title": "收到“注销校园贷、变更贷款人身份信息”？这是怎么回事？",
+      "publisher": "深圳市公安局（深圳市反电信网络诈骗中心）",
+      "date": "2022-12-10",
+      "url": "https://ga.sz.gov.cn/JMHD/YWZSK/XJGL_ZS/content/post_10332097.html",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "police_release"
+    },
+    {
+      "id": "local-police-2024",
+      "title": "电诈案件典型案例——冒充公检法类",
+      "publisher": "地方政府信息公开（转载公安机关案例）",
+      "date": "2024-03-13",
+      "url": "https://www.bypc.gov.cn/zfxxgk/bmdwxzjd/xzjd/ghz/fdzdgknr/cwgk/hgc/cwgk/art/2024/art_1a443ab6561a47d5bb72cbb2e8a4daa3.html",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "police_release"
+    },
+    {
+      "id": "spp-topic-2021",
+      "title": "充分履行法律监督职能 依法严惩电信网络诈骗犯罪（专题）",
+      "publisher": "最高人民检察院",
+      "date": "2021",
+      "url": "https://www.spp.gov.cn/spp/dxwlzp2021/index.shtml",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "procuratorate"
+    },
+    {
+      "id": "spp-2018-notice",
+      "title": "不法分子假冒检察机关实施电信网络诈骗犯罪 最高检提醒广大群众谨防上当受骗",
+      "publisher": "最高人民检察院（新华社报道）",
+      "date": "2018-01-27",
+      "url": "https://www.gov.cn/xinwen/2018-01/27/content_5261348.htm",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "procuratorate"
+    },
+    {
+      "id": "spp-2023-cases",
+      "title": "最高检发布检察机关依法惩治电信网络诈骗及其关联犯罪典型案例",
+      "publisher": "最高人民检察院",
+      "date": "2023-11-30",
+      "url": "https://www.spp.gov.cn/xwfbh/wsfbt/202311/t20231130_635188.shtml",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "procuratorate"
+    },
+    {
+      "id": "spp-2023-credit",
+      "title": "最高检公安部联合发布虚假征信类诈骗典型案例及防范建议",
+      "publisher": "最高人民检察院、公安部",
+      "date": "2023-01-19",
+      "url": "https://www.spp.gov.cn/spp/xwfbh/wsfbt/202301/t20230119_599532.shtml",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "procuratorate"
+    },
+    {
+      "id": "court-2025-cases",
+      "title": "最高法发布电信网络诈骗及其关联犯罪典型案例（7件）",
+      "publisher": "最高人民法院",
+      "date": "2025-02-24",
+      "url": "https://www.court.gov.cn/zixun/xiangqing/455701.html",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "court"
+    },
+    {
+      "id": "court-property-cases",
+      "title": "人民法院依法惩治电信网络诈骗等侵犯财产犯罪典型案例",
+      "publisher": "最高人民法院",
+      "date": "2025",
+      "url": "https://www.court.gov.cn/zixun/xiangqing/490051.html",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "court"
+    },
+    {
+      "id": "jieyang-2024",
+      "title": "【法庭内外】按“剧本”谈恋爱，骗得13万余元（终审裁定，引用话术本）",
+      "publisher": "揭阳市中级人民法院",
+      "date": "2024-09-26",
+      "url": "https://www.gdjyfy.gov.cn/jyzycourt/web/content?gid=396101&lmdm=1050",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "court"
+    },
+    {
+      "id": "zhuolu-2019",
+      "title": "涿鹿法院依法宣判31被告人电信诈骗案（诈骗话术本、虚假投资App）",
+      "publisher": "涿鹿县人民法院（澎湃号·政务）",
+      "date": "2019-12-30",
+      "url": "https://www.thepaper.cn/newsDetail_forward_5385571",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "court"
+    },
+    {
+      "id": "xinyang-2018",
+      "title": "17名90后以投资外汇为名诈骗230万元（二审判决，业务员按话术本对话）",
+      "publisher": "信阳市中级人民法院（上海市司法局 12348 转载）",
+      "date": "2018-12-15",
+      "url": "https://sh.12348.gov.cn/sites/12348/news-detail.jsp?category=lpa.Dynamic&entityid=0965479eef8549f7a0465c46339b0960",
+      "license": "未声明（公开发布页面，版权归原发布方）",
+      "usage": "只取公开通报 / 案例中描述的诈骗手法与话术套路这一事实层面信息，全部用自己的话重写；不复制原文，不保留姓名、地点、金额组合、案号、号码等可识别细节。",
+      "accessed": "2026-10-18",
+      "docType": "court"
+    },
+    {
+      "id": "teleantifraud",
+      "title": "TeleAntiFraud（多智能体生成的中文电话诈骗对话，ACM MM'25）",
+      "publisher": "JimmyMa99/TeleAntiFraud",
+      "date": "2025",
+      "url": "https://github.com/JimmyMa99/TeleAntiFraud",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "usage": "参考合成对话中的开场与话术结构，全部重写，不含数据集原句；按 Apache-2.0 保留署名（版权所有 2025 Zhiming Ma）。数据集本体不入库。",
+      "accessed": "2026-10-18",
+      "docType": "dataset"
+    },
+    {
+      "id": "corpus-v0",
+      "title": "DeepSuck corpus/scripts v0.1（维护者据公开反诈宣传归纳改写）",
+      "publisher": "DeepSuck",
+      "date": "2026-10-18",
+      "url": "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts",
+      "license": "同本仓库",
+      "usage": "在 v0.1 改写示例基础上再次改写与扩充。",
+      "accessed": "2026-10-18",
+      "docType": "project_corpus"
+    }
+  ],
+  "types": [
+    {
+      "id": "impersonate_cs",
+      "name": "冒充客服",
+      "aliases": [
+        "冒充电商客服",
+        "冒充物流客服",
+        "退款理赔",
+        "取消会员自动扣费"
+      ],
+      "corpusFile": "corpus/scripts/impersonate_cs.yaml",
+      "scenario": "refund",
+      "simScenarios": [
+        "refund"
+      ],
+      "summary": "冒充电商、物流或平台客服，以退款理赔、取消扣费为由，引导下载会议/远程软件、共享屏幕、报验证码，最终转账或贷款转出。",
+      "keywords": [
+        "客服",
+        "售后",
+        "退款",
+        "理赔",
+        "双倍赔偿",
+        "质量问题",
+        "快递丢件",
+        "会员",
+        "自动扣费",
+        "关闭服务",
+        "会议号",
+        "屏幕共享",
+        "远程协助",
+        "验证码",
+        "备用金",
+        "信用分",
+        "理赔专用账户",
+        "三倍赔付",
+        "工单",
+        "绿色通道",
+        "对公账户",
+        "店铺下架",
+        "重新激活",
+        "成分超标",
+        "回单"
+      ],
+      "stages": [
+        {
+          "id": "hook",
+          "name": "开场建立身份"
+        },
+        {
+          "id": "problem",
+          "name": "制造问题"
+        },
+        {
+          "id": "tool",
+          "name": "引导下载与共享屏幕"
+        },
+        {
+          "id": "harvest",
+          "name": "套取验证码与账户"
+        },
+        {
+          "id": "cashout",
+          "name": "转账或贷款转出"
+        }
+      ],
+      "pressureTactics": [
+        {
+          "id": "loss_threat",
+          "name": "损失威胁",
+          "desc": "声称不处理会持续扣费或影响征信。"
+        },
+        {
+          "id": "deadline",
+          "name": "时限压迫",
+          "desc": "给出很短的处理时限。"
+        },
+        {
+          "id": "authority_procedure",
+          "name": "伪造正规流程",
+          "desc": "用工号、流程编号、“系统规定”增加可信度。"
+        },
+        {
+          "id": "isolation",
+          "name": "阻止核实",
+          "desc": "不让对方挂断或向平台官方核实。"
+        }
+      ],
+      "redFlags": [
+        "正规平台退款只走原路退回，不需要下载会议软件或共享屏幕。",
+        "任何要求念验证码、开通借款额度“验证”的客服都是骗子。",
+        "挂断后自己打开官方 APP 或拨打官方客服核实。"
+      ]
+    },
+    {
+      "id": "impersonate_police",
+      "name": "冒充公检法",
+      "aliases": [
+        "冒充公安",
+        "冒充检察院",
+        "安全账户",
+        "资金清查",
+        "涉嫌洗钱"
+      ],
+      "corpusFile": "corpus/scripts/impersonate_police.yaml",
+      "scenario": "police",
+      "simScenarios": [
+        "police"
+      ],
+      "summary": "先冒充快递、通信或社保工作人员称对方信息被冒用，再转接“警官”“检察官”，以涉案为由要求保密，把资金转入所谓安全账户接受清查。",
+      "keywords": [
+        "公安局",
+        "经侦",
+        "检察院",
+        "法院",
+        "警官",
+        "警号",
+        "涉嫌洗钱",
+        "逮捕令",
+        "通缉令",
+        "冻结",
+        "安全账户",
+        "资金清查",
+        "保密",
+        "自证清白",
+        "配合调查",
+        "涉案",
+        "医保卡",
+        "违禁品",
+        "海关",
+        "财产冻结书",
+        "立案",
+        "同案犯",
+        "笔录",
+        "清查账户",
+        "取保候审金",
+        "宾馆",
+        "非法出入境"
+      ],
+      "stages": [
+        {
+          "id": "hook",
+          "name": "第一层：业务人员开场"
+        },
+        {
+          "id": "transfer_call",
+          "name": "第二层：转接“警方”"
+        },
+        {
+          "id": "fear",
+          "name": "制造恐惧"
+        },
+        {
+          "id": "isolate",
+          "name": "隔离受害人"
+        },
+        {
+          "id": "cashout",
+          "name": "资金清查"
+        }
+      ],
+      "pressureTactics": [
+        {
+          "id": "legal_threat",
+          "name": "法律威胁",
+          "desc": "用逮捕、冻结、坐牢恐吓。"
+        },
+        {
+          "id": "secrecy",
+          "name": "要求保密",
+          "desc": "以“案件保密”为由不让对方求证。"
+        },
+        {
+          "id": "deadline",
+          "name": "时限压迫",
+          "desc": "要求在很短时间内完成转账。"
+        },
+        {
+          "id": "fake_documents",
+          "name": "伪造文书",
+          "desc": "发送伪造的通缉令、冻结令图片或网址。"
+        }
+      ],
+      "redFlags": [
+        "公检法机关不会通过电话办案，不会发送通缉令网址，更没有“安全账户”。",
+        "要求保密、不许挂电话、不许告诉家人的，基本可以判定是诈骗。",
+        "遇到类似来电直接挂断，拨打 110 或 96110 核实。"
+      ]
+    },
+    {
+      "id": "impersonate_boss",
+      "name": "冒充领导熟人",
+      "aliases": [
+        "冒充领导",
+        "冒充老板",
+        "冒充亲友",
+        "换号借钱",
+        "冒充老师"
+      ],
+      "corpusFile": "corpus/scripts/impersonate_boss.yaml",
+      "scenario": "boss",
+      "simScenarios": [
+        "boss"
+      ],
+      "summary": "用与领导、亲友相同的头像昵称或“换了新号”加好友，以开会不便、急需周转为由，要求代付或借钱，并阻止电话核实。",
+      "keywords": [
+        "新微信",
+        "换号",
+        "在开会",
+        "不方便接电话",
+        "合作方",
+        "垫付",
+        "周转",
+        "转账限额",
+        "急用",
+        "回头还你",
+        "别跟别人说",
+        "转账截图",
+        "家长群",
+        "资料费",
+        "工作群",
+        "办公室",
+        "开会",
+        "代转",
+        "工程款",
+        "余额",
+        "截图",
+        "延时到账",
+        "私人号"
+      ],
+      "stages": [
+        {
+          "id": "hook",
+          "name": "换号接触"
+        },
+        {
+          "id": "rapport",
+          "name": "寒暄与铺垫"
+        },
+        {
+          "id": "request",
+          "name": "提出转账请求"
+        },
+        {
+          "id": "payout",
+          "name": "给出收款账户"
+        }
+      ],
+      "pressureTactics": [
+        {
+          "id": "hierarchy",
+          "name": "上下级压力",
+          "desc": "利用对领导的服从心理。"
+        },
+        {
+          "id": "no_call",
+          "name": "阻止电话核实",
+          "desc": "借口开会、信号不好拒绝通话。"
+        },
+        {
+          "id": "secrecy",
+          "name": "要求保密",
+          "desc": "不让对方问其他同事或家人。"
+        },
+        {
+          "id": "fake_receipt",
+          "name": "伪造转账凭证",
+          "desc": "发送伪造的转账截图，让对方以为钱已到。"
+        }
+      ],
+      "redFlags": [
+        "熟人突然换号并要求转账，一定要用原来的电话号码打过去核实，或当面确认。",
+        "对方以开会、信号差为由拒绝通话，是高危信号。",
+        "不要相信转账截图，以自己账户实际到账为准。"
+      ]
+    },
+    {
+      "id": "pig_butchering",
+      "name": "杀猪盘",
+      "aliases": [
+        "网络婚恋交友诈骗",
+        "感情投资",
+        "网恋诱导投资"
+      ],
+      "corpusFile": "corpus/scripts/pig_butchering.yaml",
+      "scenario": "pig",
+      "simScenarios": [
+        "pig"
+      ],
+      "summary": "以恋爱或交友为名长期培养感情（“养猪”），再以内部渠道、平台漏洞为由引导到虚假投资或博彩平台，先小额返利，后以各种费用为由不断加码（“杀猪”）。",
+      "keywords": [
+        "加错人",
+        "缘分",
+        "宝贝",
+        "亲爱的",
+        "内部消息",
+        "平台漏洞",
+        "稳赚",
+        "带你赚钱",
+        "导师",
+        "注册账号",
+        "USDT",
+        "充值",
+        "提现",
+        "风控",
+        "保证金",
+        "个人所得税",
+        "解冻",
+        "邀请码",
+        "收益",
+        "截图",
+        "窗口期"
+      ],
+      "stages": [
+        {
+          "id": "contact",
+          "name": "搭讪与人设展示"
+        },
+        {
+          "id": "grooming",
+          "name": "培养感情"
+        },
+        {
+          "id": "pitch",
+          "name": "引入投资"
+        },
+        {
+          "id": "small_win",
+          "name": "小额返利"
+        },
+        {
+          "id": "escalate",
+          "name": "加码与收割"
+        }
+      ],
+      "pressureTactics": [
+        {
+          "id": "emotional_bond",
+          "name": "情感绑架",
+          "desc": "用感情和共同未来施压。"
+        },
+        {
+          "id": "fomo",
+          "name": "错失恐惧",
+          "desc": "强调机会稍纵即逝。"
+        },
+        {
+          "id": "sunk_cost",
+          "name": "沉没成本",
+          "desc": "不交费前面的钱就拿不回来。"
+        },
+        {
+          "id": "secrecy",
+          "name": "要求保密",
+          "desc": "以“内部渠道”为由不让对方告诉他人。"
+        }
+      ],
+      "redFlags": [
+        "网上认识、从未见面的人主动带你投资或博彩，几乎都是诈骗。",
+        "提现要先交税费、保证金、解冻费，说明平台是假的。",
+        "不要在对方提供的网址或 APP 上充值，不要用 USDT 等虚拟币给陌生人转账。"
+      ]
+    },
+    {
+      "id": "task_rebate",
+      "name": "刷单返利",
+      "aliases": [
+        "做任务赚佣金",
+        "点赞关注返现",
+        "兼职刷单",
+        "垫付返利"
+      ],
+      "corpusFile": "corpus/scripts/task_rebate.yaml",
+      "scenario": "task",
+      "simScenarios": [
+        "task"
+      ],
+      "summary": "以“动动手指日结”的兼职为诱饵，先用点赞、关注等小任务返小额佣金，再以“福利单”“连单”为由要求垫付，金额越滚越大，最后以操作失误、账户冻结为由拒绝返还。",
+      "keywords": [
+        "点赞员",
+        "兼职",
+        "日结",
+        "佣金",
+        "返利",
+        "任务",
+        "接待员",
+        "派单员",
+        "邀请码",
+        "新手任务",
+        "福利单",
+        "垫付",
+        "连单",
+        "卡单",
+        "冲销量",
+        "解冻",
+        "操作超时",
+        "公众号",
+        "组合任务",
+        "复合任务",
+        "信誉分",
+        "收款码",
+        "补单",
+        "高级会员"
+      ],
+      "stages": [
+        {
+          "id": "recruit",
+          "name": "招募"
+        },
+        {
+          "id": "onboard",
+          "name": "拉群与下载"
+        },
+        {
+          "id": "small_rebate",
+          "name": "小额返利"
+        },
+        {
+          "id": "advance",
+          "name": "垫付任务"
+        },
+        {
+          "id": "lock_in",
+          "name": "连单与卡单"
+        }
+      ],
+      "pressureTactics": [
+        {
+          "id": "easy_money",
+          "name": "轻松赚钱诱惑",
+          "desc": "用小额真实返利建立“确实能赚”的印象。"
+        },
+        {
+          "id": "sunk_cost",
+          "name": "沉没成本",
+          "desc": "不继续充值前面垫付的钱就拿不回来。"
+        },
+        {
+          "id": "blame_victim",
+          "name": "归咎受害人",
+          "desc": "把卡单说成对方操作失误。"
+        },
+        {
+          "id": "deadline",
+          "name": "时限压迫",
+          "desc": "要求在几分钟内完成，不给思考时间。"
+        }
+      ],
+      "redFlags": [
+        "所有刷单都是违法行为，所有要求先垫付的“兼职”都是诈骗。",
+        "先给小甜头再要求充值，是这类诈骗的固定套路。",
+        "不要下载陌生人发来的任务 APP，不要加入来路不明的任务群。"
+      ]
+    },
+    {
+      "id": "investment",
+      "name": "投资理财",
+      "aliases": [
+        "虚假网络投资理财",
+        "荐股群",
+        "内幕消息",
+        "虚拟币投资",
+        "原始股"
+      ],
+      "corpusFile": "corpus/scripts/investment.yaml",
+      "scenario": null,
+      "simScenarios": [],
+      "summary": "通过短信、直播或投资群引流，由“导师”“分析师”带单，先在免费荐股中制造准确的假象，再引导到虚假交易平台充值，平台数据可被操控，最终无法提现。",
+      "keywords": [
+        "牛股",
+        "荐股",
+        "内幕消息",
+        "分析师",
+        "导师",
+        "带单",
+        "投资群",
+        "机构通道",
+        "配售",
+        "原始股",
+        "年化收益",
+        "稳赚不赔",
+        "保本",
+        "对公账户",
+        "个人所得税",
+        "解冻",
+        "保证金",
+        "数字货币",
+        "投资顾问",
+        "直播间",
+        "特训营",
+        "基金经理",
+        "学员",
+        "涨停",
+        "兜底",
+        "仓位",
+        "安装包",
+        "入金",
+        "推荐码"
+      ],
+      "stages": [
+        {
+          "id": "lure",
+          "name": "引流"
+        },
+        {
+          "id": "build_trust",
+          "name": "树立权威"
+        },
+        {
+          "id": "platform",
+          "name": "引入交易平台"
+        },
+        {
+          "id": "deposit",
+          "name": "充值与加码"
+        },
+        {
+          "id": "block_withdraw",
+          "name": "阻止提现"
+        }
+      ],
+      "pressureTactics": [
+        {
+          "id": "high_return",
+          "name": "高收益承诺",
+          "desc": "承诺远超正常水平的稳定收益。"
+        },
+        {
+          "id": "social_proof",
+          "name": "群体证明",
+          "desc": "群内“托儿”晒收益、晒提现截图。"
+        },
+        {
+          "id": "scarcity",
+          "name": "稀缺与时限",
+          "desc": "名额有限、窗口期短。"
+        },
+        {
+          "id": "authority",
+          "name": "冒用权威背书",
+          "desc": "冒用持牌机构、监管备案名义。"
+        }
+      ],
+      "redFlags": [
+        "承诺高收益、保本保息的投资都是诈骗信号。",
+        "只在正规券商、银行的官方 APP 交易，不在群里给的链接或 APP 上开户。",
+        "提现要先交“税费”“保证金”，平台必然是假的。"
+      ]
+    },
+    {
+      "id": "loan_credit",
+      "name": "贷款征信",
+      "aliases": [
+        "虚假贷款",
+        "征信修复",
+        "注销校园贷",
+        "清空网贷额度",
+        "解冻费"
+      ],
+      "corpusFile": "corpus/scripts/loan_credit.yaml",
+      "scenario": "loan",
+      "simScenarios": [
+        "loan",
+        "campus"
+      ],
+      "summary": "一类以“低息秒批”为诱饵，下载虚假贷款 APP 后以流水不足、卡号填错为由收取各种费用；另一类冒充网贷客服，称校园贷未注销会影响征信，诱导在正规平台借款后转出“清空额度”。",
+      "keywords": [
+        "无抵押",
+        "低息",
+        "秒批",
+        "额度",
+        "放款",
+        "解冻金",
+        "流水",
+        "保证金",
+        "会员费",
+        "服务费",
+        "征信",
+        "黑名单",
+        "征信修复",
+        "校园贷",
+        "注销",
+        "清空额度",
+        "监管账户",
+        "卡号填错",
+        "贷款中心",
+        "学生账户",
+        "社会人员",
+        "不良记录",
+        "修复征信",
+        "持牌",
+        "快速通道",
+        "放款专员",
+        "监管对接账户"
+      ],
+      "stages": [
+        {
+          "id": "hook",
+          "name": "开场"
+        },
+        {
+          "id": "app",
+          "name": "下载与填资料"
+        },
+        {
+          "id": "obstacle",
+          "name": "制造放款障碍"
+        },
+        {
+          "id": "credit_threat",
+          "name": "征信恐吓"
+        },
+        {
+          "id": "cashout",
+          "name": "收款"
+        }
+      ],
+      "pressureTactics": [
+        {
+          "id": "credit_threat",
+          "name": "征信威胁",
+          "desc": "以影响征信、上黑名单恐吓。"
+        },
+        {
+          "id": "sunk_cost",
+          "name": "沉没成本",
+          "desc": "已交的费用不再交就作废。"
+        },
+        {
+          "id": "fake_regulation",
+          "name": "冒用监管名义",
+          "desc": "声称是银保监会、央行要求。"
+        },
+        {
+          "id": "deadline",
+          "name": "时限压迫",
+          "desc": "要求当天完成。"
+        }
+      ],
+      "redFlags": [
+        "正规贷款放款前不会收取任何费用；凡是先交钱才放款的都是诈骗。",
+        "征信不能“修复”，也不存在“注销校园贷账户”“清空额度”的说法。",
+        "征信问题请通过中国人民银行征信中心官方渠道查询。"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "impersonate_cs-001",
+      "type": "impersonate_cs",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "您好，这边是{机构}售后，您上周下单的那件衣服质检不合格，平台要主动给您退款。",
+      "keywords": [
+        "售后",
+        "退款"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-002",
+      "type": "impersonate_cs",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "喂，请问是机主本人吗？您的快递在中转站弄丢了，我们按规定给您做三倍赔付。",
+      "keywords": [
+        "三倍赔付"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "hebei-2021",
+        "mps-2022-five"
+      ],
+      "sourceRef": "冒充电商客服类·典型案例",
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985",
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-003",
+      "type": "impersonate_cs",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "我是物流公司的理赔专员，您的包裹单号我这边能看到，丢件责任在我们，跟您核对一下理赔。",
+      "keywords": [
+        "理赔"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-004",
+      "type": "impersonate_cs",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "您之前在直播平台开过一个会员，系统显示下个月起每月自动扣费，打电话跟您确认一下。",
+      "keywords": [
+        "会员",
+        "自动扣费"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-005",
+      "type": "impersonate_cs",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "您好，您的店铺因为违规商品被平台下架了，我这边可以帮您重新激活。",
+      "keywords": [
+        "重新激活"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-006",
+      "type": "impersonate_cs",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "您买的那款化妆品检测出成分超标，平台对购买过的客户统一退款加补偿。",
+      "keywords": [
+        "退款",
+        "成分超标"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "mps-2025-shopping"
+      ],
+      "sourceRef": "案例三",
+      "sourceUrls": [
+        "https://news.cctv.com/2025/06/18/ARTIyynY2cbTUYzhL9aehole250618.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-007",
+      "type": "impersonate_cs",
+      "phase": "trust",
+      "stage": "hook",
+      "text": "您的下单时间和收货地址我都核对过了，确实是您本人，您放心，这是官方回访。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-008",
+      "type": "impersonate_cs",
+      "phase": "trust",
+      "stage": "hook",
+      "text": "我的工号是{工号}，您记一下，后面有问题直接报工号找我。",
+      "keywords": [],
+      "pressure": [
+        "authority_procedure"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-009",
+      "type": "impersonate_cs",
+      "phase": "trust",
+      "stage": "problem",
+      "text": "退款走的是平台绿色通道，比您自己申请快很多，商品也不用寄回来。",
+      "keywords": [
+        "退款",
+        "绿色通道"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-010",
+      "type": "impersonate_cs",
+      "phase": "trust",
+      "stage": "problem",
+      "text": "很多客户都已经办好了，钱当天就到账，您跟着我一步一步来就行。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-011",
+      "type": "impersonate_cs",
+      "phase": "trust",
+      "stage": "problem",
+      "text": "这个会员是系统误开的，不是您的问题，我们负责帮您关掉，不收任何费用。",
+      "keywords": [
+        "会员"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-012",
+      "type": "impersonate_cs",
+      "phase": "pressure",
+      "stage": "problem",
+      "text": "这个会员不取消的话，每个月都会从您绑定的卡里扣几百块，还会影响您的征信。",
+      "keywords": [
+        "会员"
+      ],
+      "pressure": [
+        "loss_threat"
+      ],
+      "tactics": [
+        "cs_impersonation",
+        "threat"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-013",
+      "type": "impersonate_cs",
+      "phase": "pressure",
+      "stage": "cashout",
+      "text": "理赔通道今天下班前就关闭了，过了时间系统会自动判定您放弃理赔。",
+      "keywords": [
+        "理赔"
+      ],
+      "pressure": [
+        "deadline"
+      ],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-014",
+      "type": "impersonate_cs",
+      "phase": "pressure",
+      "stage": "tool",
+      "text": "您先别挂电话，挂了工单就作废了，下次还要重新排队审核。",
+      "keywords": [
+        "工单"
+      ],
+      "pressure": [
+        "isolation"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-015",
+      "type": "impersonate_cs",
+      "phase": "pressure",
+      "stage": "tool",
+      "text": "您不要去平台上点在线客服，那边是机器人，处理不了这种特殊理赔。",
+      "keywords": [
+        "客服",
+        "理赔"
+      ],
+      "pressure": [
+        "isolation"
+      ],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "spp-topic-2021"
+      ],
+      "sourceUrls": [
+        "https://www.spp.gov.cn/spp/dxwlzp2021/index.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-016",
+      "type": "impersonate_cs",
+      "phase": "pressure",
+      "stage": "harvest",
+      "text": "这是平台统一的流程，有正规的工单编号，您按步骤操作就不会出问题。",
+      "keywords": [
+        "工单"
+      ],
+      "pressure": [
+        "authority_procedure"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-017",
+      "type": "impersonate_cs",
+      "phase": "pressure",
+      "stage": "problem",
+      "text": "您的账户已经被标记为交易异常了，再不处理，余额会被冻结。",
+      "keywords": [],
+      "pressure": [
+        "loss_threat"
+      ],
+      "tactics": [
+        "threat",
+        "info_harvest"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-018",
+      "type": "impersonate_cs",
+      "phase": "request",
+      "stage": "tool",
+      "text": "您手机上下载一个{APP名}，输入我发给您的会议号，我远程教您操作。",
+      "keywords": [
+        "会议号"
+      ],
+      "pressure": [],
+      "tactics": [
+        "app_download",
+        "screen_share"
+      ],
+      "intel": [
+        "app"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-019",
+      "type": "impersonate_cs",
+      "phase": "request",
+      "stage": "tool",
+      "text": "您点一下右下角的共享屏幕，我帮您看看是哪一步卡住了。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "app_download",
+        "screen_share"
+      ],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "mps-2025-shopping"
+      ],
+      "sourceRef": "案例三",
+      "sourceUrls": [
+        "https://news.cctv.com/2025/06/18/ARTIyynY2cbTUYzhL9aehole250618.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-020",
+      "type": "impersonate_cs",
+      "phase": "request",
+      "stage": "harvest",
+      "text": "系统刚给您发了一条验证码，这是退款的确认码，您念给我核对一下。",
+      "keywords": [
+        "退款",
+        "验证码"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "otp"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-021",
+      "type": "impersonate_cs",
+      "phase": "request",
+      "stage": "harvest",
+      "text": "您把收退款的银行卡号报一下，我这边给您登记到理赔单上。",
+      "keywords": [
+        "退款",
+        "理赔"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "info_harvest"
+      ],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "mps-2025-shopping"
+      ],
+      "sourceRef": "案例三",
+      "sourceUrls": [
+        "https://news.cctv.com/2025/06/18/ARTIyynY2cbTUYzhL9aehole250618.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-022",
+      "type": "impersonate_cs",
+      "phase": "request",
+      "stage": "harvest",
+      "text": "您看一下支付宝里的备用金能不能用，退款需要先走一笔流水验证。",
+      "keywords": [
+        "退款",
+        "备用金"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-023",
+      "type": "impersonate_cs",
+      "phase": "request",
+      "stage": "cashout",
+      "text": "您的信用分不够，系统退不了款，需要先在借款平台申请一笔额度把分数提上去。",
+      "keywords": [
+        "信用分"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "hebei-2021",
+        "mps-2022-five"
+      ],
+      "sourceRef": "冒充电商客服类·典型案例",
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985",
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-024",
+      "type": "impersonate_cs",
+      "phase": "request",
+      "stage": "tool",
+      "text": "资料发给我们理赔专员的微信 {微信号}，他会一对一帮您办理。",
+      "keywords": [
+        "理赔"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [
+        "wechat"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-025",
+      "type": "impersonate_cs",
+      "phase": "payout",
+      "stage": "cashout",
+      "text": "您把备用金转到理赔对公账户 {银行卡}，户名{户名}，验证完连同赔款一起退给您。",
+      "keywords": [
+        "理赔",
+        "备用金",
+        "对公账户"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "transfer"
+      ],
+      "intel": [
+        "bank",
+        "name"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-026",
+      "type": "impersonate_cs",
+      "phase": "payout",
+      "stage": "harvest",
+      "text": "验证码填到这个页面就行：{网址}，填完截图发我。",
+      "keywords": [
+        "验证码"
+      ],
+      "pressure": [],
+      "tactics": [
+        "otp"
+      ],
+      "intel": [
+        "url"
+      ],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "mps-2025-shopping"
+      ],
+      "sourceRef": "案例三",
+      "sourceUrls": [
+        "https://news.cctv.com/2025/06/18/ARTIyynY2cbTUYzhL9aehole250618.shtml"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-027",
+      "type": "impersonate_cs",
+      "phase": "payout",
+      "stage": "cashout",
+      "text": "借出来的钱先转到监管账户 {银行卡}，开户行是{机构}，系统核对后自动原路返还。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "safe_account",
+        "transfer",
+        "info_harvest"
+      ],
+      "intel": [
+        "bank"
+      ],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceRef": "冒充电商客服类·典型案例",
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_cs-028",
+      "type": "impersonate_cs",
+      "phase": "payout",
+      "stage": "cashout",
+      "text": "转完把回单截图发给我，我这边马上给您走赔付。",
+      "keywords": [
+        "回单"
+      ],
+      "pressure": [],
+      "tactics": [
+        "urgency",
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "refund"
+      ]
+    },
+    {
+      "id": "impersonate_police-001",
+      "type": "impersonate_police",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "您好，这里是{机构}，您名下的一张医保卡在外地有违规消费记录，需要跟您核实。",
+      "keywords": [
+        "医保卡"
+      ],
+      "pressure": [],
+      "tactics": [
+        "info_harvest"
+      ],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "local-police-2024",
+        "mps-2025-handbook"
+      ],
+      "sourceRef": "警方提示",
+      "sourceUrls": [
+        "https://www.bypc.gov.cn/zfxxgk/bmdwxzjd/xzjd/ghz/fdzdgknr/cwgk/hgc/cwgk/art/2024/art_1a443ab6561a47d5bb72cbb2e8a4daa3.html",
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-002",
+      "type": "impersonate_police",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "我是快递公司的，您寄出的一个包裹里查出了违禁品，现在被海关扣下了。",
+      "keywords": [
+        "违禁品",
+        "海关"
+      ],
+      "pressure": [],
+      "tactics": [
+        "authority",
+        "cs_impersonation",
+        "account_risk",
+        "threat"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "spp-topic-2021"
+      ],
+      "sourceUrls": [
+        "https://www.spp.gov.cn/spp/dxwlzp2021/index.shtml"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-003",
+      "type": "impersonate_police",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "这里是市公安局刑侦支队，有个案子涉及您的身份证，需要您配合调查。",
+      "keywords": [
+        "公安局",
+        "配合调查"
+      ],
+      "pressure": [],
+      "tactics": [
+        "authority",
+        "info_harvest"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-004",
+      "type": "impersonate_police",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "您好，您的护照办理信息有问题，涉嫌非法出入境，我们这边要做个登记。",
+      "keywords": [
+        "非法出入境"
+      ],
+      "pressure": [],
+      "tactics": [
+        "threat"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-005",
+      "type": "impersonate_police",
+      "phase": "trust",
+      "stage": "transfer_call",
+      "text": "您说不是您本人办的，那可能是身份信息被盗用了，我帮您把电话转到警方。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "account_risk",
+        "transfer",
+        "info_harvest"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-006",
+      "type": "impersonate_police",
+      "phase": "trust",
+      "stage": "transfer_call",
+      "text": "我是负责这个案子的{姓氏}警官，警号可以给您报一下，您记下来。",
+      "keywords": [
+        "警官",
+        "警号"
+      ],
+      "pressure": [],
+      "tactics": [
+        "authority"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-007",
+      "type": "impersonate_police",
+      "phase": "trust",
+      "stage": "transfer_call",
+      "text": "我们是正式立案的，案件编号已经发到您手机上了，您先看一下。",
+      "keywords": [
+        "立案"
+      ],
+      "pressure": [
+        "fake_documents"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "spp-2018-notice"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/xinwen/2018-01/27/content_5261348.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-008",
+      "type": "impersonate_police",
+      "phase": "trust",
+      "stage": "transfer_call",
+      "text": "您可以登录我们的官网查一下，上面有您的立案信息和照片。",
+      "keywords": [
+        "立案"
+      ],
+      "pressure": [
+        "fake_documents"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "cac-2022-cases",
+        "spp-2018-notice"
+      ],
+      "sourceRef": "案例四",
+      "sourceUrls": [
+        "https://www.cac.gov.cn/2022-04/14/c_1651546285887220.htm",
+        "https://www.gov.cn/xinwen/2018-01/27/content_5261348.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-009",
+      "type": "impersonate_police",
+      "phase": "trust",
+      "stage": "fear",
+      "text": "我们也相信您是被冒用的，只要配合调查，就能证明您的清白。",
+      "keywords": [
+        "配合调查"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-010",
+      "type": "impersonate_police",
+      "phase": "pressure",
+      "stage": "fear",
+      "text": "这个案子涉及的洗钱金额很大，您不配合的话，就直接按同案犯处理。",
+      "keywords": [
+        "同案犯"
+      ],
+      "pressure": [
+        "legal_threat"
+      ],
+      "tactics": [
+        "threat"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-011",
+      "type": "impersonate_police",
+      "phase": "pressure",
+      "stage": "fear",
+      "text": "通缉令已经在走流程了，今天下午之前您必须配合完成，不然就要上门抓人。",
+      "keywords": [
+        "通缉令"
+      ],
+      "pressure": [
+        "deadline",
+        "legal_threat"
+      ],
+      "tactics": [
+        "authority"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "spp-topic-2021"
+      ],
+      "sourceUrls": [
+        "https://www.spp.gov.cn/spp/dxwlzp2021/index.shtml"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-012",
+      "type": "impersonate_police",
+      "phase": "pressure",
+      "stage": "isolate",
+      "text": "案件属于保密阶段，您不能告诉任何人，包括家人和银行工作人员，否则就是泄露案情。",
+      "keywords": [
+        "保密"
+      ],
+      "pressure": [
+        "secrecy"
+      ],
+      "tactics": [
+        "urgency",
+        "secrecy"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-013",
+      "type": "impersonate_police",
+      "phase": "pressure",
+      "stage": "isolate",
+      "text": "请您找一个没有人的房间，或者到附近宾馆开个房间，单独配合我们做笔录。",
+      "keywords": [
+        "笔录",
+        "宾馆"
+      ],
+      "pressure": [
+        "secrecy"
+      ],
+      "tactics": [
+        "secrecy"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten",
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm",
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-014",
+      "type": "impersonate_police",
+      "phase": "pressure",
+      "stage": "fear",
+      "text": "我给您发一份财产冻结书，您看清楚，上面是盖了章的。",
+      "keywords": [
+        "冻结",
+        "财产冻结书"
+      ],
+      "pressure": [
+        "fake_documents"
+      ],
+      "tactics": [
+        "threat"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-015",
+      "type": "impersonate_police",
+      "phase": "pressure",
+      "stage": "isolate",
+      "text": "银行柜员问您转账做什么，您就说是自己买房用的，千万不要提到案子。",
+      "keywords": [],
+      "pressure": [
+        "secrecy"
+      ],
+      "tactics": [
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-016",
+      "type": "impersonate_police",
+      "phase": "pressure",
+      "stage": "fear",
+      "text": "我们的通话全程录音，您现在说的每一句话都会作为证据。",
+      "keywords": [],
+      "pressure": [
+        "legal_threat"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-017",
+      "type": "impersonate_police",
+      "phase": "pressure",
+      "stage": "isolate",
+      "text": "配合调查期间手机不能关机，也不能接其他人的电话。",
+      "keywords": [
+        "配合调查"
+      ],
+      "pressure": [
+        "secrecy"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-018",
+      "type": "impersonate_police",
+      "phase": "request",
+      "stage": "cashout",
+      "text": "您名下还有几张银行卡？每张卡里大概有多少钱？都要报给我做资金清查。",
+      "keywords": [
+        "资金清查"
+      ],
+      "pressure": [],
+      "tactics": [
+        "safe_account",
+        "info_harvest"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-019",
+      "type": "impersonate_police",
+      "phase": "request",
+      "stage": "isolate",
+      "text": "您下载一个视频会议软件，打开屏幕共享，我们要远程核查您的账户。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "app_download",
+        "screen_share"
+      ],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "local-police-2024"
+      ],
+      "sourceRef": "典型案例",
+      "sourceUrls": [
+        "https://www.bypc.gov.cn/zfxxgk/bmdwxzjd/xzjd/ghz/fdzdgknr/cwgk/hgc/cwgk/art/2024/art_1a443ab6561a47d5bb72cbb2e8a4daa3.html"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-020",
+      "type": "impersonate_police",
+      "phase": "request",
+      "stage": "cashout",
+      "text": "您把手机收到的验证码念一下，我们要做资金冻结前的身份核验。",
+      "keywords": [
+        "冻结"
+      ],
+      "pressure": [],
+      "tactics": [
+        "otp",
+        "threat"
+      ],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "local-police-2024"
+      ],
+      "sourceRef": "典型案例",
+      "sourceUrls": [
+        "https://www.bypc.gov.cn/zfxxgk/bmdwxzjd/xzjd/ghz/fdzdgknr/cwgk/hgc/cwgk/art/2024/art_1a443ab6561a47d5bb72cbb2e8a4daa3.html"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-021",
+      "type": "impersonate_police",
+      "phase": "request",
+      "stage": "fear",
+      "text": "您先把身份证正反面拍照发过来，我们要和案件材料比对。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "info_harvest"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-022",
+      "type": "impersonate_police",
+      "phase": "request",
+      "stage": "cashout",
+      "text": "为了证明这笔钱不是赃款，需要把它转到国家监管的清查账户里核查。",
+      "keywords": [
+        "清查账户"
+      ],
+      "pressure": [],
+      "tactics": [
+        "safe_account",
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "spp-topic-2021"
+      ],
+      "sourceUrls": [
+        "https://www.spp.gov.cn/spp/dxwlzp2021/index.shtml"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-023",
+      "type": "impersonate_police",
+      "phase": "request",
+      "stage": "transfer_call",
+      "text": "后续只联系我的专线 {手机号}，别打其他电话，这个案子只有我负责。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [
+        "phone"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-024",
+      "type": "impersonate_police",
+      "phase": "payout",
+      "stage": "cashout",
+      "text": "清查账户是 {银行卡}，户名{户名}，核查完毕四十八小时内全额退回。",
+      "keywords": [
+        "清查账户"
+      ],
+      "pressure": [],
+      "tactics": [
+        "urgency",
+        "safe_account"
+      ],
+      "intel": [
+        "bank",
+        "name"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "spp-topic-2021"
+      ],
+      "sourceUrls": [
+        "https://www.spp.gov.cn/spp/dxwlzp2021/index.shtml"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-025",
+      "type": "impersonate_police",
+      "phase": "payout",
+      "stage": "cashout",
+      "text": "您登录这个页面填资金核查表：{网址}，银行卡和密码都要填。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "safe_account",
+        "info_harvest"
+      ],
+      "intel": [
+        "url"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "spp-2018-notice"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/xinwen/2018-01/27/content_5261348.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-026",
+      "type": "impersonate_police",
+      "phase": "payout",
+      "stage": "cashout",
+      "text": "也可以交一笔取保候审金，打到这个账户 {银行卡}，案子结了就退。",
+      "keywords": [
+        "取保候审金"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer"
+      ],
+      "intel": [
+        "bank"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_police-027",
+      "type": "impersonate_police",
+      "phase": "payout",
+      "stage": "cashout",
+      "text": "转完之后把聊天记录和转账记录全部删掉，这是保密要求。",
+      "keywords": [
+        "保密"
+      ],
+      "pressure": [
+        "secrecy"
+      ],
+      "tactics": [
+        "transfer",
+        "secrecy"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "police"
+      ]
+    },
+    {
+      "id": "impersonate_boss-001",
+      "type": "impersonate_boss",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "我是{姓氏}总，这是我的新微信，旧号不常用了，你备注一下。",
+      "keywords": [
+        "新微信"
+      ],
+      "pressure": [],
+      "tactics": [
+        "acquaintance"
+      ],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "jiangmen-boss"
+      ],
+      "sourceRef": "冒充领导诈骗常见话术",
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-002",
+      "type": "impersonate_boss",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "你是财务部的吧？我一直关注你，工作做得不错。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "jiangmen-boss"
+      ],
+      "sourceRef": "冒充领导诈骗常见话术",
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-003",
+      "type": "impersonate_boss",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "明天上午来我办公室一趟，有点事要跟你说。",
+      "keywords": [
+        "办公室"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "jiangmen-boss"
+      ],
+      "sourceRef": "冒充领导诈骗常见话术",
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-004",
+      "type": "impersonate_boss",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "我把你拉进了公司新的工作群，以后对接都在这个群里。",
+      "keywords": [
+        "工作群"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten",
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm",
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-005",
+      "type": "impersonate_boss",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "我的声音你都听不出来了？我是你表哥，换了个号码。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "acquaintance"
+      ],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "jiangmen-boss"
+      ],
+      "sourceRef": "冒充领导诈骗常见话术",
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-006",
+      "type": "impersonate_boss",
+      "phase": "trust",
+      "stage": "rapport",
+      "text": "最近部门情况怎么样？有困难可以直接跟我提。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "jiangmen-boss"
+      ],
+      "sourceRef": "冒充领导诈骗常见话术",
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-007",
+      "type": "impersonate_boss",
+      "phase": "trust",
+      "stage": "rapport",
+      "text": "我和你们{姓氏}主任很熟，他也经常提到你。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "jiangmen-boss"
+      ],
+      "sourceRef": "冒充领导诈骗常见话术",
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-008",
+      "type": "impersonate_boss",
+      "phase": "trust",
+      "stage": "rapport",
+      "text": "年底考核我会替你说话的，这段时间辛苦了。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hubei-boss-2021"
+      ],
+      "sourceUrls": [
+        "http://gat.hubei.gov.cn/bmdt/dtyw/202101/t20210125_3303901.shtml"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-009",
+      "type": "impersonate_boss",
+      "phase": "trust",
+      "stage": "rapport",
+      "text": "我在外地开会，不方便接电话，有事你就在这里打字。",
+      "keywords": [
+        "不方便接电话",
+        "开会"
+      ],
+      "pressure": [
+        "no_call"
+      ],
+      "tactics": [
+        "acquaintance"
+      ],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "jiangmen-boss",
+        "mps-2025-handbook"
+      ],
+      "sourceRef": "冒充领导诈骗常见话术",
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html",
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-010",
+      "type": "impersonate_boss",
+      "phase": "pressure",
+      "stage": "request",
+      "text": "这件事比较急，耽误不得，你先办，手续回头我来补。",
+      "keywords": [],
+      "pressure": [
+        "hierarchy"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "jiangmen-boss"
+      ],
+      "sourceRef": "冒充领导诈骗常见话术",
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-011",
+      "type": "impersonate_boss",
+      "phase": "pressure",
+      "stage": "request",
+      "text": "上面领导已经在催了，怎么还没好？越快越好。",
+      "keywords": [],
+      "pressure": [
+        "hierarchy"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "jiangmen-boss"
+      ],
+      "sourceRef": "冒充领导诈骗常见话术",
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-012",
+      "type": "impersonate_boss",
+      "phase": "pressure",
+      "stage": "request",
+      "text": "这件事你先别跟其他同事说，比较敏感。",
+      "keywords": [],
+      "pressure": [
+        "secrecy"
+      ],
+      "tactics": [
+        "secrecy"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-013",
+      "type": "impersonate_boss",
+      "phase": "pressure",
+      "stage": "request",
+      "text": "我现在在开会，接不了电话，你按我说的做就行。",
+      "keywords": [
+        "在开会",
+        "开会"
+      ],
+      "pressure": [
+        "no_call"
+      ],
+      "tactics": [
+        "acquaintance"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-014",
+      "type": "impersonate_boss",
+      "phase": "pressure",
+      "stage": "payout",
+      "text": "我已经把钱转给你了，你看一下截图，到账可能有延迟。",
+      "keywords": [
+        "截图"
+      ],
+      "pressure": [
+        "fake_receipt"
+      ],
+      "tactics": [
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "jiangsu-boss-2024",
+        "spp-2023-cases"
+      ],
+      "sourceUrls": [
+        "https://gat.jiangsu.gov.cn/art/2024/11/14/art_89956_11418671.html",
+        "https://www.spp.gov.cn/xwfbh/wsfbt/202311/t20231130_635188.shtml"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-015",
+      "type": "impersonate_boss",
+      "phase": "pressure",
+      "stage": "payout",
+      "text": "银行那边显示延时到账，你先用公司账上的钱垫一下。",
+      "keywords": [
+        "延时到账"
+      ],
+      "pressure": [
+        "fake_receipt"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "jiangsu-boss-2024",
+        "spp-2023-cases"
+      ],
+      "sourceUrls": [
+        "https://gat.jiangsu.gov.cn/art/2024/11/14/art_89956_11418671.html",
+        "https://www.spp.gov.cn/xwfbh/wsfbt/202311/t20231130_635188.shtml"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-016",
+      "type": "impersonate_boss",
+      "phase": "request",
+      "stage": "request",
+      "text": "你帮我查一下公司账上现在还有多少余额。",
+      "keywords": [
+        "余额"
+      ],
+      "pressure": [],
+      "tactics": [
+        "info_harvest"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-017",
+      "type": "impersonate_boss",
+      "phase": "request",
+      "stage": "request",
+      "text": "我亲戚的公司急需一笔款，我这个身份不方便直接转，你帮我代转一下。",
+      "keywords": [
+        "代转"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "police_bulletin",
+      "sourceLabel": "据公安机关公开通报改写",
+      "sourceIds": [
+        "jiangmen-boss"
+      ],
+      "sourceRef": "冒充领导诈骗常见话术",
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-018",
+      "type": "impersonate_boss",
+      "phase": "request",
+      "stage": "request",
+      "text": "合作方的工程款今天必须付，你把账上的钱先打过去。",
+      "keywords": [
+        "合作方",
+        "工程款"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-019",
+      "type": "impersonate_boss",
+      "phase": "request",
+      "stage": "request",
+      "text": "快过年了手头资金周转不开，你先帮我转一笔，过两天就还你。",
+      "keywords": [
+        "周转"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hubei-boss-2021"
+      ],
+      "sourceUrls": [
+        "http://gat.hubei.gov.cn/bmdt/dtyw/202101/t20210125_3303901.shtml"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-020",
+      "type": "impersonate_boss",
+      "phase": "request",
+      "stage": "request",
+      "text": "家长群里通知过了，下学期的资料费统一交给我，今天截止。",
+      "keywords": [
+        "家长群",
+        "资料费"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-021",
+      "type": "impersonate_boss",
+      "phase": "request",
+      "stage": "request",
+      "text": "孩子在外地出了点事急用钱，你先别给家里打电话，免得他们担心。",
+      "keywords": [
+        "急用"
+      ],
+      "pressure": [],
+      "tactics": [
+        "kidnap"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-022",
+      "type": "impersonate_boss",
+      "phase": "request",
+      "stage": "hook",
+      "text": "有事加我这个私人号 {微信号}，工作号最近不方便用。",
+      "keywords": [
+        "私人号"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [
+        "wechat"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "jiangmen-boss"
+      ],
+      "sourceUrls": [
+        "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-023",
+      "type": "impersonate_boss",
+      "phase": "payout",
+      "stage": "payout",
+      "text": "收款账户发给你：{银行卡}，户名{户名}，{机构}，转好了截图给我。",
+      "keywords": [
+        "截图"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [
+        "bank",
+        "name"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hubei-boss-2021"
+      ],
+      "sourceUrls": [
+        "http://gat.hubei.gov.cn/bmdt/dtyw/202101/t20210125_3303901.shtml"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-024",
+      "type": "impersonate_boss",
+      "phase": "payout",
+      "stage": "payout",
+      "text": "先打第一笔，剩下的我再发另一个账号给你。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "jiangsu-boss-2024"
+      ],
+      "sourceUrls": [
+        "https://gat.jiangsu.gov.cn/art/2024/11/14/art_89956_11418671.html"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "impersonate_boss-025",
+      "type": "impersonate_boss",
+      "phase": "payout",
+      "stage": "payout",
+      "text": "转账备注写货款，别写其他的。",
+      "keywords": [],
+      "pressure": [
+        "secrecy"
+      ],
+      "tactics": [
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "boss"
+      ]
+    },
+    {
+      "id": "pig_butchering-001",
+      "type": "pig_butchering",
+      "phase": "opening",
+      "stage": "contact",
+      "text": "不好意思加错人了，不过看你头像挺有气质的，能交个朋友吗？",
+      "keywords": [
+        "加错人"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "court-2025-cases"
+      ],
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-002",
+      "type": "pig_butchering",
+      "phase": "opening",
+      "stage": "contact",
+      "text": "我在外地做工程项目，平时比较忙，难得遇到聊得来的人。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "court_case",
+      "sourceLabel": "据法院公开典型案例改写",
+      "sourceIds": [
+        "court-2025-cases"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-003",
+      "type": "pig_butchering",
+      "phase": "opening",
+      "stage": "contact",
+      "text": "我是做跨境贸易的，离异好几年了，一直想找个踏实过日子的人。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-004",
+      "type": "pig_butchering",
+      "phase": "opening",
+      "stage": "contact",
+      "text": "我是派驻国外的医生，很喜欢中国文化，以后想回国内定居。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-005",
+      "type": "pig_butchering",
+      "phase": "trust",
+      "stage": "grooming",
+      "text": "早安，今天降温了，记得多穿点，别让我担心。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "jieyang-2024"
+      ],
+      "sourceUrls": [
+        "https://www.gdjyfy.gov.cn/jyzycourt/web/content?gid=396101&lmdm=1050"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-006",
+      "type": "pig_butchering",
+      "phase": "trust",
+      "stage": "grooming",
+      "text": "跟你聊天的时候特别放松，感觉我们像认识很久的人。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "jieyang-2024"
+      ],
+      "sourceUrls": [
+        "https://www.gdjyfy.gov.cn/jyzycourt/web/content?gid=396101&lmdm=1050"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-007",
+      "type": "pig_butchering",
+      "phase": "trust",
+      "stage": "grooming",
+      "text": "等忙完这个项目，我就去你的城市看你，我们见一面。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "court-2025-cases"
+      ],
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-008",
+      "type": "pig_butchering",
+      "phase": "trust",
+      "stage": "pitch",
+      "text": "我舅舅在投资公司做技术，他发现平台有个规律，我跟着做了好几年了。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-009",
+      "type": "pig_butchering",
+      "phase": "trust",
+      "stage": "small_win",
+      "text": "我每天收盘后都会看一下收益，你看这是我今天的截图。",
+      "keywords": [
+        "收益",
+        "截图"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "court_case",
+      "sourceLabel": "据法院公开典型案例改写",
+      "sourceIds": [
+        "court-property-cases"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/490051.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-010",
+      "type": "pig_butchering",
+      "phase": "trust",
+      "stage": "pitch",
+      "text": "你先小试一下，赚了算你的，亏了我来补。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "court_case",
+      "sourceLabel": "据法院公开典型案例改写",
+      "sourceIds": [
+        "court-2025-cases"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-011",
+      "type": "pig_butchering",
+      "phase": "pressure",
+      "stage": "escalate",
+      "text": "我是真心想跟你有个未来，才把这个机会告诉你的，你却不信我。",
+      "keywords": [],
+      "pressure": [
+        "emotional_bond"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "court-2025-cases"
+      ],
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-012",
+      "type": "pig_butchering",
+      "phase": "pressure",
+      "stage": "escalate",
+      "text": "这个窗口期就这几天，错过了要再等好几个月。",
+      "keywords": [
+        "窗口期"
+      ],
+      "pressure": [
+        "fomo"
+      ],
+      "tactics": [
+        "urgency"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-013",
+      "type": "pig_butchering",
+      "phase": "pressure",
+      "stage": "escalate",
+      "text": "你前面投的钱都在账户里，现在不补足保证金，之前的收益就全部作废了。",
+      "keywords": [
+        "保证金",
+        "收益"
+      ],
+      "pressure": [
+        "sunk_cost"
+      ],
+      "tactics": [
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "court-2025-cases"
+      ],
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-014",
+      "type": "pig_butchering",
+      "phase": "pressure",
+      "stage": "escalate",
+      "text": "这件事别跟家里人说，他们不懂投资，只会拦着你。",
+      "keywords": [],
+      "pressure": [
+        "secrecy"
+      ],
+      "tactics": [
+        "secrecy"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-015",
+      "type": "pig_butchering",
+      "phase": "pressure",
+      "stage": "escalate",
+      "text": "我已经帮你垫了一部分，你再凑一点就够了，我们一起努力。",
+      "keywords": [],
+      "pressure": [
+        "emotional_bond"
+      ],
+      "tactics": [
+        "romance"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "jieyang-2024"
+      ],
+      "sourceUrls": [
+        "https://www.gdjyfy.gov.cn/jyzycourt/web/content?gid=396101&lmdm=1050"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-016",
+      "type": "pig_butchering",
+      "phase": "pressure",
+      "stage": "escalate",
+      "text": "提现要先交一笔个人所得税，交完马上就能到账。",
+      "keywords": [
+        "提现",
+        "个人所得税"
+      ],
+      "pressure": [
+        "sunk_cost"
+      ],
+      "tactics": [
+        "urgency",
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-017",
+      "type": "pig_butchering",
+      "phase": "request",
+      "stage": "pitch",
+      "text": "你下载这个平台，用我的邀请码注册，我手把手教你。",
+      "keywords": [
+        "邀请码"
+      ],
+      "pressure": [],
+      "tactics": [
+        "app_download"
+      ],
+      "intel": [],
+      "sourceType": "court_case",
+      "sourceLabel": "据法院公开典型案例改写",
+      "sourceIds": [
+        "court-2025-cases"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-018",
+      "type": "pig_butchering",
+      "phase": "request",
+      "stage": "escalate",
+      "text": "充值要找平台客服拿收款账户，每次账户都不一样，这是为了资金安全。",
+      "keywords": [
+        "充值"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "account_risk",
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "court-property-cases"
+      ],
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/490051.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-019",
+      "type": "pig_butchering",
+      "phase": "request",
+      "stage": "escalate",
+      "text": "这次行情特别好，你多充一点，收益能翻倍。",
+      "keywords": [
+        "收益"
+      ],
+      "pressure": [],
+      "tactics": [
+        "high_return"
+      ],
+      "intel": [],
+      "sourceType": "court_case",
+      "sourceLabel": "据法院公开典型案例改写",
+      "sourceIds": [
+        "court-2025-cases"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-020",
+      "type": "pig_butchering",
+      "phase": "request",
+      "stage": "escalate",
+      "text": "平台只收 USDT，你先去买一点，我教你怎么转。",
+      "keywords": [
+        "USDT"
+      ],
+      "pressure": [],
+      "tactics": [
+        "crypto"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-021",
+      "type": "pig_butchering",
+      "phase": "request",
+      "stage": "contact",
+      "text": "我们换个聊天软件吧，这个平台总是限制消息。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-022",
+      "type": "pig_butchering",
+      "phase": "request",
+      "stage": "escalate",
+      "text": "你账户的风控等级不够，要先充值一笔解冻，才能提现。",
+      "keywords": [
+        "充值",
+        "提现",
+        "风控",
+        "解冻"
+      ],
+      "pressure": [
+        "sunk_cost"
+      ],
+      "tactics": [
+        "transfer",
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "court-2025-cases"
+      ],
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-023",
+      "type": "pig_butchering",
+      "phase": "request",
+      "stage": "pitch",
+      "text": "加一下平台导师的微信 {微信号}，他会带你操作。",
+      "keywords": [
+        "导师"
+      ],
+      "pressure": [],
+      "tactics": [
+        "high_return"
+      ],
+      "intel": [
+        "wechat"
+      ],
+      "sourceType": "court_case",
+      "sourceLabel": "据法院公开典型案例改写",
+      "sourceIds": [
+        "court-property-cases"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/490051.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-024",
+      "type": "pig_butchering",
+      "phase": "payout",
+      "stage": "pitch",
+      "text": "平台链接是 {网址}，注册的时候邀请码填我的名字。",
+      "keywords": [
+        "邀请码"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [
+        "url"
+      ],
+      "sourceType": "court_case",
+      "sourceLabel": "据法院公开典型案例改写",
+      "sourceIds": [
+        "court-2025-cases"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-025",
+      "type": "pig_butchering",
+      "phase": "payout",
+      "stage": "escalate",
+      "text": "USDT 转到这个地址：{钱包地址}，转之前截图给我确认。",
+      "keywords": [
+        "USDT",
+        "截图"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer",
+        "crypto"
+      ],
+      "intel": [
+        "wallet"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "pig_butchering-026",
+      "type": "pig_butchering",
+      "phase": "payout",
+      "stage": "escalate",
+      "text": "客服给的充值卡号是 {银行卡}，户名{户名}，转完在平台上提交凭证。",
+      "keywords": [
+        "充值"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "transfer",
+        "info_harvest"
+      ],
+      "intel": [
+        "bank",
+        "name"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "court-property-cases"
+      ],
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/490051.html"
+      ],
+      "scenarios": [
+        "pig"
+      ]
+    },
+    {
+      "id": "task_rebate-001",
+      "type": "task_rebate",
+      "phase": "opening",
+      "stage": "recruit",
+      "text": "您好，我们在招线上点赞员，在家用手机动动手指，一天能赚一两百。",
+      "keywords": [
+        "点赞员"
+      ],
+      "pressure": [],
+      "tactics": [
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-002",
+      "type": "task_rebate",
+      "phase": "opening",
+      "stage": "recruit",
+      "text": "免费送您一份小礼品，只要关注一下我们的公众号再截个图。",
+      "keywords": [
+        "公众号"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-003",
+      "type": "task_rebate",
+      "phase": "opening",
+      "stage": "recruit",
+      "text": "宝妈在家带娃也能做的兼职，时间自由，佣金日结。",
+      "keywords": [
+        "兼职",
+        "日结",
+        "佣金"
+      ],
+      "pressure": [],
+      "tactics": [
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-004",
+      "type": "task_rebate",
+      "phase": "opening",
+      "stage": "recruit",
+      "text": "看到您在找兼职，我们这边是正规商家补单，不用交押金。",
+      "keywords": [
+        "兼职",
+        "补单"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-005",
+      "type": "task_rebate",
+      "phase": "trust",
+      "stage": "onboard",
+      "text": "先进群领第一个任务，点赞截图发给接待员就能领佣金。",
+      "keywords": [
+        "佣金",
+        "任务",
+        "接待员"
+      ],
+      "pressure": [],
+      "tactics": [
+        "off_platform",
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-006",
+      "type": "task_rebate",
+      "phase": "trust",
+      "stage": "small_rebate",
+      "text": "第一单佣金已经给您发过去了，您看一下是不是到账了。",
+      "keywords": [
+        "佣金"
+      ],
+      "pressure": [],
+      "tactics": [
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-007",
+      "type": "task_rebate",
+      "phase": "trust",
+      "stage": "small_rebate",
+      "text": "群里很多人一天都做好几百，您看大家晒的截图。",
+      "keywords": [],
+      "pressure": [
+        "easy_money"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-008",
+      "type": "task_rebate",
+      "phase": "trust",
+      "stage": "onboard",
+      "text": "下载一下我们的任务{APP名}，任务和佣金都在上面显示。",
+      "keywords": [
+        "佣金",
+        "任务"
+      ],
+      "pressure": [],
+      "tactics": [
+        "app_download",
+        "task_rebate"
+      ],
+      "intel": [
+        "app"
+      ],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceRef": "刷单返利类·典型案例",
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-009",
+      "type": "task_rebate",
+      "phase": "trust",
+      "stage": "small_rebate",
+      "text": "前面几单都是小额的，主要是让您熟悉流程，后面才是正式任务。",
+      "keywords": [
+        "任务"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-010",
+      "type": "task_rebate",
+      "phase": "trust",
+      "stage": "onboard",
+      "text": "这是商家内部补单，不是违规刷单，平台都知道的。",
+      "keywords": [
+        "补单"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-011",
+      "type": "task_rebate",
+      "phase": "pressure",
+      "stage": "lock_in",
+      "text": "这是组合任务，要连续做完三单才能一起结算，中途停下就全部冻结。",
+      "keywords": [
+        "任务",
+        "组合任务"
+      ],
+      "pressure": [
+        "sunk_cost"
+      ],
+      "tactics": [
+        "threat"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-012",
+      "type": "task_rebate",
+      "phase": "pressure",
+      "stage": "lock_in",
+      "text": "系统显示您操作失误造成卡单，要再做一单复合任务才能解冻。",
+      "keywords": [
+        "任务",
+        "卡单",
+        "解冻",
+        "复合任务"
+      ],
+      "pressure": [
+        "blame_victim"
+      ],
+      "tactics": [
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-013",
+      "type": "task_rebate",
+      "phase": "pressure",
+      "stage": "lock_in",
+      "text": "是您自己没按要求备注，所以账户被冻结了，补交一笔才能恢复。",
+      "keywords": [],
+      "pressure": [
+        "blame_victim"
+      ],
+      "tactics": [
+        "threat"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-014",
+      "type": "task_rebate",
+      "phase": "pressure",
+      "stage": "advance",
+      "text": "任务有时效，二十分钟内不完成，前面垫的钱系统不认。",
+      "keywords": [
+        "任务"
+      ],
+      "pressure": [
+        "deadline"
+      ],
+      "tactics": [
+        "urgency"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-015",
+      "type": "task_rebate",
+      "phase": "pressure",
+      "stage": "lock_in",
+      "text": "您已经投入这么多了，现在放弃太可惜，再坚持一单就能全部提现。",
+      "keywords": [],
+      "pressure": [
+        "sunk_cost"
+      ],
+      "tactics": [
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-016",
+      "type": "task_rebate",
+      "phase": "pressure",
+      "stage": "advance",
+      "text": "做完这单您就升级成高级会员，佣金比例翻倍。",
+      "keywords": [
+        "佣金",
+        "高级会员"
+      ],
+      "pressure": [
+        "easy_money"
+      ],
+      "tactics": [
+        "cs_impersonation",
+        "high_return",
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-017",
+      "type": "task_rebate",
+      "phase": "pressure",
+      "stage": "lock_in",
+      "text": "您垫付的钱都在后台保存着，不会丢的，完成任务就能提。",
+      "keywords": [
+        "任务",
+        "垫付"
+      ],
+      "pressure": [
+        "sunk_cost"
+      ],
+      "tactics": [
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-018",
+      "type": "task_rebate",
+      "phase": "request",
+      "stage": "advance",
+      "text": "这单需要您先垫付购物款，完成后本金和佣金一起返还。",
+      "keywords": [
+        "佣金",
+        "垫付"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer",
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceRef": "刷单返利类·典型案例",
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-019",
+      "type": "task_rebate",
+      "phase": "request",
+      "stage": "advance",
+      "text": "进阶任务充值越多，抢到的单越大，返利也越多。",
+      "keywords": [
+        "返利",
+        "任务"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-020",
+      "type": "task_rebate",
+      "phase": "request",
+      "stage": "advance",
+      "text": "您先充一笔{金额}到任务账户，系统马上给您派单。",
+      "keywords": [
+        "任务"
+      ],
+      "pressure": [],
+      "tactics": [
+        "urgency"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-021",
+      "type": "task_rebate",
+      "phase": "request",
+      "stage": "lock_in",
+      "text": "提现前需要做一下信誉分验证，按提示充值就行。",
+      "keywords": [
+        "信誉分"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer",
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "cac-2022-cases"
+      ],
+      "sourceRef": "案例二",
+      "sourceUrls": [
+        "https://www.cac.gov.cn/2022-04/14/c_1651546285887220.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-022",
+      "type": "task_rebate",
+      "phase": "payout",
+      "stage": "advance",
+      "text": "扫这个收款码付款，分七次付，每次金额不一样，别付错。",
+      "keywords": [
+        "收款码"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-023",
+      "type": "task_rebate",
+      "phase": "payout",
+      "stage": "advance",
+      "text": "垫付款打到商家账户 {银行卡}，户名{户名}，备注您的工号。",
+      "keywords": [
+        "垫付"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "transfer"
+      ],
+      "intel": [
+        "bank",
+        "name"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-024",
+      "type": "task_rebate",
+      "phase": "payout",
+      "stage": "onboard",
+      "text": "任务平台网址 {网址}，注册后把账号发给接待员。",
+      "keywords": [
+        "任务",
+        "接待员"
+      ],
+      "pressure": [],
+      "tactics": [
+        "task_rebate"
+      ],
+      "intel": [
+        "url"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "task_rebate-025",
+      "type": "task_rebate",
+      "phase": "payout",
+      "stage": "onboard",
+      "text": "添加派单员的 QQ {QQ号}，以后都由他给您派任务。",
+      "keywords": [
+        "任务",
+        "派单员"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [
+        "qq"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "cac-2022-cases"
+      ],
+      "sourceUrls": [
+        "https://www.cac.gov.cn/2022-04/14/c_1651546285887220.htm"
+      ],
+      "scenarios": [
+        "task"
+      ]
+    },
+    {
+      "id": "investment-001",
+      "type": "investment",
+      "phase": "opening",
+      "stage": "lure",
+      "text": "您好，我是{机构}的投资顾问，最近有个新能源项目，年化回报很可观，想跟您介绍一下。",
+      "keywords": [
+        "投资顾问"
+      ],
+      "pressure": [],
+      "tactics": [
+        "high_return"
+      ],
+      "intel": [],
+      "sourceType": "dataset",
+      "sourceLabel": "据公开数据集改写",
+      "sourceIds": [
+        "teleantifraud"
+      ],
+      "sourceRef": "tts_fraud_00002",
+      "sourceUrls": [
+        "https://github.com/JimmyMa99/TeleAntiFraud/blob/6a09c4ee6ac85359c262eb36d689c0e2b392ad0d/multi-agents-tools/AntiFraudMatrix/results/full_dialogues_20250228_160338/tts_fraud_00002.json"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-002",
+      "type": "investment",
+      "phase": "opening",
+      "stage": "lure",
+      "text": "我们老师每天晚上在直播间免费讲股票，您有兴趣可以进群听听。",
+      "keywords": [
+        "直播间"
+      ],
+      "pressure": [],
+      "tactics": [
+        "off_platform"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-003",
+      "type": "investment",
+      "phase": "opening",
+      "stage": "lure",
+      "text": "扫码进投资特训营，每天有基金经理分享内部消息。",
+      "keywords": [
+        "特训营",
+        "基金经理"
+      ],
+      "pressure": [],
+      "tactics": [
+        "app_download",
+        "high_return"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-004",
+      "type": "investment",
+      "phase": "opening",
+      "stage": "lure",
+      "text": "看到您关注炒股，我们这有一份免费的牛股名单，加个好友发给您。",
+      "keywords": [
+        "牛股"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "xinyang-2018"
+      ],
+      "sourceUrls": [
+        "https://sh.12348.gov.cn/sites/12348/news-detail.jsp?category=lpa.Dynamic&entityid=0965479eef8549f7a0465c46339b0960"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-005",
+      "type": "investment",
+      "phase": "trust",
+      "stage": "build_trust",
+      "text": "我们的分析师在业内做了十几年，带过的学员很多都翻了倍。",
+      "keywords": [
+        "分析师",
+        "学员"
+      ],
+      "pressure": [
+        "authority"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "court_case",
+      "sourceLabel": "据法院公开典型案例改写",
+      "sourceIds": [
+        "court-property-cases"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/490051.html"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-006",
+      "type": "investment",
+      "phase": "trust",
+      "stage": "build_trust",
+      "text": "这个项目有政府背景，风险控制得很严格，您放心。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "dataset",
+      "sourceLabel": "据公开数据集改写",
+      "sourceIds": [
+        "teleantifraud"
+      ],
+      "sourceRef": "tts_fraud_00002",
+      "sourceUrls": [
+        "https://github.com/JimmyMa99/TeleAntiFraud/blob/6a09c4ee6ac85359c262eb36d689c0e2b392ad0d/multi-agents-tools/AntiFraudMatrix/results/full_dialogues_20250228_160338/tts_fraud_00002.json"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-007",
+      "type": "investment",
+      "phase": "trust",
+      "stage": "build_trust",
+      "text": "群里的学员都在晒收益截图，您看昨天又有人赚了不少。",
+      "keywords": [
+        "学员"
+      ],
+      "pressure": [
+        "social_proof"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "court_case",
+      "sourceLabel": "据法院公开典型案例改写",
+      "sourceIds": [
+        "court-property-cases",
+        "xinyang-2018"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/490051.html",
+        "https://sh.12348.gov.cn/sites/12348/news-detail.jsp?category=lpa.Dynamic&entityid=0965479eef8549f7a0465c46339b0960"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-008",
+      "type": "investment",
+      "phase": "trust",
+      "stage": "platform",
+      "text": "您先拿一点小钱试试水，赚了马上就能提现，验证一下平台。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "urgency",
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-009",
+      "type": "investment",
+      "phase": "trust",
+      "stage": "platform",
+      "text": "我们的平台是境外持牌的，资金由第三方托管。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "xinyang-2018"
+      ],
+      "sourceUrls": [
+        "https://sh.12348.gov.cn/sites/12348/news-detail.jsp?category=lpa.Dynamic&entityid=0965479eef8549f7a0465c46339b0960"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-010",
+      "type": "investment",
+      "phase": "trust",
+      "stage": "build_trust",
+      "text": "老师今天给的这只票已经涨停了，跟上的同学都赚了。",
+      "keywords": [
+        "涨停"
+      ],
+      "pressure": [
+        "social_proof"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "zhuolu-2019"
+      ],
+      "sourceUrls": [
+        "https://www.thepaper.cn/newsDetail_forward_5385571"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-011",
+      "type": "investment",
+      "phase": "pressure",
+      "stage": "deposit",
+      "text": "这只股票的消息只有内部渠道知道，名额有限，今天截止。",
+      "keywords": [],
+      "pressure": [
+        "scarcity"
+      ],
+      "tactics": [
+        "urgency"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-012",
+      "type": "investment",
+      "phase": "pressure",
+      "stage": "deposit",
+      "text": "稳赚不赔，亏了公司全额兜底。",
+      "keywords": [
+        "稳赚不赔",
+        "兜底"
+      ],
+      "pressure": [
+        "high_return"
+      ],
+      "tactics": [
+        "high_return"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-013",
+      "type": "investment",
+      "phase": "pressure",
+      "stage": "deposit",
+      "text": "这次是导师亲自带单，错过就要等下个月了。",
+      "keywords": [
+        "导师",
+        "带单"
+      ],
+      "pressure": [
+        "scarcity",
+        "authority"
+      ],
+      "tactics": [
+        "urgency",
+        "high_return"
+      ],
+      "intel": [],
+      "sourceType": "court_case",
+      "sourceLabel": "据法院公开典型案例改写",
+      "sourceIds": [
+        "court-property-cases"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/490051.html"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-014",
+      "type": "investment",
+      "phase": "pressure",
+      "stage": "deposit",
+      "text": "您现在的仓位太小，赚不了什么钱，要加大投入才能拿到收益。",
+      "keywords": [
+        "仓位"
+      ],
+      "pressure": [
+        "high_return"
+      ],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "zhuolu-2019"
+      ],
+      "sourceUrls": [
+        "https://www.thepaper.cn/newsDetail_forward_5385571"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-015",
+      "type": "investment",
+      "phase": "pressure",
+      "stage": "block_withdraw",
+      "text": "您的账户涉嫌违规操作被风控冻结了，补交保证金才能解冻提现。",
+      "keywords": [
+        "解冻",
+        "保证金"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer",
+        "threat",
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-016",
+      "type": "investment",
+      "phase": "pressure",
+      "stage": "block_withdraw",
+      "text": "提现需要先缴纳百分之二十的手续费，这是平台规定。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "transfer",
+        "task_rebate"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-017",
+      "type": "investment",
+      "phase": "request",
+      "stage": "platform",
+      "text": "您下载一下我们的交易软件，安装包我发给您，应用商店里搜不到。",
+      "keywords": [
+        "安装包"
+      ],
+      "pressure": [],
+      "tactics": [
+        "app_download"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-018",
+      "type": "investment",
+      "phase": "request",
+      "stage": "platform",
+      "text": "开户需要您的身份证照片和银行卡信息，我帮您提交。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "info_harvest"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "teleantifraud"
+      ],
+      "sourceUrls": [
+        "https://github.com/JimmyMa99/TeleAntiFraud"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-019",
+      "type": "investment",
+      "phase": "request",
+      "stage": "deposit",
+      "text": "充值要先找客服拿当天的收款账户，不能直接转到平台。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "court-property-cases"
+      ],
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/490051.html"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-020",
+      "type": "investment",
+      "phase": "request",
+      "stage": "deposit",
+      "text": "现在是加仓的好时机，您把能动用的钱都转进来。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "zhuolu-2019"
+      ],
+      "sourceUrls": [
+        "https://www.thepaper.cn/newsDetail_forward_5385571"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-021",
+      "type": "investment",
+      "phase": "request",
+      "stage": "deposit",
+      "text": "您先投个{金额}试试，三个月就能见到回报。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "dataset",
+      "sourceLabel": "据公开数据集改写",
+      "sourceIds": [
+        "teleantifraud"
+      ],
+      "sourceRef": "tts_fraud_00002",
+      "sourceUrls": [
+        "https://github.com/JimmyMa99/TeleAntiFraud/blob/6a09c4ee6ac85359c262eb36d689c0e2b392ad0d/multi-agents-tools/AntiFraudMatrix/results/full_dialogues_20250228_160338/tts_fraud_00002.json"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-022",
+      "type": "investment",
+      "phase": "request",
+      "stage": "platform",
+      "text": "有问题直接加我的助理 {微信号}，她负责给您开户。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [
+        "wechat"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "xinyang-2018"
+      ],
+      "sourceUrls": [
+        "https://sh.12348.gov.cn/sites/12348/news-detail.jsp?category=lpa.Dynamic&entityid=0965479eef8549f7a0465c46339b0960"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-023",
+      "type": "investment",
+      "phase": "payout",
+      "stage": "platform",
+      "text": "交易软件下载地址：{网址}，注册时填我的推荐码。",
+      "keywords": [
+        "推荐码"
+      ],
+      "pressure": [],
+      "tactics": [
+        "app_download"
+      ],
+      "intel": [
+        "url"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2025-handbook"
+      ],
+      "sourceUrls": [
+        "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-024",
+      "type": "investment",
+      "phase": "payout",
+      "stage": "deposit",
+      "text": "今天的入金账户是 {银行卡}，户名{户名}，转完把回单发给客服。",
+      "keywords": [
+        "入金"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "transfer"
+      ],
+      "intel": [
+        "bank",
+        "name"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "court-property-cases"
+      ],
+      "sourceUrls": [
+        "https://www.court.gov.cn/zixun/xiangqing/490051.html"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "investment-025",
+      "type": "investment",
+      "phase": "payout",
+      "stage": "deposit",
+      "text": "用 USDT 入金到账更快，地址是 {钱包地址}。",
+      "keywords": [
+        "入金"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer",
+        "crypto"
+      ],
+      "intel": [
+        "wallet"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": []
+    },
+    {
+      "id": "loan_credit-001",
+      "type": "loan_credit",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "您好，这边是{机构}贷款中心，您有资金周转的需求吗？无抵押、不看征信、当天放款。",
+      "keywords": [
+        "无抵押",
+        "放款",
+        "征信",
+        "贷款中心"
+      ],
+      "pressure": [],
+      "tactics": [
+        "threat",
+        "loan_fraud"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-002",
+      "type": "loan_credit",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "您好，您之前在我们平台开通过学生账户，按规定现在要注销，不然会影响征信。",
+      "keywords": [
+        "征信",
+        "注销",
+        "学生账户"
+      ],
+      "pressure": [],
+      "tactics": [
+        "threat"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "sz-campus-2022"
+      ],
+      "sourceUrls": [
+        "https://ga.sz.gov.cn/JMHD/YWZSK/XJGL_ZS/content/post_10332097.html"
+      ],
+      "scenarios": [
+        "campus"
+      ],
+      "variant": "campus"
+    },
+    {
+      "id": "loan_credit-003",
+      "type": "loan_credit",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "我是{机构}的客服，您的借款记录显示还是学生身份，需要变更成社会人员身份。",
+      "keywords": [
+        "社会人员"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "sz-campus-2022"
+      ],
+      "sourceUrls": [
+        "https://ga.sz.gov.cn/JMHD/YWZSK/XJGL_ZS/content/post_10332097.html"
+      ],
+      "scenarios": [
+        "campus"
+      ],
+      "variant": "campus"
+    },
+    {
+      "id": "loan_credit-004",
+      "type": "loan_credit",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "系统显示您的信用卡有逾期不良记录，我们可以帮您修复征信。",
+      "keywords": [
+        "征信",
+        "不良记录",
+        "修复征信"
+      ],
+      "pressure": [],
+      "tactics": [
+        "urgency",
+        "threat",
+        "loan_fraud"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten",
+        "spp-2023-credit"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm",
+        "https://www.spp.gov.cn/spp/xwfbh/wsfbt/202301/t20230119_599532.shtml"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-005",
+      "type": "loan_credit",
+      "phase": "opening",
+      "stage": "hook",
+      "text": "这边是金融监管部门处理高息贷款的工作人员，您有一笔贷款利息超标，需要处理一下。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "authority"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-006",
+      "type": "loan_credit",
+      "phase": "trust",
+      "stage": "app",
+      "text": "您下载我们的贷款{APP名}，按提示填一下资料，几分钟就能出额度。",
+      "keywords": [
+        "额度"
+      ],
+      "pressure": [],
+      "tactics": [
+        "app_download"
+      ],
+      "intel": [
+        "app"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-007",
+      "type": "loan_credit",
+      "phase": "trust",
+      "stage": "app",
+      "text": "恭喜您，额度已经批下来了，您看一下界面上的金额。",
+      "keywords": [
+        "额度"
+      ],
+      "pressure": [],
+      "tactics": [
+        "reward_bait"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-008",
+      "type": "loan_credit",
+      "phase": "trust",
+      "stage": "app",
+      "text": "我们是正规持牌机构，合同和放款记录都可以查。",
+      "keywords": [
+        "放款",
+        "持牌"
+      ],
+      "pressure": [
+        "fake_regulation"
+      ],
+      "tactics": [
+        "loan_fraud"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-009",
+      "type": "loan_credit",
+      "phase": "trust",
+      "stage": "hook",
+      "text": "我这边能看到您的身份信息和借款记录，您核对一下是不是本人。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [
+        "info_harvest"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "sz-campus-2022"
+      ],
+      "sourceUrls": [
+        "https://ga.sz.gov.cn/JMHD/YWZSK/XJGL_ZS/content/post_10332097.html"
+      ],
+      "scenarios": [
+        "campus"
+      ],
+      "variant": "campus"
+    },
+    {
+      "id": "loan_credit-010",
+      "type": "loan_credit",
+      "phase": "trust",
+      "stage": "cashout",
+      "text": "转完之后您的学生账户就注销了，额度也会清零，钱会退回到您卡上。",
+      "keywords": [
+        "额度",
+        "注销",
+        "学生账户"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "sz-campus-2022"
+      ],
+      "sourceUrls": [
+        "https://ga.sz.gov.cn/JMHD/YWZSK/XJGL_ZS/content/post_10332097.html"
+      ],
+      "scenarios": [
+        "campus"
+      ],
+      "variant": "campus"
+    },
+    {
+      "id": "loan_credit-011",
+      "type": "loan_credit",
+      "phase": "pressure",
+      "stage": "obstacle",
+      "text": "您填的银行卡号错了一位，资金被系统冻结了，需要交一笔解冻金。",
+      "keywords": [
+        "解冻金"
+      ],
+      "pressure": [
+        "sunk_cost"
+      ],
+      "tactics": [
+        "threat",
+        "info_harvest",
+        "loan_fraud"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-012",
+      "type": "loan_credit",
+      "phase": "pressure",
+      "stage": "obstacle",
+      "text": "您的流水不够，需要先存一笔钱进去证明还款能力，放款时一起退回。",
+      "keywords": [
+        "放款",
+        "流水"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer",
+        "loan_fraud"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five",
+        "hebei-2021"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml",
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-013",
+      "type": "loan_credit",
+      "phase": "pressure",
+      "stage": "credit_threat",
+      "text": "这个账户不注销，以后贷款利率会升高，买房买车都会受影响。",
+      "keywords": [
+        "注销"
+      ],
+      "pressure": [
+        "credit_threat"
+      ],
+      "tactics": [
+        "campus_loan"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "sz-campus-2022"
+      ],
+      "sourceUrls": [
+        "https://ga.sz.gov.cn/JMHD/YWZSK/XJGL_ZS/content/post_10332097.html"
+      ],
+      "scenarios": [
+        "campus"
+      ],
+      "variant": "campus"
+    },
+    {
+      "id": "loan_credit-014",
+      "type": "loan_credit",
+      "phase": "pressure",
+      "stage": "credit_threat",
+      "text": "征信报告上一旦记录下来就很难消除了，今天必须处理完。",
+      "keywords": [
+        "征信"
+      ],
+      "pressure": [
+        "credit_threat",
+        "deadline"
+      ],
+      "tactics": [
+        "threat"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "spp-2023-credit"
+      ],
+      "sourceUrls": [
+        "https://www.spp.gov.cn/spp/xwfbh/wsfbt/202301/t20230119_599532.shtml"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-015",
+      "type": "loan_credit",
+      "phase": "pressure",
+      "stage": "credit_threat",
+      "text": "这是金融监管的统一要求，所有学生账户都要清零，不是针对您。",
+      "keywords": [
+        "学生账户"
+      ],
+      "pressure": [
+        "fake_regulation"
+      ],
+      "tactics": [
+        "authority"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "sz-campus-2022"
+      ],
+      "sourceUrls": [
+        "https://ga.sz.gov.cn/JMHD/YWZSK/XJGL_ZS/content/post_10332097.html"
+      ],
+      "scenarios": [
+        "campus"
+      ],
+      "variant": "campus"
+    },
+    {
+      "id": "loan_credit-016",
+      "type": "loan_credit",
+      "phase": "pressure",
+      "stage": "obstacle",
+      "text": "前面的会员费您都交了，现在不交保证金，前面的钱也退不回来。",
+      "keywords": [
+        "保证金",
+        "会员费"
+      ],
+      "pressure": [
+        "sunk_cost"
+      ],
+      "tactics": [
+        "cs_impersonation",
+        "transfer",
+        "loan_fraud"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-017",
+      "type": "loan_credit",
+      "phase": "pressure",
+      "stage": "obstacle",
+      "text": "放款审核只保留半小时，超时额度就自动作废了。",
+      "keywords": [
+        "额度",
+        "放款"
+      ],
+      "pressure": [
+        "deadline"
+      ],
+      "tactics": [
+        "loan_fraud"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-018",
+      "type": "loan_credit",
+      "phase": "request",
+      "stage": "cashout",
+      "text": "您在几个借款平台看一下还有没有额度，有的话要全部借出来清零。",
+      "keywords": [
+        "额度"
+      ],
+      "pressure": [],
+      "tactics": [],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "cac-2022-cases"
+      ],
+      "sourceRef": "案例六",
+      "sourceUrls": [
+        "https://www.cac.gov.cn/2022-04/14/c_1651546285887220.htm"
+      ],
+      "scenarios": [
+        "campus"
+      ],
+      "variant": "campus"
+    },
+    {
+      "id": "loan_credit-019",
+      "type": "loan_credit",
+      "phase": "request",
+      "stage": "app",
+      "text": "您打开屏幕共享，我教您怎么操作注销流程。",
+      "keywords": [
+        "注销"
+      ],
+      "pressure": [],
+      "tactics": [
+        "app_download",
+        "screen_share"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "campus"
+      ],
+      "variant": "campus"
+    },
+    {
+      "id": "loan_credit-020",
+      "type": "loan_credit",
+      "phase": "request",
+      "stage": "app",
+      "text": "需要您把收到的验证码告诉我，这是放款前最后一步确认。",
+      "keywords": [
+        "放款"
+      ],
+      "pressure": [],
+      "tactics": [
+        "otp",
+        "loan_fraud"
+      ],
+      "intel": [],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "hebei-2021"
+      ],
+      "sourceRef": "虚假贷款类·典型案例",
+      "sourceUrls": [
+        "https://m.thepaper.cn/baijiahao_12254985"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-021",
+      "type": "loan_credit",
+      "phase": "request",
+      "stage": "obstacle",
+      "text": "您先交一笔会员费，开通快速通道，放款优先处理。",
+      "keywords": [
+        "放款",
+        "会员费",
+        "快速通道"
+      ],
+      "pressure": [],
+      "tactics": [
+        "cs_impersonation",
+        "loan_fraud"
+      ],
+      "intel": [],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-022",
+      "type": "loan_credit",
+      "phase": "request",
+      "stage": "app",
+      "text": "后续有问题联系我们的放款专员 {手机号}，这是内部专线。",
+      "keywords": [
+        "放款",
+        "放款专员"
+      ],
+      "pressure": [],
+      "tactics": [
+        "loan_fraud"
+      ],
+      "intel": [
+        "phone"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "corpus-v0"
+      ],
+      "sourceUrls": [
+        "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-023",
+      "type": "loan_credit",
+      "phase": "payout",
+      "stage": "cashout",
+      "text": "借出来的钱转到监管对接账户 {银行卡}，户名{户名}，核验后系统自动还款。",
+      "keywords": [
+        "监管对接账户"
+      ],
+      "pressure": [],
+      "tactics": [
+        "transfer"
+      ],
+      "intel": [
+        "bank",
+        "name"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2023-ten"
+      ],
+      "sourceUrls": [
+        "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-024",
+      "type": "loan_credit",
+      "phase": "payout",
+      "stage": "cashout",
+      "text": "解冻金打到这个账户 {银行卡}，十分钟内到账就给您放款。",
+      "keywords": [
+        "放款",
+        "解冻金"
+      ],
+      "pressure": [],
+      "tactics": [
+        "urgency",
+        "transfer",
+        "loan_fraud"
+      ],
+      "intel": [
+        "bank"
+      ],
+      "sourceType": "awareness",
+      "sourceLabel": "据公开反诈宣传改写",
+      "sourceIds": [
+        "mps-2022-five"
+      ],
+      "sourceUrls": [
+        "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    },
+    {
+      "id": "loan_credit-025",
+      "type": "loan_credit",
+      "phase": "payout",
+      "stage": "app",
+      "text": "贷款平台网址 {网址}，注册时用您本人手机号。",
+      "keywords": [],
+      "pressure": [],
+      "tactics": [],
+      "intel": [
+        "url"
+      ],
+      "sourceType": "police_case",
+      "sourceLabel": "据公开典型案例改写",
+      "sourceIds": [
+        "cac-2022-cases"
+      ],
+      "sourceRef": "案例一",
+      "sourceUrls": [
+        "https://www.cac.gov.cn/2022-04/14/c_1651546285887220.htm"
+      ],
+      "scenarios": [
+        "loan"
+      ]
+    }
+  ]
+}

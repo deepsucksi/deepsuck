@@ -1,0 +1,551 @@
+{
+ "comment": "python eval/noise_eval.py 输出；before = 2e6e0a3 的提取器（同一套输入、同一组种子、rebase 后的 personas.humanize），after = 本版",
+ "before": {
+  "impl": "2e6e0a3:python",
+  "hasStitch": false,
+  "seeds": 30,
+  "humanize": {
+   "reveal|0.0|chat": {
+    "items": 570,
+    "captured": 570,
+    "rate": 1.0
+   },
+   "reveal|0.0|voice": {
+    "items": 570,
+    "captured": 570,
+    "rate": 1.0
+   },
+   "reveal|0.3|chat": {
+    "items": 570,
+    "captured": 567,
+    "rate": 0.9947368421052631
+   },
+   "reveal|0.3|voice": {
+    "items": 570,
+    "captured": 562,
+    "rate": 0.9859649122807017
+   },
+   "reveal|0.6|chat": {
+    "items": 570,
+    "captured": 567,
+    "rate": 0.9947368421052631
+   },
+   "reveal|0.6|voice": {
+    "items": 570,
+    "captured": 557,
+    "rate": 0.9771929824561404
+   },
+   "reveal|0.9|chat": {
+    "items": 570,
+    "captured": 567,
+    "rate": 0.9947368421052631
+   },
+   "reveal|0.9|voice": {
+    "items": 570,
+    "captured": 550,
+    "rate": 0.9649122807017544
+   },
+   "revealHard|0.0|chat": {
+    "items": 780,
+    "captured": 780,
+    "rate": 1.0
+   },
+   "revealHard|0.0|voice": {
+    "items": 780,
+    "captured": 780,
+    "rate": 1.0
+   },
+   "revealHard|0.3|chat": {
+    "items": 780,
+    "captured": 766,
+    "rate": 0.982051282051282
+   },
+   "revealHard|0.3|voice": {
+    "items": 780,
+    "captured": 756,
+    "rate": 0.9692307692307692
+   },
+   "revealHard|0.6|chat": {
+    "items": 780,
+    "captured": 757,
+    "rate": 0.9705128205128205
+   },
+   "revealHard|0.6|voice": {
+    "items": 780,
+    "captured": 739,
+    "rate": 0.9474358974358974
+   },
+   "revealHard|0.9|chat": {
+    "items": 780,
+    "captured": 740,
+    "rate": 0.9487179487179487
+   },
+   "revealHard|0.9|voice": {
+    "items": 780,
+    "captured": 716,
+    "rate": 0.9179487179487179
+   }
+  },
+  "digits": {
+   "连写": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "空格分组": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "横杠分组": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "换行分组": {
+    "bank_card": 0.0,
+    "phone": 1.0
+   },
+   "逗号分组": {
+    "bank_card": 0.0,
+    "phone": 0.0
+   },
+   "顿号分组": {
+    "bank_card": 0.0,
+    "phone": 0.0
+   },
+   "点号分组": {
+    "bank_card": 0.0,
+    "phone": 1.0
+   },
+   "不规则分组": {
+    "bank_card": 0.0,
+    "phone": 0.0
+   },
+   "全角": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "全角空格": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "中文数字": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "中文数字空格": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "中文数字逗号": {
+    "bank_card": 0.0,
+    "phone": 0.0
+   },
+   "幺两": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "大写数字": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "同音字": {
+    "bank_card": 0.0,
+    "phone": 0.0
+   },
+   "阿中混写": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "逐字空格": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   }
+  },
+  "stitch": {
+   "positive": {
+    "2|连写|bank_card": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.13333333333333333
+    },
+    "2|连写|phone": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "2|空格分组|bank_card": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.13333333333333333
+    },
+    "2|空格分组|phone": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "2|中文数字空格|bank_card": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.13333333333333333
+    },
+    "2|中文数字空格|phone": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "2|幺两|bank_card": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.13333333333333333
+    },
+    "2|幺两|phone": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "3|连写|bank_card": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "3|连写|phone": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "3|空格分组|bank_card": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "3|空格分组|phone": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "3|中文数字空格|bank_card": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "3|中文数字空格|phone": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "3|幺两|bank_card": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    },
+    "3|幺两|phone": {
+     "n": 60,
+     "rate": 0.0,
+     "wrongPerCase": 0.0
+    }
+   },
+   "negative": {
+    "cases": 600,
+    "falseItems": 0,
+    "misStitchRate": 0.0,
+    "byKind": {
+     "0": 0.0,
+     "1": 0.0,
+     "2": 0.0,
+     "3": 0.0,
+     "4": 0.0,
+     "5": 0.0,
+     "6": 0.0,
+     "7": 0.0,
+     "8": 0.0,
+     "9": 0.0
+    }
+   }
+  },
+  "teleantifraud": {
+   "fraud": {
+    "dialogs": 795,
+    "sensitiveIntel": 29,
+    "stitched": 0
+   },
+   "normal": {
+    "dialogs": 795,
+    "sensitiveIntel": 30,
+    "stitched": 0
+   }
+  }
+ },
+ "after": {
+  "impl": "python",
+  "hasStitch": true,
+  "seeds": 30,
+  "humanize": {
+   "reveal|0.0|chat": {
+    "items": 570,
+    "captured": 570,
+    "rate": 1.0
+   },
+   "reveal|0.0|voice": {
+    "items": 570,
+    "captured": 570,
+    "rate": 1.0
+   },
+   "reveal|0.3|chat": {
+    "items": 570,
+    "captured": 567,
+    "rate": 0.9947368421052631
+   },
+   "reveal|0.3|voice": {
+    "items": 570,
+    "captured": 562,
+    "rate": 0.9859649122807017
+   },
+   "reveal|0.6|chat": {
+    "items": 570,
+    "captured": 567,
+    "rate": 0.9947368421052631
+   },
+   "reveal|0.6|voice": {
+    "items": 570,
+    "captured": 560,
+    "rate": 0.9824561403508771
+   },
+   "reveal|0.9|chat": {
+    "items": 570,
+    "captured": 567,
+    "rate": 0.9947368421052631
+   },
+   "reveal|0.9|voice": {
+    "items": 570,
+    "captured": 559,
+    "rate": 0.980701754385965
+   },
+   "revealHard|0.0|chat": {
+    "items": 780,
+    "captured": 780,
+    "rate": 1.0
+   },
+   "revealHard|0.0|voice": {
+    "items": 780,
+    "captured": 780,
+    "rate": 1.0
+   },
+   "revealHard|0.3|chat": {
+    "items": 780,
+    "captured": 780,
+    "rate": 1.0
+   },
+   "revealHard|0.3|voice": {
+    "items": 780,
+    "captured": 769,
+    "rate": 0.985897435897436
+   },
+   "revealHard|0.6|chat": {
+    "items": 780,
+    "captured": 780,
+    "rate": 1.0
+   },
+   "revealHard|0.6|voice": {
+    "items": 780,
+    "captured": 767,
+    "rate": 0.9833333333333333
+   },
+   "revealHard|0.9|chat": {
+    "items": 780,
+    "captured": 777,
+    "rate": 0.9961538461538462
+   },
+   "revealHard|0.9|voice": {
+    "items": 780,
+    "captured": 760,
+    "rate": 0.9743589743589743
+   }
+  },
+  "digits": {
+   "连写": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "空格分组": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "横杠分组": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "换行分组": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "逗号分组": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "顿号分组": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "点号分组": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "不规则分组": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "全角": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "全角空格": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "中文数字": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "中文数字空格": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "中文数字逗号": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "幺两": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "大写数字": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "同音字": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "阿中混写": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   },
+   "逐字空格": {
+    "bank_card": 1.0,
+    "phone": 1.0
+   }
+  },
+  "stitch": {
+   "positive": {
+    "2|连写|bank_card": {
+     "n": 60,
+     "rate": 0.8666666666666667,
+     "wrongPerCase": 0.13333333333333333
+    },
+    "2|连写|phone": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.0
+    },
+    "2|空格分组|bank_card": {
+     "n": 60,
+     "rate": 0.85,
+     "wrongPerCase": 0.15
+    },
+    "2|空格分组|phone": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.0
+    },
+    "2|中文数字空格|bank_card": {
+     "n": 60,
+     "rate": 0.8333333333333334,
+     "wrongPerCase": 0.16666666666666666
+    },
+    "2|中文数字空格|phone": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.0
+    },
+    "2|幺两|bank_card": {
+     "n": 60,
+     "rate": 0.8666666666666667,
+     "wrongPerCase": 0.13333333333333333
+    },
+    "2|幺两|phone": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.0
+    },
+    "3|连写|bank_card": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.13333333333333333
+    },
+    "3|连写|phone": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.0
+    },
+    "3|空格分组|bank_card": {
+     "n": 60,
+     "rate": 0.9833333333333333,
+     "wrongPerCase": 0.1
+    },
+    "3|空格分组|phone": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.0
+    },
+    "3|中文数字空格|bank_card": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.13333333333333333
+    },
+    "3|中文数字空格|phone": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.0
+    },
+    "3|幺两|bank_card": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.11666666666666667
+    },
+    "3|幺两|phone": {
+     "n": 60,
+     "rate": 1.0,
+     "wrongPerCase": 0.0
+    }
+   },
+   "negative": {
+    "cases": 600,
+    "falseItems": 0,
+    "misStitchRate": 0.0,
+    "byKind": {
+     "0": 0.0,
+     "1": 0.0,
+     "2": 0.0,
+     "3": 0.0,
+     "4": 0.0,
+     "5": 0.0,
+     "6": 0.0,
+     "7": 0.0,
+     "8": 0.0,
+     "9": 0.0
+    }
+   }
+  },
+  "teleantifraud": {
+   "fraud": {
+    "dialogs": 795,
+    "sensitiveIntel": 29,
+    "stitched": 0
+   },
+   "normal": {
+    "dialogs": 795,
+    "sensitiveIntel": 30,
+    "stitched": 0
+   }
+  }
+ }
+}

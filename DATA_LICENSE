@@ -23,9 +23,14 @@ python -m deepsuck.stix / python -m deepsuck.feeds / npm run build:intel 的输�
   - site/data/intel.csv         公开条目 CSV
   - site/data/intel.rss         公开条目 RSS 2.0 订阅源
   - site/data/intel.stix.json   STIX 2.1 Bundle
+  - site/assets/core/scam_scripts.json  诈骗话术语料（deepsuck.core.scam-scripts/v1）：据公开反诈宣传、
+    公开通报 / 典型案例与公开数据集归纳后重写，不含原文；各来源的许可见其中 sources[].license
+    （政府与法院公开页面版权归原发布方，本库只概括其描述的作案手法事实；TeleAntiFraud 为 Apache-2.0，
+    Copyright 2025 Zhiming Ma，只借鉴话术结构并完全重写，数据集本体不入库）
 
 不在本许可范围内：
-  - 仓库中的代码、脚本、页面与格式定义（含 site/data/intel.schema.json）：Apache-2.0，见 LICENSE；
+  - 仓库中的代码、脚本、页面与格式定义（含 site/data/intel.schema.json、site/assets/core/scam_scripts.schema.json）：
+    Apache-2.0，见 LICENSE；
   - site/data/blocklist/ 等第三方黑名单数据：按各自来源的许可（见其 LICENSES.txt 与 docs/INTEL.md）；
   - 银行卡 BIN 表 site/assets/core/cardbin.json：MIT，见 site/assets/core/cardbin.LICENSE.txt
     （intel.json 中由 BIN 推断的 issuer / cardType 字段参考了该表）。
@@ -49,6 +54,7 @@ python -m deepsuck.stix / python -m deepsuck.feeds / npm run build:intel 的输�
   - intel.stix.json：statement 类型的 marking-definition（名称 "DeepSuck data license: CC BY 4.0"），
     identity 与其余全部对象的 object_marking_refs 都引用它；
   - intel.rss：channel 的 <copyright> 与 <description>；
+  - scam_scripts.json：顶层字段 license = "CC-BY-4.0"、licenseUrl、attribution、thirdPartyNotice；
   - intel.csv：为保证 CSV 可被直接解析，文件内不加注释行，许可以本文件、RSS 说明与 docs/INTEL.md 为准。
 
 说明 / Notes

@@ -1,13 +1,15 @@
 """骗子模拟器 + 评测（LLM-free，可复现）。
 
-用 eval/scammer-scripts.json 中的脚本化骗子（按阶段推进话术、被追问时按概率暴露虚构情报、被拖延时耐心下降），
+脚本化骗子（按阶段推进话术、被追问时按概率暴露虚构情报、被拖延时耐心下降）的台词默认取自
+site/assets/core/scam_scripts.json（据公开材料改写的真实话术语料，按 开场 / 建立信任 / 施压 / 索要 四个阶段推进，催促句取自“施压”阶段），
+暴露情报的模板、复读 / 起疑句与语料缺失时的兜底仍用 eval/scammer-scripts.json 的手写台词（--lines legacy 则全部用手写台词）。
 与人设规则引擎（以及两个基线：复读机 parrot、随机台词 random）对练，统计：
   - 拖延轮数（骗子发出的消息数，直到耐心耗尽/起疑/达到上限）与估算骗子耗时；
   - 情报暴露率（骗子暴露的虚构情报 / 脚本中的全部情报）与提取率（被提取器正确捕获 / 已暴露）；
   - 重复率（与之前完全相同的机器人回复）与近重复率（字符二元组 Jaccard ≥ 0.8）；
   - 泄露率（机器人回复含 ≥6 位连续数字，即可能给出真实号码/验证码；紧挨 * 的打码值数字段不计）。
 
-CLI：python -m deepsuck.sim --seeds 30 [--reveal standard|hard] [--json out.json] [--md out.md]
+CLI：python -m deepsuck.sim --seeds 30 [--reveal standard|hard] [--lines corpus|legacy] [--json out.json] [--md out.md]
 Apache-2.0
 """
 from __future__ import annotations
@@ -38,6 +40,52 @@ B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
 def default_scripts_path() -> Path:
     return core_dir().parent.parent.parent / "eval" / "scammer-scripts.json"
+
+
+def default_corpus_path() -> Path:
+    return core_dir() / "scam_scripts.json"
+
+
+# 模拟器场景 → 语料类型（campus 取 loan_credit 中 variant=campus 的条目）
+SCENARIO_TYPE = {"refund": "impersonate_cs", "police": "impersonate_police", "pig": "pig_butchering", "task": "task_rebate",
+                 "loan": "loan_credit", "campus": "loan_credit", "boss": "impersonate_boss"}
+PITCH_PHASES = ("opening", "trust", "pressure", "request")
+# 语料里可以直接填虚构值的非情报占位符；带情报占位符（银行卡、网址等）的句子不进 pitch，情报统一由 reveal 模板暴露并计分
+FILL_OK = {"机构", "APP名", "姓氏", "金额", "工号"}
+ORG = {"refund": "某电商平台", "police": "市公安局", "pig": "某投资平台", "task": "某商家", "loan": "某金融服务平台",
+       "campus": "某金融服务平台", "boss": "某公司"}
+
+
+def corpus_scripts(legacy: dict, corpus: dict) -> dict:
+    """把语料并入手写脚本：每个场景的 pitch 换成语料四阶段台词、urge 换成该类型“施压”阶段台词；占位符留给 Scammer 用固定种子填。
+    某阶段在语料里没有可用句子时，保留手写脚本对应阶段（兜底）。"""
+    out = {"schema": legacy.get("schema"), "common": legacy["common"], "scenarios": {}, "lines": "corpus"}
+    for sid, sc in legacy["scenarios"].items():
+        t = SCENARIO_TYPE.get(sid)
+        es = [e for e in corpus["entries"] if e["type"] == t
+              and set(re.findall(r"\{(.+?)\}", e["text"])) <= FILL_OK]
+        if sid == "campus" and any(e.get("variant") == "campus" for e in es):
+            es = [e for e in es if e.get("variant") == "campus"]
+        pitch = []
+        for i, ph in enumerate(PITCH_PHASES):
+            lines = [e["text"] for e in es if e["phase"] == ph]
+            pitch.append(lines or sc["pitch"][min(i, len(sc["pitch"]) - 1)])
+        urge = [e["text"] for e in es if e["phase"] == "pressure"]
+        out["scenarios"][sid] = dict(sc, pitch=pitch, urge=urge or None, org=ORG.get(sid, "某平台"))
+    return out
+
+
+def load_scripts(lines: str = "corpus", scripts_path: Optional[str] = None, corpus_path: Optional[str] = None) -> dict:
+    with open(scripts_path or default_scripts_path(), encoding="utf-8") as f:
+        legacy = json.load(f)
+    if lines == "legacy":
+        return legacy
+    try:
+        with open(corpus_path or default_corpus_path(), encoding="utf-8") as f:
+            corpus = json.load(f)
+    except (OSError, ValueError):
+        return legacy  # 语料缺失或损坏：退回手写台词
+    return corpus_scripts(legacy, corpus)
 
 
 class Rand:
@@ -141,11 +189,24 @@ class Scammer:
         self.revealed: List[tuple] = []     # (type, canon)
         self.quit_reason: Optional[str] = None
 
+    def fill(self, line: str) -> str:
+        """语料占位符 → 虚构值（只用本局的随机数，固定种子可复现）。"""
+        if "{" not in line:
+            return line
+        rd = self.rd
+        vals = {"机构": self.s.get("org", "某平台"), "APP名": "“" + rd.choice(["安心退", "星辰任务", "安易借", "金盾理财"]) + "”APP",
+                "姓氏": rd.choice("王李张刘陈杨赵"), "金额": rd.choice(["两千元", "五千元", "一万元", "三万元"]),
+                "工号": rd.choice("ABKJ") + rd.digits(4)}
+        return re.sub(r"\{(.+?)\}", lambda m: vals.get(m.group(1), m.group(0)), line)
+
+    def urge(self) -> str:
+        return self.fill(self.rd.choice(self.s.get("urge") or self.c["urge"]))
+
     def pitch(self) -> str:
         p = self.s["pitch"]
         line = self.rd.choice(p[min(self.stage, len(p) - 1)])
         self.stage += 1
-        return line
+        return self.fill(line)
 
     def reveal(self, kind: str) -> str:
         tpl = self.rd.choice(self.c[self.reveal_key][kind])
@@ -186,20 +247,21 @@ class Scammer:
                     msg = self.reveal(kind)
                 else:
                     self.patience -= 0.5
-                    msg = rd.choice(self.c["urge"])
+                    msg = self.urge()
             elif kind in self.s["intel"]:
                 self.patience -= 1
                 msg = rd.choice(self.c["already"])
         if msg is None:
             if intent in STALL:
                 self.patience -= 1
-                msg = rd.choice(self.c["urge"] + self.c["repeat"])
+                urge = self.s.get("urge") or self.c["urge"]
+                msg = self.fill(rd.choice(urge + self.c["repeat"]))
             elif intent == "verify_identity":
                 self.patience -= 1.5
-                msg = rd.choice(self.c["urge"])
+                msg = self.urge()
             elif intent == "fake_progress":
                 self.patience -= 0.5
-                msg = rd.choice(self.c["urge"])
+                msg = self.urge()
             else:  # 被"配合"：推进剧本
                 self.patience -= 0.25
                 if self.stage >= 2 and self.todo and rd.random() < 0.3:
@@ -210,7 +272,7 @@ class Scammer:
                     msg = self.reveal(self.todo[0])
                 else:
                     self.patience -= 0.75
-                    msg = rd.choice(self.c["urge"])
+                    msg = self.urge()
         if self.patience <= 0:
             self.quit_reason = "suspicious" if duplicate else "patience"
             self.todo, self.revealed = snap  # 挂断：这句没发出去
@@ -297,16 +359,15 @@ def aggregate(rows: List[dict]) -> dict:
 
 
 def run(seeds: int = 30, policies=("rule", "random", "parrot"), scripts_path: Optional[str] = None,
-        reveal: str = "standard") -> dict:
-    with open(scripts_path or default_scripts_path(), encoding="utf-8") as f:
-        scripts = json.load(f)
+        reveal: str = "standard", lines: str = "corpus") -> dict:
+    scripts = load_scripts(lines, scripts_path)
     rows = []
     for policy in policies:
         for sc in SCENARIOS:
             for p in PERSONAS:
                 for k in range(seeds):
                     rows.append(run_one(sc["id"], p["id"], policy, 1000 + k, scripts, reveal=reveal))
-    out = {"config": {"seeds": seeds, "maxTurns": MAX_TURNS, "reveal": reveal}, "byPolicy": {}, "byPersona": {}, "byScenario": {}}
+    out = {"config": {"seeds": seeds, "maxTurns": MAX_TURNS, "reveal": reveal, "lines": scripts.get("lines", "legacy")}, "byPolicy": {}, "byPersona": {}, "byScenario": {}}
     for policy in policies:
         pr = [r for r in rows if r["policy"] == policy]
         out["byPolicy"][policy] = aggregate(pr)
@@ -346,8 +407,10 @@ def main(argv=None) -> int:
     ap.add_argument("--md", default=None)
     ap.add_argument("--reveal", choices=("standard", "hard"), default="standard",
                     help="骗子暴露情报时的写法：standard（默认）或 hard（更难的去武装写法）")
+    ap.add_argument("--lines", choices=("corpus", "legacy"), default="corpus",
+                    help="骗子推进 / 催促台词：corpus（默认，取自 scam_scripts.json）或 legacy（eval/scammer-scripts.json 手写台词）")
     a = ap.parse_args(argv)
-    res = run(a.seeds, tuple(a.policies.split(",")), a.scripts, a.reveal)
+    res = run(a.seeds, tuple(a.policies.split(",")), a.scripts, a.reveal, a.lines)
     md = to_markdown(res)
     print(md)
     if a.json:

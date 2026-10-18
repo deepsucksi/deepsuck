@@ -44,6 +44,8 @@
     this.used = {};          // 模板去重
     this.estSeconds = 0;     // 估算骗子耗费的时间
     this.turn = 0;
+    // 最近几个骗子回合的原文（只在内存里，用于跨回合拼接；不进 report）
+    Object.defineProperty(this, 'recentTurns', { value: [], writable: true, enumerable: false });
   }
 
   /**
@@ -150,13 +152,40 @@
     });
     tactics.forEach(function (t) { self.tacticCounts[t.id] = (self.tacticCounts[t.id] || 0) + 1; });
 
+    // 跨回合拼接：语音回合被切断时，卡号 / 手机号会分在相邻两三句里
+    var msgIndex = this.messages.length;
+    var recent = this.recentTurns;
+    recent.push({ raw: String(rawText == null ? '' : rawText), entities: entities, extra: [], msg: msgIndex });
+    var W = (D.extractors.STITCH && D.extractors.STITCH.window) || 3;
+    while (recent.length > W) recent.shift();
+    var stitchedNow = [];
+    if (recent.length > 1 && D.extractors.stitch) {
+      D.extractors.stitch(recent.map(function (r) { return r.raw; })).forEach(function (e) {
+        if (e.turns[e.turns.length - 1] !== recent.length - 1) return; // 只处理以本回合结尾的拼接
+        var key = e.type + '|' + e.value;
+        e.parts.forEach(function (p) { recent[p.turn].extra.push({ type: e.type, start: p.start, end: p.end, masked: p.masked, sensitive: true }); });
+        e.parts.forEach(function (p) {
+          var r = recent[p.turn];
+          if (p.turn < recent.length - 1 && self.messages[r.msg]) self.messages[r.msg].text = D.redact.redactText(r.raw, r.entities.concat(r.extra));
+        });
+        stitchedNow.push(e);
+        if (!self.intel[key]) {
+          self.intel[key] = { type: e.type, label: e.label, masked: e.masked, meta: e.meta, count: 0, firstSeenTurn: self.turn };
+          Object.defineProperty(self.intel[key], 'raw', { value: e.value, enumerable: false });
+          newIntel.push(self.intel[key]);
+        }
+        self.intel[key].count++;
+      });
+    }
+    if (stitchedNow.length) redacted = D.redact.redactText(rawText, entities.concat(recent[recent.length - 1].extra));
+
     this.estSeconds += 10 + Math.round(String(rawText).length * 0.6);
     var analysis = {
       turn: this.turn,
       redacted: redacted,
       tactics: tactics,
       newIntel: newIntel.map(function (i) { return { type: i.type, label: i.label, masked: i.masked }; }),
-      entities: entities.map(function (e) { return { type: e.type, label: e.label, masked: e.masked, sensitive: e.sensitive }; })
+      entities: entities.concat(stitchedNow).map(function (e) { return { type: e.type, label: e.label, masked: e.masked, sensitive: e.sensitive }; })
     };
     this.messages.push({ role: 'scammer', text: redacted, t: this.now(), tactics: tactics.map(function (t) { return t.id; }), intel: analysis.newIntel });
     return analysis;

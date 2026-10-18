@@ -1,6 +1,6 @@
 {
   "schema": "deepsuck.core.scenarios/v1",
-  "comment": "沙盒场景。样例台词中的账号、电话、地址、域名均为虚构/测试数据。",
+  "comment": "沙盒场景。样例台词（samples）据公开反诈宣传、通报与典型案例描述的套路重写（只有确实对应某一具体案例或通报段落的才标注案例 / 通报，其余标“据公开反诈宣传改写”）（来源见与 samples 一一对应的 sampleSources，语料权威版见 scam_scripts.json），不含原文；其中的账号、电话、地址、域名、户名均为虚构测试值（域名一律 .example，户名一律“某某”）。",
   "scenarios": [
     {
       "id": "refund",
@@ -20,12 +20,50 @@
         "屏幕共享"
       ],
       "samples": [
-        "您好，我是淘宝官方客服，您上周购买的商品检测出质量问题，我们这边要给您双倍理赔 380 元。",
-        "理赔需要您下载我们的\"安心退\"APP，网址是 https://refund-tb-kefu.top/dl ，下载后加入会议号 886 221 共享屏幕。",
-        "您的支付宝有借呗额度吗？理赔款需要先走一下流水验证，系统会给您发个验证码，您报给我就行。",
-        "系统显示您的账户异常，需要您先转 2000 元保证金到我们的理赔专用账户 6217 0012 3456 7890 123，户名李强，建设银行。",
-        "阿姨您抓紧时间，今天 18 点前不处理，您的征信会受影响的。",
-        "有问题您可以直接打我工号专线 400-820-1234，或者加我微信 kefu_tb2026。"
+        "您好，这边是某电商平台售后，您上周买的那件衣服质检不合格，平台要主动给您三倍赔付 380 元。",
+        "理赔走绿色通道，您先下载我们的“安心退”APP，网址是 https://refund-kefu.example/dl ，下载后输入会议号 886 221 共享屏幕。",
+        "您看一下支付宝里的备用金能不能用，退款需要先走一笔流水验证，系统会给您发验证码，您念给我核对一下。",
+        "您的账户被标记为交易异常，需要先转 2000 元保证金到理赔对公账户 6217 0012 3456 7890 123，户名李某某，建设银行，验证完连同赔款一起退回。",
+        "您先别挂电话，理赔通道今天 18 点就关闭了，过了时间不处理还会影响您的征信。",
+        "有问题直接打我的工号专线 139-0011-2233，或者加理赔专员微信 kefu_demo2026。"
+      ],
+      "sampleSources": [
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2022-five",
+          "url": "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2023-ten",
+          "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2022-five",
+          "url": "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "hebei-2021",
+          "url": "https://m.thepaper.cn/baijiahao_12254985"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "corpus-v0",
+          "url": "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "hebei-2021",
+          "url": "https://m.thepaper.cn/baijiahao_12254985"
+        }
       ]
     },
     {
@@ -46,12 +84,51 @@
         "威胁恐吓"
       ],
       "samples": [
-        "你好，这里是上海市公安局经侦支队，我是张警官，警号 029381。你名下一张银行卡涉嫌一起洗钱案件。",
-        "现在案件处于保密阶段，你不要告诉任何人，包括你的家人，否则后果自负。",
-        "为了证明你的清白，你需要配合我们做资金清查，把卡里的钱全部转到国家安全账户 6222 0202 0011 2233 445，户名王建国，工商银行。",
-        "你登录这个网址查看你的通缉令：http://gaj-sh-gov.cc/case/8872 ，输入你的身份证号。",
+        "你好，这里是市公安局经侦支队，我是负责这个案子的张警官。你名下一张银行卡涉嫌一起洗钱案件，需要你配合调查。",
+        "案件属于保密阶段，不能告诉任何人，包括家人和银行柜员，否则按泄露案情处理，后果自负。",
+        "为了证明你的清白，要配合做资金清查，把卡里的钱全部转到国家安全账户 6222 0202 0011 2233 445，户名王某某，工商银行。",
+        "你登录这个网址查看立案信息和通缉令：http://gaj-case.example/case/8872 ，输入身份证号核对。",
         "我现在把电话转给检察院的刘检察官，你记一下他的手机 139-0011-2233，马上联系他。",
-        "你还有几张卡？卡里余额有多少？必须在 2 小时内完成清查，不然我们就要对你发逮捕令了。"
+        "你还有几张卡？卡里余额有多少？必须在 2 小时内完成清查，不然就要对你发逮捕令了。"
+      ],
+      "sampleSources": [
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2023-ten",
+          "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2023-ten",
+          "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "spp-topic-2021",
+          "url": "https://www.spp.gov.cn/spp/dxwlzp2021/index.shtml"
+        },
+        {
+          "sourceType": "police_case",
+          "label": "据公开典型案例改写",
+          "sourceId": "cac-2022-cases",
+          "sourceRef": "案例四",
+          "url": "https://www.cac.gov.cn/2022-04/14/c_1651546285887220.htm"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2025-handbook",
+          "url": "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2023-ten",
+          "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+        }
       ]
     },
     {
@@ -72,12 +149,51 @@
         "引流私聊"
       ],
       "samples": [
-        "亲爱的，早安～认识你真的是缘分，我想和你一起规划我们的未来。",
-        "我舅舅在投资公司做数据分析，发现了一个平台的漏洞，稳赚不赔，我上周刚赚了 8 万。",
-        "平台网址是 www.goldwin-vip.top ，你先注册，我带你操作，收益率每天 15%。",
-        "充值要用 USDT，你先充 5000U 试试，打到这个 TRC20 地址：TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe",
+        "不好意思加错人了，不过跟你聊得挺投缘的。早安亲爱的，我想和你一起规划我们的未来。",
+        "我舅舅在投资公司做技术，发现平台有个规律，稳赚不赔，我上周刚赚了 8 万，你看截图。",
+        "平台网址是 www.goldwin-vip.example ，用我的邀请码注册，我带你操作，收益率每天 15%。",
+        "平台只收 USDT，你先充 5000U 试试，打到这个 TRC20 地址：TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe",
         "要是 TRC20 不方便，用 ERC20 也行：0x12ab34cd56ef7890abcdef1234567890abcd9f3e",
-        "这个是内部机会，名额有限，宝贝你不要跟别人说哦，我们加 Telegram 私聊，我的 QQ 是 2876543210。"
+        "这个窗口期就这几天，名额有限，宝贝你别跟家里人说，我们加 Telegram 私聊，我的 QQ 是 2876543210。"
+      ],
+      "sampleSources": [
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "court-2025-cases",
+          "url": "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2023-ten",
+          "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+        },
+        {
+          "sourceType": "court_case",
+          "label": "据法院公开典型案例改写",
+          "sourceId": "court-2025-cases",
+          "sourceRef": "案例一",
+          "url": "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "court-property-cases",
+          "url": "https://www.court.gov.cn/zixun/xiangqing/490051.html"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "court-property-cases",
+          "url": "https://www.court.gov.cn/zixun/xiangqing/490051.html"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "court-2025-cases",
+          "url": "https://www.court.gov.cn/zixun/xiangqing/455701.html"
+        }
       ]
     },
     {
@@ -98,12 +214,52 @@
         "诱导垫付"
       ],
       "samples": [
-        "您好，我们是抖音官方合作商家，招聘点赞员，在家动动手指日结 200-500 元，名额有限。",
-        "先加我们接待员的 QQ 1000012345，进群领第一单，点赞一个视频截图返 5 元，马上到账。",
-        "恭喜您完成新手任务！下一步是福利单：先垫付 300 元，完成后返本金加 30% 佣金。",
-        "请下载我们的任务平台\"星辰任务\"APP：https://xingchen-task-demo.top/app ，注册填邀请码 8866。",
-        "您触发了三连单，必须连续完成三单才能提现，第二单垫付 2800 元，转到财务账户 6230 5800 0011 2233 445，户名赵小明，农业银行。",
-        "系统检测到您操作超时，账户已冻结，需要再充 5000 元解冻费，否则之前的本金全部清零。"
+        "您好，我们在招线上点赞员，在家用手机动动手指，佣金日结 200-500 元，宝妈学生都能做。",
+        "先加接待员的 QQ 1000012345，进群领第一个任务，点赞截图返 5 元，马上到账。",
+        "第一单佣金已经到账了吧？下一步是福利单：先垫付 300 元，完成后返本金加 30% 佣金。",
+        "请下载我们的任务平台“星辰任务”APP：https://xingchen-task.example/app ，注册填邀请码 8866。",
+        "这是组合任务，要连续做完三单才能提现，第二单垫付 2800 元，转到商家账户 6230 5800 0011 2233 445，户名赵某某，农业银行。",
+        "系统显示您操作失误造成卡单，账户已冻结，需要再充 5000 元解冻，否则之前的本金全部清零。"
+      ],
+      "sampleSources": [
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2023-ten",
+          "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2023-ten",
+          "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+        },
+        {
+          "sourceType": "police_case",
+          "label": "据公开典型案例改写",
+          "sourceId": "hebei-2021",
+          "sourceRef": "刷单返利类·典型案例",
+          "url": "https://m.thepaper.cn/baijiahao_12254985"
+        },
+        {
+          "sourceType": "police_case",
+          "label": "据公开典型案例改写",
+          "sourceId": "hebei-2021",
+          "sourceRef": "刷单返利类·典型案例",
+          "url": "https://m.thepaper.cn/baijiahao_12254985"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2025-handbook",
+          "url": "https://www.gov.cn/lianbo/bumen/202506/content_7028568.htm"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2023-ten",
+          "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+        }
       ]
     },
     {
@@ -124,12 +280,50 @@
         "征信恐吓"
       ],
       "samples": [
-        "您好，这边是金融服务中心，您有一笔 20 万的无抵押低息贷款额度，年化 2.8%，今天可以秒批。",
-        "下载我们的放款 APP\"安易借\"，网址 http://anyijie-loan-demo.cc/dl ，填写身份证和银行卡信息就能申请。",
-        "系统显示您的银行卡号填写错误，款项已被冻结，需要缴纳 3000 元解冻金证明是本人操作，款项会和贷款一起退还。",
-        "您的征信评分不够，我们可以帮您做征信修复，先交 1500 元服务费，转到 6228 4800 1122 3344 556，户名孙丽，农业银行。",
-        "为了证明还款能力，需要您刷一下流水，往这个账户转 5000 元，10 分钟后原路返回。",
-        "有问题打我们的客服专线 400-600-1234，逾期不处理会上征信黑名单，影响子女考公。"
+        "您好，这边是金融服务中心，您有一笔 20 万的无抵押低息贷款额度，不看征信，今天可以秒批。",
+        "下载我们的放款 APP“安易借”，网址 http://anyijie-loan.example/dl ，填写身份证和银行卡信息就能申请。",
+        "您填的银行卡号错了一位，款项被系统冻结了，需要交 3000 元解冻金证明是本人操作，会和贷款一起退还。",
+        "您的流水不够，要先证明还款能力，把 1500 元转到 6228 4800 1122 3344 556，户名孙某某，农业银行，10 分钟后原路返回。",
+        "前面的会员费您都交了，现在不交保证金，前面的钱也退不回来，放款审核只保留半小时。",
+        "有问题打放款专员专线 139-0011-2233，逾期不处理会上征信黑名单。"
+      ],
+      "sampleSources": [
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2022-five",
+          "url": "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2023-ten",
+          "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2022-five",
+          "url": "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2022-five",
+          "url": "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2022-five",
+          "url": "https://www.12371.cn/2022/05/11/ARTI1652253767367245.shtml"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "corpus-v0",
+          "url": "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+        }
       ]
     },
     {
@@ -150,12 +344,54 @@
         "紧急借钱"
       ],
       "samples": [
-        "在吗？我是你王总，这是我新的微信号，之前那个不用了，你备注一下。",
+        "在吗？我是你王总，这是我新的微信号，旧号不常用了，你备注一下。",
         "我现在在开会，不方便接电话，有个事你帮我处理一下，别跟其他同事说。",
-        "我答应给一个合作方打一笔 4.8 万的保证金，我这边额度不够，你先帮我垫一下，明天公司给你报销。",
-        "直接转到对方公司财务的卡：6214 8300 2211 0099 887，户名周志强，招商银行，转完截图给我。",
-        "抓紧时间，对方 30 分钟内收不到钱合作就黄了，有问题打我助理电话 136-0000-5678。",
-        "别打我电话，我在领导那边汇报，打字说就行。"
+        "合作方的保证金今天必须付，我这个身份不方便直接转，你先帮我垫 4.8 万，明天公司给你报销。",
+        "直接转到对方公司财务的卡：6214 8300 2211 0099 887，户名周某某，招商银行，转完截图给我。",
+        "上面已经在催了，对方 30 分钟内收不到钱合作就黄了，有问题打我助理电话 136-0000-5678。",
+        "我已经把钱转给你了，你看一下截图，到账有延迟，你先用公司账上的钱垫一下。别打我电话，打字说就行。"
+      ],
+      "sampleSources": [
+        {
+          "sourceType": "police_bulletin",
+          "label": "据公安机关公开通报改写",
+          "sourceId": "jiangmen-boss",
+          "sourceRef": "冒充领导诈骗常见话术",
+          "url": "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+        },
+        {
+          "sourceType": "police_bulletin",
+          "label": "据公安机关公开通报改写",
+          "sourceId": "jiangmen-boss",
+          "sourceRef": "冒充领导诈骗常见话术",
+          "url": "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+        },
+        {
+          "sourceType": "police_bulletin",
+          "label": "据公安机关公开通报改写",
+          "sourceId": "jiangmen-boss",
+          "sourceRef": "冒充领导诈骗常见话术",
+          "url": "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "hubei-boss-2021",
+          "url": "http://gat.hubei.gov.cn/bmdt/dtyw/202101/t20210125_3303901.shtml"
+        },
+        {
+          "sourceType": "police_bulletin",
+          "label": "据公安机关公开通报改写",
+          "sourceId": "jiangmen-boss",
+          "sourceRef": "冒充领导诈骗常见话术",
+          "url": "https://www.jiangmen.gov.cn/jmgaj/gkmlpt/content/3/3114/post_3114131.html"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "jiangsu-boss-2024",
+          "url": "https://gat.jiangsu.gov.cn/art/2024/11/14/art_89956_11418671.html"
+        }
       ]
     },
     {
@@ -176,12 +412,51 @@
         "共享屏幕"
       ],
       "samples": [
-        "您好，我是京东金融客服，系统显示您在校期间开通过校园贷业务，根据国家规定现在必须注销，否则会影响您的个人征信。",
-        "注销需要先把您名下各平台的借款额度清空，您打开借呗、微粒贷看看分别有多少额度？",
-        "为了方便指导，您先下载腾讯会议，会议号 912 334 556，打开屏幕共享。",
-        "您把借出来的钱转到银保监指定的核查账户 6217 8800 3344 5566 778，户名吴刚，中国银行，核查完毕后会全额退回。",
+        "您好，我是某金融平台客服，系统显示您在校期间开通过校园贷，按规定现在必须注销，否则会影响您的个人征信。",
+        "注销要先把您名下各平台的借款额度清空，您打开借呗、微粒贷看看分别还有多少额度？",
+        "为了方便指导，您先下载一个会议软件，会议号 912 334 556，打开屏幕共享。",
+        "借出来的钱转到监管指定的核查账户 6217 8800 3344 5566 778，户名吴某某，中国银行，核查完毕后全额退回。",
         "操作完成后系统会给您发验证码，您报给我，我在后台给您做注销。",
-        "今天是注销最后期限，逾期没处理会被列入失信名单，您抓紧，有问题加我 QQ 2000012345。"
+        "今天是注销最后期限，逾期会被列入失信名单，您抓紧，有问题加我 QQ 2000012345。"
+      ],
+      "sampleSources": [
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "sz-campus-2022",
+          "url": "https://ga.sz.gov.cn/JMHD/YWZSK/XJGL_ZS/content/post_10332097.html"
+        },
+        {
+          "sourceType": "police_case",
+          "label": "据公开典型案例改写",
+          "sourceId": "cac-2022-cases",
+          "sourceRef": "案例六",
+          "url": "https://www.cac.gov.cn/2022-04/14/c_1651546285887220.htm"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "corpus-v0",
+          "url": "https://github.com/deepsucksi/deepsuck/tree/main/corpus/scripts"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "mps-2023-ten",
+          "url": "http://www.news.cn/politics/2023-06/15/c_1212199354.htm"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "hebei-2021",
+          "url": "https://m.thepaper.cn/baijiahao_12254985"
+        },
+        {
+          "sourceType": "awareness",
+          "label": "据公开反诈宣传改写",
+          "sourceId": "sz-campus-2022",
+          "url": "https://ga.sz.gov.cn/JMHD/YWZSK/XJGL_ZS/content/post_10332097.html"
+        }
       ]
     }
   ]

@@ -89,14 +89,14 @@ test('会话 submission()：按策略输出，report() 仍不含完整电话', (
   assert.equal(sub.schema, I.SUBMISSION_SCHEMA);
   const v = sub.indicators.map((i) => i.value);
   assert.ok(v.includes('13900112233'));
-  assert.ok(v.includes('http://gaj-sh-gov.cc/case/8872'));
+  assert.ok(v.includes('http://gaj-case.example/case/8872'));
   assert.ok(v.includes('622202*********3445'));
   const card = sub.indicators.find((i) => i.type === 'bank_card');
   assert.equal(card.issuer, '中国工商银行'); // BIN 推断
   assert.equal(card.cardType, '借记卡');
   assert.ok(v.includes('王**'));
   assert.ok(!JSON.stringify(sub).includes('6222020200112233445'));
-  assert.ok(!JSON.stringify(sub).includes('王建国'));
+  assert.ok(!JSON.stringify(sub).includes('王某某'));
   assert.ok(!JSON.stringify(s.report()).includes('13900112233'));
   assert.ok(I.submissionMarkdown(sub).includes('`13900112233`'));
 });

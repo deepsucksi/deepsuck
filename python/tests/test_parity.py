@@ -1,3 +1,4 @@
+import json
 """Python 实现必须与 tests/fixtures/*.json（由 JS 实现生成的金标准）逐项一致。"""
 import pytest
 
@@ -74,6 +75,7 @@ def test_session_replay(case):
         turns.append({"role": "scammer", "text": a["redacted"], "tactics": [t["id"] for t in a["tactics"]]})
         turns.append({"role": "bot", "text": m["text"], "intent": m["intent"]})
     assert turns == case["turns"]
+    assert [m["text"] for m in s.messages] == case["messages"]  # 跨回合拼接后对前一回合的回溯打码
     assert s.intel_list() == case["intel"]
     st = s.stats()
     assert {k: st[k] for k in ("estimatedScammerSeconds", "intelCount", "riskScore")} == case["stats"]
@@ -86,3 +88,12 @@ GROUPS = fixture("redact")["groups"]
 def test_card_groups_parity(case):
     from deepsuck.redact import format_card_groups
     assert format_card_groups(case["input"]) == case["expected"]
+
+
+STITCH = fixture("stitch")["cases"]
+
+
+@pytest.mark.parametrize("case", STITCH, ids=lambda c: " / ".join(c["turns"])[:40])
+def test_stitch(case):
+    from deepsuck.extractors import stitch
+    assert json.loads(json.dumps(stitch(case["turns"]), ensure_ascii=False)) == case["expected"]

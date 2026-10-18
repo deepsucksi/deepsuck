@@ -44,7 +44,28 @@ const TEXTS = [
   '电话 ①③⑨⓪⓪①①②②③③，记好了', '手机 139.0011.2233', '加薇❤信 kefu_tb2026，或者Q扣 2876543210', 'v❤：kefu_tb2026，企鹅 287 654 321', '微信号码是 kefu_tb2026',
   '打开 refund-tb丶example 注册', '网址 refund-tb·example', '收款人姓名：王建国', '账户名字写钱伟', '卡号 ６２２２ ０２０２ ００１１ ２２３３ ４４５', '陆贰贰贰零贰零贰零零壹壹贰贰叁叁肆肆伍', '版本 1.2.3 发布，John·Smith 来了', '100 200 300 元'
 ];
+// 噪声 / 混淆（v0.6）：中文数字夹标点、换行分段、异体字、同音错字、钱包分段
+TEXTS.push('卡号 六二二二，零二零二，零零一一，二二三三，四四五', '电话 一三九-零零一一-二二三三', '打 腰三酒 零零腰腰 二二三三',
+  '卡号\n6222 0202\n0011 2233 445', '卡号：6222/0202/0011/2233/445', '请把钱转入安全帐户', '帳戶異常，請轉帳到這個賬戶', '银航卡号 6222020200112233445',
+  '手机号吗 13900112233', 'ERC20 0x12ab34cd 56ef7890 abcdef12 34567890 abcd9f3e', 'TRC20 TQ7xM6hY pCzD8vNp 1qJ3kR5s W9uL2aBc De',
+  '2026.10.18 版本 1.2.3', '转 5000 元到 6222-0202-0011-2233-445', '先转 2000，再转 3000，一共 5000 元', '电话 139 0011 2233 卡号 6222 0202 0011 2233 445');
 for (const sc of S.SCENARIOS) for (const line of sc.samples) TEXTS.push(line);
+
+// 跨回合拼接（同一说话方相邻回合）
+const STITCH = [
+  ['卡号是 六二二二 零二零二 零零一一', '呃，二二三三 四四五，户名王某某'],
+  ['我的电话是一三九 零零一一', '二二三三'],
+  ['卡号 6222 0202', '0011 2233', '445'],
+  ['转到 6222020200', '112233445 这张卡'],
+  ['电话 13900112233', '6222 0202 0011 2233 445 是卡号'],
+  ['转 5000', '1390011 2233'],
+  ['打这个 139 0011', '不对，138 1234 5678'],
+  ['账户 6222 0202 0011 2233', '445 元'],
+  ['一会儿再说', '好'],
+  ['卡号 6222 0202', '好的', '0011 2233 445'],
+  ['验证码 1234', '5678'],
+  ['卡号 6217 0012 3456', '7890 123', '电话 139 0011', '2233']
+];
 
 const REDACT = [
   ['bank_card', '6222021234561234'], ['bank_card', '62220212345612345'], ['bank_card', '622305123456789012'], ['bank_card', '6222 0212 3456 7890 128'],
@@ -62,6 +83,7 @@ const REDACT = [
 const SESSIONS = [];
 let seed = 20261018;
 for (const sc of S.SCENARIOS) for (const p of P.PERSONAS) SESSIONS.push({ scenario: sc.id, persona: p.id, seed: seed++, lines: sc.samples.slice(0, 6) });
+SESSIONS.push({ scenario: 'police', persona: 'wang', seed: 11, lines: ['把钱转到卡号 六二二二 零二零二 零零一一', '呃 二二三三 四四五，户名王某某', '有事打 一三九 零零一一', '二二三三', '记住了吗'] });
 SESSIONS.push({ scenario: 'police', persona: 'li', seed: 7, lines: ['我是公安局的', '你涉嫌洗钱', '马上把验证码发我', '不要告诉任何人', '转到安全账户', '你听不懂吗？', '快点', '再不配合就逮捕你'] });
 
 // ---- 生成 ----
@@ -107,9 +129,10 @@ function build() {
         turns.push({ role: 'bot', text: m.text, intent: m.intent });
       }
       const st = s.stats();
-      return Object.assign({}, c, { turns, intel: s.intelList(), stats: { estimatedScammerSeconds: st.estimatedScammerSeconds, intelCount: st.intelCount, riskScore: st.riskScore } });
+      return Object.assign({}, c, { turns, messages: s.messages.map((m) => m.text), intel: s.intelList(), stats: { estimatedScammerSeconds: st.estimatedScammerSeconds, intelCount: st.intelCount, riskScore: st.riskScore } });
     })
   };
+  out.stitch = { comment: HEADER, cases: STITCH.map((turns) => ({ turns, expected: X.stitch(turns) })) };
   // 黑名单：FNV 分片、主机名解析、父域候选、钱包规范化（域名均为 .example / 虚构）
   const HOSTS = ['https://Login.Refund-TB-Kefu.example/dl?x=1', 'www.goldwin-vip.example', 'kefu-jd.example:8080/a', 'abc@mail.scam-demo.example',
     'http://192.168.1.10/admin', '例子.中国', 'a.b.c.d.evil-demo.example', 'evil-demo.example.', 'localhost'];
