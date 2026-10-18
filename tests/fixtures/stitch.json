@@ -457,6 +457,235 @@
   },
   {
    "turns": [
+    "卡号是…6222…0000…",
+    "嗯…1234...5678...",
+    "…907…"
+   ],
+   "expected": [
+    {
+     "type": "bank_card",
+     "label": "银行卡号",
+     "value": "6222000012345678907",
+     "masked": "622200*********8907",
+     "sensitive": true,
+     "confidence": 1,
+     "turns": [
+      0,
+      1,
+      2
+     ],
+     "parts": [
+      {
+       "turn": 0,
+       "start": 4,
+       "end": 13,
+       "masked": "622200**"
+      },
+      {
+       "turn": 1,
+       "start": 2,
+       "end": 13,
+       "masked": "*******8"
+      },
+      {
+       "turn": 2,
+       "start": 1,
+       "end": 4,
+       "masked": "907"
+      }
+     ],
+     "meta": {
+      "digits": 19,
+      "luhn": true,
+      "unionpay": true,
+      "bank": "中国工商银行",
+      "issuer": {
+       "bank": "中国工商银行",
+       "bankCode": "ICBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin",
+      "stitched": true
+     }
+    }
+   ]
+  },
+  {
+   "turns": [
+    "账户…6222…0000…",
+    "然后…138…0013…8007，收款人王某某"
+   ],
+   "expected": [
+    {
+     "type": "bank_card",
+     "label": "银行卡号",
+     "value": "6222000013800138007",
+     "masked": "622200*********8007",
+     "sensitive": true,
+     "confidence": 1,
+     "turns": [
+      0,
+      1
+     ],
+     "parts": [
+      {
+       "turn": 0,
+       "start": 3,
+       "end": 12,
+       "masked": "622200**"
+      },
+      {
+       "turn": 1,
+       "start": 3,
+       "end": 16,
+       "masked": "*******8007"
+      }
+     ],
+     "meta": {
+      "digits": 19,
+      "luhn": true,
+      "unionpay": true,
+      "bank": "中国工商银行",
+      "issuer": {
+       "bank": "中国工商银行",
+       "bankCode": "ICBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin",
+      "stitched": true
+     },
+     "supersedes": [
+      {
+       "turn": 1,
+       "type": "phone",
+       "value": "13800138007",
+       "start": 3,
+       "end": 16
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "turns": [
+    "座机号码…零二幺…两零零零…",
+    "嗯…零零零零"
+   ],
+   "expected": [
+    {
+     "type": "phone",
+     "label": "电话号码",
+     "value": "02120000000",
+     "masked": "021****0000",
+     "sensitive": true,
+     "confidence": 0.6,
+     "turns": [
+      0,
+      1
+     ],
+     "parts": [
+      {
+       "turn": 0,
+       "start": 5,
+       "end": 13,
+       "masked": "021****"
+      },
+      {
+       "turn": 1,
+       "start": 2,
+       "end": 6,
+       "masked": "0000"
+      }
+     ],
+     "meta": {
+      "kind": "landline",
+      "stitched": true
+     }
+    }
+   ]
+  },
+  {
+   "turns": [
+    "用 ERC20 也行：0x0123，456789ab，cdef…",
+    "嗯…0123456789，abcdef01，234567"
+   ],
+   "expected": [
+    {
+     "type": "crypto_eth",
+     "label": "ETH/ERC20 地址",
+     "value": "0x0123456789abcdef0123456789abcdef01234567",
+     "masked": "0x0123...4567",
+     "sensitive": true,
+     "confidence": 0.9,
+     "turns": [
+      0,
+      1
+     ],
+     "parts": [
+      {
+       "turn": 0,
+       "start": 11,
+       "end": 31,
+       "masked": "******************"
+      },
+      {
+       "turn": 1,
+       "start": 2,
+       "end": 28,
+       "masked": "************************"
+      }
+     ],
+     "meta": {
+      "chain": "Ethereum/EVM",
+      "stitched": true
+     }
+    }
+   ]
+  },
+  {
+   "turns": [
+    "USDT收款地址…TABCDEFGHJKLMNPQRSTUVWX…",
+    "然后…YZabcdefghi"
+   ],
+   "expected": [
+    {
+     "type": "crypto_tron",
+     "label": "TRON/TRC20 地址",
+     "value": "TABCDEFGHJKLMNPQRSTUVWXYZabcdefghi",
+     "masked": "TABC...fghi",
+     "sensitive": true,
+     "confidence": 0.9,
+     "turns": [
+      0,
+      1
+     ],
+     "parts": [
+      {
+       "turn": 0,
+       "start": 9,
+       "end": 32,
+       "masked": "***********************"
+      },
+      {
+       "turn": 1,
+       "start": 3,
+       "end": 14,
+       "masked": "***********"
+      }
+     ],
+     "meta": {
+      "chain": "TRON",
+      "stitched": true
+     }
+    }
+   ]
+  },
+  {
+   "turns": [
     "工好 151",
     "0859 5928"
    ],

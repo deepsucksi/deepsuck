@@ -628,6 +628,54 @@
    "expected": []
   },
   {
+   "text": "卡号 6222... 0000... 1234... 5678... 907，户名王某某",
+   "expected": [
+    {
+     "id": "info_harvest",
+     "match": "卡号"
+    }
+   ]
+  },
+  {
+   "text": "电话一三八...零零一三...八零零零…尾号八零零零",
+   "expected": []
+  },
+  {
+   "text": "座机…零二幺…两零零零…零零零零，打这个",
+   "expected": []
+  },
+  {
+   "text": "客服热线四零零…零零零…幺二三四",
+   "expected": [
+    {
+     "id": "cs_impersonation",
+     "match": "客服"
+    }
+   ]
+  },
+  {
+   "text": "USDT地址是…TABCD…EFGHJ…KLMNP…QRSTU…VWXYZ…abcdef…ghi",
+   "expected": [
+    {
+     "id": "crypto",
+     "match": "USDT"
+    }
+   ]
+  },
+  {
+   "text": "开奖号码是03、15、22、23、35、47，特别号码是09",
+   "expected": []
+  },
+  {
+   "text": "您尾号1234的卡涉嫌洗钱",
+   "expected": [
+    {
+     "id": "threat",
+     "match": "涉嫌"
+    }
+   ]
+  },
+  {
    "text": "您好，这边是某电商平台售后，您上周买的那件衣服质检不合格，平台要主动给您三倍赔付 380 元。",
    "expected": [
     {

@@ -9,7 +9,10 @@ site/assets/core/scam_scripts.json（据公开材料改写的真实话术语料�
   - 重复率（与之前完全相同的机器人回复）与近重复率（字符二元组 Jaccard ≥ 0.8）；
   - 泄露率（机器人回复含 ≥6 位连续数字，即可能给出真实号码/验证码；紧挨 * 的打码值数字段不计）。
 
-CLI：python -m deepsuck.sim --seeds 30 [--reveal standard|hard] [--lines corpus|legacy] [--json out.json] [--md out.md]
+--reveal halting（#8）：断续句模式，骗子按普通暴露模板报情报，但号码 / 地址用「…」「...」「，」停顿、逐位或分组读出（阿拉伯 / 中文 / 幺两混读），
+约一半的银行卡、手机号、钱包地址拆进相邻两个骗子回合（中间隔着机器人的回复），第二回合以“嗯…”“然后…”接上。
+
+CLI：python -m deepsuck.sim --seeds 30 [--reveal standard|hard|halting] [--lines corpus|legacy] [--json out.json] [--md out.md]
 Apache-2.0
 """
 from __future__ import annotations
@@ -36,6 +39,20 @@ CN = dict(zip("0123456789", "零幺二三四五六七八九"))
 NAMES = ["赵明", "钱伟", "孙丽", "李强", "周杰", "吴刚", "郑华", "冯涛"]
 WORDS = ["refund", "kefu", "gold", "vip", "task", "loan", "safe", "win", "coin", "help", "jd", "tb", "cash", "fast"]
 B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+
+def code_commit(path: Optional[Path] = None) -> Optional[str]:
+    """生成结果时的代码提交（短哈希）；工作区里除结果 JSON / 文档外有未提交改动时加 -dirty。不在 git 仓库里时返回 None。"""
+    import subprocess
+    cwd = str(path or core_dir())
+    try:
+        rev = subprocess.run(["git", "rev-parse", "--short=7", "HEAD"], cwd=cwd, capture_output=True, text=True, check=True).stdout.strip()
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=cwd, capture_output=True, text=True, check=True).stdout.strip()
+        dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no", "--", ".", ":!eval/results-*.json", ":!docs", ":!CHANGELOG.md"],
+                               cwd=top, capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return rev + ("-dirty" if dirty else "")
 
 
 def default_scripts_path() -> Path:
@@ -178,13 +195,69 @@ def _bigrams(s: str) -> set:
     return {s[i:i + 2] for i in range(len(s) - 1)} or {s}
 
 
+def _luhn_fix(d: str) -> str:
+    body, tot = d[:-1], 0
+    for i, c in enumerate(reversed(body)):
+        x = int(c) * (2 if i % 2 == 0 else 1)
+        tot += x - 9 if x > 9 else x
+    return body + str((10 - tot % 10) % 10)
+
+
+HALT_PAUSES = ("…", "……", "...", "，", "... ", "…，")
+HALT_RESUME = ("嗯…", "然后…", "…", "那个…")
+CN_HALT = dict(zip("0123456789", "零一二三四五六七八九"))
+# 断续句模式下，占位符 → (真值键, 分组方式)
+HALT_FIELDS = {"bank": ("bank", "card"), "bank_cn": ("bank", "card"), "bank_spaced": ("bank", "card"),
+               "phone": ("phone", "phone"), "phone_cn": ("phone", "phone"), "phone_dashed": ("phone", "phone"),
+               "tron": ("tron", "wallet"), "eth": ("eth", "wallet")}
+
+
+def _halt_digits(s: str, rd: "Rand", mode: str) -> str:
+    if mode == "arabic":
+        return s
+    if mode == "cn":
+        return "".join(CN_HALT[c] for c in s)
+    if mode == "yao":
+        return "".join({"1": "幺", "2": rd.choice("二两")}.get(c, CN_HALT[c]) for c in s)
+    return "".join(c if rd.random() < 0.5 else CN[c] for c in s)
+
+
+def halting_groups(value: str, how: str, rd: "Rand") -> List[str]:
+    """断续句模式：把真值切成念出来的小段（银行卡 4 位一段或逐位，手机号 3-4-4 或逐位，地址 4–8 个字符一段）。"""
+    if how == "wallet":
+        out, i = [], 0
+        while i < len(value):
+            n = 4 + rd.int(5)
+            out.append(value[i:i + n])
+            i += n
+        return out
+    mode = rd.choice(("arabic", "cn", "yao", "mix"))
+    if rd.random() < 0.3:
+        return [_halt_digits(c, rd, mode) for c in value]
+    sizes = [4, 4, 4, 4, 3] if how == "card" else [3, 4, 4]
+    out, i = [], 0
+    for n in sizes:
+        out.append(_halt_digits(value[i:i + n], rd, mode))
+        i += n
+    if i < len(value):
+        out.append(_halt_digits(value[i:], rd, mode))
+    return [g for g in out if g]
+
+
 class Scammer:
     def __init__(self, script: dict, common: dict, rd: Rand, reveal: str = "standard"):
         self.s, self.c, self.rd = script, common, rd
+        self.halting = reveal == "halting"
+        self.pending: List[str] = []  # 断续句模式：拆到下一回合再说的半句
         self.reveal_key = "revealHard" if reveal == "hard" else "reveal"
         self.stage = 0
         self.patience = 6 + rd.random() * 6
         self.values = plant(rd)
+        if self.halting:
+            # 真卡都过 Luhn，跨回合拆段的取代规则也依赖 Luhn：断续句模式把卡号末位改成校验位（不消耗随机数）
+            b = _luhn_fix(self.values["bank"])
+            self.values.update(bank=b, bank_cn=" ".join("".join(CN[c] for c in b[i:i + 4]) for i in range(0, len(b), 4)),
+                               bank_spaced=" ".join(b[i:i + 4] for i in range(0, len(b), 4)))
         self.todo = list(script["intel"])  # 还没暴露的情报类别
         self.revealed: List[tuple] = []     # (type, canon)
         self.quit_reason: Optional[str] = None
@@ -219,7 +292,32 @@ class Scammer:
                 self.revealed.append(item)
         if kind in self.todo:
             self.todo.remove(kind)
+        if self.halting:
+            return self._halting(tpl)
         return tpl.format(**self.values)
+
+    def _halting(self, tpl: str) -> str:
+        rd = self.rd
+        ph = [p for p in re.findall(r"\{(\w+)\}", tpl) if p in HALT_FIELDS]
+        if not ph:
+            return tpl.format(**self.values)
+        vals = dict(self.values)
+        key, how = HALT_FIELDS[ph[0]]
+        groups = halting_groups(self.values[key], how, rd)
+        pause = rd.choice(HALT_PAUSES)
+        for p in ph[1:]:
+            k2, h2 = HALT_FIELDS[p]
+            vals[p] = rd.choice(HALT_PAUSES).join(halting_groups(self.values[k2], h2, rd))
+        marker = "\x00"
+        vals[ph[0]] = marker
+        head, tail = tpl.format(**vals).split(marker, 1)
+        if len(groups) >= 3 and rd.random() < 0.5:
+            # 在中间三分之一处断开（每个回合至少念出几位，单独一两位的残段本来就不参与拼接）
+            lo, hi = max(1, len(groups) // 3), max(1, len(groups) - len(groups) // 3)
+            k = lo + rd.int(max(1, hi - lo))
+            self.pending.append(rd.choice(HALT_RESUME) + pause.join(groups[k:]) + tail)
+            return head + pause.join(groups[:k]) + "…"
+        return head + pause.join(groups) + tail
 
     def asked_kind(self, bot_text: str, intent: str, persona: dict) -> Optional[str]:
         if intent in ELICIT:
@@ -231,6 +329,8 @@ class Scammer:
 
     def respond(self, bot_text: str, intent: str, persona: dict, duplicate: bool) -> Optional[str]:
         rd = self.rd
+        if self.pending and not duplicate:
+            return self.pending.pop(0)  # 断续句模式：接着上一回合没说完的号码
         snap = (list(self.todo), list(self.revealed))
         prefix = ""
         if duplicate:
@@ -336,6 +436,9 @@ def run_one(scenario: str, persona: str, policy: str, seed: int, scripts: dict, 
         "revealedKinds": total_items - len(sc.todo), "totalKinds": total_items,
         "revealedItems": len(revealed), "capturedItems": len(revealed & got), "falseIntel": len(got - revealed),
         "botReplies": turns, "dup": dup, "near": near, "leaks": leaks,
+        # 按情报类型拆开（#8：账户 / 电话 / 钱包分别看召回与误报）
+        "byType": {ty: {"revealed": sum(1 for x in revealed if x[0] == ty), "captured": sum(1 for x in revealed & got if x[0] == ty),
+                        "false": sum(1 for x in got - revealed if x[0] == ty)} for ty in {x[0] for x in revealed | got}},
     }
 
 
@@ -355,7 +458,20 @@ def aggregate(rows: List[dict]) -> dict:
         "leakRate": sum(r["leaks"] for r in rows) / replies,
         "suspiciousQuit": sum(r["quit"] == "suspicious" for r in rows) / n,
         "maxTurnsHit": sum(r["quit"] == "max_turns" for r in rows) / n,
+        "byType": _by_type(rows),
     }
+
+
+def _by_type(rows: List[dict]) -> dict:
+    out: Dict[str, dict] = {}
+    for r in rows:
+        for ty, v in (r.get("byType") or {}).items():
+            o = out.setdefault(ty, {"revealed": 0, "captured": 0, "false": 0})
+            for k in o:
+                o[k] += v[k]
+    for o in out.values():
+        o["extractRate"] = o["captured"] / max(1, o["revealed"])
+    return dict(sorted(out.items()))
 
 
 def run(seeds: int = 30, policies=("rule", "random", "parrot"), scripts_path: Optional[str] = None,
@@ -367,7 +483,9 @@ def run(seeds: int = 30, policies=("rule", "random", "parrot"), scripts_path: Op
             for p in PERSONAS:
                 for k in range(seeds):
                     rows.append(run_one(sc["id"], p["id"], policy, 1000 + k, scripts, reveal=reveal))
-    out = {"config": {"seeds": seeds, "maxTurns": MAX_TURNS, "reveal": reveal, "lines": scripts.get("lines", "legacy")}, "byPolicy": {}, "byPersona": {}, "byScenario": {}}
+    out = {"config": {"seeds": seeds, "seedRange": [1000, 1000 + seeds - 1], "maxTurns": MAX_TURNS, "reveal": reveal,
+                      "lines": scripts.get("lines", "legacy"), "commit": code_commit()},
+           "byPolicy": {}, "byPersona": {}, "byScenario": {}}
     for policy in policies:
         pr = [r for r in rows if r["policy"] == policy]
         out["byPolicy"][policy] = aggregate(pr)
@@ -405,8 +523,8 @@ def main(argv=None) -> int:
     ap.add_argument("--scripts", default=None)
     ap.add_argument("--json", default=None)
     ap.add_argument("--md", default=None)
-    ap.add_argument("--reveal", choices=("standard", "hard"), default="standard",
-                    help="骗子暴露情报时的写法：standard（默认）或 hard（更难的去武装写法）")
+    ap.add_argument("--reveal", choices=("standard", "hard", "halting"), default="standard",
+                    help="骗子暴露情报时的写法：standard（默认）、hard（更难的去武装写法）或 halting（断续句：停顿、逐位读、拆进两个回合）")
     ap.add_argument("--lines", choices=("corpus", "legacy"), default="corpus",
                     help="骗子推进 / 催促台词：corpus（默认，取自 scam_scripts.json）或 legacy（eval/scammer-scripts.json 手写台词）")
     a = ap.parse_args(argv)
