@@ -21,6 +21,16 @@ test('情报库：intel.json 通过校验，且当前全部为示例数据', () 
   for (const t of ['phone', 'crypto_wallet', 'url', 'app', 'script', 'bank_card', 'name']) assert.ok(types.has(t), t);
 });
 
+test('情报库：数据许可 CC BY 4.0，署名 DeepSuck (deepsuck.si)，情报页注明并链接 DATA_LICENSE', () => {
+  assert.equal(lib.license, 'CC-BY-4.0');
+  assert.equal(lib.licenseUrl, 'https://creativecommons.org/licenses/by/4.0/legalcode');
+  assert.equal(lib.attribution, 'DeepSuck (deepsuck.si)');
+  const html = fs.readFileSync(path.join(__dirname, '../site/intel.html'), 'utf8');
+  assert.match(html, /数据以 <a [^>]*>CC BY 4\.0<\/a> 许可发布，署名：DeepSuck \(deepsuck\.si\)/);
+  assert.match(html, /href="https:\/\/github\.com\/deepsucksi\/deepsuck\/blob\/main\/DATA_LICENSE"/);
+  assert.ok(fs.existsSync(path.join(__dirname, '../DATA_LICENSE')));
+});
+
 test('示例数据使用不可能真实存在的值', () => {
   for (const e of lib.entries) {
     if (e.type === 'phone') assert.match(e.value, /^100\d{8}$/, '示例电话须使用不可分配的 100 号段');

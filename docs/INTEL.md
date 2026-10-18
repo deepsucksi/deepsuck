@@ -4,6 +4,8 @@
 
 DeepSuck 会**公开发布**它收集到的诈骗情报，让任何人都能检索、拦截与预警。
 
+**数据许可**：情报数据（`site/data/intel.json`、`intel.csv`、`intel.rss`、`intel.stix.json` 及其生成物）以 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode) 许可发布，再使用时请署名「DeepSuck (deepsuck.si)」并注明许可，详见根目录 [`DATA_LICENSE`](../DATA_LICENSE)；代码仍为 Apache-2.0。许可写在 `intel.json` 顶层的 `license` / `licenseUrl` / `attribution`、RSS 的 `<copyright>`、STIX 的 statement 标记里；CSV 为保证可直接解析不加注释行，以本文和 `DATA_LICENSE` 为准。
+
 ## 发布策略
 
 | 类型 (`type`) | 公开方式 | 示例 |
@@ -182,6 +184,7 @@ mask("id_card", "11010119900101123x")  # "110101********123X"
 - 只输出 `status: active` 的条目，申诉中（`disputed`）和已下架（`removed`）的条目不输出。
 - `value` 是库里按发布策略处理后的公开值：银行卡为 PCI 打码值（不分组），姓名和账号已打码。打码类条目如果没有通过打码校验，整次生成会失败，不会输出。
 - 输出是确定的，只依赖 `intel.json`。改了 `intel.json` 后运行 `npm run build:intel`，会重新生成 STIX、CSV 和 RSS；`python/tests/test_feeds.py` 和 `tests/intel.test.js` 会检查生成文件是否最新，并检查 CSV 与页面导出逐字节一致。
+- 许可：RSS 的 channel 带 `<copyright>`（CC BY 4.0，署名 DeepSuck (deepsuck.si)），`<description>` 里也注明；CSV 文件内不加注释行（会破坏解析），同样按 CC BY 4.0 发布，见 [`DATA_LICENSE`](../DATA_LICENSE)。
 
 ## STIX 2.1 导出（v0.5）
 
@@ -207,7 +210,7 @@ python -m deepsuck.stix 沙盒提交.json                                       
 
 - 只导出 `status: active` 的条目；`disputed` / `removed` 不导出；
 - `phone-number`、`cryptocurrency-wallet` 沿用 OpenCTI 的可观测类型命名；场景、来源、举报次数、链、示例标记以 `x_deepsuck_*` 顶层属性给出，并用 `extension-definition`（`toplevel-property-extension`）声明；
-- 标记为 TLP:WHITE（即 TLP 2.0 的 TLP:CLEAR）；ID 由条目 ID 确定性生成（UUIDv4 形式），同一输入总是得到同一输出，便于增量导入；
+- 标记为 TLP:WHITE（即 TLP 2.0 的 TLP:CLEAR）；另有一个 `definition_type: statement` 的 marking-definition（名称 `DeepSuck data license: CC BY 4.0`，声明许可、法律文本链接与署名 DeepSuck (deepsuck.si)），identity 与其余全部对象的 `object_marking_refs` 都同时引用这两个标记（沙盒提交的导出不带许可标记）；ID 由条目 ID 确定性生成（UUIDv4 形式），同一输入总是得到同一输出，便于增量导入；
 - 已用 OASIS [cti-stix-validator](https://github.com/oasis-open/cti-stix-validator)（schema 取自 [cti-stix2-json-schemas](https://github.com/oasis-open/cti-stix2-json-schemas)）校验：`Valid`，0 警告。
 
 ## 银行卡 BIN 查询（v0.5）

@@ -4,6 +4,8 @@
 - 只含公开字段（与情报页“下载 CSV”的列一致，见 site/assets/js/intel.js 的 CSV_COLS），value 用库里已按发布策略处理的值
   （银行卡为 PCI 打码值，姓名/账号已打码）；打码类条目若未通过打码校验，整次生成失败而不是输出。
 - 输出是确定的（只依赖 intel.json），可提交进仓库并由测试检查是否最新。
+- 数据许可 CC BY 4.0、署名「DeepSuck (deepsuck.si)」（见根目录 DATA_LICENSE）：RSS 写在 channel 的 <copyright> 与
+  <description> 里；CSV 不加注释行（会破坏 CSV 解析，且须与 intel.js 的 toCSV() 逐字节一致），许可在 RSS 说明与文档中注明。
 
 用法：python -m deepsuck.feeds ../site/data/intel.json --out-dir ../site/data
 """
@@ -18,6 +20,8 @@ from pathlib import Path
 from typing import Iterable, List
 from urllib.parse import urlencode
 from xml.sax.saxutils import escape
+
+from . import datalicense as DL
 
 SITE = "https://deepsuck.si"
 CSV_COLS = ["id", "example", "type", "value", "chain", "bank", "issuer", "cardType", "scenario", "tactics",
@@ -35,6 +39,12 @@ _XML_BAD = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
 
 class FeedError(ValueError):
     pass
+
+
+def check_license(lib: dict) -> None:
+    """intel.json 声明的许可须与 DATA_LICENSE 一致（未声明时按 DATA_LICENSE）。"""
+    if lib.get("license") not in (None, DL.LICENSE_ID) or lib.get("attribution") not in (None, DL.ATTRIBUTION):
+        raise FeedError(f"intel.json 的 license/attribution 应为 {DL.LICENSE_ID} / {DL.ATTRIBUTION}（见 DATA_LICENSE）")
 
 
 def public_entries(lib: dict) -> List[dict]:
@@ -125,9 +135,11 @@ def to_rss(lib: dict, entries: List[dict]) -> str:
         f"<link>{SITE}/intel.html</link>",
         f'<atom:link href="{SITE}/data/intel.rss" rel="self" type="application/rss+xml"/>',
         "<description>DeepSuck 公开诈骗情报库订阅源：只含已公开（active）条目，银行卡、姓名、个人账号均为打码值。"
-        "情报仅供参考，不能作为认定依据。</description>",
+        "情报仅供参考，不能作为认定依据。"
+        f"本订阅源与 intel.json、intel.csv、intel.stix.json 同以 {DL.LICENSE_NAME} 许可发布，"
+        f"再使用请署名：{_x(DL.ATTRIBUTION)}（{DL.LICENSE_URL}）。</description>",
         "<language>zh-cn</language>",
-        f"<copyright>{_x(lib.get('license') or 'Apache-2.0')}</copyright>",
+        f"<copyright>{_x(DL.NOTICE_ZH)}</copyright>",
         f"<lastBuildDate>{_rfc822(updated)}</lastBuildDate>",
         "<generator>deepsuck.feeds</generator>",
     ]
@@ -151,6 +163,7 @@ def to_rss(lib: dict, entries: List[dict]) -> str:
 
 def build(lib: dict) -> dict:
     """返回 {文件名: 文本}。"""
+    check_license(lib)
     entries = public_entries(lib)
     return {"intel.csv": to_csv(entries), "intel.rss": to_rss(lib, entries)}
 

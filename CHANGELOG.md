@@ -2,6 +2,14 @@
 
 ## 未发布
 
+### 情报数据改用 CC BY 4.0
+
+- 情报数据（`site/data/intel.json`、`intel.csv`、`intel.rss`、`intel.stix.json` 及其生成物）改为 CC BY 4.0 许可，署名「DeepSuck (deepsuck.si)」；新增根目录 `DATA_LICENSE`（适用范围、署名方式与 CC BY 4.0 法律文本全文）。代码仍为 Apache-2.0。
+- `intel.json` 顶层改为 `license: "CC-BY-4.0"`，新增 `licenseUrl`、`attribution`；`intel.schema.json` 把三者列为必填并固定取值。
+- STIX 导出（`python -m deepsuck.stix`）新增 statement 类型的 marking-definition `DeepSuck data license: CC BY 4.0`，identity 与其余全部对象都引用它（与 TLP:WHITE 并列）；OASIS validator `Valid`，0 警告。已导入旧版 Bundle 的平台请整包重新导入（对象的 `modified` 仍取条目日期，未因加标记而变化）。
+- RSS 的 `<copyright>` 改为 CC BY 4.0 与署名，channel 说明里注明各导出文件的许可；CSV 不加注释行（保持可解析、与页面导出逐字节一致），许可在 `DATA_LICENSE` 与 docs/INTEL.md 中注明。
+- 情报页数据区与页脚注明数据许可与署名，JSON-LD 的 Dataset `license` 改为 CC BY 4.0；情报提交模板的确认项改为按 CC BY 4.0 公开发布。
+
 ### GitHub 自动收录与公开订阅源
 
 - 新增结构化情报提交模板 `intel-intake.yml`，以及工作流 `intel-intake.yml`：解析 issue → 脱敏 → 去重 → 公开黑名单比对 → 生成更新 `intel.json` 等文件的待审核 PR，并在 issue 下回复结果。不自动合并；每个 job 单独声明最小权限；Action 锁定到 SHA；issue 正文不进入 shell。核心逻辑在 `python/deepsuck/intake.py`，测试不联网。

@@ -23,4 +23,4 @@
 
 ## 许可
 
-提交即表示你同意以 Apache-2.0 许可发布你的贡献。
+提交即表示你同意以 Apache-2.0 许可发布你的代码贡献；提交到情报库的情报数据以 CC BY 4.0 许可发布，署名「DeepSuck (deepsuck.si)」，见 [DATA_LICENSE](DATA_LICENSE)。

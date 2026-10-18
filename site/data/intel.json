@@ -2,7 +2,9 @@
   "schema": "deepsuck.intel-library/v1",
   "title": "DeepSuck 公开诈骗情报库",
   "updatedAt": "2026-10-18",
-  "license": "Apache-2.0（随仓库发布）",
+  "license": "CC-BY-4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+  "attribution": "DeepSuck (deepsuck.si)",
   "notice": "当前全部为【示例数据】（example: true），号码/地址/域名均为虚构或保留值，不对应任何真实个人或网站。真实情报将在审核后以 example: false 收录。",
   "policy": {
     "full": [

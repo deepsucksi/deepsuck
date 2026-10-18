@@ -11,6 +11,9 @@
 - 每个场景（refund / police / ...）是一个 Attack Pattern，Indicator 以 `indicates` 关系指向它；
 - ID 用 uuid5 生成、时间取自条目日期，同一份输入总是得到同一份输出（便于 diff 与增量导入）；
 - 自定义可观测类型沿用 OpenCTI 的命名：`phone-number:value`、`cryptocurrency-wallet:value`；
+- 数据许可：库导出的 Bundle 附一个 statement 类型的 marking-definition（CC BY 4.0，署名「DeepSuck (deepsuck.si)」，
+  见根目录 DATA_LICENSE），identity 与其余全部对象的 object_marking_refs 都引用它（与 TLP:WHITE 并列）；
+  沙盒提交（deepsuck.intel-submission/v1）的导出不加，提交者的数据收录进库后才按库的许可发布；
 - 安装了 stix2（`pip install stix2`，OASIS 官方库）时，用它解析、校验并序列化全部对象；未安装时退回纯标准库，输出字段一致。
 
 用法：
@@ -27,6 +30,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
+from . import datalicense as DL
 from .core import load
 
 NS = uuid.uuid5(uuid.NAMESPACE_URL, "https://deepsuck.si/stix")
@@ -42,6 +46,15 @@ TLP_WHITE = {
     "id": "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
     "created": "2017-01-20T00:00:00.000Z", "definition_type": "tlp", "name": "TLP:WHITE",
     "definition": {"tlp": "white"},
+}
+# 数据许可（CC BY 4.0）：STIX 2.1 的 statement 标记（规范 7.2.1.3），ID 确定性生成
+LICENSE_MARKING = {
+    "type": "marking-definition", "spec_version": "2.1",
+    "id": "marking-definition--" + str(uuid.UUID(bytes=uuid.uuid5(NS, "marking:data-license:" + DL.LICENSE_ID).bytes, version=4)),
+    "created": IDENTITY_CREATED, "created_by_ref": IDENTITY_ID,
+    "name": f"DeepSuck data license: {DL.LICENSE_NAME}",
+    "definition_type": "statement",
+    "definition": {"statement": f"{DL.NOTICE_EN} {DL.NOTICE_ZH} 见 {DL.LICENSE_FILE_URL}"},
 }
 FULL_TYPES = ("phone", "crypto_wallet", "url", "app")
 INDICATOR_TYPES = FULL_TYPES + ("bank_card",)
@@ -153,6 +166,24 @@ def _common(e: dict) -> dict:
     return o
 
 
+def apply_license(objs: List[dict]) -> List[dict]:
+    """在 TLP 标记后插入数据许可标记，并让 identity 与全部带 object_marking_refs 的对象引用它。"""
+    out: List[dict] = []
+    for o in objs:
+        if o["type"] == "marking-definition":
+            out.append(o)
+            if o["id"] == TLP_WHITE["id"]:
+                out.append(LICENSE_MARKING)
+            continue
+        o = dict(o)
+        refs = list(o.get("object_marking_refs") or ([TLP_WHITE["id"]] if o["type"] == "identity" else []))
+        if refs and LICENSE_MARKING["id"] not in refs:
+            refs.append(LICENSE_MARKING["id"])
+            o["object_marking_refs"] = refs
+        out.append(o)
+    return out
+
+
 def entries_to_objects(entries: List[dict], default_day: str) -> List[dict]:
     objs: List[dict] = []
     scen: Dict[str, dict] = {}
@@ -205,7 +236,9 @@ def entries_to_objects(entries: List[dict], default_day: str) -> List[dict]:
 
 
 def library_to_objects(lib: dict) -> List[dict]:
-    return entries_to_objects(lib.get("entries") or [], lib.get("updatedAt"))
+    if lib.get("license") not in (None, DL.LICENSE_ID) or lib.get("attribution") not in (None, DL.ATTRIBUTION):
+        raise ValueError(f"intel.json 的 license/attribution 应为 {DL.LICENSE_ID} / {DL.ATTRIBUTION}（见 DATA_LICENSE）")
+    return apply_license(entries_to_objects(lib.get("entries") or [], lib.get("updatedAt")))
 
 
 def submission_to_objects(sub: dict, day: Optional[str] = None) -> List[dict]:

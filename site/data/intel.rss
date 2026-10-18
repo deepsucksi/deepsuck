@@ -4,9 +4,9 @@
 <title>DeepSuck 公开诈骗情报库</title>
 <link>https://deepsuck.si/intel.html</link>
 <atom:link href="https://deepsuck.si/data/intel.rss" rel="self" type="application/rss+xml"/>
-<description>DeepSuck 公开诈骗情报库订阅源：只含已公开（active）条目，银行卡、姓名、个人账号均为打码值。情报仅供参考，不能作为认定依据。</description>
+<description>DeepSuck 公开诈骗情报库订阅源：只含已公开（active）条目，银行卡、姓名、个人账号均为打码值。情报仅供参考，不能作为认定依据。本订阅源与 intel.json、intel.csv、intel.stix.json 同以 CC BY 4.0 许可发布，再使用请署名：DeepSuck (deepsuck.si)（https://creativecommons.org/licenses/by/4.0/legalcode）。</description>
 <language>zh-cn</language>
-<copyright>Apache-2.0（随仓库发布）</copyright>
+<copyright>数据以 CC BY 4.0 许可发布，署名：DeepSuck (deepsuck.si)。许可全文：https://creativecommons.org/licenses/by/4.0/legalcode</copyright>
 <lastBuildDate>Sun, 18 Oct 2026 00:00:00 +0000</lastBuildDate>
 <generator>deepsuck.feeds</generator>
 <item>

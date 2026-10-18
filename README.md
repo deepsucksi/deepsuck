@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://github.com/deepsucksi/deepsuck/actions/workflows/pages.yml"><img alt="Pages" src="https://github.com/deepsucksi/deepsuck/actions/workflows/pages.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-161514"></a>
+  <a href="DATA_LICENSE"><img alt="Data: CC BY 4.0" src="https://img.shields.io/badge/data-CC%20BY%204.0-161514"></a>
   <a href="https://github.com/deepsucksi/deepsuck/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/deepsucksi/deepsuck?color=8a5a2b"></a>
 </p>
 
@@ -98,4 +99,6 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 
 本项目按“现状”提供，仅用于防诈研究与公众教育，不构成法律或安全建议。演示中的账号、电话、地址与网址均为虚构测试数据。提取结果可能误报或漏报，仅可作为线索参考。使用者须自行遵守所在地法律法规。
 
-[Apache License 2.0](LICENSE) © DeepSuck contributors
+- **代码**：[Apache License 2.0](LICENSE) © DeepSuck contributors
+- **情报数据**（`site/data/intel.json`、`intel.csv`、`intel.rss`、`intel.stix.json` 及其生成物）：[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode)，详见 [DATA_LICENSE](DATA_LICENSE)。再使用、改编或再发布时请署名「DeepSuck (deepsuck.si)」，附许可名称与链接，并注明是否有修改，例如：`数据来源：DeepSuck (deepsuck.si)，CC BY 4.0`。数据均已按发布策略脱敏。
+- 第三方数据（黑名单、银行卡 BIN 表等）按各自来源的许可。

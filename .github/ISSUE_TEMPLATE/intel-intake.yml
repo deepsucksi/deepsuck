@@ -125,5 +125,5 @@ body:
           required: true
         - label: 我已尽量按发布策略打码，且未包含任何受害人信息。
           required: true
-        - label: 我理解提交内容将公开发布（Apache-2.0），情报仅供参考，不作为认定依据。
+        - label: 我理解提交内容将以 CC BY 4.0 许可公开发布（署名 DeepSuck (deepsuck.si)，见 DATA_LICENSE），情报仅供参考，不作为认定依据。
           required: true

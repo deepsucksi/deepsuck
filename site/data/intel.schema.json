@@ -4,12 +4,14 @@
   "title": "DeepSuck 公开诈骗情报库 (deepsuck.intel-library/v1)",
   "description": "发布策略：phone/crypto_wallet/url/app/script 完整公开；bank_card/account/name/id_card 必须部分打码（银行卡按 PCI DSS 只露前 6 后 4）。",
   "type": "object",
-  "required": ["schema", "updatedAt", "policy", "entries"],
+  "required": ["schema", "updatedAt", "license", "licenseUrl", "attribution", "policy", "entries"],
   "properties": {
     "schema": { "const": "deepsuck.intel-library/v1" },
     "title": { "type": "string" },
     "updatedAt": { "type": "string", "format": "date" },
-    "license": { "type": "string" },
+    "license": { "const": "CC-BY-4.0", "description": "数据许可（SPDX 标识）：情报数据按 CC BY 4.0 发布，见仓库根目录 DATA_LICENSE；代码仍为 Apache-2.0" },
+    "licenseUrl": { "const": "https://creativecommons.org/licenses/by/4.0/legalcode", "description": "CC BY 4.0 法律文本" },
+    "attribution": { "const": "DeepSuck (deepsuck.si)", "description": "再使用、再发布时须保留的署名" },
     "notice": { "type": "string" },
     "policy": {
       "type": "object",

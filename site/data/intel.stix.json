@@ -1,5 +1,5 @@
 {
- "id": "bundle--1eb9f0ea-491f-4a92-b004-4b6cb9ae18fb",
+ "id": "bundle--eb2e57d9-fe7a-4577-9e7e-c677216f21cd",
  "objects": [
   {
    "contact_information": "https://github.com/deepsucksi/deepsuck",
@@ -9,6 +9,10 @@
    "identity_class": "organization",
    "modified": "2026-10-01T00:00:00.000Z",
    "name": "DeepSuck",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
+   ],
    "spec_version": "2.1",
    "type": "identity"
   },
@@ -20,6 +24,18 @@
    "definition_type": "tlp",
    "id": "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
    "name": "TLP:WHITE",
+   "spec_version": "2.1",
+   "type": "marking-definition"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "definition": {
+    "statement": "Data licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/legalcode). Attribution: DeepSuck (deepsuck.si). 数据以 CC BY 4.0 许可发布，署名：DeepSuck (deepsuck.si)。许可全文：https://creativecommons.org/licenses/by/4.0/legalcode 见 https://github.com/deepsucksi/deepsuck/blob/main/DATA_LICENSE"
+   },
+   "definition_type": "statement",
+   "id": "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835",
+   "name": "DeepSuck data license: CC BY 4.0",
    "spec_version": "2.1",
    "type": "marking-definition"
   },
@@ -44,7 +60,8 @@
    "modified": "2026-10-01T00:00:00.000Z",
    "name": "DeepSuck intel properties",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "schema": "https://github.com/deepsucksi/deepsuck/blob/main/docs/INTEL.md",
    "spec_version": "2.1",
@@ -65,7 +82,8 @@
    "modified": "2026-10-01T00:00:00.000Z",
    "name": "冒充公检法 · 安全账户",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "spec_version": "2.1",
    "type": "attack-pattern"
@@ -84,7 +102,8 @@
    "modified": "2026-10-01T00:00:00.000Z",
    "name": "冒充客服 · 退款理赔",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "spec_version": "2.1",
    "type": "attack-pattern"
@@ -103,7 +122,8 @@
    "modified": "2026-10-01T00:00:00.000Z",
    "name": "虚假贷款 · 征信修复",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "spec_version": "2.1",
    "type": "attack-pattern"
@@ -122,7 +142,8 @@
    "modified": "2026-10-01T00:00:00.000Z",
    "name": "杀猪盘 · 投资/感情",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "spec_version": "2.1",
    "type": "attack-pattern"
@@ -141,7 +162,8 @@
    "modified": "2026-10-01T00:00:00.000Z",
    "name": "刷单返利 · 做任务赚佣金",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "spec_version": "2.1",
    "type": "attack-pattern"
@@ -160,7 +182,8 @@
    "modified": "2026-10-01T00:00:00.000Z",
    "name": "注销校园贷 · 清空网贷额度",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "spec_version": "2.1",
    "type": "attack-pattern"
@@ -179,7 +202,8 @@
    "modified": "2026-10-01T00:00:00.000Z",
    "name": "冒充领导/熟人 · 借钱转账",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "spec_version": "2.1",
    "type": "attack-pattern"
@@ -213,7 +237,8 @@
    "modified": "2026-10-12T00:00:00.000Z",
    "name": "诈骗电话：10000000001",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[phone-number:value = '10000000001']",
    "pattern_type": "stix",
@@ -232,7 +257,8 @@
    "id": "relationship--51ff5ff2-84ab-493f-808d-36533581faf2",
    "modified": "2026-10-12T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--9136d0c8-52e7-45d3-a00f-d406f49d6d85",
@@ -268,7 +294,8 @@
    "modified": "2026-10-03T00:00:00.000Z",
    "name": "诈骗电话：10000000002",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[phone-number:value = '10000000002']",
    "pattern_type": "stix",
@@ -287,7 +314,8 @@
    "id": "relationship--84eea2be-fb1f-4c91-9ff6-43c9cc2c232d",
    "modified": "2026-10-03T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--9786c205-6292-4298-8d31-844bc9f0d5d2",
@@ -323,7 +351,8 @@
    "modified": "2026-10-05T00:00:00.000Z",
    "name": "诈骗电话：10000000003",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[phone-number:value = '10000000003']",
    "pattern_type": "stix",
@@ -342,7 +371,8 @@
    "id": "relationship--ebbdb43b-0f01-476d-bc67-7ad1d3feab66",
    "modified": "2026-10-05T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--35cbd671-5374-49e8-b93f-f6c40724f56b",
@@ -379,7 +409,8 @@
    "modified": "2026-10-10T00:00:00.000Z",
    "name": "加密钱包地址：TDemoExampleAddrDoNotUse0000000001",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[cryptocurrency-wallet:value = 'TDemoExampleAddrDoNotUse0000000001']",
    "pattern_type": "stix",
@@ -399,7 +430,8 @@
    "id": "relationship--24d17963-0633-4229-98e1-90701f92f138",
    "modified": "2026-10-10T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--f000171c-3026-40ff-9b79-64d4dd48ed18",
@@ -435,7 +467,8 @@
    "modified": "2026-10-02T00:00:00.000Z",
    "name": "加密钱包地址：0xdeadbeef00000000000000000000000000000001",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[cryptocurrency-wallet:value = '0xdeadbeef00000000000000000000000000000001']",
    "pattern_type": "stix",
@@ -455,7 +488,8 @@
    "id": "relationship--31e5db34-ea5c-4847-a05d-ba3dd56e88b2",
    "modified": "2026-10-02T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--137015fe-e657-4cb9-bbcc-9f9bc32fa8ca",
@@ -491,7 +525,8 @@
    "modified": "2026-10-04T00:00:00.000Z",
    "name": "诈骗网址/域名：https://refund-kefu.example/dl",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[url:value = 'https://refund-kefu.example/dl']",
    "pattern_type": "stix",
@@ -510,7 +545,8 @@
    "id": "relationship--da1d2ced-8443-41b3-b97b-ea70574cb999",
    "modified": "2026-10-04T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--21b00e81-29a1-45ec-9864-d8150e6fbb2b",
@@ -546,7 +582,8 @@
    "modified": "2026-10-06T00:00:00.000Z",
    "name": "诈骗网址/域名：http://gaj-case-query.example/case",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[url:value = 'http://gaj-case-query.example/case']",
    "pattern_type": "stix",
@@ -565,7 +602,8 @@
    "id": "relationship--7c255111-0219-41fc-b486-b3c190adaf1a",
    "modified": "2026-10-06T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--46b46584-0723-4e34-81e1-1e90e0b44242",
@@ -601,7 +639,8 @@
    "modified": "2026-10-08T00:00:00.000Z",
    "name": "诈骗网址/域名：https://task-fanli.example/app",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[url:value = 'https://task-fanli.example/app']",
    "pattern_type": "stix",
@@ -620,7 +659,8 @@
    "id": "relationship--c095c0fb-dc4b-4538-ad9e-c718e985a0bd",
    "modified": "2026-10-08T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--5d4853e0-6078-4228-ab6e-f58999255312",
@@ -656,7 +696,8 @@
    "modified": "2026-10-04T00:00:00.000Z",
    "name": "APP/平台名称：示例·安心退",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[software:name = '示例·安心退']",
    "pattern_type": "stix",
@@ -675,7 +716,8 @@
    "id": "relationship--d9dc9f7e-5bd1-4b0a-aa7d-375e6997b2c7",
    "modified": "2026-10-04T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--613f204a-3f66-4198-a0f2-58ff5799d03a",
@@ -710,7 +752,8 @@
    "modified": "2026-10-08T00:00:00.000Z",
    "name": "APP/平台名称：示例·星辰任务",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[software:name = '示例·星辰任务']",
    "pattern_type": "stix",
@@ -729,7 +772,8 @@
    "id": "relationship--7ade9126-663d-42a5-bec8-a8566707e4c7",
    "modified": "2026-10-08T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--b17153cd-b5c4-4f07-a4e3-b4130b480c68",
@@ -765,7 +809,8 @@
    "modified": "2026-10-01T00:00:00.000Z",
    "name": "收款银行卡：622202*********0001（中国工商银行 · 借记卡）",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[payment-card:card_number LIKE '622202_________0001']",
    "pattern_type": "stix",
@@ -787,7 +832,8 @@
    "id": "relationship--f16ea5d5-f790-47dd-837f-0ddf1bf05d60",
    "modified": "2026-10-01T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--2dffb429-c12e-4add-9989-e3fdb63463d8",
@@ -823,7 +869,8 @@
    "modified": "2026-10-09T00:00:00.000Z",
    "name": "收款银行卡：622848*********0002（中国农业银行 · 借记卡）",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "pattern": "[payment-card:card_number LIKE '622848_________0002']",
    "pattern_type": "stix",
@@ -845,7 +892,8 @@
    "id": "relationship--8f9a512a-cfb5-4314-acc0-d957982fba31",
    "modified": "2026-10-09T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--2740b86b-67bf-4abc-b9ef-080f13c01e90",
@@ -880,7 +928,8 @@
    ],
    "modified": "2026-09-20T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "object_refs": [
     "attack-pattern--074748d5-a5b5-40ab-af8b-48ab064e2d33"
@@ -918,7 +967,8 @@
    ],
    "modified": "2026-09-22T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "object_refs": [
     "attack-pattern--a3c8339a-6f98-4e92-b810-51b77b73e31b"
@@ -957,7 +1007,8 @@
    ],
    "modified": "2026-09-25T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "object_refs": [
     "attack-pattern--1e01b822-a59f-4dfc-84d8-d4e789ac9ac0"
@@ -996,7 +1047,8 @@
    ],
    "modified": "2026-09-26T00:00:00.000Z",
    "object_marking_refs": [
-    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+    "marking-definition--a59dbe76-4ee8-4efa-9244-3bba75a97835"
    ],
    "object_refs": [
     "attack-pattern--7390f45f-1729-49d5-bd7b-8595f7587ceb"

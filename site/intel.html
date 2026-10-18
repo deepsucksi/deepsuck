@@ -26,7 +26,7 @@
 {"@context":"https://schema.org","@type":"Dataset","name":"DeepSuck 公开诈骗情报库","alternateName":"DeepSuck public scam intel library",
 "description":"诈骗电话、加密钱包地址、诈骗网址/APP 与话术模式；银行卡号与姓名部分打码。当前为示例数据，真实情报经审核后收录。",
 "url":"https://deepsuck.si/intel.html","inLanguage":"zh-CN","isAccessibleForFree":true,
-"license":"https://www.apache.org/licenses/LICENSE-2.0",
+"license":"https://creativecommons.org/licenses/by/4.0/","creditText":"DeepSuck (deepsuck.si)",
 "keywords":["反诈","诈骗电话","钓鱼网址","加密货币钱包","scam intelligence"],
 "creator":{"@type":"Organization","name":"DeepSuck contributors","url":"https://github.com/deepsucksi/deepsuck"},
 "distribution":[{"@type":"DataDownload","encodingFormat":"application/json","contentUrl":"https://deepsuck.si/data/intel.json"},{"@type":"DataDownload","name":"STIX 2.1 bundle","encodingFormat":"application/stix+json","contentUrl":"https://deepsuck.si/data/intel.stix.json"},{"@type":"DataDownload","name":"CSV（公开条目）","encodingFormat":"text/csv","contentUrl":"https://deepsuck.si/data/intel.csv"}],
@@ -80,6 +80,7 @@
   <div class="intel-grid" id="results"></div>
   <div class="more"><button class="btn" id="moreBtn" type="button" hidden>显示更多</button></div>
   <p class="note">完整数据：<a href="data/intel.json">data/intel.json</a> · STIX 2.1：<a href="data/intel.stix.json">data/intel.stix.json</a>（不含姓名/账号/身份证，银行卡为打码值）· 订阅：<a href="data/intel.rss">RSS</a> · <a href="data/intel.csv">CSV</a>（只含公开中的条目）· 格式定义：<a href="data/intel.schema.json">data/intel.schema.json</a>（<code>deepsuck.intel-library/v1</code>）· 下载按钮导出的是当前筛选结果。</p>
+  <p class="note" id="dataLicense">数据以 <a href="https://creativecommons.org/licenses/by/4.0/legalcode" target="_blank" rel="noopener license">CC BY 4.0</a> 许可发布，署名：DeepSuck (deepsuck.si) · 详见 <a href="https://github.com/deepsucksi/deepsuck/blob/main/DATA_LICENSE" target="_blank" rel="noopener">DATA_LICENSE</a>（代码仍为 Apache-2.0）</p>
 
   <section id="policy">
     <h2>发布策略</h2>
@@ -150,7 +151,7 @@
 
 <footer>
   <div class="wrap">
-    <span>DeepSuck · Apache-2.0 · 仅用于防诈研究与教育</span>
+    <span>DeepSuck · 代码 Apache-2.0 · 数据 <a href="https://github.com/deepsucksi/deepsuck/blob/main/DATA_LICENSE" target="_blank" rel="noopener">CC BY 4.0</a> · 仅用于防诈研究与教育</span>
     <span>遇到诈骗请拨打 110 / 96110</span>
     <a href="./">返回首页</a>
     <a href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">GitHub</a>
