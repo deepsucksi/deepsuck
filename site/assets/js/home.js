@@ -1,17 +1,17 @@
 /*! DeepSuck — home.js：首页 R11 版式的人设轮播、提取结果表与语音演示入口（纯展示，不含业务逻辑）。
- *  台词一律读 hero-chat.js 的 SCRIPTS（正式首页示例对话）；本文件不写任何台词，
- *  唯一例外是没有首页示例的郑老板，用 personas/prompts/shop_owner.yaml 的 sample_lines 原句。Apache-2.0 */
+ *  台词一律读 hero-chat.js 的 SCRIPTS（正式首页示例对话）；本文件不写任何台词。Apache-2.0 */
 (function () {
   'use strict';
   var SCRIPTS = (window.DeepSuckHero && window.DeepSuckHero.SCRIPTS) || [];
   var $ = function (id) { return document.getElementById(id); };
+  // 剧本类型 → 语音/沙盒场景 id；查不到（如「冒充供应商」）时人设卡链到不带场景参数的 demo.html
   var SCENARIO = { '冒充客服': 'refund', '冒充公检法': 'police', '杀猪盘': 'pig', '刷单返利': 'task', '虚假贷款': 'loan', '冒充领导': 'boss', '注销校园贷': 'campus' };
   // 人设 id / 名字取自 personas/prompts/*.yaml
   var CAST = [
-    { id: 'retiree', name: '周伯' },
+    { id: 'retiree', name: '王阿姨' },
     { id: 'mom', name: '小陈妈妈' },
     { id: 'graduate', name: '小宇' },
-    { id: 'shop_owner', name: '郑老板', reply: '你把账户发过来嘛 会计明天来了我让她弄' } // shop_owner.yaml sample_lines[2]
+    { id: 'shop_owner', name: '郑老板' }
   ];
   function scriptFor(name) {
     for (var i = 0; i < SCRIPTS.length; i++) { var t = String(SCRIPTS[i].title || ''); if (t.slice(-name.length - 3) === ' · ' + name) return SCRIPTS[i]; }
