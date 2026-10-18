@@ -2,9 +2,10 @@
 
 默认关闭。需要同时设置：
   VOICE_TELEPHONY=1                启用电话入口
-  VOICE_TELEPHONY_TOKEN=<随机串>   桥接方必须带 ?token=... 或 Authorization: Bearer ...（常量时间比较）
+  VOICE_TELEPHONY_TOKEN=<随机串>   桥接方必须带 ?token=...、Authorization: Bearer ... 或 HTTP Basic（密码 = token），
+                                   常量时间比较；推荐用请求头，?token= 会出现在访问日志里
 可选：
-  VOICE_TELEPHONY_ADAPTERS=ws-raw,pipecat-ws   允许的适配器（默认只开 ws-raw）
+  VOICE_TELEPHONY_ADAPTERS=ws-raw,pipecat-ws,asterisk-ws   允许的适配器（默认只开 ws-raw）
   VOICE_TELEPHONY_PERSONA=wang / VOICE_TELEPHONY_SCENARIO=refund
   VOICE_AI_DISCLOSURE=1 / VOICE_AI_DISCLOSURE_TEXT=...   开场 AI 告知语（默认不播；与网页入口共用，见 voice/disclosure.py）
   KEEP_AUDIO / KEEP_AUDIO_DAYS / VOICE_TRANSCRIPTS ...    通话留存（默认只留脱敏文字记录，见 voice/records.py）
@@ -15,6 +16,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import hmac
 import os
 import time
@@ -54,6 +57,13 @@ def token_ok(websocket) -> bool:
     auth = websocket.headers.get("authorization", "")
     if not got and auth.lower().startswith("bearer "):
         got = auth[7:].strip()
+    elif not got and auth.lower().startswith("basic "):
+        # Asterisk websocket_client 只会发 HTTP Basic（username/password）：密码就是 token，用户名不校验。
+        # 比 ?token= 好的地方是 token 不会出现在 uvicorn 访问日志的 URL 里
+        try:
+            got = base64.b64decode(auth[6:].strip(), validate=True).decode("utf-8").partition(":")[2]
+        except (binascii.Error, UnicodeDecodeError, ValueError):
+            got = ""
     return bool(got) and hmac.compare_digest(got.encode(), want.encode())
 
 

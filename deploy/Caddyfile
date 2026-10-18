@@ -31,6 +31,10 @@
 	handle /api/health {
 		reverse_proxy 127.0.0.1:8787
 	}
+	# 自建 SIP 的 Asterisk 只从本机回环连 voice，这个入口不对公网开放
+	handle /telephony/asterisk-ws* {
+		respond 404
+	}
 	# 其余（含 VOICE_TELEPHONY=1 时的 WS /telephony/*）都交给语音服务
 	handle {
 		reverse_proxy 127.0.0.1:7860

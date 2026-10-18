@@ -9,4 +9,4 @@
 默认不启用；只接听、不外呼。见 voice/telephony/README.md。
 """
 from .base import CallInfo, TelephonyAdapter, get_adapter, list_adapters, register_adapter  # noqa: F401
-from . import ws_raw, pipecat_ws  # noqa: F401,E402  注册内置适配器
+from . import ws_raw, pipecat_ws, asterisk_ws  # noqa: F401,E402  注册内置适配器

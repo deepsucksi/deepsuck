@@ -1,11 +1,12 @@
 # DeepSuck 实时服务：Caddy（HTTPS）+ Node 大模型代理 + Pipecat 语音演示（+ 可选 coturn）。
 #   cd deploy && cp .env.example .env && 编辑 .env && docker compose up -d --build
 #   可选 TURN：docker compose --profile turn up -d
+#   可选自建 SIP 软电话（手机 Linphone/Zoiper 拨分机 → AI，docs/PHONE.md 第 10 节）：docker compose --profile sip up -d
 # 全部使用 host 网络：WebRTC 需要服务器真实 UDP 端口（VOICE_UDP_PORTS），host 网络最省内存也最少 NAT 坑。
 # 只有 proxy / voice 读取 .env（含 Key）；caddy、coturn 只拿到各自需要的变量。
 # LIVE_DOMAIN、ACME_EMAIL 必填（没有默认值），缺了 docker compose 直接报错退出，避免拿别人的域名/邮箱去申请证书。
 # 电话入口、AI 告知语、原始录音默认全部关闭，开关见 .env.example 与 docs/PHONE.md 第 6 节。
-# 应用只监听 127.0.0.1，对外只有 Caddy 的 80/443 和语音的 UDP 端口段。
+# 应用只监听 127.0.0.1，对外只有 Caddy 的 80/443 和语音的 UDP 端口段（开了 sip profile 再加 SIP 信令端口）。
 name: deepsuck
 
 x-common: &common
@@ -91,6 +92,47 @@ services:
       --allowed-peer-ip=${PRIVATE_IP} --denied-peer-ip=0.0.0.0-255.255.255.255
       --total-quota=${TURN_TOTAL_QUOTA:-6} --user-quota=2 --max-bps=${TURN_MAX_BPS:-200000} --stale-nonce=600
     mem_limit: 64m
+
+  # 可选：自建 SIP 软电话接入（零成本演示）。默认不启动；只让自己手机上的 SIP 软电话注册后拨一个分机跟 AI 对话。
+  # Asterisk 22（andrius/asterisk 官方 Alpine 包镜像，免编译）+ chan_websocket：Asterisk 主动连本机 voice 的
+  # WS /telephony/asterisk-ws（带 VOICE_TELEPHONY_TOKEN），不经过 Caddy、不对公网暴露。
+  # 没有任何外线/中继/外呼；只有一个分机账号、一个 AI 分机；AMI/ARI/HTTP 全部关闭（modules.conf 白名单加载）。
+  # 缺 SIP_PASSWORD 等必填项时 entrypoint 拒绝启动（见 deploy/sip/entrypoint.sh）。
+  # RTP 与网页语音共用服务器已开的 UDP 40000-40199：开 sip 时把 VOICE_UDP_PORTS 改成 40000-40099，SIP_RTP_PORTS 用 40100-40199。
+  sip:
+    <<: *common
+    profiles: [ "sip" ]
+    image: andrius/asterisk:22.11.0-alpine-3.24
+    entrypoint: [ "/deepsuck/entrypoint.sh" ]
+    command: [ "/usr/sbin/asterisk", "-f", "-n", "-U", "asterisk", "-G", "asterisk" ]
+    environment:
+      SIP_USER: ${SIP_USER:-}
+      SIP_PASSWORD: ${SIP_PASSWORD:-}
+      SIP_PORT: ${SIP_PORT:-25060}
+      SIP_TCP: ${SIP_TCP:-0}
+      SIP_AI_EXTEN: ${SIP_AI_EXTEN:-9000}
+      SIP_RTP_PORTS: ${SIP_RTP_PORTS:-40100-40199}
+      SIP_MAX_CALLS: ${SIP_MAX_CALLS:-1}
+      SIP_CODECS: ${SIP_CODECS:-opus,g722,ulaw,alaw}
+      SIP_ALLOW_CIDR: ${SIP_ALLOW_CIDR:-}
+      SIP_PUBLIC_IP: ${SIP_PUBLIC_IP:-}
+      VOICE_PUBLIC_IP: ${VOICE_PUBLIC_IP:-}
+      SIP_VOICE_URL: ws://127.0.0.1:7860
+      VOICE_TELEPHONY: ${VOICE_TELEPHONY:-0}
+      VOICE_TELEPHONY_TOKEN: ${VOICE_TELEPHONY_TOKEN:-}
+      VOICE_TELEPHONY_ADAPTERS: ${VOICE_TELEPHONY_ADAPTERS:-ws-raw}
+      VOICE_MAX_MINUTES: ${VOICE_MAX_MINUTES:-5}
+      ASTERISK_TERMINAL_OPTS: "-n"
+    volumes:
+      - ./sip:/deepsuck:ro
+      # security 日志落到宿主机，给 fail2ban（bootstrap.sh WITH_SIP=1 时安装）读取
+      - ${SIP_LOG_DIR:-/var/log/deepsuck-sip}:/var/log/asterisk
+    cap_drop: [ ALL ]
+    cap_add: [ CHOWN, SETUID, SETGID, DAC_OVERRIDE, FOWNER ]
+    security_opt: [ "no-new-privileges:true" ]
+    mem_limit: ${SIP_MEM_LIMIT:-64m}
+    pids_limit: 256
+    depends_on: [ voice ]
 
 volumes:
   proxy-data: {}

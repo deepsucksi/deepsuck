@@ -2,6 +2,13 @@
 
 ## 未发布
 
+### 自建 SIP 软电话接入（零成本演示）
+
+- `deploy/` 新增默认关闭的 `sip` profile：Asterisk 22（`andrius/asterisk:22.11.0-alpine-3.24`，免编译）+ chan_websocket，手机 Linphone/Zoiper 注册后拨一个分机即可跟 AI 通话。只是演示用的分机，不是电话号码，没有外线、没有外呼。见 docs/PHONE.md 第 10 节。
+- 新增电话适配器 `asterisk-ws`（`voice/telephony/asterisk_ws.py`），复用 `ws-raw` 的编解码与重采样；电话入口 token 新增 HTTP Basic 方式（Asterisk 用它，token 不进访问日志的 URL）。
+- 安全：账号密码只从环境变量读取，缺失或太弱拒绝启动；只允许认证呼入、只有一个分机；模块白名单加载，AMI/ARI/HTTP 关闭；非 5060 端口；fail2ban 防暴力注册；Caddy 屏蔽 `/telephony/asterisk-ws*`；容器内存上限 64 MB（实测空闲约 6 MB）。
+- `bootstrap.sh` 新增 `WITH_SIP=1`（自动生成账号密码、打开电话入口、拆分 UDP 端口段、装 fail2ban/logrotate）；开 SIP 时网页语音改用 UDP 40000–40099，SIP RTP 用 40100–40199。
+
 ### 语料与人设框架（v0.1）
 
 - 新增 `corpus/`：来源与脱敏原则（不收集真实个人身份信息、引用一律改写、仅限防御研究与教育）；`corpus/SOURCES.md` 调研可复用的公开数据集与 scam-baiting 项目（链接、许可证、能否入库）；`corpus/scripts/` 7 类话术库 YAML（冒充客服、冒充公检法、冒充领导熟人、杀猪盘、刷单返利、投资理财、贷款征信），含流程阶段、常用词、施压手法、识别要点和改写示例，情报一律用 `{占位符}`。

@@ -49,6 +49,9 @@
 | **40000–40199** | **UDP** | **WebRTC 音频（`VOICE_UDP_PORTS`）** | 是 |
 | 3478 | TCP+UDP | TURN（仅启用 coturn 时） | 可选 |
 | 49160–49200 | UDP | TURN 中继端口（仅启用 coturn 时） | 可选 |
+| 25060（`SIP_PORT`） | UDP（`SIP_TCP=1` 时另加 TCP） | 自建 SIP 软电话信令（仅 `WITH_SIP=1` / `--profile sip`，[PHONE.md 第 10 节](PHONE.md)） | 可选 |
+
+开自建 SIP 时，40000–40199 拆成两段：40000–40099 给网页语音（`VOICE_UDP_PORTS`），40100–40199 给 SIP 的 RTP（`SIP_RTP_PORTS`），防火墙规则不用改。
 
 ### 需要 TURN 吗？——默认**不需要**
 

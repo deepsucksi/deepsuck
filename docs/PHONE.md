@@ -1,6 +1,6 @@
 # DeepSuck 电话接入方案
 
-> 现状（2026-10-18）：`voice/telephony/` 已有电话接入适配层（`ws-raw`、`pipecat-ws`），**默认关闭，只接听、不外呼**；项目没有购买任何号码；`deploy/` 已带电话入口开关（默认关闭）。本文回答“用什么云原生线路把骗子电话的**原始音频**接进来”，并整理所有电话相关环境变量。
+> 现状（2026-10-18）：`voice/telephony/` 已有电话接入适配层（`ws-raw`、`pipecat-ws`、`asterisk-ws`），**默认关闭，只接听、不外呼**；项目没有购买任何号码；`deploy/` 已带电话入口开关（默认关闭），并新增默认关闭的自建 SIP 软电话 profile（第 10 节，零成本，只用于自己手机演示）。本文回答“用什么云原生线路把骗子电话的**原始音频**接进来”，并整理所有电话相关环境变量。
 >
 > 价格只写从官方页面查到的数字，并注明链接与查询日期（全部为 **2026-10-18** 查询）；官方页查不到的写“未公开/需咨询”。标注“需实测”的是推断或社区经验，不是官方承诺。
 
@@ -15,6 +15,7 @@
 7. 录音与告知语策略
 8. 合规边界
 9. 待验证
+10. 自建 SIP 软电话接入（零成本）
 
 ---
 
@@ -25,6 +26,7 @@
 - **跨境转接走不通**：中国移动、中国电信官方页写明呼叫转移不能转到境外（含港澳台）号码；中国联通公开官方页查不到，待咨询 10010（第 3.1 节）。所以“手机呼转到海外号码”不能作为方案。
 - **推荐（第 4 节）**：长期走**阿里云语音 SIP 中继（需企业主体；号码 35 元/月，呼入 0.11 元/分钟）→ SIP 网关 → `ws-raw` → 现有管线**；当前没有企业主体时，只用**海外号码接 `pipecat-ws` 做联调演示**，不接真实转入电话。**容联云通讯个人开发者**列为待咨询候选。
 - 项目只用云原生接入，不用实体 SIM、4G 模组或旧手机，相关方案见第 5 节“已排除方案”。
+- **零成本演示（第 10 节）**：`deploy/` 新增默认关闭的 `sip` profile（Asterisk 22 + chan_websocket → `asterisk-ws` 适配器），自己手机上的 Linphone/Zoiper 注册后拨一个分机就能用电话音质跟 AI 对话，不花号码费。它**不是电话号码**：没有接入任何运营商或外线，骗子打不进来，也不能被呼叫转移，只能自己演示、调延迟和打断。
 
 ---
 
@@ -121,6 +123,7 @@
 | **长期：主号呼转 → 阿里云语音 SIP 中继号 → SIP 网关 → `ws-raw`** | 生产主线；**需企业主体**、阿里云邀约 | 号码 35 元 [A1] | 呼入 0.11 元 [A1] + 呼转约 0.1 元 [M3][C1] + AI 0.045 元 | 约 50.3 元 + 云主机 |
 | **当前：海外号码 → `pipecat-ws`** | **仅联调演示**，直接拨打海外号码测试；不接大陆转入电话 | Plivo $0.50 / Telnyx $1.00 / Twilio $1.15 | Plivo $0.0055；Telnyx $0.0087；Twilio $0.0129（含媒体流） | Plivo 约 $0.83；Telnyx 约 $1.52；Twilio 约 $1.92（另加 AI 约 2.7 元） |
 | 待咨询候选：容联云通讯（个人开发者） | 有个人开发者认证 [R1]，但呼入/号码与原始媒体流是否对个人开放未公开 | 未公开/需咨询 | 未公开/需咨询 | 无法估算 |
+| **演示：自建 SIP 软电话 → Asterisk → `asterisk-ws`（第 10 节）** | **个体户/个人现在就能用**；只能自己手机软电话拨分机，不是真实号码，骗子打不进来 | 0（复用现有服务器，多占约 20 MB 内存） | 只有 AI 费用约 0.045 元 + 手机流量 | 约 2.7 元（仅 AI） |
 
 计算：长期 = 35 + 60 × (0.11 + 0.1 + 0.045) = 50.3 元；Twilio = 1.15 + 60 × (0.0085 + 0.0044) = $1.92；Telnyx = 1.00 + 60 × (0.002 + 0.0032 + 0.0035) ≈ $1.52；Plivo = 0.50 + 60 × 0.0055 = $0.83。
 
@@ -129,6 +132,7 @@
 1. **阿里云 SIP 中继是唯一查到的、能拿到原始媒体流的国内正规线路**，号码是国内号码，用户手机可以呼转过去（是否会被当作 IP 电话拒绝、主叫号码是否保留需实测，见第 9 节）。与浏览器版共用一套管线，可上云扩容。前提是企业资质和阿里云邀约，个人做不了。
 2. **海外号码只做联调演示**：几美元就能端到端验证电话链路（8 kHz 编解码、打断、挂断、延迟），`pipecat-ws` 已支持 Twilio/Telnyx/Plivo。但大陆号码转不过去（移动、电信不能转境外，联通待咨询），境外打入时主叫号码还可能显示为匿名 [W4]，不能作为接骗子电话的生产线路。
 3. **容联云通讯个人开发者**是目前唯一可能面向个人的国内候选，需要先向官方咨询个人能否开通呼入号码、能否把媒体流交给自建服务，再决定是否投入。
+4. **在没有企业主体之前，演示和调参用自建 SIP 软电话（第 10 节）**：零成本、国内手机直接能用、走真实的 SIP/RTP 和电话编解码（Opus/G.722/G.711），能验证电话链路上的延迟、打断和挂断，比海外号码更省事。但它只是“自己的手机软电话拨进自己的服务器”，**不能接骗子来电**；拿到企业主体后，阿里云 SIP 中继可以接到同一台 Asterisk（加一个中继端点和号码路由），后面的 `asterisk-ws` 与管线不用改，那是另一项工作。
 
 ### 4.2 管线
 
@@ -167,8 +171,8 @@
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `VOICE_TELEPHONY` | `0` | `1` 才挂载 `WS /telephony/{adapter}` |
-| `VOICE_TELEPHONY_TOKEN` | 空 | **必填**；为空时即使 `VOICE_TELEPHONY=1` 也拒绝连接。桥接方带 `?token=` 或 `Authorization: Bearer` |
-| `VOICE_TELEPHONY_ADAPTERS` | `ws-raw` | 允许的适配器，逗号分隔：`ws-raw`、`pipecat-ws` |
+| `VOICE_TELEPHONY_TOKEN` | 空 | **必填**；为空时即使 `VOICE_TELEPHONY=1` 也拒绝连接。桥接方带 `?token=`、`Authorization: Bearer` 或 HTTP Basic（密码 = token；Asterisk 用这种）。推荐用请求头：`?token=` 会出现在访问日志的 URL 里 |
+| `VOICE_TELEPHONY_ADAPTERS` | `ws-raw` | 允许的适配器，逗号分隔：`ws-raw`、`pipecat-ws`、`asterisk-ws`（自建 SIP，第 10 节） |
 | `VOICE_TELEPHONY_PERSONA` | `wang` | 电话默认人设 |
 | `VOICE_TELEPHONY_SCENARIO` | `refund` | 电话默认场景 |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | 空 | 仅 `pipecat-ws` + Twilio，用于 REST 挂断 |
@@ -196,6 +200,28 @@
 
 清理在服务启动时执行一次，之后每小时一次。关掉 `KEEP_AUDIO` 后，已有音频照样按期删除。
 
+### 6.4 自建 SIP 软电话（`docker compose --profile sip`，第 10 节）
+
+只有 `sip` 容器读取这些变量（它不读整份 `.env`，拿不到 `DASHSCOPE_API_KEY`）。开启前提：`VOICE_TELEPHONY=1`、`VOICE_TELEPHONY_TOKEN` 已设、`VOICE_TELEPHONY_ADAPTERS` 含 `asterisk-ws`，否则 `sip` 容器拒绝启动。`bootstrap.sh` 用 `WITH_SIP=1` 会自动补齐。
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `SIP_USER` | 空 | **必填**。手机软电话的分机账号，3–32 位字母/数字/`_.-`；建议不好猜（bootstrap 生成 `ds` + 8 位随机十六进制） |
+| `SIP_PASSWORD` | 空 | **必填**，至少 16 位，只能含字母/数字/`._~+=-`；为空、太短或与账号相同时拒绝启动（bootstrap 生成 32 位随机十六进制） |
+| `SIP_PORT` | `25060` | SIP 信令端口（UDP）；不要用 5060 |
+| `SIP_TCP` | `0` | `1` 时同一端口再开 SIP over TCP |
+| `SIP_AI_EXTEN` | `9000` | 唯一能接通 AI 的分机号（3–8 位数字）；拨其他号码一律 404 |
+| `SIP_RTP_PORTS` | `40100-40199` | Asterisk 的 RTP 端口段；开 SIP 时 `VOICE_UDP_PORTS` 改成 `40000-40099`，两段不重叠 |
+| `SIP_MAX_CALLS` | `1` | 同时通话数（1–9），超出回 486 忙；voice 侧的并发、预算、时长护栏照常生效 |
+| `SIP_CODECS` | `opus,g722,ulaw,alaw` | 手机侧允许的编码（按优先级）；进 voice 前统一转成 16 kHz 线性 PCM |
+| `SIP_ALLOW_CIDR` | 空 | 可选，只允许这些来源 IPv4 段注册/呼叫（逗号分隔 CIDR），其余 403；留空不限制 |
+| `SIP_PUBLIC_IP` | 空 | 可选，SDP 和 Contact 里写的公网 IP；留空用 `VOICE_PUBLIC_IP` |
+| `SIP_LOG_DIR` | `/var/log/deepsuck-sip` | 宿主机上的 Asterisk security 日志目录（fail2ban 读取） |
+| `SIP_MEM_LIMIT` | `64m` | `sip` 容器内存上限 |
+| `VOICE_UDP_PORTS` | `40000-40199` | 已有变量；开 SIP 时改为 `40000-40099` |
+
+bootstrap 开关：`WITH_SIP=1`（启用 `sip` profile、补齐上面的变量、装 fail2ban 与 logrotate），`SKIP_FAIL2BAN=1`（不装 fail2ban）。
+
 ---
 
 ## 7. 录音与告知语策略（已实现）
@@ -219,6 +245,150 @@
 - [ ] 呼转到阿里云语音中继号这类固话格式号码是否被当作 IP 电话拒绝
 - [ ] Android 拦截/拒接是否触发遇忙转移（按品牌、运营商）；iPhone 静音未知来电 + 无应答转移的实际时长
 - [ ] 容联云通讯（待咨询候选）：个人开发者能否开通呼入号码、能否向自建服务输出原始媒体流、价格；腾讯云联络中心能否输出媒体流
+- [ ] 自建 SIP 软电话（第 10 节）：在真实服务器上用 Linphone/Zoiper 经 4G/5G 和家用 Wi-Fi 各打一次，确认双向有声、无单通；测运营商 NAT 下注册保持（`qualify_frequency=30`）
+
+---
+
+## 10. 自建 SIP 软电话接入（零成本）
+
+> 定位：**只让自己手机上的 SIP 软电话拨进来演示**。它不是电话号码，没有接入任何运营商、中继或外线，骗子打不进来，也不能被手机呼叫转移过来；接真实骗子来电仍要走第 4 节的 SIP 中继（需企业主体）。默认关闭。
+
+### 10.1 架构
+
+```
+手机 Linphone / Zoiper（注册分机 SIP_USER，拨 SIP_AI_EXTEN）
+   │  SIP 信令：UDP SIP_PORT（默认 25060；可选同端口 TCP）
+   │  RTP 媒体：UDP 40100-40199（Opus / G.722 / PCMU / PCMA）
+   ▼
+sip 容器：Asterisk 22（andrius/asterisk:22.11.0-alpine-3.24，host 网络）
+   │  PJSIP 摘要认证 → 拨号计划 deepsuck-in：只有一个分机
+   │  Dial(WebSocket/deepsuck/c(slin16)f(json))   ← chan_websocket，Asterisk 负责抖动缓冲、转码和 20 ms 定时
+   │  WebSocket 客户端 → ws://127.0.0.1:7860/telephony/asterisk-ws（HTTP Basic，密码 = VOICE_TELEPHONY_TOKEN）
+   ▼
+voice 容器：TelephonyAdapter "asterisk-ws"（复用 ws-raw 的编解码/重采样）→ 与网页、电话共用的同一条管线
+   Silero VAD → Paraformer ASR → 拖延策略 + qwen-plus → CosyVoice TTS → 回到 Asterisk → 手机
+```
+
+- 不经过 Caddy：Asterisk 和 voice 都在 host 网络，走本机回环；Caddyfile 对公网请求 `/telephony/asterisk-ws*` 一律回 404。
+- `asterisk-ws` 适配器（`voice/telephony/asterisk_ws.py`）解析 chan_websocket 的 `MEDIA_START`（JSON 格式），音频按 `optimal_frame_size` 整帧回送；打断时发 `FLUSH_MEDIA`，结束或护栏触发时发 `HANGUP`；DTMF 走 `DTMF_END`。默认用 `slin16`（16 kHz 线性 PCM），进管线不用重采样；也支持 `slin`、`ulaw`、`alaw`。
+- 每通电话照常受 `VOICE_MAX_SESSIONS`、`VOICE_DAILY_BUDGET_CNY`、时长/轮数/静默护栏约束，结束后按第 7 节留存脱敏文字记录。
+
+### 10.2 为什么选 Asterisk + chan_websocket
+
+| 方案 | 镜像 | 音频回放 | 是否要编译 | 结论 |
+|---|---|---|---|---|
+| **Asterisk 22 + chan_websocket**（本方案） | `andrius/asterisk` Alpine 版，压缩约 25 MB，直接拉；内置 `chan_websocket`、`res_websocket_client`、开源 Opus 编解码 | 双向：二进制帧收发，Asterisk 自动重新分帧、定时，支持 `FLUSH_MEDIA` 打断 | 否 | 选用：最轻、免编译、协议是 WebSocket，正好落在现有 `WS /telephony/{adapter}` 上 |
+| Asterisk + AudioSocket | 同上 | 双向，但是 TCP 自定义帧，应用要自己按 20 ms 定时发包 | 否 | 要另起 TCP 服务和自定义 transport，不能复用现有 WebSocket 入口 |
+| FreeSWITCH + mod_audio_stream（amigniter） | 官方 FreeSWITCH 包要 SignalWire 令牌；模块需对着 FreeSWITCH 源码编译 | 开源版只把音频推到 WebSocket，回放靠 JSON 里的 base64 写临时文件再播放；双向流在商业版 v1.1.0 | 是 | 不选：要编译、内存大、开源版没有实时双向流 |
+| FreeSWITCH + mod_audio_fork（drachtio） | 同上，需编译 | 回放同样以文件为主 | 是 | 不选 |
+
+chan_websocket 从 Asterisk 20.16、21.11、22.6 开始提供，JSON 控制格式从 22.8 开始；镜像固定在 22.11.0（LTS 22 系列），`andrius/asterisk` 仓库持续维护（2026-10 仍在发版）。
+
+### 10.3 内存占用（2026-10-18，本机 Docker 26 实测）
+
+| 状态 | cgroup memory.current | Asterisk 进程 RSS | 说明 |
+|---|---|---|---|
+| 空闲（已加载 56 个模块） | 5–6 MB | 约 19 MB（含共享库） | `docker stats` 显示约 5.7 MiB |
+| 1 路通话（Opus，AI 正常对话） | 约 6 MB | 约 19 MB | 通话后 `memory.peak` 18 MB（含启动时的页缓存） |
+
+- `docker-compose.yml` 给 `sip` 设了 `mem_limit: 64m`（`SIP_MEM_LIMIT`）和 `pids_limit: 256`。
+- fail2ban（宿主机）常驻约 20–40 MB（Python 进程，按发行版而定，未在目标服务器实测）。
+- 对 1.6 GB 内存 + 2 GB swap 的服务器：现有 voice（上限 700 MB）+ proxy + caddy 的实测峰值约 0.6 GB，加上 SIP 约 20 MB、fail2ban 约 30 MB，余量充足。
+
+### 10.4 部署
+
+前提：已经按 [DEPLOY.md](DEPLOY.md) 部署好实时服务。
+
+```bash
+# 新服务器：bootstrap 一步到位（会自动生成分机账号/密码、打开电话入口、拆分 UDP 端口段、装 fail2ban）
+LIVE_DOMAIN=... ACME_EMAIL=... DASHSCOPE_API_KEY=... WITH_SIP=1 bash bootstrap.sh
+# 已部署的服务器：重新运行 bootstrap 并带上 WITH_SIP=1（已有 .env 只补空值，不覆盖 Key 和已有账号）
+WITH_SIP=1 bash bootstrap.sh
+# 以后更新时记得带上 profile
+cd /opt/deepsuck && git pull && cd deploy && docker compose --profile sip up -d --build
+```
+
+手动开启（不用 bootstrap）：在 `deploy/.env` 设 `VOICE_TELEPHONY=1`、`VOICE_TELEPHONY_TOKEN=$(openssl rand -hex 24)`、`VOICE_TELEPHONY_ADAPTERS=asterisk-ws`（已有其他适配器就追加）、`VOICE_UDP_PORTS=40000-40099`、`SIP_USER=ds$(openssl rand -hex 4)`、`SIP_PASSWORD=$(openssl rand -hex 16)`，然后 `docker compose --profile sip up -d`。fail2ban 需另装（见 10.7）。变量含义见第 6.4 节。
+
+关闭：`docker compose stop sip && docker compose rm -f sip`，再把 `VOICE_TELEPHONY` 改回 `0`、`VOICE_UDP_PORTS` 改回 `40000-40199` 后 `docker compose up -d`。
+
+### 10.5 防火墙（云控制台 + ufw）
+
+| 端口 | 协议 | 用途 | 必需 |
+|---|---|---|---|
+| `SIP_PORT`（默认 25060） | **UDP** | SIP 信令（注册、呼叫） | 开 SIP 时必需 |
+| `SIP_PORT`（默认 25060） | TCP | SIP over TCP（仅 `SIP_TCP=1`） | 可选 |
+| 40100–40199 | UDP | SIP 通话的 RTP 音频（`SIP_RTP_PORTS`），在服务器已开的 40000–40199 之内 | 已开则不用动 |
+| 40000–40099 | UDP | 网页语音 WebRTC（开 SIP 后 `VOICE_UDP_PORTS` 缩到这一段） | 已开则不用动 |
+
+- 不支持 SIP over TLS（5061/TLS）与 SRTP：需要证书和额外配置，演示用途暂不提供；信令有摘要认证，媒体只是演示通话。
+- 不用开放任何 Asterisk 管理端口：AMI、ARI、内置 HTTP 都关闭，没有 TCP 监听（`SIP_TCP=1` 时只有 SIP 端口）。
+- bootstrap 检测到 ufw 启用时会自动放行上表的端口；云控制台的防火墙要自己加。
+
+### 10.6 手机配置
+
+先在服务器上查账号：`grep -E '^SIP_(USER|PASSWORD|PORT|AI_EXTEN)=' /opt/deepsuck/deploy/.env`（不要截图外发）。
+
+**Linphone（Android / iOS，免费开源）**
+
+1. 首次打开选“使用 SIP 账号”（Use SIP account），不要用 Linphone 自家账号。
+2. 用户名 = `SIP_USER`；密码 = `SIP_PASSWORD`；域名 = `服务器公网IP:SIP_PORT`（例如 `203.0.113.7:25060`）；显示名随意。
+3. 传输选 **UDP**（服务器开了 `SIP_TCP=1` 才可选 TCP），点登录，状态变为“已连接/Connected”。
+4. 设置 → 音频：保持 Opus、G722、PCMU 开启；设置 → 网络：可关闭 ICE/STUN（服务器有公网 IP，不需要）；媒体加密选“无”。
+5. 拨号盘输入 `SIP_AI_EXTEN`（默认 9000）拨出，听到 AI 开场白即接通。
+
+**Zoiper 5（免费版即可）**
+
+1. 添加账号 → “是，我有账号” → 输入 `SIP_USER@服务器公网IP:SIP_PORT` 和 `SIP_PASSWORD`。
+2. 主机名/服务商页直接下一步；若自动探测卡住，手动选 **SIP UDP**。
+3. 账号设置 → 高级：关闭 STUN；编码保留 G.711 µ-law / a-law（有 Opus、G.722 就勾上）。
+4. 拨 `SIP_AI_EXTEN`。
+
+常见问题：注册返回 401/403 → 账号密码或 `SIP_ALLOW_CIDR`；连续输错 5 次会被 fail2ban 封 1 小时（`fail2ban-client set deepsuck-sip unbanip <手机公网IP>` 解封）。能接通但听不到声音 → 云防火墙没放行 UDP 40100–40199，或 `VOICE_PUBLIC_IP` 不对。拨通立即 503 → voice 没开电话入口或没启动（`docker compose logs voice`）。486 忙 → 已有一路在通话（`SIP_MAX_CALLS`）。
+
+### 10.7 安全说明（防盗打）
+
+| 风险 | 措施 |
+|---|---|
+| 盗打外线、被当跳板拨国际长途 | **没有任何外线**：不加载 `res_pjsip_outbound_registration`，没有中继端点、没有 `Dial(PJSIP/...)`；拨号计划只有一个分机，唯一的 `Dial` 是连本机 voice 的 WebSocket |
+| 匿名/未认证呼入 | 不加载 `res_pjsip_endpoint_identifier_anonymous` 和按 IP 识别的模块；端点只按用户名识别，所有 INVITE/REGISTER 先 401 质询，认证失败一直 401，到不了拨号计划 |
+| 账号密码弱或缺失 | 账号密码只从环境变量读，缺失、少于 16 位、含特殊字符或与账号相同时 `sip` 容器拒绝启动；bootstrap 生成随机账号和 32 位随机密码，日志里不打印密码 |
+| 拨其他号码 | 除 `SIP_AI_EXTEN` 外没有任何分机或通配规则，PJSIP 直接回 404；`allow_overlap=no`、`allow_transfer=no`、`allow_subscribe=no` |
+| 暴力破解 / 扫号 | 非 5060 端口；fail2ban 用自带 asterisk 过滤器读 security 日志（`InvalidPassword`、`InvalidAccountID`、`ChallengeResponseFailed` 等），10 分钟 5 次失败封该 IP 全部端口 1 小时，重犯翻倍（最长 1 周）；可选 `SIP_ALLOW_CIDR` 白名单；`max_contacts=1` 并替换旧注册 |
+| 管理接口暴露 | `modules.conf` 白名单加载（`autoload=no`）；AMI、ARI、内置 HTTP 全部 `enabled=no`；容器内只剩 Unix 控制套接字；`disable_remote_console_shell`、`live_dangerously=no` |
+| 并发和话费 | `SIP_MAX_CALLS`（默认 1，超出 486）、`maxcalls`、`TIMEOUT(absolute)` = `VOICE_MAX_MINUTES` + 30 秒；voice 侧的每日预算、并发、时长、静默护栏同样生效 |
+| token 泄露 | Asterisk 用 HTTP Basic 头带 `VOICE_TELEPHONY_TOKEN`，不放进 URL（不会进访问日志）；只连 `127.0.0.1`（entrypoint 拒绝其他地址）；Caddy 对公网屏蔽 `/telephony/asterisk-ws*` |
+| 容器权限 | 不读整份 `.env`（拿不到 DashScope Key）；`cap_drop: ALL` 只补回改属主/降权所需的 5 项能力，`no-new-privileges`，Asterisk 以 `asterisk` 用户运行 |
+
+### 10.8 本地验证记录（2026-10-18）
+
+在开发机上用 Docker 起 `sip` 容器（与 compose 同一镜像和配置），命令行 SIP 客户端 baresip（播放 `scammer16k.wav`、录下机器人声音）与 sipp（异常用例）：
+
+| 用例 | 结果 |
+|---|---|
+| 正确账号注册 | 200 OK |
+| 拨 9000（Opus 宽带），真实 DashScope | 接通；AI 播开场白，ASR 识别出“淘宝客服 / 双倍理赔 / 下载理赔 app”，3 轮回复，端到端回复延迟 3.3–4.5 秒；机器人语音回到客户端 |
+| 拨 9000（只开 PCMU 窄带），真实 DashScope | 接通，2 轮回复，识别正常，端到端 3.1–3.3 秒 |
+| 拨 9000，回声管线（不调 API） | 客户端收到的回声与原音相关系数 0.99，往返约 0.37 秒 |
+| 未认证 / 匿名 INVITE、错误密码、不存在的账号 | 始终 401，未进入拨号计划，voice 没有收到连接 |
+| 正确账号拨 1234、110、13800000000、+8613800000000、9001 | 404 |
+| 已有一路通话时再拨 | 486 Busy |
+| `SIP_ALLOW_CIDR` 不包含来源 IP | 403 |
+| voice 未启动 | 503 |
+| `SIP_TCP=1` | TCP 注册 200 OK |
+| fail2ban（dummy 动作） | 7 条失败记录被识别，触发封禁 |
+| 缺密码、密码太短、没开电话入口等 17 种错误配置 | 容器拒绝启动（退出码 64），不打印密码 |
+
+未在真实服务器和真实手机上验证（负责人部署后按下一节检查）：公网 NAT 下的双向音频、运营商网络下的注册保持、Linphone/Zoiper 实机。
+
+### 10.9 部署后自检
+
+1. `docker compose --profile sip ps`：`sip` 为 `Up (healthy)`；`docker compose logs sip | grep deepsuck-sip` 能看到“分机账号 …，AI 分机 9000；SIP UDP 端口 25060 …，公网 IP x.x.x.x”。
+2. `docker compose exec sip asterisk -rx "pjsip show endpoints"`：只有一个端点；手机注册后 `pjsip show contacts` 出现一条 Contact。
+3. `ss -lntup | grep -E '25060|5038|8088'`：只有 UDP 25060（`SIP_TCP=1` 时多一个 TCP 25060），没有 5038/8088。
+4. 手机拨 9000：听到开场白、说话后有回复；`docker compose logs voice | grep "phone call ended"` 有一条 `provider=asterisk-ws` 记录。
+5. 手机拨 1234：立即失败（404）。在 Linphone 里故意输错密码：注册失败；连续 5 次后 `fail2ban-client status deepsuck-sip` 能看到该 IP，再解封。
+6. 网页语音照常可用（`VOICE_UDP_PORTS` 已改为 40000–40099）。
 
 ---
 
@@ -252,3 +422,7 @@
 - [C1] 广东电信 手机呼叫转移设置：http://gd.189.cn/service_new/byw/sj_hjzy.htm
 - [U1] 中国联通 呼叫转移（网上营业厅，需登录）：http://iservice.10010.com/e4/transact/basic/call_shift.html
 - [G1] Android Developers 过滤来电（CallScreeningService）：https://developer.android.com/develop/connectivity/telecom/dialer-app/screen-calls?hl=zh-cn
+- [S1] Asterisk WebSocket 通道驱动（chan_websocket）：https://docs.asterisk.org/Configuration/Channel-Drivers/WebSocket/
+- [S2] Asterisk res_websocket_client 配置：https://docs.asterisk.org/Latest_API/API_Documentation/Module_Configuration/res_websocket_client/
+- [S3] andrius/asterisk 镜像：https://github.com/andrius/asterisk
+- [S4] amigniter/mod_audio_stream（开源版与商业版功能说明）：https://github.com/amigniter/mod_audio_stream

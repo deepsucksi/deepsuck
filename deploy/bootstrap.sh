@@ -7,7 +7,8 @@
 # 首次运行必填：LIVE_DOMAIN、ACME_EMAIL（没有默认值）、DASHSCOPE_API_KEY。
 # Key 不想出现在命令行/历史里：先写进一个 600 权限的文件，再 set -a; . 该文件; set +a 后运行。
 # 可选环境变量：REPO、BRANCH、DIR（默认 /opt/deepsuck）、
-#   WITH_TURN=1（同时启动 coturn）、SWAP_MB（内存 < 2G 时自动建 swap，默认 1024）、SKIP_DOCKER_INSTALL=1。
+#   WITH_TURN=1（同时启动 coturn）、WITH_SIP=1（自建 SIP 软电话：Asterisk + fail2ban，docs/PHONE.md 第 10 节；
+#   自动生成分机账号/密码并打开电话入口，已有 .env 只补空值）、SKIP_FAIL2BAN=1、SWAP_MB（内存 < 2G 时自动建 swap，默认 1024）、SKIP_DOCKER_INSTALL=1。
 # 重复运行是安全的：已有 deploy/.env 不会被覆盖（Key 不会丢），只会更新代码并重建容器。
 set -euo pipefail
 
@@ -63,6 +64,32 @@ PRIVATE_IP="${PRIVATE_IP:-$(meta private-ipv4)}"
 log "  公网 $PUBLIC_IP / 内网 $PRIVATE_IP"
 
 log "6/7 写入 deploy/.env"
+getv() { grep -E "^$1=" .env | tail -1 | cut -d= -f2-; }
+setv() { # 安全替换 KEY=VALUE（通过 ENVIRON 传值，值里有特殊字符也安全）；旧 .env 里没有这一行就追加
+  if grep -qE "^$1=" .env; then
+    K="$1" V="$2" awk '{ if (index($0, ENVIRON["K"] "=") == 1) print ENVIRON["K"] "=" ENVIRON["V"]; else print }' .env > .env.tmp
+    cat .env.tmp > .env && rm -f .env.tmp
+  else
+    printf '%s=%s\n' "$1" "$2" >> .env
+  fi
+}
+sip_env() { # WITH_SIP=1：只补空值，不覆盖已有账号密码；密码不打印
+  [ "$(getv VOICE_TELEPHONY)" = 1 ] || setv VOICE_TELEPHONY 1
+  [ -n "$(getv VOICE_TELEPHONY_TOKEN)" ] || setv VOICE_TELEPHONY_TOKEN "$(openssl rand -hex 24)"
+  case ",$(getv VOICE_TELEPHONY_ADAPTERS)," in
+    *,asterisk-ws,*) ;;
+    ,,) setv VOICE_TELEPHONY_ADAPTERS asterisk-ws ;;
+    *) setv VOICE_TELEPHONY_ADAPTERS "$(getv VOICE_TELEPHONY_ADAPTERS),asterisk-ws" ;;
+  esac
+  # 网页语音（aioice）用前半段，Asterisk RTP 用后半段，互不抢端口
+  case "$(getv VOICE_UDP_PORTS)" in ""|40000-40199) setv VOICE_UDP_PORTS 40000-40099 ;; esac
+  [ -n "$(getv SIP_RTP_PORTS)" ] || setv SIP_RTP_PORTS 40100-40199
+  [ -n "$(getv SIP_USER)" ] || setv SIP_USER "ds$(openssl rand -hex 4)"
+  [ -n "$(getv SIP_PASSWORD)" ] || setv SIP_PASSWORD "$(openssl rand -hex 16)"
+  [ -n "$(getv SIP_PORT)" ] || setv SIP_PORT 25060
+  [ -n "$(getv SIP_AI_EXTEN)" ] || setv SIP_AI_EXTEN 9000
+  log "  自建 SIP 已开启：账号密码在 deploy/.env（grep -E '^SIP_(USER|PASSWORD|PORT|AI_EXTEN)=' $DIR/deploy/.env）"
+}
 if [ ! -f .env ]; then
   [ -n "$LIVE_DOMAIN" ] || die "请设置 LIVE_DOMAIN（你自己的域名，例如 live.example.com）"
   [ -n "$ACME_EMAIL" ] || die "请设置 ACME_EMAIL（证书邮箱）"
@@ -72,10 +99,6 @@ if [ ! -f .env ]; then
   [ -n "$DASHSCOPE_API_KEY" ] || die "DASHSCOPE_API_KEY 为空"
   umask 077
   cp .env.example .env
-  setv() { # 安全替换 KEY=VALUE（通过 ENVIRON 传值，值里有特殊字符也安全）
-    K="$1" V="$2" awk '{ if (index($0, ENVIRON["K"] "=") == 1) print ENVIRON["K"] "=" ENVIRON["V"]; else print }' .env > .env.tmp
-    mv .env.tmp .env
-  }
   setv DASHSCOPE_API_KEY "$DASHSCOPE_API_KEY"
   setv LIVE_DOMAIN "$LIVE_DOMAIN"
   setv ACME_EMAIL "$ACME_EMAIL"
@@ -86,12 +109,27 @@ if [ ! -f .env ]; then
     setv TURN_SECRET "$(openssl rand -hex 24)"
     setv TURN_URLS "turn:$LIVE_DOMAIN:3478?transport=udp,turn:$LIVE_DOMAIN:3478?transport=tcp"
   fi
+  [ "${WITH_SIP:-0}" = 1 ] && sip_env
   chmod 600 .env
   unset DASHSCOPE_API_KEY
 else
   LIVE_DOMAIN="$(grep -E '^LIVE_DOMAIN=' .env | cut -d= -f2-)"
   [ -n "$LIVE_DOMAIN" ] || die "deploy/.env 里 LIVE_DOMAIN 为空"
   log "  已存在 .env，保留（如需修改：nano $DIR/deploy/.env 后 docker compose up -d）"
+  if [ "${WITH_SIP:-0}" = 1 ]; then (umask 077; sip_env); chmod 600 .env; fi
+fi
+
+# 自建 SIP：security 日志目录 + fail2ban 防暴力注册 + 日志轮转
+if [ "${WITH_SIP:-0}" = 1 ]; then
+  sip_log="$(getv SIP_LOG_DIR)"; sip_log="${sip_log:-/var/log/deepsuck-sip}"
+  mkdir -p "$sip_log" && touch "$sip_log/security" && chown -R 1000:1000 "$sip_log" && chmod 750 "$sip_log"
+  if [ "${SKIP_FAIL2BAN:-0}" != 1 ]; then
+    apt-get install -y -qq fail2ban >/dev/null
+    sed "s#/var/log/deepsuck-sip#$sip_log#" sip/fail2ban/deepsuck-sip.conf > /etc/fail2ban/jail.d/deepsuck-sip.conf
+    systemctl enable fail2ban >/dev/null 2>&1 || true
+    systemctl restart fail2ban >/dev/null 2>&1 || log "  fail2ban 没能启动，请检查：fail2ban-client status deepsuck-sip"
+  fi
+  sed "s#/var/log/deepsuck-sip#$sip_log#" sip/logrotate.conf > /etc/logrotate.d/deepsuck-sip
 fi
 
 # 主机防火墙（若启用了 ufw）；云厂商控制台的防火墙需另外放行，见 docs/DEPLOY.md
@@ -100,10 +138,16 @@ if command -v ufw >/dev/null && ufw status | grep -q active; then
   ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw allow 443/udp >/dev/null
   ufw allow "${udp/-/:}/udp" >/dev/null
   [ "${WITH_TURN:-0}" = 1 ] && { ufw allow 3478 >/dev/null; ufw allow 49160:49200/udp >/dev/null; }
+  if [ "${WITH_SIP:-0}" = 1 ]; then
+    rtp=$(getv SIP_RTP_PORTS); ufw allow "${rtp/-/:}/udp" >/dev/null
+    ufw allow "$(getv SIP_PORT)/udp" >/dev/null
+    [ "$(getv SIP_TCP)" = 1 ] && ufw allow "$(getv SIP_PORT)/tcp" >/dev/null
+  fi
 fi
 
 log "7/7 构建并启动容器（首次约 3–6 分钟）"
 profiles=""; [ "${WITH_TURN:-0}" = 1 ] && profiles="--profile turn"
+[ "${WITH_SIP:-0}" = 1 ] && profiles="$profiles --profile sip"
 docker compose $profiles up -d --build
 for i in $(seq 1 60); do
   if curl -fsS --max-time 3 http://127.0.0.1:8787/api/health >/dev/null 2>&1 && curl -fsS --max-time 3 http://127.0.0.1:7860/api/voice/health >/dev/null 2>&1; then
@@ -112,7 +156,15 @@ for i in $(seq 1 60); do
   sleep 3
   [ "$i" = 60 ] && { docker compose ps; die "服务没有在 3 分钟内就绪：docker compose logs --tail=100"; }
 done
+[ "${WITH_SIP:-0}" = 1 ] && { sleep 3; docker compose ps sip | grep -q Up || { docker compose logs --tail=30 sip; die "sip 容器没有启动（见上面的 [deepsuck-sip] 提示）"; }; }
 docker compose ps
+sip_msg=""
+if [ "${WITH_SIP:-0}" = 1 ]; then
+  sip_msg="
+  自建 SIP 软电话（docs/PHONE.md 第 10 节）：云防火墙再放行 UDP $(getv SIP_PORT)$( [ "$(getv SIP_TCP)" = 1 ] && echo "、TCP $(getv SIP_PORT)")（信令）和 UDP $(getv SIP_RTP_PORTS)（RTP，若尚未放行）
+  手机 Linphone/Zoiper：服务器 $PUBLIC_IP:$(getv SIP_PORT)，传输 UDP，账号/密码见 grep -E '^SIP_(USER|PASSWORD)=' $DIR/deploy/.env，拨 $(getv SIP_AI_EXTEN)
+  更新时带上 profile：docker compose --profile sip up -d --build"
+fi
 cat <<MSG
 
   下一步：
@@ -120,5 +172,5 @@ cat <<MSG
   2) 云控制台防火墙放行：TCP 80、443；UDP 443；UDP $(grep -E '^VOICE_UDP_PORTS=' .env | cut -d= -f2)$( [ "${WITH_TURN:-0}" = 1 ] && echo '；TCP/UDP 3478、UDP 49160-49200' )
   3) 打开 https://$LIVE_DOMAIN/ 试语音；curl https://$LIVE_DOMAIN/api/health 看文字代理
   4) 在仓库 site/assets/js/live-config.js 里把 api 设为 'https://$LIVE_DOMAIN' 并推送，主站沙盒即切到大模型
-  更新：cd $DIR && git pull && cd deploy && docker compose up -d --build
+  更新：cd $DIR && git pull && cd deploy && docker compose up -d --build${sip_msg}
 MSG

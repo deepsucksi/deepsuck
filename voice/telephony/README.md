@@ -1,6 +1,6 @@
 # voice/telephony：电话接入抽象层
 
-> 状态：接口 + 第一个通用适配器（`ws-raw`）+ Pipecat 内置媒体流适配器（`pipecat-ws`）已实现并有单元测试；
+> 状态：接口 + 第一个通用适配器（`ws-raw`）+ Pipecat 内置媒体流适配器（`pipecat-ws`）+ Asterisk chan_websocket 适配器（`asterisk-ws`，自建 SIP 软电话用）已实现并有单元测试；
 > 阿里云适配器仅为设计稿。**默认关闭**，只接听、不外呼，没有任何发起呼叫的代码。
 > 合规边界见 [docs/PHONE.md 第 6 节](../../docs/PHONE.md) 与 [docs/ETHICS.md](../../docs/ETHICS.md)。
 
@@ -82,14 +82,31 @@ SIP 协议栈放在独立进程（FreeSWITCH/Asterisk/自写 UAS），DeepSuck �
 主动挂断凭据只从环境变量读取（`TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`、`TELNYX_API_KEY`、`PLIVO_AUTH_ID`/`PLIVO_AUTH_TOKEN`），
 缺失时关闭 `auto_hang_up`。
 
+### `asterisk-ws`（自建 SIP 软电话，docs/PHONE.md 第 10 节）
+
+对接 Asterisk 22 的 chan_websocket（`Dial(WebSocket/deepsuck/c(slin16)f(json))`，Asterisk 作为 WebSocket 客户端
+连 `WS /telephony/asterisk-ws`，用 HTTP Basic 带 token）。协议见 [`asterisk_ws.py`](asterisk_ws.py) 文件头：
+
+```
+Asterisk → DeepSuck  文本 {"event":"MEDIA_START","channel_id":"...","format":"slin16","optimal_frame_size":640,"channel_variables":{"__DS_FROM":"..."}}
+                     二进制 原始音频（slin16 / slin / ulaw / alaw，无 RTP 头）
+                     文本 {"event":"DTMF_END","digit":"5"}；挂机 = 关闭 WebSocket
+DeepSuck → Asterisk  二进制 音频（只发 optimal_frame_size 的整数倍，Asterisk 负责 20 ms 定时）
+                     文本 {"command":"FLUSH_MEDIA"}（打断）/ {"command":"HANGUP"}
+```
+
+编解码与重采样复用 `ws-raw` 的 `RawStreamSerializer`。SIP/RTP 全在独立的 Asterisk 容器里（GPLv2，官方 Alpine 包，
+仓库里只有配置模板 `deploy/sip/`），DeepSuck 进程不链接任何 GPL 代码。部署、端口与安全措施见 docs/PHONE.md 第 10 节。
+
 ## 启用（本地联调）
 
 ```bash
 export VOICE_TELEPHONY=1
 export VOICE_TELEPHONY_TOKEN=$(python -c "import secrets;print(secrets.token_urlsafe(24))")
-# 可选：VOICE_TELEPHONY_ADAPTERS=ws-raw,pipecat-ws  VOICE_TELEPHONY_PERSONA=li  VOICE_TELEPHONY_SCENARIO=police
+# 可选：VOICE_TELEPHONY_ADAPTERS=ws-raw,pipecat-ws,asterisk-ws  VOICE_TELEPHONY_PERSONA=li  VOICE_TELEPHONY_SCENARIO=police
 python -m voice.app
-# 桥接连接 ws://127.0.0.1:7860/telephony/ws-raw?token=...（或 Authorization: Bearer ...）
+# 桥接连接 ws://127.0.0.1:7860/telephony/ws-raw，带 Authorization: Bearer <token>（或 HTTP Basic 密码 = token；
+# ?token=... 也行，但会出现在访问日志里）
 ```
 
 - 未设置 token 时路由不注册；token 用常量时间比较。
@@ -99,7 +116,7 @@ python -m voice.app
 - 日志里的号码只保留后 4 位。
 - `deploy/` 已带这个入口的开关（`VOICE_TELEPHONY`，默认关闭）；公网开启前需要单独评审。
 
-测试：`python -m pytest voice/tests/test_telephony.py -q`（本地回环 WebSocket，直通管线，不连服务商、不拨打电话）。
+测试：`python -m pytest voice/tests/test_telephony.py voice/tests/test_asterisk_ws.py voice/tests/test_sip_deploy.py -q`（本地回环 WebSocket，直通管线，不连服务商、不拨打电话）。
 
 ---
 
