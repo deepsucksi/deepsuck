@@ -7,5 +7,5 @@
  * Apache-2.0
  */
 (function (root) {
-  root.DEEPSUCK_LIVE = root.DEEPSUCK_LIVE || { api: '' };
+  root.DEEPSUCK_LIVE = root.DEEPSUCK_LIVE || { api: 'https://live.deepsuck.si' };
 })(typeof self !== 'undefined' ? self : this);
