@@ -171,14 +171,20 @@
         <li>Apache-2.0</li>
       </ul>
     </div>
-    <pre class="code">git clone https://github.com/deepsucksi/deepsuck.git && cd deepsuck
-# 1) 纯静态（无需 Key）
-cd site && python3 -m http.server 8080
+    <figure class="codeblock" aria-labelledby="cbQsLabel">
+      <figcaption class="cb-head"><span class="cb-lang">bash</span><span class="cb-label" id="cbQsLabel" data-i18n="cb.qs">快速开始</span><button type="button" class="cb-copy" data-copy="cbQs" aria-label="复制命令"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg><span class="cb-copy-t">复制</span></button></figcaption>
+      <div class="cb-body"><pre id="cbQs" tabindex="0"><span class="k">git</span> clone <span class="s">https://github.com/deepsucksi/deepsuck.git</span>
+<span class="k">cd</span> deepsuck
 
-# 2) 可选：接入通义千问（百炼）
-cp .env.example .env
-# 编辑 .env，填入 DASHSCOPE_API_KEY=sk-...
-npm start      # http://127.0.0.1:8787</pre>
+<span class="c" data-i18n="cb.qs1"># 1) 纯静态，无需 Key</span>
+<span class="k">cd</span> site <span class="o">&amp;&amp;</span> <span class="k">python3</span> <span class="s">-m</span> http.server <span class="s">8080</span>
+
+<span class="c" data-i18n="cb.qs2"># 2) 可选：接入通义千问（百炼）</span>
+<span class="k">cp</span> .env.example .env
+<span class="c" data-i18n="cb.qs3"># 编辑 .env，填入 DASHSCOPE_API_KEY</span>
+<span class="k">npm</span> start
+<span class="c"># → <span class="s">http://127.0.0.1:8787/demo.html</span></span></pre></div>
+    </figure>
   </div>
 </section>
 
@@ -208,16 +214,10 @@ npm start      # http://127.0.0.1:8787</pre>
         <li data-i18n="o4">路线图：大模型人设、语音通话（ASR/TTS）、情报共享 API</li>
       </ul>
     <div class="join-links"><a href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><span data-i18n="cta.gh">GitHub 点个星</span> ↗</a><a href="demo.html"><span data-i18n="nav.demo">进入沙盒</span> ↗</a><a href="intel.html"><span data-i18n="nav.intel">情报库</span> ↗</a></div>
-    <pre class="code">site/assets/js/
-├── redact.js      # 脱敏
-├── extractors.js  # 情报提取（银行卡/手机/QQ/微信/支付宝/钱包/URL）
-├── tactics.js     # 话术分类器
-├── personas.js    # 人设与话术模板
-├── scenarios.js   # 场景与样例台词
-├── engine.js      # 规则引擎 + 会话/报告
-└── llm.js         # 可选：OpenAI 兼容大模型
-server/index.js    # 可选：零依赖代理后端
-tests/             # node --test</pre>
+    <figure class="codeblock tree" aria-labelledby="cbTreeLabel">
+      <figcaption class="cb-head"><span class="cb-lang">tree</span><span class="cb-label" id="cbTreeLabel" data-i18n="cb.tree">目录结构</span></figcaption>
+      <div class="cb-body"><pre tabindex="0"><span class="r"><span class="k">site/</span><span class="pad">             </span><span class="c" data-i18n="cb.t1"># 网站：首页、沙盒、情报库（纯静态）</span></span><span class="r"><span class="g">├── </span><span class="k">assets/js/</span><span class="pad">    </span><span class="c" data-i18n="cb.t2"># 规则引擎、情报提取、脱敏（浏览器端）</span></span><span class="r"><span class="g">└── </span><span class="k">assets/core/</span><span class="pad">  </span><span class="c" data-i18n="cb.t3"># 场景、人设、话术规则（JS / Python 共用）</span></span><span class="r"><span class="k">python/deepsuck/</span><span class="pad">  </span><span class="c" data-i18n="cb.t4"># Python 核心：提取、脱敏、STIX 导出</span></span><span class="r"><span class="k">voice/</span><span class="pad">            </span><span class="c" data-i18n="cb.t5"># 语音演示：WebRTC / SIP，实时识别与合成</span></span><span class="r"><span class="k">server/</span><span class="pad">           </span><span class="c" data-i18n="cb.t6"># 可选：零依赖 Node 代理，Key 只在服务端</span></span><span class="r"><span class="k">personas/</span><span class="pad">         </span><span class="c" data-i18n="cb.t7"># 人设提示词与真人化</span></span><span class="r"><span class="k">corpus/</span><span class="pad">           </span><span class="c" data-i18n="cb.t8"># 诈骗话术库（脱敏改写）</span></span><span class="r"><span class="k">deploy/</span><span class="pad">           </span><span class="c" data-i18n="cb.t9"># Docker Compose + Caddy 部署</span></span><span class="r"><span class="k">tests/</span><span class="pad">            </span><span class="c" data-i18n="cb.t10"># node --test，与 Python 共用用例</span></span></pre></div>
+    </figure>
   </div>
 </section>
 
