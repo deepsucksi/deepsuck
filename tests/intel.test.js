@@ -33,7 +33,8 @@ test('发布策略：电话/钱包/网址完整，银行卡/姓名/账号打码'
   assert.equal(I.publishValue('phone', '+86 139-0011-2233'), '13900112233');
   assert.equal(I.publishValue('crypto_tron', 'TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe'), 'TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe');
   assert.equal(I.publishValue('url', 'https://a-b.top/dl。'), 'https://a-b.top/dl');
-  assert.equal(I.publishValue('bank_card', '6222020200112233445'), '6222 **** **** 3445');
+  assert.equal(I.publishValue('bank_card', '6222020200112233445'), '622202*********3445');
+  assert.equal(I.publishValue('bank_card', '6222020200112233'), '622202******2233');
   assert.equal(I.publishValue('name', '王建国'), '王**');
   assert.equal(I.publishValue('id_card', '110101199003071234'), '110101********1234');
   assert.ok(!I.publishValue('wechat', 'kefu_tb2026').includes('kefu_tb2026'));
@@ -44,7 +45,13 @@ test('校验器拦截未打码的银行卡与姓名', () => {
   const base = { id: 'DS-2026-0001', scenario: 'police', firstSeen: '2026-10-18', source: 'community', status: 'active' };
   assert.ok(I.validateEntry({ ...base, type: 'bank_card', value: '6222020200112233445' }).length > 0);
   assert.ok(I.validateEntry({ ...base, type: 'name', value: '王建国' }).length > 0);
-  assert.deepEqual(I.validateEntry({ ...base, type: 'bank_card', value: '6222 **** **** 3445' }), []);
+  assert.deepEqual(I.validateEntry({ ...base, type: 'bank_card', value: '622202*********3445' }), []);
+  assert.deepEqual(I.validateEntry({ ...base, type: 'bank_card', value: '622202******2233' }), []);
+  assert.deepEqual(I.validateEntry({ ...base, type: 'bank_card', value: '***********6789' }), []);
+  // 旧格式、露出过多数字、星号位数不对都会被拦截
+  assert.ok(I.validateEntry({ ...base, type: 'bank_card', value: '6222 **** **** 3445' }).length > 0);
+  assert.ok(I.validateEntry({ ...base, type: 'bank_card', value: '6222020*********3445' }).length > 0);
+  assert.ok(I.validateEntry({ ...base, type: 'bank_card', value: '622202***3445' }).length > 0);
   assert.ok(I.validateEntry({ ...base, type: 'phone', value: '1', source: 'example' }).some((m) => /example/.test(m)));
 });
 
@@ -73,7 +80,10 @@ test('会话 submission()：按策略输出，report() 仍不含完整电话', (
   const v = sub.indicators.map((i) => i.value);
   assert.ok(v.includes('13900112233'));
   assert.ok(v.includes('http://gaj-sh-gov.cc/case/8872'));
-  assert.ok(v.includes('6222 **** **** 3445'));
+  assert.ok(v.includes('622202*********3445'));
+  const card = sub.indicators.find((i) => i.type === 'bank_card');
+  assert.equal(card.issuer, '中国工商银行'); // BIN 推断
+  assert.equal(card.cardType, '借记卡');
   assert.ok(v.includes('王**'));
   assert.ok(!JSON.stringify(sub).includes('6222020200112233445'));
   assert.ok(!JSON.stringify(sub).includes('王建国'));

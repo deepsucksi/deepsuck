@@ -1,5 +1,5 @@
 {
- "id": "bundle--15d1a7ef-7c92-4b2d-8b1d-dcbad1950871",
+ "id": "bundle--1eb9f0ea-491f-4a92-b004-4b6cb9ae18fb",
  "objects": [
   {
    "contact_information": "https://github.com/deepsucksi/deepsuck",
@@ -26,13 +26,16 @@
   {
    "created": "2026-10-01T00:00:00.000Z",
    "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
-   "description": "x_deepsuck_scenario 场景 id；x_deepsuck_source 来源（example/sandbox/community/honeypot/public-report）；x_deepsuck_reports 举报次数；x_deepsuck_chain 钱包所在链；x_deepsuck_example 示例数据标记。",
+   "description": "x_deepsuck_scenario 场景 id；x_deepsuck_source 来源（example/sandbox/community/honeypot/public-report）；x_deepsuck_reports 举报次数；x_deepsuck_chain 钱包所在链；x_deepsuck_example 示例数据标记；x_deepsuck_bank 对方声称的开户行；x_deepsuck_issuer / x_deepsuck_card_type 由 BIN 推断的发卡行与卡种（仅供参考）。",
    "extension_properties": [
     "x_deepsuck_scenario",
     "x_deepsuck_source",
     "x_deepsuck_reports",
     "x_deepsuck_chain",
-    "x_deepsuck_example"
+    "x_deepsuck_example",
+    "x_deepsuck_bank",
+    "x_deepsuck_issuer",
+    "x_deepsuck_card_type"
    ],
    "extension_types": [
     "toplevel-property-extension"
@@ -730,6 +733,122 @@
    ],
    "relationship_type": "indicates",
    "source_ref": "indicator--b17153cd-b5c4-4f07-a4e3-b4130b480c68",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--a3c8339a-6f98-4e92-b810-51b77b73e31b",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】所谓\"国家安全账户\"。银行卡号按 PCI DSS 只公开前 6 位（BIN）与后 4 位，发卡行与卡种由 BIN 表推断：收款卡常为被冒用或被诱骗出租的普通人账户。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0011",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--2dffb429-c12e-4add-9989-e3fdb63463d8",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "safe_account",
+    "transfer",
+    "example"
+   ],
+   "modified": "2026-10-01T00:00:00.000Z",
+   "name": "收款银行卡：622202*********0001（中国工商银行 · 借记卡）",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[payment-card:card_number LIKE '622202_________0001']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-01T00:00:00Z",
+   "x_deepsuck_bank": "工商银行",
+   "x_deepsuck_card_type": "借记卡",
+   "x_deepsuck_example": true,
+   "x_deepsuck_issuer": "中国工商银行",
+   "x_deepsuck_reports": 3,
+   "x_deepsuck_scenario": "police",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--f16ea5d5-f790-47dd-837f-0ddf1bf05d60",
+   "modified": "2026-10-01T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--2dffb429-c12e-4add-9989-e3fdb63463d8",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--074748d5-a5b5-40ab-af8b-48ab064e2d33",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-09T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】刷单\"三连单\"垫付收款卡。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0012",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--2740b86b-67bf-4abc-b9ef-080f13c01e90",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "task_rebate",
+    "transfer",
+    "example"
+   ],
+   "modified": "2026-10-09T00:00:00.000Z",
+   "name": "收款银行卡：622848*********0002（中国农业银行 · 借记卡）",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[payment-card:card_number LIKE '622848_________0002']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-09T00:00:00Z",
+   "x_deepsuck_bank": "农业银行",
+   "x_deepsuck_card_type": "借记卡",
+   "x_deepsuck_example": true,
+   "x_deepsuck_issuer": "中国农业银行",
+   "x_deepsuck_reports": 1,
+   "x_deepsuck_scenario": "task",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-09T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--8f9a512a-cfb5-4314-acc0-d957982fba31",
+   "modified": "2026-10-09T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--2740b86b-67bf-4abc-b9ef-080f13c01e90",
    "spec_version": "2.1",
    "target_ref": "attack-pattern--a3c8339a-6f98-4e92-b810-51b77b73e31b",
    "type": "relationship"

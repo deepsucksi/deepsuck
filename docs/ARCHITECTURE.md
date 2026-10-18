@@ -78,9 +78,9 @@ deepsuck/
   "schema": "deepsuck.intel-report/v0.1",
   "session": { "scenario": { "id": "police" }, "persona": { "id": "wang" }, "engine": "rule" },
   "stats": { "messages": 13, "estimatedScammerSeconds": 608, "intelCount": 4, "riskScore": 90 },
-  "intel": [{ "type": "bank_card", "masked": "6222 **** **** 3445", "meta": { "bank": "工商银行", "luhn": false } }],
+  "intel": [{ "type": "bank_card", "masked": "622202*********3445", "meta": { "bank": "工商银行", "luhn": false, "issuer": { "bank": "中国工商银行", "cardTypeName": "借记卡" } } }],
   "tactics": [{ "id": "safe_account", "label": "要求转账至安全账户", "count": 1 }],
-  "transcript": [{ "role": "scammer", "text": "……6222 **** **** 3445，户名王**……" }]
+  "transcript": [{ "role": "scammer", "text": "……622202*********3445，户名王**……" }]
 }
 ```
 

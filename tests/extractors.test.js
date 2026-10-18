@@ -9,7 +9,7 @@ const one = (t, type) => X.extractSensitive(t).find((e) => e.type === type);
 test('银行卡：16–19 位，带空格/连字符，附开户行与 Luhn', () => {
   const e = one('把钱转到 6217 0012 3456 7890 123，户名李强，建设银行', 'bank_card');
   assert.ok(e);
-  assert.equal(e.masked, '6217 **** **** 0123');
+  assert.equal(e.masked, '621700*********0123');
   assert.equal(e.meta.bank, '建设银行');
   assert.equal(e.meta.digits, 19);
   assert.equal(X.luhn('4111111111111111'), true);
@@ -70,6 +70,7 @@ test('所有样例台词中的敏感信息都已脱敏（masked 不含原文）'
 
 test('已打码的情报不会被二次提取/打码（机器人复述时）', () => {
   assert.deepEqual(types('收到，网址/域名 bi***tc.top，银行卡 6222 **** **** 3445'), []);
+  assert.deepEqual(types('收到，银行卡 622202*********3445，户名王**'), []);
 });
 
 test('收款户名：去掉"写/填"等动词与句尾语气词', () => {

@@ -14,11 +14,16 @@
 
   function stars(n) { return new Array(Math.max(0, n) + 1).join('*'); }
 
-  /** 6222 0212 3456 1234 -> 6222 **** **** 1234 */
+  /**
+   * PCI DSS 显示规则：16–19 位卡号保留前 6 位（BIN）与后 4 位，中间全部打码：
+   *   6222 0212 3456 1234 -> 622202******1234；6222020200112233445 -> 622202*********3445
+   * 8–15 位（非标准长度）只留后 4 位，少于 8 位全部打码，保证至少一半数字被隐藏。
+   */
   function maskBankCard(v) {
     var d = digitsOnly(v);
     if (d.length < 8) return stars(d.length);
-    return d.slice(0, 4) + ' **** **** ' + d.slice(-4);
+    if (d.length < 16) return stars(d.length - 4) + d.slice(-4);
+    return d.slice(0, 6) + stars(d.length - 10) + d.slice(-4);
   }
 
   /** 13812345678 / +86 138-1234-5678 -> 138****5678 ; 400-123-4567 -> 400-***-4567 */

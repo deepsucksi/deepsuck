@@ -2,8 +2,11 @@
 
 - 输入：公开情报库 site/data/intel.json（deepsuck.intel-library/v1），或沙盒「提交到情报库」生成的
   deepsuck.intel-submission/v1；
-- 只导出发布策略为「完整公开」的类型：phone / crypto_wallet / url / app 生成 Indicator，script 生成 Note；
-  bank_card / account / name / id_card 是打码值，既不能用于匹配、又可能属于被冒用的普通人，一律不导出；
+- phone / crypto_wallet / url / app 生成 Indicator，script 生成 Note；
+- bank_card 只导出 PCI DSS 打码值（前 6 后 4，如 622202*********3445）：Indicator 的 pattern 用
+  `[payment-card:card_number LIKE '622202_________3445']`（_ 匹配一位被打码的数字），附 BIN 推断的发卡行与卡种；
+  不符合打码格式的值（例如误填的完整卡号）一律不导出；
+- account / name / id_card 是打码值，不能用于匹配、又可能属于被冒用的普通人，一律不导出；
 - 只导出 status=active 的条目（disputed / removed 不导出）；
 - 每个场景（refund / police / ...）是一个 Attack Pattern，Indicator 以 `indicates` 关系指向它；
 - ID 用 uuid5 生成、时间取自条目日期，同一份输入总是得到同一份输出（便于 diff 与增量导入）；
@@ -18,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -28,7 +32,9 @@ from .core import load
 NS = uuid.uuid5(uuid.NAMESPACE_URL, "https://deepsuck.si/stix")
 IDENTITY_ID = "identity--" + str(uuid.UUID(bytes=uuid.uuid5(NS, "identity:deepsuck").bytes, version=4))
 EXT_ID = "extension-definition--" + str(uuid.UUID(bytes=uuid.uuid5(NS, "extension:deepsuck-intel/v1").bytes, version=4))
-EXT_PROPS = ["x_deepsuck_scenario", "x_deepsuck_source", "x_deepsuck_reports", "x_deepsuck_chain", "x_deepsuck_example"]
+EXT_PROPS = ["x_deepsuck_scenario", "x_deepsuck_source", "x_deepsuck_reports", "x_deepsuck_chain", "x_deepsuck_example",
+             "x_deepsuck_bank", "x_deepsuck_issuer", "x_deepsuck_card_type"]
+CARD_MASKED = re.compile(r"^[0-9]{6}\*{6,9}[0-9]{4}$")  # 与 intel.js 的 PCI 格式校验一致（只导出 16–19 位的前 6 后 4 形式）
 IDENTITY_CREATED = "2026-10-01T00:00:00.000Z"
 # TLP:WHITE（= TLP 2.0 的 TLP:CLEAR），STIX 2.1 规范预定义的 marking-definition
 TLP_WHITE = {
@@ -38,8 +44,9 @@ TLP_WHITE = {
     "definition": {"tlp": "white"},
 }
 FULL_TYPES = ("phone", "crypto_wallet", "url", "app")
+INDICATOR_TYPES = FULL_TYPES + ("bank_card",)
 CONFIDENCE = {"example": 0, "low": 15, "medium": 50, "high": 85}
-LABEL = {"phone": "诈骗电话", "crypto_wallet": "加密钱包地址", "url": "诈骗网址/域名", "app": "APP/平台名称"}
+LABEL = {"phone": "诈骗电话", "crypto_wallet": "加密钱包地址", "url": "诈骗网址/域名", "app": "APP/平台名称", "bank_card": "收款银行卡"}
 
 
 def _v4(key: str) -> str:
@@ -78,6 +85,10 @@ def pattern_of(entry: dict) -> Optional[str]:
         return f"[url:value = {_q('http://' + v)}]" if path else f"[domain-name:value = {_q(host.lower())}]"
     if t == "app":
         return f"[software:name = {_q(v)}]"
+    if t == "bank_card":
+        if not CARD_MASKED.match(v):
+            return None  # 只接受 PCI 打码值，绝不导出完整卡号
+        return f"[payment-card:card_number LIKE {_q(v.replace('*', '_'))}]"
     return None
 
 
@@ -96,7 +107,7 @@ def _extension() -> dict:
         "type": "extension-definition", "spec_version": "2.1", "id": EXT_ID,
         "created": IDENTITY_CREATED, "modified": IDENTITY_CREATED, "created_by_ref": IDENTITY_ID,
         "name": "DeepSuck intel properties",
-        "description": "x_deepsuck_scenario 场景 id；x_deepsuck_source 来源（example/sandbox/community/honeypot/public-report）；x_deepsuck_reports 举报次数；x_deepsuck_chain 钱包所在链；x_deepsuck_example 示例数据标记。",
+        "description": "x_deepsuck_scenario 场景 id；x_deepsuck_source 来源（example/sandbox/community/honeypot/public-report）；x_deepsuck_reports 举报次数；x_deepsuck_chain 钱包所在链；x_deepsuck_example 示例数据标记；x_deepsuck_bank 对方声称的开户行；x_deepsuck_issuer / x_deepsuck_card_type 由 BIN 推断的发卡行与卡种（仅供参考）。",
         "schema": "https://github.com/deepsucksi/deepsuck/blob/main/docs/INTEL.md",
         "version": "1.0.0", "extension_types": ["toplevel-property-extension"],
         "extension_properties": EXT_PROPS, "object_marking_refs": [TLP_WHITE["id"]],
@@ -129,9 +140,10 @@ def _common(e: dict) -> dict:
     if e.get("id"):
         o["external_references"] = [{"source_name": "deepsuck", "external_id": e["id"]}]
     custom = False
-    for k in ("scenario", "source", "reports", "chain"):
+    for k, prop in (("scenario", "scenario"), ("source", "source"), ("reports", "reports"), ("chain", "chain"),
+                    ("bank", "bank"), ("issuer", "issuer"), ("cardType", "card_type")):
         if e.get(k) is not None:
-            o["x_deepsuck_" + k] = e[k]
+            o["x_deepsuck_" + prop] = e[k]
             custom = True
     if e.get("example"):
         o["x_deepsuck_example"] = True
@@ -154,14 +166,16 @@ def entries_to_objects(entries: List[dict], default_day: str) -> List[dict]:
         sid = e.get("scenario")
         if sid and sid not in scen:
             scen[sid] = _scenario_ap(sid)
-        if t in FULL_TYPES:
+        if t in INDICATOR_TYPES:
             pat = pattern_of(e)
             if not pat:
                 continue
+            card = [x for x in (e.get("issuer") or e.get("bank"), e.get("cardType")) if x] if t == "bank_card" else []
+            extra = "（" + " · ".join(card) + "）" if card else ""
             ind = {
                 "type": "indicator", "spec_version": "2.1", "id": _sid("indicator", key),
                 "created": _ts(first), "modified": _ts(last),
-                "name": f"{LABEL[t]}：{e['value']}",
+                "name": f"{LABEL[t]}：{e['value']}{extra}",
                 "indicator_types": ["malicious-activity"],
                 "pattern": pat, "pattern_type": "stix", "pattern_version": "2.1",
                 "valid_from": _ts(first, ms=False),
@@ -186,7 +200,7 @@ def entries_to_objects(entries: List[dict], default_day: str) -> List[dict]:
             }
             note.update(_common(e))
             objs.append(note)
-        # bank_card / account / name / id_card：打码类型，不导出
+        # account / name / id_card：打码类型，不导出
     return [_identity(), TLP_WHITE, _extension()] + list(scen.values()) + objs
 
 
@@ -199,11 +213,12 @@ def submission_to_objects(sub: dict, day: Optional[str] = None) -> List[dict]:
     day = day or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     entries = []
     for i in sub.get("indicators") or []:
-        if i.get("policy") != "full":
+        if i.get("policy") != "full" and i.get("type") != "bank_card":
             continue
         entries.append({"type": i.get("type"), "value": i.get("value"), "scenario": sub.get("scenario"),
                         "tactics": sub.get("tactics") or [], "firstSeen": day, "source": "sandbox",
-                        "reports": i.get("seen") or 1, "chain": i.get("chain"), "status": "active"})
+                        "reports": i.get("seen") or 1, "chain": i.get("chain"), "bank": i.get("bank"),
+                        "issuer": i.get("issuer"), "cardType": i.get("cardType"), "status": "active"})
     return entries_to_objects(entries, day)
 
 

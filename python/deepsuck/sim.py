@@ -5,7 +5,7 @@
   - 拖延轮数（骗子发出的消息数，直到耐心耗尽/起疑/达到上限）与估算骗子耗时；
   - 情报暴露率（骗子暴露的虚构情报 / 脚本中的全部情报）与提取率（被提取器正确捕获 / 已暴露）；
   - 重复率（与之前完全相同的机器人回复）与近重复率（字符二元组 Jaccard ≥ 0.8）；
-  - 泄露率（机器人回复含 ≥6 位连续数字，即可能给出真实号码/验证码）。
+  - 泄露率（机器人回复含 ≥6 位连续数字，即可能给出真实号码/验证码；紧挨 * 的打码值数字段不计）。
 
 CLI：python -m deepsuck.sim --seeds 30 [--reveal standard|hard] [--json out.json] [--md out.md]
 Apache-2.0
@@ -255,7 +255,8 @@ def run_one(scenario: str, persona: str, policy: str, seed: int, scripts: dict, 
         is_near = is_dup or any(len(g & h) / len(g | h) >= 0.8 for h in grams)
         dup += is_dup
         near += is_near
-        leaks += bool(re.search(r"[0-9]{6,}", text)) or any(
+        # 打码值（如 PCI 格式的 622202*********3445）里的数字段紧挨 *，不算泄露
+        leaks += bool(re.search(r"(?<![0-9*])[0-9]{6,}(?![0-9*])", text)) or any(
             v in text for k, v in sc.values.items() if k in ("bank", "phone", "qq", "wx", "tron", "eth"))
         if is_dup and debug is not None:
             debug.append((scenario, persona, r["intent"], text))

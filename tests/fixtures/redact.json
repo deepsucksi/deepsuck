@@ -4,12 +4,47 @@
   {
    "type": "bank_card",
    "input": "6222021234561234",
-   "expected": "6222 **** **** 1234"
+   "expected": "622202******1234"
+  },
+  {
+   "type": "bank_card",
+   "input": "62220212345612345",
+   "expected": "622202*******2345"
+  },
+  {
+   "type": "bank_card",
+   "input": "622305123456789012",
+   "expected": "622305********9012"
   },
   {
    "type": "bank_card",
    "input": "6222 0212 3456 7890 128",
-   "expected": "6222 **** **** 0128"
+   "expected": "622202*********0128"
+  },
+  {
+   "type": "bank_card",
+   "input": "6222-0212-3456-7890-128",
+   "expected": "622202*********0128"
+  },
+  {
+   "type": "bank_card",
+   "input": "622202123456789",
+   "expected": "***********6789"
+  },
+  {
+   "type": "bank_card",
+   "input": "622202123456",
+   "expected": "********3456"
+  },
+  {
+   "type": "bank_card",
+   "input": "62220212",
+   "expected": "****0212"
+  },
+  {
+   "type": "bank_card",
+   "input": "6222021",
+   "expected": "*******"
   },
   {
    "type": "bank_card",

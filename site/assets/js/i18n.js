@@ -12,7 +12,7 @@
     's1.t': 'Lure', 's1.d': 'Appears as a "potential victim". Deployers can attach it to decoy numbers or report-forwarding channels. It never contacts real people first.',
     's2.t': 'Stall', 's2.d': 'Misunderstand, ask to repeat, fake a frozen phone, go look for reading glasses… every turn costs the scammer time.',
     's3.t': 'Extract', 's3.d': 'Detects bank cards, phones, QQ/WeChat/Alipay, BTC/ETH/TRON addresses, URLs, and tactics like "safe account" or OTP requests.',
-    's4.t': 'Redact', 's4.d': 'All intel is masked before display and export, e.g. 6222 **** **** 1234, 138****5678, 0x12ab...9f3e.',
+    's4.t': 'Redact', 's4.d': 'All intel is masked before display and export, e.g. 622202*********1234, 138****5678, 0x12ab...9f3e.',
     's5.t': 'Warn', 's5.d': 'Produces a structured JSON intel report that can be submitted (per the publishing policy) to the <a href="intel.html">public scam intel library</a> for anyone to search.',
     'sc.title': 'Seven common Chinese scam scenarios', 'sc.sub': 'In the sandbox you play the scammer and the bot plays the "victim". Each scenario ships with one-click sample lines and tactic tags.',
     'c1.t': 'Fake customer service · refunds', 'c1.d': '"Double compensation for a defective item", "membership auto-charge" — pushes app downloads, screen sharing, OTP codes.',

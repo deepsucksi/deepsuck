@@ -14,10 +14,13 @@ def _stars(n: int) -> str:
 
 
 def mask_bank_card(v) -> str:
+    """PCI DSS：16–19 位保留前 6 位与后 4 位；8–15 位只留后 4 位；少于 8 位全部打码。"""
     d = _digits(v)
     if len(d) < 8:
         return _stars(len(d))
-    return d[:4] + " **** **** " + d[-4:]
+    if len(d) < 16:
+        return _stars(len(d) - 4) + d[-4:]
+    return d[:6] + _stars(len(d) - 10) + d[-4:]
 
 
 def mask_phone(v) -> str:

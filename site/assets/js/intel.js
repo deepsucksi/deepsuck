@@ -66,6 +66,7 @@
     return R.mask(extractorType, raw);
   }
 
+  var BANK_CARD_MASKED = /^(?:\d{6}\*{6,9}\d{4}|\*{4,11}\d{4})$/;
   var REQUIRED = ['id', 'type', 'value', 'scenario', 'firstSeen', 'source', 'status'];
   var STATUSES = ['active', 'disputed', 'removed'];
   var SOURCES = ['example', 'sandbox', 'community', 'honeypot', 'public-report'];
@@ -83,6 +84,8 @@
       // 打码类型不得出现长串连续数字（防止误把完整卡号/身份证号提交进库）
       if (/\d{7,}/.test(String(e.value).replace(/\s/g, ' '))) errs.push('打码类型的 value 含有 7 位以上连续数字，疑似未脱敏');
       if (e.type === 'name' && !/\*/.test(e.value)) errs.push('姓名须打码（如 王*）');
+      // 银行卡：PCI DSS 格式，16–19 位只露前 6 后 4（622202*********3445），非标准长度只露后 4
+      if (e.type === 'bank_card' && !BANK_CARD_MASKED.test(String(e.value))) errs.push('银行卡须按 PCI 格式打码（前 6 后 4，如 622202*********3445）');
     }
     if (e.source === 'example' && e.example !== true) errs.push('示例数据须标注 example: true');
     return errs;
@@ -110,13 +113,13 @@
       if (f.status && e.status !== f.status) return false;
       if (!f.status && e.status === 'removed') return false;
       if (!q) return true;
-      var hay = [e.value, e.notes, e.scenario, e.chain, e.bank, (e.tactics || []).join(' '), (e.tags || []).join(' ')].join(' ').toLowerCase();
+      var hay = [e.value, e.notes, e.scenario, e.chain, e.bank, e.issuer, e.cardType, (e.tactics || []).join(' '), (e.tags || []).join(' ')].join(' ').toLowerCase();
       if (hay.indexOf(q) >= 0) return true;
       return qDigits.length >= 4 && String(e.value || '').replace(/[\s-]/g, '').toLowerCase().indexOf(qDigits) >= 0;
     });
   }
 
-  var CSV_COLS = ['id', 'example', 'type', 'value', 'chain', 'bank', 'scenario', 'tactics', 'firstSeen', 'lastSeen', 'reports', 'source', 'confidence', 'status', 'notes'];
+  var CSV_COLS = ['id', 'example', 'type', 'value', 'chain', 'bank', 'issuer', 'cardType', 'scenario', 'tactics', 'firstSeen', 'lastSeen', 'reports', 'source', 'confidence', 'status', 'notes'];
   function csvCell(v) {
     if (v == null) return '';
     if (Array.isArray(v)) v = v.join('|');
@@ -142,7 +145,7 @@
       var o = { type: lt, value: publishValue(i.type, i.raw), policy: policyOf(lt), seen: i.count || 1 };
       if (CHAIN[i.type]) o.chain = CHAIN[i.type];
       if (i.meta && i.meta.bank) o.bank = i.meta.bank;
-      if (i.meta && i.meta.issuer) o.cardType = i.meta.issuer.cardTypeName;
+      if (i.meta && i.meta.issuer) { o.issuer = i.meta.issuer.bank; o.cardType = i.meta.issuer.cardTypeName; } // BIN 推断，仅供参考
       if (i.meta && i.meta.kind) o.kind = i.meta.kind;
       return o;
     }).filter(Boolean);
@@ -159,7 +162,8 @@
   function submissionMarkdown(sub) {
     var lines = sub.indicators.map(function (i) {
       return '- ' + (TYPES[i.type] ? TYPES[i.type].label : i.type) + '：`' + i.value + '`' +
-        (i.chain ? '（' + i.chain + '）' : '') + (i.bank ? '（' + i.bank + '）' : '') + (i.policy === 'masked' ? ' ［已打码］' : '');
+        (i.chain ? '（' + i.chain + '）' : '') + (i.bank ? '（' + i.bank + '）' : '') +
+        (i.issuer && i.issuer !== i.bank ? '（BIN：' + i.issuer + '）' : '') + (i.cardType ? '（' + i.cardType + '）' : '') + (i.policy === 'masked' ? ' ［已打码］' : '');
     });
     return lines.join('\n');
   }

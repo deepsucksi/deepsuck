@@ -3,9 +3,35 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const R = require('../site/assets/js/redact.js');
 
-test('银行卡：保留前 4 后 4', () => {
-  assert.equal(R.maskBankCard('6222021234561234'), '6222 **** **** 1234');
-  assert.equal(R.maskBankCard('6222 0212 3456 7890 128'), '6222 **** **** 0128');
+test('银行卡：PCI DSS，16–19 位保留前 6 后 4，中间全部打码', () => {
+  assert.equal(R.maskBankCard('6222021234561234'), '622202******1234'); // 16 位
+  assert.equal(R.maskBankCard('62220212345612345'), '622202*******2345'); // 17 位
+  assert.equal(R.maskBankCard('622305123456789012'), '622305********9012'); // 18 位
+  assert.equal(R.maskBankCard('6222 0212 3456 7890 128'), '622202*********0128'); // 19 位，带空格
+  assert.equal(R.maskBankCard('6222-0212-3456-7890-128'), '622202*********0128'); // 连字符
+  for (let n = 16; n <= 19; n++) {
+    const d = '6222021234567890123'.slice(0, n);
+    const m = R.maskBankCard(d);
+    assert.equal(m.length, n);
+    assert.equal(m.slice(0, 6), d.slice(0, 6));
+    assert.equal(m.slice(-4), d.slice(-4));
+    assert.equal(m.slice(6, -4), '*'.repeat(n - 10));
+    assert.ok(!/\d{7,}/.test(m));
+  }
+});
+
+test('银行卡：非标准长度更保守（8–15 位只留后 4，少于 8 位全部打码）', () => {
+  assert.equal(R.maskBankCard('622202123456789'), '***********6789'); // 15 位
+  assert.equal(R.maskBankCard('622202123456'), '********3456'); // 12 位
+  assert.equal(R.maskBankCard('62220212'), '****0212'); // 8 位
+  assert.equal(R.maskBankCard('6222021'), '*******'); // 7 位
+  assert.equal(R.maskBankCard(''), '');
+  for (let n = 8; n <= 15; n++) {
+    const m = R.maskBankCard('6222021234567890123'.slice(0, n));
+    assert.equal(m.length, n);
+    assert.ok((m.match(/\*/g) || []).length >= n / 2, n + ' 位至少一半打码');
+    assert.ok(!/^\d/.test(m), n + ' 位不露 BIN');
+  }
 });
 
 test('手机号：138****5678，兼容 +86 与分隔符', () => {
@@ -38,6 +64,6 @@ test('redactText：替换文本中的所有敏感片段', () => {
   const t = '转到 6222020200112233445 户名王建国，电话 13900112233';
   const out = R.redactText(t, X.extract(t));
   assert.ok(!/6222020200112233445|13900112233|王建国/.test(out), out);
-  assert.match(out, /6222 \*\*\*\* \*\*\*\* 3445/);
+  assert.match(out, /622202\*{9}3445/);
   assert.match(out, /139\*\*\*\*2233/);
 });

@@ -47,7 +47,8 @@ const TEXTS = [
 for (const sc of S.SCENARIOS) for (const line of sc.samples) TEXTS.push(line);
 
 const REDACT = [
-  ['bank_card', '6222021234561234'], ['bank_card', '6222 0212 3456 7890 128'], ['bank_card', '1234'],
+  ['bank_card', '6222021234561234'], ['bank_card', '62220212345612345'], ['bank_card', '622305123456789012'], ['bank_card', '6222 0212 3456 7890 128'],
+  ['bank_card', '6222-0212-3456-7890-128'], ['bank_card', '622202123456789'], ['bank_card', '622202123456'], ['bank_card', '62220212'], ['bank_card', '6222021'], ['bank_card', '1234'],
   ['phone', '13812345678'], ['phone', '+86 138-1234-5678'], ['phone', '400-820-1234'], ['phone', '021-61234567'], ['phone', '123'],
   ['crypto_eth', '0x12ab34cd56ef7890abcdef1234567890abcd9f3e'], ['crypto_tron', 'TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe'],
   ['crypto_btc', 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'], ['crypto_btc', 'short'],
