@@ -38,8 +38,9 @@ from personas.humanize import Humanizer  # noqa: E402
 from personas.humanize import confusion as C  # noqa: E402
 
 SCRIPTS_DIR = ROOT / "corpus" / "scripts"
-PROMPTS_DIR = ROOT / "personas" / "prompts"
-PERSONAS = ("retiree", "mom", "graduate", "shop_owner")
+from personas import prompt as PERSONA_PROMPT  # noqa: E402  人设唯一数据源 site/assets/core/personas.json
+
+PERSONAS = PERSONA_PROMPT.PERSONA_IDS
 CONDITIONS = ("raw", "humanized", "human")
 
 # 占位符的展示值：全部虚构，且已打码（与首页示例一致的格式）
@@ -113,19 +114,9 @@ def load_scammer_file(path: Path) -> List[dict]:
 
 # ---------------------------------------------------------------- persona replies
 def persona_replies(persona_id: str) -> List[str]:
-    """人设原句池：sample_lines + elicit_moves（去掉句末的分号）+ stall_pools 各池，去重保序。
-    原来只有前两项（每个人设 7 句），60 个句对里同一句会在一份表里出现多次，评委会拿来跨题比较；
-    加上 stall_pools 后每个人设 30 句左右，make 按人设不放回抽取，一份表里不再有重复句。"""
-    d = _yaml().safe_load((PROMPTS_DIR / f"{persona_id}.yaml").read_text(encoding="utf-8"))
-    pool = list(d["sample_lines"]) + [re.sub(r"[；;]\s*$", "", x) for x in d["elicit_moves"]]
-    for lines in (d.get("stall_pools") or {}).values():
-        pool += list(lines or [])
-    out, seen = [], set()
-    for x in pool:
-        if x and x not in seen:
-            seen.add(x)
-            out.append(x)
-    return out
+    """人设原句池：personas.json 里该人设 prompt 的 sampleLines + elicitMoves（去掉句末的分号）+ secrecy / loan_stall 拖延句，去重保序。
+    每个人设三十句上下，make 按人设不放回抽取，一份表里不会出现重复句。"""
+    return PERSONA_PROMPT.reply_pool(persona_id)
 
 
 class _Deck:

@@ -1,6 +1,6 @@
 """演示页回复回归（与 tests/demo_replies.test.js 对应）：规则引擎回复对骗子不念打码星号、引号配对；
 复现场景为冒充客服·退款理赔、王阿姨、样例 1–3，另外全场景 × 全人设扫一遍。
-遗留修复：小林删去“反诈课 PPT”句；李大爷 confirm_intel 后不紧接着要电话（personas.json 的 confirmAskSkip）。"""
+遗留修复：小林删去“反诈课 PPT”句；confirmAskSkip 机制（原李大爷用，人设已归档）：confirm_intel 后不紧接着要电话。"""
 import json
 import re
 from pathlib import Path
@@ -61,13 +61,13 @@ def test_lin_no_antifraud_class_line_and_li_no_phone_after_confirm():
         for t in v:
             txt = t if isinstance(t, str) else t["t"]
             assert "反诈课" not in txt and "PPT" not in txt
-    li = next(p for p in PERSONAS if p["id"] == "li")
-    assert li.get("confirmAskSkip") == ["phone"]
-    phone_ask = li["asks"]["phone"]
+    wang = next(p for p in PERSONAS if p["id"] == "wang")
+    phone_ask = wang["asks"]["phone"]
     confirms = 0
     for sc in SCENARIOS:
         for seed in range(1, 31):
-            s = Session(sc["id"], "li", rng=mulberry32(seed), now=lambda: 0)
+            s = Session(sc["id"], "wang", rng=mulberry32(seed), now=lambda: 0)
+            s.persona = dict(s.persona, confirmAskSkip=["phone"])
             s.opening()
             for line in sc["samples"]:
                 r = s.rule_reply(s.ingest(line))

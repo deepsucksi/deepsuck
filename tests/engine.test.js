@@ -15,7 +15,7 @@ test('话术分类器：公检法 + 安全账户 + 验证码', () => {
 
 test('完整会话：情报去重、报告脱敏、无原文泄露', () => {
   for (const sc of S.SCENARIOS) {
-    for (const persona of ['wang', 'li', 'lin']) {
+    for (const persona of ['wang', 'chen', 'lin', 'zheng']) {
       const s = new E.Session({ scenario: sc.id, persona, rng: seeded(42) });
       s.opening();
       for (const l of sc.samples) { const a = s.ingest(l); const r = s.ruleReply(a); assert.ok(r.text.length > 0); }
@@ -52,7 +52,7 @@ test('拖延句池：secrecy / loan_stall 每个人设 ≥12 条、在轮换链�
       assert.ok(new Set(t).size >= 12, p.id + ' ' + k);
     }
   }
-  for (const pid of ['wang', 'li', 'lin']) {
+  for (const pid of ['wang', 'chen', 'lin', 'zheng']) {
     const s = new E.Session({ scenario: 'loan', persona: pid, rng: () => 0, now: () => 0 });
     const out = [];
     for (let i = 0; i < 16; i++) out.push(s.pick(s.freshIntent('secrecy'), '别告诉家人'));
@@ -65,7 +65,7 @@ test('复述情报：面对骗子的回复不出现打码星号与原值，报�
   const lines = ['收款卡号 6222020200112233445，户名王建国，工商银行', '有问题打 13900112233，或者加QQ 2876543210',
     '下载 APP：https://refund-tb-kefu.top/dl', 'USDT 转到 TRC20 地址 TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe'];
   const raws = ['6222020200112233445', '王建国', '13900112233', '2876543210', 'refund-tb-kefu.top', 'TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe'];
-  for (const persona of ['wang', 'li', 'lin']) {
+  for (const persona of ['wang', 'chen', 'lin', 'zheng']) {
     for (let seed = 1; seed < 30; seed++) {
       const s = new E.Session({ scenario: 'police', persona, rng: seeded(seed) });
       s.opening();
@@ -84,7 +84,7 @@ test('复述情报：面对骗子的回复不出现打码星号与原值，报�
 test('纯拖延不连续两轮：第二轮换成小步配合（coop_step）', () => {
   const stall = ['你快点，别磨蹭', '验证码发我', '听不懂吗？赶紧的', '就差你了', '你到底弄好没有', '嗯', '好的'];
   const PURE = ['otp_stall', 'urgency_stall', 'tech_trouble', 'slow_walk', 'ask_repeat', 'misunderstand', 'info_stall', 'generic'];
-  for (const persona of ['wang', 'li', 'lin']) {
+  for (const persona of ['wang', 'chen', 'lin', 'zheng']) {
     for (let seed = 1; seed < 20; seed++) {
       const s = new E.Session({ scenario: 'police', persona, rng: seeded(seed) });
       s.opening();
@@ -101,7 +101,7 @@ test('纯拖延不连续两轮：第二轮换成小步配合（coop_step）', ()
 });
 
 test('验证码拖延句池 ≥16，按池大小自适应的去重窗口', () => {
-  for (const persona of ['wang', 'li', 'lin']) {
+  for (const persona of ['wang', 'chen', 'lin', 'zheng']) {
     const s = new E.Session({ scenario: 'police', persona, rng: seeded(3) });
     const n = s.persona.templates.otp_stall.length, w = Math.floor(n / 2);
     assert.ok(n >= 16, persona);
@@ -115,7 +115,7 @@ test('验证码拖延句池 ≥16，按池大小自适应的去重窗口', () =>
 test('coop_step：骗子没提表格时不出“身份证 / 表单”句；界面细节只在骗子给出操作指令后', () => {
   const FORM = /表格|表单|证件类型|填在哪一栏|填哪儿|要填哪几栏|姓名写上|姓名填好/;
   const UI = /按钮|页面|屏幕|右下角|图标|下拉框|绿色的勾|请稍候|请核对信息|首页有|"收款人"|"用途"|会议号|实时到账|允许安装|百分之/;
-  for (const persona of ['wang', 'li', 'lin']) {
+  for (const persona of ['wang', 'chen', 'lin', 'zheng']) {
     const s = new E.Session({ scenario: 'police', persona, rng: seeded(5) });
     for (let i = 0; i < 80; i++) {
       const t = s.pick('coop_step', ['请提供一下您的个人信息', '你的资料我这边要核实', '你的账户涉嫌转账洗钱', '我们的APP很安全', '你配合一下调查'][i % 5]);
@@ -130,7 +130,7 @@ test('coop_step：骗子没提表格时不出“身份证 / 表单”句；界�
 });
 
 test('同一场已经要过账户 / 网址：再要时改成“我在找”（re_ask）', () => {
-  for (const persona of ['wang', 'li', 'lin']) {
+  for (const persona of ['wang', 'chen', 'lin', 'zheng']) {
     const s = new E.Session({ scenario: 'police', persona, rng: seeded(2) });
     s.opening();
     const intents = [], texts = [];

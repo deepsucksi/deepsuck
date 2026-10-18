@@ -7,7 +7,7 @@
   C. 跨回合拼接：把号码拆进同一说话方相邻 2–3 个回合（逐回合送进 Session），统计提取率；
      对抗负例（金额、更正、完整号码相邻、带单位的数字、工号等）上统计误拼率；
   D. TeleAntiFraud 对话（来电方逐句送进 Session）：拼接产出数与提取总数，看是否引入新的误报。
-  E. 人设错字档（--tiers default,handwriting）：按人设预设（王阿姨 / 李大爷 / 小林 + 4 个基础预设）的默认档与手写档，
+  E. 人设错字档（--tiers default,handwriting）：按人设预设（四位人设 + 4 个基础预设）的默认档与手写档，
      把 A 的暴露台词、B 的数字混淆句、C 的跨回合拆分句与对抗负例都过一遍 personas.humanize 再提取；
      拆条后的每一条当作一个独立回合送进 Session（真人一句拆几条发）。同时报实测每百字错字数。
   F. 断续句评测集（#8，eval/halting_eval.py）：「…」「...」「，」停顿、数字逐位读（中文 / 阿拉伯 / 幺两混读）、跨回合拆开、
@@ -271,7 +271,7 @@ def eval_taf(path):
     return out
 
 
-TIER_PROFILES = ("wang", "li", "lin", "retiree", "mom", "graduate", "shop_owner")
+TIER_PROFILES = ("wang", "chen", "lin", "zheng", "retiree", "mom", "graduate", "shop_owner")
 
 
 class TypoMeter:

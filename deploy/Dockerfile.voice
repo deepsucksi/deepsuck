@@ -11,11 +11,12 @@ RUN grep -vE '^(pytest|httpx)\b' voice/requirements.txt > /tmp/req.txt && pip in
     find /usr/local/lib/python3.12 -name '__pycache__' -prune -exec rm -rf {} + || true
 COPY python/ python/
 COPY voice/ voice/
-# 口头语唯一数据源（voice/persona.py 运行时读取；PyYAML 由 pipecat-ai 依赖带入）
-COPY personas/__init__.py personas/voice_traits.py personas/voice_traits.yaml personas/
+# 人设唯一数据源（含口头语 voiceTraits、建议底噪 ambience；voice/persona.py、voice/ambience.py 运行时读取）
 COPY site/assets/core/ site/assets/core/
 COPY site/assets/logo.svg site/assets/logo.svg
 COPY site/assets/brand/wordmark.svg site/assets/brand/on-hold-mono-96.png site/assets/brand/
+# 人设头像（与首页同一组 round6 照片，见 personas.json 的 photo）
+COPY site/assets/brand/round6/*-400.webp site/assets/brand/round6/
 COPY site/assets/fonts/Manrope.ttf site/assets/fonts/IBMPlexMono-Regular.ttf site/assets/fonts/
 RUN useradd -r -u 1000 app && mkdir -p /data /cache /traces && chown app:app /data /cache /traces && chmod 700 /traces
 # 代码版本（写进通话追踪）：构建参数 GIT_SHA 优先；没传时用 .dockerignore 放行的 .git/HEAD 与 refs（不含对象库）

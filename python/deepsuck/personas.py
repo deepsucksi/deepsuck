@@ -23,3 +23,10 @@ SPEAK_INTEL: dict = _P["speakIntel"]
 
 SCENARIOS = _S["scenarios"]
 SCENARIO_BY_ID = {s["id"]: s for s in SCENARIOS}
+# 别名 → 人设 id（personas.json 的 aliases：li → wang，xiaochen / mom → chen，shop_owner → zheng；旧链接 ?persona=li、旧配置 VOICE_TELEPHONY_PERSONA 仍能用）
+PERSONA_ALIASES: dict = dict(_P.get("aliases") or {})
+
+
+def resolve_persona_id(pid) -> str:
+    pid = str(pid or "")
+    return PERSONA_ALIASES.get(pid, pid)

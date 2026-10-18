@@ -2,13 +2,12 @@ import re
 
 import pytest
 
-yaml = pytest.importorskip("yaml")
-
 from personas import prompt as P  # noqa: E402
 from personas.humanize import PROFILES  # noqa: E402
 
-REQUIRED = ["id", "name", "archetype", "humanize_profile", "age", "background", "traits", "speech_style",
-            "stall_moves", "elicit_moves", "sample_lines", "system_prompt"]
+# 数据来自 site/assets/core/personas.json 的 prompt 字段（原 prompts/*.yaml 已删，旧版存档在 personas/archive/）
+REQUIRED = ["id", "name", "role", "archetype", "humanize_profile", "background", "traits", "speechStyle",
+            "stallMoves", "elicitMoves", "sampleLines", "systemPrompt"]
 EMOJI = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")
 
 
@@ -19,7 +18,7 @@ def test_persona_schema(pid):
         assert p.get(k), (pid, k)
     assert p["id"] == pid
     assert p["humanize_profile"] in PROFILES
-    for k in ("traits", "stall_moves", "elicit_moves", "sample_lines"):
+    for k in ("traits", "stallMoves", "elicitMoves", "sampleLines"):
         assert isinstance(p[k], list) and len(p[k]) >= 3 and all(isinstance(x, str) for x in p[k])
 
 
@@ -34,3 +33,16 @@ def test_system_prompt_has_rules_and_no_secrets(pid):
 
 def test_four_archetypes():
     assert sorted(P.load(p)["archetype"] for p in P.PERSONA_IDS) == sorted(["退休老人", "宝妈", "刚毕业学生", "个体小老板"])
+
+
+def test_four_personas_match_homepage_roles():
+    assert P.PERSONA_IDS == ("wang", "chen", "lin", "zheng")
+    assert [P.load(p)["role"] for p in P.PERSONA_IDS] == ["退休老人", "宝妈", "刚毕业学生", "个体小老板"]
+
+
+def test_no_age_in_prompt_data():
+    """不写年龄（新规则）：提示词资料里不出现“xx岁”。"""
+    for pid in P.PERSONA_IDS:
+        p = P.load(pid)
+        blob = " ".join([p["background"], p["speechStyle"], p["systemPrompt"]] + p["traits"] + p["sampleLines"])
+        assert not re.search(r"\d+\s*岁|[一二三四五六七八九十]+岁", blob), pid

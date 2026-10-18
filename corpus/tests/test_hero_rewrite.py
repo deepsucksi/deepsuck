@@ -159,10 +159,11 @@ def test_check_mode():
     assert B.main(["--check"]) == 0
 
 
-def test_persona_names_match_prompts():
-    yaml = pytest.importorskip("yaml")
+def test_persona_names_match_archived_prompts():
+    import json
+    arch = json.loads((ROOT / "personas/archive/prompts-v0.json").read_text(encoding="utf-8"))["prompts"]
     for pid, name in B.P_NAMES.items():
-        assert yaml.safe_load((ROOT / "personas/prompts" / f"{pid}.yaml").read_text(encoding="utf-8"))["name"] == name
+        assert arch[pid]["name"] == name
 
 
 def test_no_deliberate_typos_in_output_or_tables():

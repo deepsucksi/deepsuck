@@ -33,8 +33,8 @@ test('王阿姨默认档每百字 2–4 个错字；每百字 10+ 只在 handwri
   assert.ok(d >= 2 && d <= 4, String(d));
   assert.ok(hw >= 10, String(hw));
   assert.equal(new HZ.Humanizer({ profile: 'wang' }).handwriting, false);
-  const lin = rate('lin', false);
-  assert.ok(lin < d && lin >= 0.6, String(lin));
+  const yu = rate('lin', false);
+  assert.ok(yu < d && yu >= 0.6, String(yu));
 });
 
 test('会话级错字映射：同一个词一场里只错成一种写法，被指出后照错', () => {
@@ -46,8 +46,8 @@ test('会话级错字映射：同一个词一场里只错成一种写法，被�
   Object.keys(snap).forEach((k) => assert.equal(h.typoMap[k], snap[k]));
 });
 
-test('标点风格每个人设固定：王阿姨一逗到底，李大爷 / 小林全不打（数字串旁、“户名”等人名提示词后的原标点不动）', () => {
-  for (const [pid, style] of [['wang', 'comma'], ['li', 'none'], ['lin', 'none']]) {
+test('标点风格每个人设固定：王阿姨、郑老板一逗到底，小陈妈妈 / 小林全不打（数字串旁、“户名”等人名提示词后的原标点不动）', () => {
+  for (const [pid, style] of [['wang', 'comma'], ['chen', 'none'], ['lin', 'none'], ['zheng', 'comma']]) {
     const h = new HZ.Humanizer({ profile: pid, seed: 2 });
     pool(pid).slice(0, 80).forEach((x) => {
       const out = Array.from(h.apply(x).text), core = HZ.protectedMask(out, C.humanize.confusion.nameCues), fz = HZ.cueFrozen(out);
@@ -73,12 +73,12 @@ test('人设台词、真人化短语池与输出都没有年轻网络用语和�
   const H = C.humanize;
   const texts = [];
   C.personas.forEach((p) => { texts.push(...pool(p.id)); texts.push(...Object.values(p.asks)); });
-  Object.keys(H.profiles).filter((k) => k !== 'comment').concat(['wang', 'li', 'lin']).forEach((k) => {
+  Object.keys(H.profiles).filter((k) => k !== 'comment').concat(['wang', 'chen', 'lin', 'zheng']).forEach((k) => {
     const pr = HZ.resolve(k);
     ['digressions', 'apologies', 'closings', 'emojis', 'selfRef'].forEach((f) => texts.push(...(pr[f] || [])));
   });
   texts.forEach((t) => banned.forEach((w) => assert.ok(t.toLowerCase().indexOf(w) < 0, w + ' in ' + t)));
-  ['wang', 'li', 'lin'].forEach((pid) => {
+  ['wang', 'chen', 'lin', 'zheng'].forEach((pid) => {
     const h = new HZ.Humanizer({ profile: pid, seed: 9, handwriting: true });
     pool(pid).slice(0, 100).forEach((x) => { const o = h.apply(x, '验证码发我').text.toLowerCase(); banned.forEach((w) => assert.ok(o.indexOf(w) < 0, o)); });
   });
@@ -98,7 +98,7 @@ function spans(a) {
   return out;
 }
 test('数字串（号码 / 卡号 / 金额 / 钱包 / 网址）内部与紧挨的前后不插错字、表情、标点，也不拆条', () => {
-  for (const pid of ['wang', 'li', 'lin', 'retiree', 'mom', 'graduate', 'shop_owner']) {
+  for (const pid of ['wang', 'chen', 'lin', 'zheng', 'retiree', 'mom', 'graduate', 'shop_owner']) {
     for (const hw of [false, true]) {
       for (let s = 0; s < 25; s++) {
         const h = new HZ.Humanizer({ profile: pid, seed: s, handwriting: hw, weights: { repeat: 3, digress: 3 } });
@@ -126,7 +126,7 @@ test('语音模式：户名 / 收款人 / 姓名字段值后面的逗号不删�
   const lines = ['户名周杰，农业银行，卡号我抄好了', '收款人王建国，开户行建设银行', '姓名张三，电话你再说一遍', '户名：李某某，我记下了'];
   const vals = ['周杰，', '王建国，', '张三，', '李某某，'];
   const words = HZ.PROTECT_WORDS;
-  for (const pid of ['wang', 'li', 'retiree', 'shop_owner', 'lin', 'mom']) {
+  for (const pid of ['wang', 'chen', 'zheng', 'retiree', 'shop_owner', 'lin', 'mom']) {
     for (const hw of [false, true]) {
       for (let s = 0; s < 60; s++) {
         const h = new HZ.Humanizer({ profile: pid, seed: s, handwriting: hw, weights: { asr: 3 } });
@@ -144,7 +144,7 @@ test('语音模式：户名 / 收款人 / 姓名字段值后面的逗号不删�
 });
 
 test('整条消息只有一小段逐字报的数字（跨回合拆开报号）：后面拼上别的话也原样保留，紧挨处不插东西', () => {
-  for (const pid of ['wang', 'li', 'lin', 'retiree']) for (const hw of [false, true]) for (let s = 0; s < 40; s++) {
+  for (const pid of ['wang', 'chen', 'lin', 'zheng', 'retiree']) for (const hw of [false, true]) for (let s = 0; s < 40; s++) {
     const h = new HZ.Humanizer({ profile: pid, seed: s, handwriting: hw, weights: { repeat: 3, digress: 3 } });
     h.emojiRate = 0.9; h.splitRate = 0.9;
     for (const src of ['三三，', '九', '幺两']) {
@@ -158,9 +158,9 @@ test('整条消息只有一小段逐字报的数字（跨回合拆开报号）�
 
 test('不再主动报年龄：预设里没有 ageLines，输出不带 age 操作，也不凭空加“今年几十了”', () => {
   const AGE_DECL = /今年.{1,3}了|一把年纪|[六七]十[一二]?了|岁数大了|年纪大了/;
-  ['wang', 'li', 'lin'].concat(Object.keys(C.humanize.profiles).filter((k) => k !== 'comment')).forEach((pid) => {
+  ['wang', 'chen', 'lin', 'zheng'].concat(Object.keys(C.humanize.profiles).filter((k) => k !== 'comment')).forEach((pid) => {
     assert.ok(!('ageLines' in HZ.resolve(pid)), pid);
-    const lines = pool(['wang', 'li', 'lin'].indexOf(pid) >= 0 ? pid : 'wang');
+    const lines = pool(['wang', 'chen', 'lin', 'zheng'].indexOf(pid) >= 0 ? pid : 'wang');
     for (let s = 0; s < 10; s++) {
       const h = new HZ.Humanizer({ profile: pid, seed: s });
       for (let i = 0; i < 40; i++) {

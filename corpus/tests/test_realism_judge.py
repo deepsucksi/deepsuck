@@ -212,7 +212,8 @@ def test_item_mode_sees_one_item_only(tmp_path):
         user = messages[-1]["content"]
         assert messages[0]["content"] == J.SYSTEM_PROMPT_ITEM and "items" not in messages[0]["content"]
         assert not any(r["id"] in user for rows in forms.values() for r in rows)
-        assert sum(1 for x in set(all_replies) if "回复：" + x + "\n" in user) == 1
+        # 拆成几条发的回复在题面上用“／”连成一行（realism_judge 的单行化函数）
+        assert sum(1 for x in set(all_replies) if "回复：" + " ／ ".join(y.strip() for y in x.splitlines() if y.strip()) + "\n" in user) == 1
         assert params["max_tokens"] == J.OUT_TOKENS_OVERHEAD + J.OUT_TOKENS_PER_ITEM
     assert J.parse_judgments('{"bot": 1, "human": 2, "unreadable": 0}', [{"id": "B007"}])["B007"]["bot"] == 1
     fake_b = FakeClient()

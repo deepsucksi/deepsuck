@@ -12,56 +12,42 @@ if str(_PY) not in sys.path:
 
 from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
-from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS  # noqa: E402
+from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, resolve_persona_id  # noqa: E402
 
 INTENT_HINTS: dict = load("personas")["intentHints"]
 
-# 短口头语（backchannel）：唯一数据源是 personas/voice_traits.yaml（每个人设的 backchannel 列表），运行时读取。
+# 短口头语（backchannel）：唯一数据源是 personas.json 每个人设的 voiceTraits.backchannel，运行时读取。
 # 对方说完后先用预合成的音频"嗯……""啊？你说啥"接一下（见 voice/backchannel.py）；音频缓存按文本区分，
-# 所以 YAML 里已有条目的文字不要改（改了会重新合成），新增条目首次使用时补合成即可。
-_TRAITS_YAML = Path(__file__).resolve().parents[1] / "personas" / "voice_traits.yaml"
+# 所以已有条目的文字不要改（改了会重新合成），新增条目首次使用时补合成即可。
+_CORE_PERSONAS = Path(__file__).resolve().parents[1] / "site" / "assets" / "core" / "personas.json"
 
 
-def _load_traits(path: Path = _TRAITS_YAML) -> dict:
-    """{persona_id: {字段: ...}}。优先复用 personas.voice_traits.personas()；导入不了（部署里没有该包）就直接读 YAML；
-    都失败则返回 {}（口头语整体不播、开场用默认的“喂？哪位”，通话不受影响）。"""
-    if path == _TRAITS_YAML:
-        root = str(path.parents[1])
-        if root not in sys.path:
-            sys.path.append(root)
-        try:
-            from personas.voice_traits import personas
-
-            return personas()
-        except ImportError:
-            pass
-        except Exception as e:  # noqa: BLE001
-            print(f"voice.persona: personas.voice_traits 读取失败（{e}），改为直接读 YAML", file=sys.stderr)
+def _load_traits(path: Path = _CORE_PERSONAS) -> dict:
+    """{persona_id: voiceTraits}，读 personas.json；读取失败返回 {}（口头语整体不播、开场用默认的“喂？哪位”，通话不受影响）。"""
     try:
-        import yaml
+        import json
 
-        with open(path, encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-        return dict(data.get("personas") or {})
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return {p["id"]: dict(p.get("voiceTraits") or {}) for p in data.get("personas", []) if p.get("voiceTraits")}
     except Exception as e:  # noqa: BLE001
         print(f"voice.persona: 读取语音人设失败（{path}: {e}），本进程不播口头语", file=sys.stderr)
         return {}
 
 
-def load_fillers(path: Path = _TRAITS_YAML) -> dict:
-    """{persona_id: [口头语, ...]}，即 voice_traits.yaml 每个人设的 backchannel。"""
-    return {pid: [str(x) for x in (t or {}).get("backchannel", [])] for pid, t in _load_traits(path).items()}
+def load_fillers(path: Path = _CORE_PERSONAS) -> dict:
+    """{persona_id: [口头语, ...]}，即 personas.json 每个人设的 voiceTraits.backchannel。"""
+    return {pid: [str(x) for x in t.get("backchannel", [])] for pid, t in _load_traits(path).items() if t.get("backchannel")}
 
 
-def load_voice_openings(path: Path = _TRAITS_YAML) -> dict:
-    """{persona_id: [接电话那一声, ...]}，即 voice_traits.yaml 里写了 opening 的人设。"""
-    return {pid: [str(x) for x in t["opening"]] for pid, t in _load_traits(path).items() if (t or {}).get("opening")}
+def load_voice_openings(path: Path = _CORE_PERSONAS) -> dict:
+    """{persona_id: [接电话那一声, ...]}，即 personas.json 里写了 voiceTraits.opening 的人设。"""
+    return {pid: [str(x) for x in t["opening"]] for pid, t in _load_traits(path).items() if t.get("opening")}
 
 
 FILLERS = load_fillers()
 
 
-# 说话风格（与 personas/prompts/retiree.yaml 的规则一致，俊杰定的克制标准）：年龄感只靠节奏和偶尔没听清带出来。
+# 说话风格（俊杰定的克制标准，四个人设通用；各人设的补充规则在 personas.json 的 voiceStyle）：年龄感只靠节奏和偶尔没听清带出来。
 STYLE_RULE = ("6. 说话平常、克制，像普通人接电话：句子短，不用感叹号，不用“哎哟”“哎呀”开头；想一下、说一半停住的地方用“…”，"
               "大约一半的句子带“…”，另一半说完整的短句，不要每句都带；可以重复半个词、说了又改口；"
               "可以反问、含糊一点，但不是每句都问，别把话说完整，也别替对方把话说圆；"
@@ -154,7 +140,8 @@ def gate_intent(intent: str, session) -> str:
 
 # 电话是机器人先开口：网页文字版的开场白（personas.json openings）是回骗子第一条消息的，按场景写，
 # 例如“客服？哪个订单”“是哪个平台开的”。语音里对方还没开口，开场只能是接电话的那一声。
-# 每个人设接电话的那一声同样只在 personas/voice_traits.yaml（字段 opening）里写，运行时读取；没写的人设用默认的“喂？哪位”。
+# 新人设（chen / zheng）的开场先按同样的克制口气写，音色和底噪等负责人试听后再上线（见 voice/README.md）。
+# 每个人设接电话的那一声只在 personas.json 的 voiceTraits.opening 里写，运行时读取；没写的人设用默认的“喂？哪位”。
 VOICE_OPENINGS = load_voice_openings()
 
 
@@ -191,7 +178,7 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
     missing：对方已经提到、但还没说清楚的情报（调用方按话题过滤，见 IntelProcessor.update_prompt）。
     topics：对方已经提到的话题（session_topics）；None 表示不过滤例句（离线工具用）。
     first_turn：对方刚说完第一段话（本通电话人设的第一条回复），加 FIRST_TURN_RULE。"""
-    p = PERSONA_BY_ID.get(persona_id) or PERSONAS[0]
+    p = PERSONA_BY_ID.get(resolve_persona_id(persona_id)) or PERSONAS[0]
     s = SCENARIO_BY_ID.get(scenario_id) or SCENARIOS[0]
     call = p["call"].get(s["id"], "")
     miss = "对方已经提到、但还没说清楚的：" + "、".join(missing) + "，可以顺着问一句。" if missing else ""

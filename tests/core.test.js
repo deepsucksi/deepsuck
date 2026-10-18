@@ -88,7 +88,7 @@ test('话术识别也能看穿去武装写法', () => {
 });
 
 test('会话：去武装写法的情报进入看板且报告不泄露', () => {
-  const s = new E.Session({ scenario: 'police', persona: 'li' });
+  const s = new E.Session({ scenario: 'police', persona: 'zheng' });
   s.ingest('把钱转到 六二二二 零二零二 零零一一 二二三三 四四五，有问题打 幺三九 零零幺幺 二二三三');
   const types = s.intelList().map((i) => i.type).sort();
   assert.deepEqual(types, ['bank_card', 'phone']);

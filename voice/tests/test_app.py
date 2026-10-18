@@ -7,7 +7,12 @@ def test_config_and_index():
     c = TestClient(A.create_app("rule"))
     r = c.get("/api/config").json()
     assert r["keyConfigured"] is True and r["engine"] == "rule"
-    assert {p["id"] for p in r["personas"]} >= {"wang", "li", "lin"}
+    ps = r["personas"]
+    assert [p["id"] for p in ps] == ["wang", "chen", "lin", "zheng"]
+    assert [(p["no"], p["role"]) for p in ps] == [("01", "退休老人"), ("02", "宝妈"), ("03", "刚毕业学生"), ("04", "个体小老板")]
+    for p in ps:
+        assert p["photo"].startswith("/static/brand/") and c.get(p["photo"]).status_code == 200
+    assert r["aliases"] == {"li": "wang", "xiaochen": "chen", "mom": "chen", "shop_owner": "zheng"}
     assert "test-key" not in str(r)  # 不回显 key
     html = c.get("/").text
     assert "DeepSuck" in html

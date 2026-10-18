@@ -200,17 +200,15 @@ def test_handwriting_shape_typos_switch():
 
 
 def test_typo_rate_calibrated_band():
-    """新人设原句池（personas/prompts）上的每百字错字数落在 docs/REALISM.md「错字率校准」写的区间。"""
+    """各基础预设在对应人设原句池（personas.json：prompt.sampleLines / elicitMoves + 拖延句）上的每百字错字数
+    落在 docs/REALISM.md「错字率校准」写的区间。四位人设与四个基础预设一一对应（humanize.profile）。"""
     hz = lambda s: sum("\u4e00" <= c <= "\u9fff" for c in s)
-    yaml = pytest.importorskip("yaml")
-    prompts = Path(__file__).resolve().parents[1] / "prompts"
+    from personas import prompt as PR
+    by_base = {PR.load(pid)["humanize_profile"]: pid for pid in PR.PERSONA_IDS}
+    assert set(by_base) == set(PROFILES)
 
-    def pool(pid):
-        d = yaml.safe_load((prompts / f"{pid}.yaml").read_text(encoding="utf-8"))
-        out = list(d["sample_lines"]) + list(d["elicit_moves"])
-        for v in (d.get("stall_pools") or {}).values():
-            out += list(v)
-        return out
+    def pool(base):
+        return PR.reply_pool(by_base[base])
     rates, shape = {}, 0
     shapes = {a for v in C.SHAPE_CHARS.values() for a in v}
     for pid in PROFILES:

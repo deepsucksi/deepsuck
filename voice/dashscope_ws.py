@@ -20,11 +20,13 @@ from typing import AsyncIterator, Awaitable, Callable, Optional
 WS_URL = os.environ.get("DASHSCOPE_WS_URL", "wss://dashscope.aliyuncs.com/api-ws/v1/inference")
 
 # 人设 → CosyVoice 系统音色（cosyvoice-v3-flash；均为北京地域）。开箱即用，任何百炼账号都能合成。
+# 小陈妈妈（chen）、郑老板（zheng）暂不配音色：负责人试听通过前退回默认音色（下面 persona_voice 的 longlaoyi_v3），
+# 也可以先用 DEEPSUCK_VOICE_CHEN / DEEPSUCK_VOICE_ZHENG 在测试环境试听。建议见 personas.json 的 voiceHint。
 PERSONA_VOICES = {
     "wang": "longlaoyi_v3",   # 龙老姨：烟火从容阿姨，60 岁以上
-    "li": "longlaobo_v3",     # 龙老伯：沧桑岁月爷，60 岁以上
-    "lin": "longanyang",      # 龙安洋：阳光大男孩，20~30 岁
+    "lin": "longanyang",       # 龙安洋：阳光大男孩
 }
+DEFAULT_VOICE = "longlaoyi_v3"
 
 # 声音设计音色（voice-enrollment 生成，ID 形如 cosyvoice-v3.5-flash-vd-xxx）只属于创建它的百炼账号，
 # 所以不写死在代码里：用 `python -m voice.design_voice wang` 在自己账号里创建，再把 ID 填进环境变量。
@@ -62,7 +64,7 @@ def persona_voice(pid: str, default_model: Optional[str] = None, env=None) -> Vo
     env = os.environ if env is None else env
     up = pid.upper()
     default_model = default_model or env.get("DEEPSUCK_TTS_MODEL", "cosyvoice-v3-flash")
-    voice = (env.get(f"DEEPSUCK_VOICE_{up}") or "").strip() or PERSONA_VOICES.get(pid, "longlaoyi_v3")
+    voice = (env.get(f"DEEPSUCK_VOICE_{up}") or "").strip() or PERSONA_VOICES.get(pid, DEFAULT_VOICE)
     model = (env.get(f"DEEPSUCK_VOICE_{up}_MODEL") or "").strip() or designed_model(voice) or default_model
     instruction = None
     if designed_model(voice):

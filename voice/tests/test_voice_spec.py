@@ -1,5 +1,6 @@
 import asyncio
 import json
+from pathlib import Path
 
 from voice import dashscope_ws as ds
 from voice.processors import fillers_missing, synth_fillers
@@ -16,7 +17,7 @@ def test_designed_voice_infers_model_and_ignores_instruction_for_system_voice():
     vs = ds.persona_voice("wang", env={"DEEPSUCK_VOICE_WANG": VD})
     assert vs.model == "cosyvoice-v3.5-flash" and vs.voice == VD
     # 系统音色不支持指令：设了也不发
-    vs2 = ds.persona_voice("li", env={"DEEPSUCK_VOICE_LI_INSTRUCTION": "请用东北话表达。"})
+    vs2 = ds.persona_voice("lin", env={"DEEPSUCK_VOICE_LIN_INSTRUCTION": "请用东北话表达。"})
     assert vs2.instruction is None
 
 
@@ -37,6 +38,14 @@ def test_explicit_model_wins_and_global_default():
     assert vs.model == "cosyvoice-v3-plus"
     vs = ds.persona_voice("wang", env={"DEEPSUCK_VOICE_WANG": VD, "DEEPSUCK_VOICE_WANG_MODEL": "x"})
     assert vs.model == "x"
+
+
+def test_new_personas_fall_back_to_default_voice_until_approved():
+    """小陈妈妈、郑老板的音色等负责人试听：没设环境变量时用默认音色；语音工程师用 DEEPSUCK_VOICE_CHEN / _ZHENG 试听。"""
+    for pid in ("chen", "zheng"):
+        assert ds.persona_voice(pid, env={}).voice == ds.DEFAULT_VOICE
+        assert ds.persona_voice(pid, env={f"DEEPSUCK_VOICE_{pid.upper()}": "longxx_v3"}).voice == "longxx_v3"
+    assert ds.persona_voice("wang", env={}).voice == "longlaoyi_v3"
 
 
 def test_run_task_tts_instruction():
@@ -99,7 +108,7 @@ def test_calm_tts_text():
 
 def test_voice_prompt_is_restrained():
     from voice.persona import system_prompt
-    for pid in ("wang", "li", "lin"):
+    for pid in ("wang", "chen", "lin", "zheng"):
         sp = system_prompt(pid, "refund")
         assert "不用感叹号" in sp and "“…”" in sp and "老花镜" in sp and "看不清" not in sp
         assert "62 岁" not in sp and "62岁" not in sp
@@ -149,7 +158,13 @@ def test_stream_tts_turn_ending_on_pause_still_stops(monkeypatch):
 def test_ambience_choice_and_mixer(monkeypatch):
     import numpy as np
     from voice import ambience as A
-    assert A.choose("wang", "1") == "kitchen" and A.choose("li", "1") == "tv" and A.choose("lin", "1") == "street"
+    assert A.choose("wang", "1") == "kitchen" and A.choose("lin", "1") == "street"
+    # 小陈妈妈 living_room、郑老板 shop 的素材未批准前退回默认底噪（厨房）
+    assert A.choose("chen", "1") == A.choose("zheng", "1") == A.DEFAULT_SOUND == "kitchen"
+    import json
+    core = json.loads((Path(A.__file__).resolve().parents[1] / "site/assets/core/personas.json").read_text(encoding="utf-8"))
+    assert {p["id"]: p["ambience"] for p in core["personas"]} == {
+        "wang": "kitchen", "chen": "living_room", "lin": "street", "zheng": "shop"}
     assert A.choose("wang", "0") is None and A.choose("wang", "street") == "street"
     for f in A.SOUNDS.values():
         assert f.exists() and f.stat().st_size < 600_000

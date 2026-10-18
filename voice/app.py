@@ -39,7 +39,12 @@ for p in (ROOT / "python",):
         sys.path.insert(0, str(p))
 
 from deepsuck.engine import Session  # noqa: E402
-from deepsuck.personas import PERSONAS, SCENARIOS  # noqa: E402
+from deepsuck.personas import PERSONAS, PERSONA_ALIASES, SCENARIOS, resolve_persona_id  # noqa: E402
+
+# 人设头像：与首页同一组 round6 照片（personas.json 的 photo，站点相对路径），按文件名进只读白名单
+for _p in PERSONAS:
+    if _p.get("photo"):
+        BRAND_FILES[Path(_p["photo"]).name] = ("site/" + _p["photo"], "image/webp")
 
 from . import guard as G  # noqa: E402
 from . import records as REC  # noqa: E402
@@ -138,8 +143,11 @@ def public_config(engine: str, limits: Optional[G.Limits] = None, budget: Option
         "budget": budget.status() if budget is not None else None,
         "engine": engine,
         "models": {"llm": LLM_MODEL, "asr": ASR_MODEL, "tts": TTS_MODEL},
-        "personas": [{"id": p["id"], "name": p["name"], "tagline": p["tagline"],
+        # 序号、身份、头像与首页卡片一致（personas.json 的 no / role / photo）
+        "personas": [{"id": p["id"], "no": p["no"], "name": p["name"], "role": p["role"], "tagline": p["tagline"],
+                      "photo": "/static/brand/" + Path(p["photo"]).name,
                       "voice": _public_voice(p["id"])} for p in PERSONAS],
+        "aliases": PERSONA_ALIASES,
         "scenarios": [{"id": s["id"], "title": s["title"]} for s in SCENARIOS],
         # 通话追踪（同意制，见 voice/trace.py）：页面据此显示同意复选框和说明
         "trace": {"enabled": TR.enabled(), "days": TR.days(), "audio": TR.audio_enabled()},
@@ -490,7 +498,7 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
         if origins and request.headers.get("origin", "").rstrip("/") not in origins:
             raise HTTPException(403, "origin not allowed")
         body: Dict[str, Any] = await request.json()
-        persona, scenario = str(body.get("persona") or "wang"), str(body.get("scenario") or "refund")
+        persona, scenario = resolve_persona_id(body.get("persona") or "wang"), str(body.get("scenario") or "refund")
         consent = body.get("consent") is True  # 只认 JSON true；缺省/字符串都当不同意
         if not isinstance(body.get("sdp"), str) or len(body["sdp"]) > 20000 or body.get("type") != "offer":
             raise HTTPException(400, "bad offer")

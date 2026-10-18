@@ -113,7 +113,7 @@ def test_not_worth_is_not_suspicious(tmp_path):
 
 
 def test_max_turns_cap_and_raw_text_fallback(tmp_path):
-    res = _run(tmp_path, FakeScammer(hang_at=None, raw=True), personas=["li"], max_turns=5)
+    res = _run(tmp_path, FakeScammer(hang_at=None, raw=True), personas=["zheng"], max_turns=5)
     r = res["rows"][0]
     assert r["turns"] == 5 and r["quit"] == "max_turns" and r["parseErrors"] == 6
 
@@ -138,9 +138,10 @@ def test_budget_refuses_before_calling(tmp_path):
     # 上限只能调低
     res = M.run(scenarios=["police"], personas=["wang"], seeds=1, max_cost=99, cache_dir=tmp_path)
     assert res["estimate"]["max_cost_cny"] == M.HARD_MAX_COST_CNY == 3.0
-    # 默认参数（7 场景 × 3 人设 × 2 种子 × 25 轮）估算在 3 元以内
+    # 默认参数（7 场景 × 4 人设 × 1 种子 × 25 轮）估算在 3 元以内；默认人设 = personas.json 的四位
     res = M.run(cache_dir=tmp_path)
-    assert res["dry_run"] and res["estimate"]["sessions"] == 42 and res["estimate"]["cost_cny"] <= 3.0
+    assert res["dry_run"] and res["estimate"]["sessions"] == 28 and res["estimate"]["cost_cny"] <= 3.0
+    assert res["config"]["personas"] == ["wang", "chen", "lin", "zheng"]
 
 
 def test_default_off(tmp_path, monkeypatch, capsys):

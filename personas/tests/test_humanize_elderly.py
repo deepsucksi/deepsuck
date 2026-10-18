@@ -40,8 +40,9 @@ def rate(pid, handwriting=False, seeds=40, turns=40, **kw):
 
 def test_profiles_live_in_personas_json():
     assert set(PROFILES) == {"retiree", "mom", "graduate", "shop_owner"}
-    assert set(PERSONA_PROFILES) == {"wang", "li", "lin"}
-    assert PERSONA_PROFILES["wang"]["base"] == "retiree" and PERSONA_PROFILES["lin"]["base"] == "graduate"
+    assert set(PERSONA_PROFILES) == {p["id"] for p in CORE["personas"]} == {"wang", "chen", "lin", "zheng"}
+    assert {k: v["base"] for k, v in PERSONA_PROFILES.items()} == {
+        "wang": "retiree", "chen": "mom", "lin": "graduate", "zheng": "shop_owner"}
     for p in list(PROFILES.values()) + list(PERSONA_PROFILES.values()):
         assert p["punctStyle"] in ("comma", "none")
         assert p["typoPer100"] > 0 and p["handwritingTypoPer100"] >= p["typoPer100"]
@@ -55,9 +56,12 @@ def test_wang_default_band_and_handwriting_tier():
 
 
 def test_other_personas_raised_but_below_wang():
-    li, lin = rate("li"), rate("lin")
-    assert 2.0 <= li <= 3.5, li
-    assert 0.6 <= lin <= 1.8, lin
+    wang = rate("wang")
+    for pid in ("chen", "zheng"):
+        r = rate(pid)
+        assert 1.5 <= r <= 3.0 and r < wang, (pid, r)
+    yu = rate("lin")
+    assert 0.6 <= yu <= 1.8, yu
     assert rate("wang", typo_per_100=2.0) >= 1.6  # 档位可配置，王阿姨不低于每百字 2 个（允许抽样误差）
 
 
@@ -95,7 +99,7 @@ def test_typos_concentrate_on_common_words_and_places():
 
 
 def test_punct_style_fixed_per_persona():
-    for pid, style in (("wang", "comma"), ("li", "none"), ("lin", "none")):
+    for pid, style in (("wang", "comma"), ("chen", "none"), ("lin", "none"), ("zheng", "comma")):
         lines = engine_pool(pid)
         for s in range(15):
             h = Humanizer(profile=pid, seed=s)
@@ -131,7 +135,7 @@ def test_selfref_apology_closing_no_age_declaration():
     """自称、道歉、收尾照常出现；不再主动报年龄（年龄感只靠节奏和偶尔没听清）。"""
     lines = engine_pool("wang")
     tot = {"selfref": 0, "apology": 0, "closing": 0}
-    for pid in ("wang", "li", "retiree"):
+    for pid in ("wang", "chen", "zheng", "retiree"):
         assert "ageLines" not in PERSONA_PROFILES.get(pid, PROFILES.get(pid, {}))
     for s in range(20):
         h = Humanizer(profile="wang", seed=s)
@@ -177,13 +181,11 @@ def _all_persona_text():
     out += C.DIGRESSIONS + C.CONFIRM_TEMPLATES + C.CONFIRM_GENERIC + C.ASR_FILLERS
     for tab in (C.HOMOPHONE_WORDS, C.COMMON_WORDS, C.PLACE_WORDS, C.HOMOPHONE_CHARS, C.SHAPE_CHARS, C.HANDWRITING_CHARS):
         out += [a for v in tab.values() for a in v]
-    yaml = pytest.importorskip("yaml")
-    for f in (ROOT / "personas" / "prompts").glob("[!_]*.yaml"):
-        d = yaml.safe_load(f.read_text(encoding="utf-8"))
-        out += list(d.get("sample_lines") or []) + list(d.get("elicit_moves") or [])
-        for v in (d.get("stall_pools") or {}).values():
-            out += list(v)
-    return out
+    for p in CORE["personas"]:  # 提示词资料与语音示范句（原 prompts/*.yaml 已并入 personas.json）
+        pr = p.get("prompt") or {}
+        out += list(pr.get("sampleLines") or []) + list(pr.get("elicitMoves") or []) + list(pr.get("stallMoves") or [])
+        out += [x["reply"] for x in p.get("voiceShots") or []]
+    return out  # promptRules 本身点名了禁用词，不在扫描范围
 
 
 def test_no_youth_slang_or_essay_style_in_sources():
@@ -193,16 +195,16 @@ def test_no_youth_slang_or_essay_style_in_sources():
 
 
 def test_no_youth_slang_or_essay_style_in_outputs():
-    for pid in ("wang", "li", "lin") + tuple(PROFILES):
+    for pid in tuple(PERSONA_PROFILES) + tuple(PROFILES):
         for hw in (False, True):
             h = Humanizer(profile=pid, seed=5, handwriting=hw)
-            for x in engine_pool("wang" if pid not in ("li", "lin") else pid)[:120]:
+            for x in engine_pool(pid if pid in PERSONA_PROFILES else "wang")[:120]:
                 out = h.apply(x, "你快点把验证码发我").text.lower()
                 assert not any(w.lower() in out for w in BANNED), out
 
 
 def test_common_prompt_rule_forbids_slang_and_essay_style():
-    text = (ROOT / "personas" / "prompts" / "_common.yaml").read_text(encoding="utf-8")
+    text = "\n".join(CORE["promptRules"])
     assert "yyds" in text and "美篇" in text
 
 
@@ -250,7 +252,7 @@ def check_digit_neighbors(src, out):
         k += 1
 
 
-@pytest.mark.parametrize("pid", ["wang", "li", "lin", "retiree", "mom", "graduate", "shop_owner"])
+@pytest.mark.parametrize("pid", ["wang", "chen", "lin", "zheng", "retiree", "mom", "graduate", "shop_owner"])
 @pytest.mark.parametrize("hw", [False, True])
 def test_digit_strings_untouched_and_nothing_inserted_next_to_them(pid, hw):
     for s in range(40):
@@ -262,7 +264,7 @@ def test_digit_strings_untouched_and_nothing_inserted_next_to_them(pid, hw):
             assert "\n" not in [r.text[x - 1:x] for x, _ in _spans(r.text) if x > 0]
 
 
-@pytest.mark.parametrize("pid", ["wang", "li", "retiree", "shop_owner", "lin", "mom"])
+@pytest.mark.parametrize("pid", ["wang", "chen", "zheng", "retiree", "shop_owner", "lin", "mom"])
 @pytest.mark.parametrize("hw", [False, True])
 def test_comma_after_name_value_kept_and_protected_words_not_typoed(pid, hw):
     from personas.humanize.confusion import PROTECT_WORDS
@@ -282,7 +284,7 @@ def test_comma_after_name_value_kept_and_protected_words_not_typoed(pid, hw):
             assert w in t, (w, t)
 
 
-@pytest.mark.parametrize("pid", ["wang", "li", "lin", "retiree"])
+@pytest.mark.parametrize("pid", ["wang", "chen", "lin", "zheng", "retiree"])
 @pytest.mark.parametrize("hw", [False, True])
 def test_whole_message_short_spoken_digits_kept(pid, hw):
     for s in range(40):

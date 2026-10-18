@@ -262,7 +262,7 @@ class Humanizer:
         ops: 启用的操作集合，默认全部（chat 不做 asr；voice 没有固定标点风格时不做 punct）；
         weights: 每种操作的强度倍数，例如 {"typo": 0.5}；
         digressions: 跑题句子池；keep: 额外保护、不做任何改动的词；
-        profile: 预设名（retiree / mom / graduate / shop_owner）或规则引擎人设 id（wang / li / lin），显式参数优先；
+        profile: 预设名（retiree / mom / graduate / shop_owner）或人设 id（wang / chen / lin / zheng），显式参数优先；
         max_typos: 每条最多几处新错字；
         typo_per_100: 每百字错字目标（覆盖预设）；
         handwriting: 手写输入档：错字密度改用 handwritingTypoPer100，并启用手写识别错的高频形近字；

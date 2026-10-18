@@ -1,8 +1,7 @@
+import json
 import re
 
 import pytest
-
-pytest.importorskip("yaml")
 
 from personas import voice_traits as V  # noqa: E402
 from personas.humanize import confusion as C  # noqa: E402
@@ -13,10 +12,10 @@ EMOJI = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")
 # 混淆表里的“错误写法”：语音特征的任何文本都不应出现
 WRONG = sorted({w for alts in C.HOMOPHONE_WORDS.values() for w in alts}, key=len, reverse=True)
 
-# 线上已缓存音频的旧条目（不 import voice，避免引入语音依赖）；王阿姨删去“哎哟……”，李大爷删去“大点声……”，其余顺序不变
+# 线上已缓存音频的旧条目（不 import voice，避免引入语音依赖）；王阿姨删去“哎哟……”，其余顺序不变。
+# 小林的口头语与上线版本一致（同一音色，缓存可复用）；李大爷已下线，资料在 personas/archive/li.json
 CURRENT = {
     "wang": ["嗯……", "啊？", "哎……", "你说啥？", "等一下啊……", "我听听啊……", "哦……"],
-    "li": ["啊？", "嗯？", "啥？", "你说啥？", "哦……", "等会儿……", "嗯……"],
     "lin": ["呃……", "嗯嗯", "啊？", "等下哈", "哦哦", "啊这……", "嗯……我想想", "诶？"],
 }
 
@@ -40,7 +39,8 @@ def spoken_texts(t):
 
 
 def test_covers_all_personas():
-    assert set(PERSONAS) == {"wang", "li", "lin", "retiree", "mom", "graduate", "shop_owner"}
+    from personas import prompt as P
+    assert set(PERSONAS) == set(P.PERSONA_IDS) == {"wang", "chen", "lin", "zheng"}
 
 
 @pytest.mark.parametrize("pid", sorted(PERSONAS))
@@ -93,13 +93,14 @@ def test_fillers_drop_in_compatible():
 
 
 def test_current_fillers_match_voice_source():
-    """voice/persona.py 不再手写 FILLERS，运行时从本 YAML 读取（只读源码文本，不 import voice）；
-    CURRENT（线上已缓存音频的旧条目）由上面的测试保证与 YAML 一致。"""
+    """voice/persona.py 不再手写 FILLERS，运行时从 personas.json 的 voiceTraits 读取（只读源码文本，不 import voice）；
+    CURRENT（线上已缓存音频的旧条目）由上面的测试保证与 personas.json 一致。"""
     from pathlib import Path
     src = (Path(__file__).resolve().parents[2] / "voice" / "persona.py").read_text(encoding="utf-8")
-    assert "voice_traits.yaml" in src and "FILLERS = load_fillers()" in src
+    assert "voiceTraits" in src and "personas.json" in src and "FILLERS = load_fillers()" in src
+    assert not re.search(r"^FILLERS\s*=\s*\{", src, re.M), "FILLERS 仍在 voice/persona.py 里手写"
     for pid, cur in CURRENT.items():
-        assert not re.search(rf'"{pid}": \[', src), f"{pid} 仍在 voice/persona.py 里手写"
+        assert not any(f'"{pid}": {json.dumps(cur[:3], ensure_ascii=False)[:-1]}' in src for _ in [0]), f"{pid} 口头语仍在 voice/persona.py 里手写"
 
 
 AGE_HEARING = re.compile(r"大点声|听不清|哎哟|耳朵|耳背|老花|眼神|孙子|年纪|岁数")
@@ -107,9 +108,6 @@ AGE_HEARING = re.compile(r"大点声|听不清|哎哟|耳朵|耳背|老花|眼�
 
 @pytest.mark.parametrize("pid", sorted(PERSONAS))
 def test_no_age_or_hearing_labels_in_spoken_texts(pid):
-    """口头语、听错反问、扯家常都不拿年龄、听力、眼神、孙子说事；李大爷只留一条“没听清，再说一遍”。"""
+    """口头语、听错反问、扯家常都不拿年龄、听力、眼神、孙子说事。"""
     for line in spoken_texts(PERSONAS[pid]):
         assert not AGE_HEARING.search(line), (pid, line)
-    if pid == "li":
-        bc = PERSONAS[pid]["backchannel"]
-        assert [x for x in bc if "没听清" in x] == ["没听清，再说一遍"]

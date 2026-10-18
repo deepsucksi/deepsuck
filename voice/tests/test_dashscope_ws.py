@@ -20,7 +20,10 @@ def test_message_builders():
 
 def test_persona_voices_are_elderly_for_elders():
     assert ds.PERSONA_VOICES["wang"] == "longlaoyi_v3"
-    assert ds.PERSONA_VOICES["li"] == "longlaobo_v3"
+    assert ds.PERSONA_VOICES["lin"] == "longanyang"
+    # 小陈妈妈、郑老板的音色待负责人试听；在此之前走默认音色（可用 DEEPSUCK_VOICE_CHEN / _ZHENG 试听）
+    assert "chen" not in ds.PERSONA_VOICES and "zheng" not in ds.PERSONA_VOICES
+    assert ds.DEFAULT_VOICE == "longlaoyi_v3"
 
 
 def test_synthesize_streams_pcm(fake_ws):

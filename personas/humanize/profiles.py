@@ -1,7 +1,7 @@
 """真人化预设。数据的唯一来源是 site/assets/core/personas.json：
 
-- ``humanize.profiles``：4 个基础预设（与 personas/prompts/*.yaml 的 humanize_profile 一一对应）；
-- 每个规则引擎人设（王阿姨 wang、李大爷 li、小林 lin）的 ``humanize`` 字段：``profile`` 指向基础预设，其余键覆盖它。
+- ``humanize.profiles``：4 个基础预设（retiree / mom / graduate / shop_owner，按身份分档）；
+- 每个人设（王阿姨 wang、小陈妈妈 chen、小林 lin、郑老板 zheng）的 ``humanize`` 字段：``profile`` 指向基础预设，其余键覆盖它。
 
 字段含义见 personas.json 里 ``humanize.profiles.comment``；错字率依据见 docs/REALISM.md「错字率校准」。
 """

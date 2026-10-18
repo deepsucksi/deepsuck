@@ -5,39 +5,36 @@
 | | 文字打字特征 | 语音说话特征 |
 |---|---|---|
 | 适用渠道 | 沙盒、短信、微信等文字聊天 | 语音演示、电话（ASR → LLM → TTS） |
-| 实现 | `personas/humanize/`（Python，零依赖） | `personas/voice_traits.yaml`（数据），由语音端读取 |
+| 实现 | `personas/humanize/`（Python，零依赖；JS 版 `site/assets/js/humanize.js`） | `site/assets/core/personas.json` 的 `voiceTraits` / `voiceStyle` / `voiceShots`（数据），由语音端读取 |
 | 有没有错别字 | 有（同音、形近；每百字错字数按真人样本校准，见下文「错字率校准」） | **没有**：文本直接送 TTS，错字只会读错或读怪 |
 | 随机性 | 带随机种子与强度参数，结果可复现 | 由语音端自己轮换（如 `voice/backchannel.py` 的“不连续重复”） |
 
-两条通道共用同一套人设（`personas/prompts/*.yaml` 与 `site/assets/core/personas.json`），但任何一条都不应该引用另一条的扰动：语音回复不要经过 `humanize` 的 `typo` / `punct`，文字回复也不需要 `backchannel`。
+两条通道共用同一套人设（唯一数据源 `site/assets/core/personas.json`，四位：王阿姨、小陈妈妈、小林、郑老板，与首页一一对应；#11 之前的 `personas/prompts/*.yaml` 已删，存档在 `personas/archive/`），但任何一条都不应该引用另一条的扰动：语音回复不要经过 `humanize` 的 `typo` / `punct`，文字回复也不需要 `backchannel`。
 
 ## 一、文字打字特征
 
 代码在 `personas/humanize/`，用法和参数见 [personas/README.md](../personas/README.md#真人化后处理humanize)。
 
 1. **错别字**：只做“看得懂”的错。按每百字目标密度（`typoPer100`）放错字，不再按“每条上限”随机：常用词和地名优先（权重 地名 4、常用词 3、同音整词 2、单字 1），整词同音误选（已经→以经、转账→转帐）多于单字。**同一场对话里同一个词错法固定**（会话级错字表），被对方指出后也照旧错。形近字（己/已、候/侯）对应手写输入，由 `shapeTypos` 控制。
-2. **手写档**：`handwriting=True` 时改用 `handwritingTypoPer100`（老人约每百字 11 个，并加入手写常见形近字）。**默认关闭**，王阿姨、李大爷默认都是聊天档（每百字 2–4 个）。
+2. **手写档**：`handwriting=True` 时改用 `handwritingTypoPer100`（老人约每百字 11 个，并加入手写常见形近字）。**默认关闭**，王阿姨默认是聊天档（每百字 2–4 个）。
 3. **固定标点风格**：每个人设只用一种 `punctStyle`，`none`（整段不打标点、用空格断开）或 `comma`（只用逗号）；同一人设不混用句号、问号。
 4. **一句话拆成几条发**（`split`）：拆开的几条用换行连接，引擎和语音端按多条处理；老人偶尔用玫瑰、点赞、合十、[强] 这类表情代替逗号（`emojiComma`）。
 5. **说话习惯**：第三人称自称（阿姨、姐、老头子）、道歉、“你忙吧”收尾，各有出现概率。
 6. **语音输入式断句**（`voice` 模式）、**重复确认**、**跑题**、**方言词**同前；跑题句**不接在配合句后面**（`coop_step / fake_progress / confirm_intel / re_ask` 这几类意图不加跑题）。
-7. **禁用文风**：不出“美篇”式抒情成文（“岁月静好”“感恩遇见”之类），不出 yyds、emmm、绝绝子、xswl 等年轻人网络用语；原句池、输出和 `personas/prompts/_common.yaml` 都有测试。
+7. **禁用文风**：不出“美篇”式抒情成文（“岁月静好”“感恩遇见”之类），不出 yyds、emmm、绝绝子、xswl 等年轻人网络用语；原句池、输出和 `personas.json` 的 `promptRules`（大模型共用硬性规则）都有测试。
 
 不变量：数字串（号码、卡号、金额含中文大写金额、逐字报号的中文数字如“幺 六 五”、钱包地址、网址）、平台名与情报字段词（微信、卡号、房间号……，含“微 信”）、打码值（`*`）、占位符 `{...}` 的**内部和紧邻前后一个字**不放错字、表情、标点，也不在那里拆条；户名、收款人等字段名后面几个字不改、人名后面的逗号不删，避免把真实信息改错；同一个种子输出完全一致（Python `personas/humanize` 与 JS `site/assets/js/humanize.js` 逐字一致，`tests/fixtures/humanize.json` 做对拍）；强度 0 原样返回；`humanize` 不替代安全守卫，输出仍要过 `guard_output`。
 
 各人设预设（数据唯一来源 `site/assets/core/personas.json` 的 `humanize` 字段，`humanize/profiles.py` 只读它）：
 
-| 人设 | 基础预设 | 模式 | 方言 | 标点风格 | 默认档目标 / 实测 | 手写档目标 / 实测 | 拆条 | 表情代逗号 | 自称 / 年龄 |
-|---|---|---|---|---|---|---|---|---|---|
-| 周伯 · 退休老人 | retiree | voice | 北方 | 只用逗号 | 3.0 / 2.97 | 11 / 10.65 | 0.30 | 0.15 | 老头子 / 七十 |
-| 小陈妈妈 · 宝妈 | mom | chat | — | 无标点 | 2.0 / 2.22 | 6 / 6.03 | 0.25 | — | 姐 / — |
-| 小宇 · 刚毕业学生 | graduate | chat | — | 无标点 | 1.0 / 1.30 | 3 / 3.68 | 0.30 | — | — |
-| 郑老板 · 个体小老板 | shop_owner | voice | 西南 | 只用逗号 | 2.0 / 2.21 | 6 / 5.99 | 0.20 | 0.05 | — |
-| 王阿姨（规则引擎） | retiree | voice | 北方 | 只用逗号 | 3.0 / 2.96 | 11 / 10.68 | 0.30 | 0.18 | 阿姨 / 六十二 |
-| 李大爷（规则引擎） | retiree | voice | 北方 | 无标点 | 2.5 / 2.53 | 11 / 10.67 | 0.25 | 0.08 | 老头子 / 七十一 |
-| 小林（规则引擎） | graduate | chat | — | 无标点 | 1.0 / 1.20 | 3 / 3.44 | 0.30 | — | — |
+| 人设 | 基础预设 | 模式 | 方言 | 标点风格 | 默认档目标 / 实测 | 手写档目标 / 实测 | 自称 |
+|---|---|---|---|---|---|---|---|
+| 01 王阿姨 · 退休老人 | retiree | voice | 北方 | 只用逗号 | 3.0 / 2.96 | 11 / 10.70 | 阿姨 |
+| 02 小陈妈妈 · 宝妈 | mom | chat | — | 无标点 | 2.0 / 2.21 | 6 / 6.04 | 姐 |
+| 03 小林 · 刚毕业学生 | graduate | chat | — | 无标点 | 1.0 / 1.22 | 3 / 3.41 | — |
+| 04 郑老板 · 个体小老板 | shop_owner | voice | 西南 | 只用逗号 | 2.0 / 2.21 | 6 / 5.93 | — |
 
-“实测”是每百字错字数：在该人设原句池上（4 个新人设用 `personas/prompts/*.yaml` 的句池，3 个规则引擎人设用 personas.json 的模板），60 个种子 × 40 条，按输出汉字数算。
+“实测”是每百字错字数：在该人设的规则引擎模板上（personas.json 的 `templates`），60 个种子 × 40 条，按输出汉字数算（2026-10-19，#11 统一后重测）。拆条、表情代逗号的概率取基础预设的值。原李大爷（retiree，2.5，无标点）随人设归档，资料在 `personas/archive/li.json`。
 
 ### 错字率校准（2026-10-18 第二版）
 
@@ -75,29 +72,27 @@
 
 ## 二、语音说话特征
 
-数据在 `personas/voice_traits.yaml`，每个人设一份，覆盖现有的王阿姨、李大爷、小林和 4 个新人设。**这里的所有文本都不含错别字**（测试会用 humanize 的混淆表检查）。
+数据在 `site/assets/core/personas.json` 每个人设的 `voiceTraits` 字段（四位人设各一份；原 `personas/voice_traits.yaml` 已删，旧版存档在 `personas/archive/prompts-v0.json`）。**这里的所有文本都不含错别字**（测试会用 humanize 的混淆表检查）。
 
-1. **backchannel（短口头语）**：对方说完后先应一声，像反应慢半拍的普通人，同时盖住 LLM + TTS 的首包延迟。每个人设 8–12 条，格式与 `voice/persona.py` 的 `FILLERS[persona_id]` 相同（字符串列表），`personas.voice_traits.fillers()` 返回可直接替换的整张表。王阿姨、李大爷、小林的前 8 条与当前版本一致，只在末尾追加，已合成的缓存音频不会失效。每条不超过 6 个有效字、不含数字。说不说、说哪条仍由 `voice/backchannel.py` 的规则决定（话太短、催促、短追问时不说；连续两轮不重复）。
+1. **backchannel（短口头语）**：对方说完后先应一声，像反应慢半拍的普通人，同时盖住 LLM + TTS 的首包延迟。每个人设 8–12 条，格式与 `voice/persona.py` 的 `FILLERS[persona_id]` 相同（字符串列表），`personas.voice_traits.fillers()` 返回可直接替换的整张表。王阿姨的前 7 条与上线版本一致，小林沿用上线版本的口头语，只在末尾追加，已合成的缓存音频不会失效。每条不超过 6 个有效字、不含数字。说不说、说哪条仍由 `voice/backchannel.py` 的规则决定（话太短、催促、短追问时不说；连续两轮不重复）。
 2. **mishear（听错）**：电话里把关键词听成同音或近音词，再反问一句，例如“验证码”听成“验证马”：“验证马？啥马？你再说一遍。”这是说话层面的“听错”，不是写错字：`heard` 只出现在反问里，作为人设的理解偏差。挑的词都是骗子流程里的关键词（验证码、安全账户、保证金、解冻金……），听错一次就能逼对方重新解释一遍。
 3. **speech（语速与口音）**：`rate` 快 / 中 / 慢，`chars_per_sec` 给 TTS 语速参数参考；`dialect_words` 是会自然带出来的方言词；`accent` 与 `accent_desc` 说明是否带口音（目前只作为提示词与选音色的参考，TTS 本身不做口音合成）。
 4. **rhythm（节奏）**：`pre_speech_pause` 开口前停顿 短 / 中 / 长及 `pause_ms` 区间（可映射到语音端的 backchannel 或填充音延迟参数）；`chitchat` 扯家常频率 低 / 中 / 高，`chitchat_every_turns` 每隔几轮扯一次，`chitchat_lines` 是可用的话。
 
 | 人设 | 语速 | 口音 | 开口前停顿 | 扯家常 |
 |---|---|---|---|---|
-| 王阿姨 | 中 | 无 | 中（400–900 ms） | 高 |
-| 李大爷 | 慢 | 北方 | 长（900–1600 ms） | 中 |
-| 小林 | 快 | 无 | 短（150–450 ms） | 中 |
-| 周伯 · 退休老人 | 慢 | 北方 | 长（800–1500 ms） | 高 |
-| 小陈妈妈 · 宝妈 | 快 | 无 | 短（200–600 ms） | 中 |
-| 小宇 · 刚毕业学生 | 快 | 无 | 短（150–500 ms） | 低 |
+| 01 王阿姨 · 退休老人 | 中 | 无 | 中（400–900 ms） | 高 |
+| 02 小陈妈妈 · 宝妈 | 快 | 无 | 短（200–600 ms） | 中 |
+| 03 小林 · 刚毕业学生 | 快 | 无 | 短（150–450 ms） | 中 |
+| 04 郑老板 · 个体小老板 | 中 | 西南 | 中（300–800 ms） | 中 |
 | 郑老板 · 个体小老板 | 中 | 西南 | 中（300–800 ms） | 中 |
 
 接入语音端（`voice/` 下的代码本次没有改动）：
 
 ```python
 from personas.voice_traits import fillers, personas
-FILLERS = fillers()                 # 替换 voice/persona.py 中的 FILLERS
-personas()["li"]["rhythm"]["pause_ms"]
+FILLERS = fillers()                 # 与 voice/persona.py 中的 FILLERS 相同（都读 personas.json）
+personas()["zheng"]["rhythm"]["pause_ms"]
 ```
 
 ## 三、对比：首页示例对话改写前后

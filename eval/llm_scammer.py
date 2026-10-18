@@ -15,8 +15,8 @@
   再看引擎提取器有没有抓到，口径与模拟器相同；
 - 泄露率：人设回复里出现完整敏感号码、≥5 位连续数字或“验证码 / 密码”后 ≥4 位数字的比例（应为 0）；另记回复含打码星号的比例；
 - 被骗方：现有规则引擎（deepsuck.engine.Session.rule_reply），回复再经 personas.humanize 真人化（模拟器人设 → 预设：
-  王阿姨、李大爷 → retiree，小林 → graduate；--no-humanize 关闭）；
-- 规模：7 个场景 × 模拟器人设 × 每组 --seeds 个种子（默认 2），每场至多 --max-turns 轮（默认 25）；
+  按 personas.json 的 humanize.profile：王阿姨 → retiree，小陈妈妈 → mom，小林 → graduate，郑老板 → shop_owner；--no-humanize 关闭）；
+- 规模：7 个场景 × 模拟器人设 × 每组 --seeds 个种子（默认 1，四位人设共 28 场），每场至多 --max-turns 轮（默认 25）；
 - 费用护栏：调用前先用“只读缓存”的客户端把每场走一遍，已完全缓存的场次不计费，其余按字符数估算 token（每汉字 1 token，
   偏保守）与 qwen-plus 官方单价，超过 3 元（硬上限，--max-cost 只能调低）拒绝运行；运行中实际费用超限也会停下；
 - 每次请求与回复按内容哈希缓存在 eval/.llm-scammer-cache/（.gitignore），重跑不重复计费；
@@ -67,7 +67,7 @@ J = load_judge()
 
 MODEL = "qwen-plus"
 HARD_MAX_COST_CNY = 3.0
-DEFAULT_SEEDS = 2
+DEFAULT_SEEDS = 1  # 四位人设后：7 × 4 × 1 = 28 场，估算在 3 元硬上限内（7 × 4 × 2 会超）
 DEFAULT_MAX_TURNS = 25
 TEMPERATURE = 0.8
 MAX_OUT_TOKENS = 200
@@ -77,8 +77,8 @@ CACHE_DIR = ROOT / "eval" / ".llm-scammer-cache"
 LINES_PER_PHASE = 2
 PHASES = ("opening", "trust", "pressure", "request", "payout")
 PHASE_NAME = {"opening": "开场", "trust": "建立信任", "pressure": "施压", "request": "索要", "payout": "收款指令"}
-# 模拟器人设 → humanize 预设（personas.json 里每个人设的 humanize 字段：王阿姨、李大爷基于 retiree，小林基于 graduate）
-HUMANIZE_PROFILE = {"wang": "wang", "li": "li", "lin": "lin"}
+# 模拟器人设 → humanize 预设（personas.json 里每个人设的 humanize 字段：王阿姨 retiree、小陈妈妈 mom、小林 graduate、郑老板 shop_owner）
+HUMANIZE_PROFILE = {p["id"]: p["id"] for p in PERSONAS}
 # 命令行覆盖（--handwriting / --typo-rate），按人设：{"wang": {"handwriting": True, "typo_per_100": 3.5}}
 HUMANIZE_OVERRIDES: Dict[str, dict] = {}
 SUSPICIOUS = ("bot", "trolling")
@@ -340,7 +340,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
     sysmsg = system_prompt(corpus, scenario, values, kinds, seed)
     params = params_for(model, session_seed(scenario, persona, seed))
     s = Session(scenario, persona, rng=mulberry32(seed ^ 0x5EED), now=lambda: 0)
-    hum = (Humanizer(profile=HUMANIZE_PROFILE.get(persona, "lin"), seed=seed ^ 0x4855, **HUMANIZE_OVERRIDES.get(persona, {}))
+    hum = (Humanizer(profile=HUMANIZE_PROFILE.get(persona, persona), seed=seed ^ 0x4855, **HUMANIZE_OVERRIDES.get(persona, {}))
            if humanize else None)
     first = s.opening()
     bot_text = hum.apply(first["text"]).text if hum else first["text"]
@@ -460,7 +460,7 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
     if est_cost > max_cost:
         raise BudgetError(f"估算费用 {est_cost:.4f} 元超过上限 {max_cost} 元，拒绝运行；请减少 --seeds / --max-turns / 场景或人设")
     config = {"model": model, "seeds": seeds, "maxTurns": max_turns, "scenarios": scenarios, "personas": personas,
-              "humanize": {p: HUMANIZE_PROFILE.get(p, "lin") for p in personas} if humanize else None,
+              "humanize": {p: HUMANIZE_PROFILE.get(p, p) for p in personas} if humanize else None,
               "humanizeOverrides": {p: HUMANIZE_OVERRIDES[p] for p in personas if p in HUMANIZE_OVERRIDES} or None,
               "temperature": TEMPERATURE, "promptVersion": PROMPT_VERSION, "linesPerPhase": LINES_PER_PHASE}
     result = {"config": config, "date": date.today().isoformat(), "estimate": estimate, "dry_run": dry_run}
