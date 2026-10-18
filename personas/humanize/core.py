@@ -118,6 +118,7 @@ class Humanizer:
         self.keep = tuple(keep) + tuple(prof.get("keep", ()))
         self.max_typos = max_typos if max_typos is not None else 1 + round(3 * self.intensity)
         self.rng = rng or random.Random(seed)
+        self._used_digressions: List[str] = []
 
     # ------------------------------------------------------------------ helpers
     def _p(self, op: str, scale: float = 1.0) -> float:
@@ -201,7 +202,12 @@ class Humanizer:
     def _digress(self, text: str) -> Tuple[str, bool]:
         if not self.digressions or not self._hit(self._p("digress")):
             return text, False
-        d = self.rng.choice(self.digressions)
+        # 同一个实例（一整段对话）里跑题句不重复，用完一轮才重来：大模型骗子会把重复的“我孙子刚放学回来了”当成消遣
+        left = [x for x in self.digressions if x not in self._used_digressions] or self.digressions
+        if len(left) == len(self.digressions):
+            self._used_digressions = []
+        d = self.rng.choice(left)
+        self._used_digressions.append(d)
         if self.rng.random() < 0.5:
             return d + "……" + text, True
         return text.rstrip(_PUNCT) + "。" + d, True

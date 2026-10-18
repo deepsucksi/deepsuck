@@ -1,6 +1,7 @@
 import re
 
 import pytest
+from pathlib import Path
 
 from personas.humanize import OPS, PROFILES, Humanizer, humanize
 from personas.humanize import confusion as C
@@ -167,3 +168,15 @@ def test_repeat_echo_is_whole_short_clause_and_no_double_punct():
         r = Humanizer(1.0, seed=s, ops=["repeat"], weights={"repeat": 10}).apply("先付多少呀？", context=ctx)
         assert not re.search(r"[？?！!。，,]{2}", r.text.replace("？？", "")), r.text
         assert "必须全部借出来再转" not in r.text  # 超过 12 字的分句不复述、不截断
+
+
+def test_digressions_do_not_repeat_within_one_conversation():
+    """同一个实例（一整段对话）里跑题句用完一轮才会重复。"""
+    pool = ["甲甲甲", "乙乙乙", "丙丙丙"]
+    h = Humanizer(1.0, seed=3, ops=["digress"], weights={"digress": 10}, digressions=pool)
+    used = []
+    for _ in range(3):
+        r = h.apply("好的")
+        used += [d for d in pool if d in r.text]
+    assert sorted(used) == sorted(pool)
+
