@@ -85,9 +85,18 @@ All numbers below come from VOICE_LATENCY.md, measured on the same machine with 
 | After, first audible sound (incl. filler) | 1653 ms | 2803 ms |
 | After, reply itself (fillers off, 3 sentences) | 4162 ms | 5827 ms |
 
-Measured before the language model was switched; updated figures are pending.
+The table above was measured on 2026-10-18, still with the model we used before.
 
-In one external probe of the live service, the first packet of the real reply arrived at 2469, 2627 and 2484 ms: about 650 ms recognition, 430–680 ms to the model's first token and 1050–1340 ms to the first synthesised packet — synthesis is still the largest share ("TTS first-packet breakdown" in VOICE_LATENCY.md).
+After the switch we re-measured the language-model stage on its own: from sending the request to the first token (first token), and to the end of the full reply (full reply). These figures cover only the language-model stage, over a pre-warmed connection, and exclude speech recognition, deciding that the caller has finished (endpoint detection) and speech synthesis, so they cannot be added to or compared with the table above. Each model ran 86 turns on the production server; the model we used before was measured in the same session as a comparison.
+
+| Language-model stage (ms) | First token P50 | First token P90 | Full reply P50 | Full reply P90 |
+|---|---|---|---|---|
+| The model now in production | 441 | 574 | 642 | 838 |
+| The model we used before (same-session comparison) | 364 | 434 | 713 | 820 |
+
+The model now in production is about 80 ms slower to the first token (about 140 ms at P90), but its replies are shorter, so its full-reply P50 is about 70 ms faster; full-reply P90 is close for both. Source: the "first token / full reply" section of [docs/VOICE_LATENCY.md](https://github.com/deepsucksi/deepsuck/blob/main/docs/VOICE_LATENCY.md).
+
+In one external probe of the live service, also before the model switch, the first packet of the real reply arrived at 2469, 2627 and 2484 ms: about 650 ms recognition, 430–680 ms to the model's first token and 1050–1340 ms to the first synthesised packet — synthesis is still the largest share ("TTS first-packet breakdown" in VOICE_LATENCY.md).
 
 ## Extracting intelligence
 
