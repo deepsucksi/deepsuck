@@ -97,7 +97,9 @@ sip_env() { # WITH_SIP=1：只补空值，不覆盖已有账号密码；密码�
   [ -n "$(getv SIP_AI_EXTEN)" ] || setv SIP_AI_EXTEN 9000
   log "  自建 SIP 已开启：账号密码在 deploy/.env（grep -E '^SIP_(USER|PASSWORD|PORT|AI_EXTEN)=' $DIR/deploy/.env）"
 }
+FIRST_RUN=0  # 本次运行新建了 .env 才算首次部署；重跑只打印简短摘要
 if [ ! -f .env ]; then
+  FIRST_RUN=1
   [ -n "$LIVE_DOMAIN" ] || die "请设置 LIVE_DOMAIN（你自己的域名，例如 live.example.com）"
   [ -n "$ACME_EMAIL" ] || die "请设置 ACME_EMAIL（证书邮箱）"
   if [ -z "${DASHSCOPE_API_KEY:-}" ]; then
@@ -179,6 +181,7 @@ if [ "${WITH_SIP:-0}" = 1 ]; then
   手机 Linphone/Zoiper：服务器 $PUBLIC_IP:$(getv SIP_PORT 25060)，传输 UDP，账号/密码见 grep -E '^SIP_(USER|PASSWORD)=' $DIR/deploy/.env，拨 $(getv SIP_AI_EXTEN 9000)
   更新时带上 profile：docker compose --profile sip up -d --build"
 fi
+if [ "$FIRST_RUN" = 1 ]; then
 cat <<MSG
 
   下一步：
@@ -188,3 +191,7 @@ cat <<MSG
   4) 在仓库 site/assets/js/live-config.js 里把 api 设为 'https://$LIVE_DOMAIN' 并推送，主站沙盒即切到大模型
   更新：cd $DIR && git pull && cd deploy && docker compose up -d --build${sip_msg}
 MSG
+else
+  rev="$(git -C "$DIR" rev-parse --short HEAD 2>/dev/null || true)"
+  log "已更新：$BRANCH${rev:+@$rev}，容器已重建，https://$LIVE_DOMAIN/ 沿用现有 .env${sip_msg:+（含自建 SIP）}"
+fi

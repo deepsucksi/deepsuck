@@ -57,6 +57,10 @@ grep -q -- "--profile sip up -d --build" "$T/calls" || fail "sip profile not sta
 if grep -q "SIP_PASSWORD=" "$T/out"; then fail "password leaked to output"; fi
 echo "ok - existing .env without SIP vars + WITH_SIP=1"
 
+grep -q "已更新" "$T/out" || fail "rerun summary missing"
+if grep -qE "live-config|DNS" "$T/out"; then fail "first-deploy hints shown on rerun"; fi
+echo "ok - rerun prints short summary, no DNS/live-config hints"
+
 # 2) 再跑一次：账号密码不变（只补空值）；SIP_LOG_DIR 显式设置时使用该值
 pw="$(getenv SIP_PASSWORD)"
 echo "SIP_LOG_DIR=/var/log/custom-sip" >> "$T/opt/deploy/.env"
@@ -72,6 +76,18 @@ grep -vE '^(SIP_|VOICE_TELEPHONY)' "$T/opt/deploy/.env.example" | sed 's/^LIVE_D
 run_bootstrap || { cat "$T/out"; fail "plain rerun exited non-zero"; }
 if grep -qE '^SIP_' "$T/opt/deploy/.env"; then fail "SIP vars written without WITH_SIP"; fi
 echo "ok - existing .env without WITH_SIP"
+
+# 3b) 首次部署（没有 .env）：输出 DNS / live-config 提示，不输出「已更新」，Key 不出现在输出里
+setup
+run_bootstrap LIVE_DOMAIN=live.example.com ACME_EMAIL=ops@example.com DASHSCOPE_API_KEY=test-not-a-real-key \
+  || { cat "$T/out"; fail "first run exited non-zero"; }
+[ -f "$T/opt/deploy/.env" ] || fail ".env not created"
+grep -q "DNS" "$T/out" && grep -q "live-config.js" "$T/out" || { cat "$T/out"; fail "first-deploy hints missing"; }
+if grep -q "已更新" "$T/out"; then fail "rerun summary shown on first deploy"; fi
+if grep -q "test-not-a-real-key" "$T/out"; then fail "key leaked to output"; fi
+run_bootstrap || fail "rerun after first deploy exited non-zero"
+if grep -qE "live-config|DNS" "$T/out"; then fail "hints shown on rerun after first deploy"; fi
+echo "ok - first deploy shows hints, rerun does not"
 
 # 4) 旧服务器迁移：caddy 容器仍是单文件挂载时，bootstrap 自动 force-recreate caddy 一次
 printf '#!/bin/sh\necho "docker $*" >> "%s/calls"\ncase "$*" in *"ps -q caddy"*) echo abc123;; inspect*) echo /data; echo /etc/caddy/Caddyfile;; esac\nexit 0\n' "$T" > "$T/bin/docker"

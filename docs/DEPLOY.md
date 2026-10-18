@@ -81,6 +81,7 @@ LIVE_DOMAIN='live.你的域名' ACME_EMAIL='你的邮箱' DASHSCOPE_API_KEY='sk-
 脚本做的事：装 git/curl → 内存 < 2.6 GB 且没有 swap 时建 swap（默认 1 GB，`SWAP_MB=2048` 可调） → 装 Docker（get.docker.com）→ clone 到 `/opt/deepsuck` →
 从阿里云元数据（`100.100.100.200`）探测公网/内网 IP → 生成 `deploy/.env`（权限 600；Key 只在这里）→ 若有 ufw 自动放行端口 →
 `docker compose up -d --build` → 等健康检查通过。可重复运行（不覆盖已有 `.env`）。
+首次部署（本次运行新建了 `deploy/.env`）结尾会打印下面 DNS、防火墙、`live-config.js` 的提示；重跑只打印一行「已更新」摘要。
 
 然后：
 
