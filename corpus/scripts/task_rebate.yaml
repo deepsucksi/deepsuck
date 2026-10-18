@@ -1,0 +1,85 @@
+id: task_rebate
+name: 刷单返利
+aliases: [做任务赚佣金, 点赞关注返现, 兼职刷单, 垫付返利]
+version: 1
+related:
+  scenario: task
+  tactics: [task_rebate, reward_bait, transfer, app_download, off_platform, urgency]
+targets: 在校学生、宝妈、待业青年等想找兼职的人。
+summary: 以“动动手指日结”的兼职为诱饵，先用点赞、关注等小任务返小额佣金，再以“福利单”“连单”为由要求垫付，金额越滚越大，最后以操作失误、账户冻结为由拒绝返还。
+stages:
+  - id: recruit
+    name: 招募
+    goal: 用轻松高薪的兼职吸引注意。
+    lines:
+      - 招聘线上点赞员，在家用手机就能做，一单几块钱，日结。
+      - 恭喜你被选为平台体验官，完成任务即可领取佣金。
+  - id: onboard
+    name: 拉群与下载
+    goal: 引导到私聊群或专用 APP，脱离正规平台。
+    lines:
+      - 你加一下接待员的微信，她会拉你进任务群。
+      - 任务都在{APP名}上派发，下载后填写邀请码注册。
+  - id: small_rebate
+    name: 小额返利
+    goal: 让对方真的收到几块到几十块，建立信任。
+    lines:
+      - 第一单点赞截图发给我，佣金马上到账，你查收一下。
+      - 新手任务已完成，奖励已经发到你的账户了。
+  - id: advance
+    name: 垫付任务
+    goal: 引导对方先垫付本金，承诺本金加佣金一起返。
+    lines:
+      - 下一单是福利单，先垫付{金额}，完成后本金加百分之三十佣金一起返。
+      - 这单是商家冲销量，你先下单付款，十分钟内返还。
+  - id: lock_in
+    name: 连单与卡单
+    goal: 以连单、操作失误为由要求继续充值。
+    lines:
+      - 你触发了三连单，必须把三单都做完才能一起提现。
+      - 你刚才操作超时，系统冻结了账户，需要再充值一笔解冻。
+keywords: [点赞员, 兼职, 日结, 佣金, 返利, 任务, 接待员, 派单员, 邀请码, 新手任务, 福利单, 垫付, 连单, 卡单, 冲销量, 解冻, 操作超时]
+pressure_tactics:
+  - id: easy_money
+    name: 轻松赚钱诱惑
+    desc: 用小额真实返利建立“确实能赚”的印象。
+    lines:
+      - 你看群里其他人都提现了，今天做满五单就能拿几百。
+  - id: sunk_cost
+    name: 沉没成本
+    desc: 不继续充值前面垫付的钱就拿不回来。
+    lines:
+      - 前面几单的钱都在系统里，你不做完这一单就全部作废。
+  - id: blame_victim
+    name: 归咎受害人
+    desc: 把卡单说成对方操作失误。
+    lines:
+      - 是你自己操作错了，按规定要补交一笔才能恢复。
+  - id: deadline
+    name: 时限压迫
+    desc: 要求在几分钟内完成，不给思考时间。
+    lines:
+      - 任务十分钟内必须完成，超时就算违约。
+intel_exposed: [app, url, bank, wechat, qq, name]
+red_flags:
+  - 所有刷单都是违法行为，所有要求先垫付的“兼职”都是诈骗。
+  - 先给小甜头再要求充值，是这类诈骗的固定套路。
+  - 不要下载陌生人发来的任务 APP，不要加入来路不明的任务群。
+examples:
+  - id: task-01
+    turns:
+      - {role: scammer, text: "你好，我们招聘点赞员，在家动动手指日结两三百。"}
+      - {role: victim, text: "真的吗？要交钱吗？"}
+      - {role: scammer, text: "不用交钱，你先做个新手任务，关注这个账号截图给我，返你五块。"}
+  - id: task-02
+    turns:
+      - {role: scammer, text: "恭喜完成新手任务，下一单是福利单，先垫付{金额}，十分钟返本金加佣金。"}
+      - {role: victim, text: "上一单确实到账了，那这单付到哪里？"}
+      - {role: scammer, text: "付到商家账户 {银行卡}，付完截图发我。"}
+  - id: task-03
+    turns:
+      - {role: victim, text: "我想提现，怎么提不了？"}
+      - {role: scammer, text: "你触发了连单，要把剩下两单做完才能一起提现。"}
+      - {role: victim, text: "可我已经付了好几次了。"}
+      - {role: scammer, text: "马上就完成了，最后一单做完连本带利都退给你。"}
+source: 维护者根据公开反诈宣传归纳改写，不含真实案例原文。

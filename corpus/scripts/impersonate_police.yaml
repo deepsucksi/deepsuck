@@ -1,0 +1,86 @@
+id: impersonate_police
+name: 冒充公检法
+aliases: [冒充公安, 冒充检察院, 安全账户, 资金清查, 涉嫌洗钱]
+version: 1
+related:
+  scenario: police
+  tactics: [authority, threat, secrecy, safe_account, transfer, info_harvest, urgency, screen_share]
+targets: 独居老人、对法律程序不熟悉的人、刚到外地工作的年轻人。
+summary: 先冒充快递、通信或社保工作人员称对方信息被冒用，再转接“警官”“检察官”，以涉案为由要求保密，把资金转入所谓安全账户接受清查。
+stages:
+  - id: hook
+    name: 第一层：业务人员开场
+    goal: 用一个看似无害的业务问题引出“涉案”。
+    lines:
+      - 您好，这里是{机构}，您名下的一张电话卡涉嫌发送违规信息，即将停机。
+      - 您有一个包裹在海关被查出违禁品，寄件人填的是您的身份信息。
+  - id: transfer_call
+    name: 第二层：转接“警方”
+    goal: 把电话转给冒充的警官，建立权威。
+    lines:
+      - 这个情况我们没法处理，我帮您转接{城市}公安局，您直接跟办案民警说明。
+      - 我是经侦支队的{姓氏}警官，警号{警号}，你名下一张银行卡涉嫌一起洗钱案。
+  - id: fear
+    name: 制造恐惧
+    goal: 让对方相信自己可能被抓。
+    lines:
+      - 这个案子涉案金额很大，按规定要对你进行逮捕，现在给你一个自证清白的机会。
+      - 你可以登录{网址}查看通缉令，上面有你的照片和身份证号。
+  - id: isolate
+    name: 隔离受害人
+    goal: 要求保密、单独行动，切断外部求助。
+    lines:
+      - 案件处于保密阶段，你不能告诉家人朋友，否则按泄露案情处理。
+      - 你现在找一个没人的房间，把门关上，全程保持通话。
+  - id: cashout
+    name: 资金清查
+    goal: 让对方把存款转入所谓安全账户。
+    lines:
+      - 你把名下所有资金转到国家安全账户 {银行卡} 接受清查，查清后原路退回。
+      - 下载这个{APP名}，打开屏幕共享，我们远程核查你的资金流水。
+keywords: [公安局, 经侦, 检察院, 法院, 警官, 警号, 涉嫌洗钱, 逮捕令, 通缉令, 冻结, 安全账户, 资金清查, 保密, 自证清白, 配合调查, 涉案]
+pressure_tactics:
+  - id: legal_threat
+    name: 法律威胁
+    desc: 用逮捕、冻结、坐牢恐吓。
+    lines:
+      - 你不配合的话，我们马上冻结你名下所有账户，并上门抓捕。
+  - id: secrecy
+    name: 要求保密
+    desc: 以“案件保密”为由不让对方求证。
+    lines:
+      - 这件事只能你一个人知道，跟谁说了就是妨碍公务。
+  - id: deadline
+    name: 时限压迫
+    desc: 要求在很短时间内完成转账。
+    lines:
+      - 两个小时之内必须完成资金清查，否则案件移交检察院。
+  - id: fake_documents
+    name: 伪造文书
+    desc: 发送伪造的通缉令、冻结令图片或网址。
+    lines:
+      - 我把冻结令发给你，你看清楚上面的公章。
+intel_exposed: [bank, phone, url, app, name]
+red_flags:
+  - 公检法机关不会通过电话办案，不会发送通缉令网址，更没有“安全账户”。
+  - 要求保密、不许挂电话、不许告诉家人的，基本可以判定是诈骗。
+  - 遇到类似来电直接挂断，拨打 110 或 96110 核实。
+examples:
+  - id: police-01
+    turns:
+      - {role: scammer, text: "您好，这里是通信管理部门，您名下一张手机卡两小时后停机。"}
+      - {role: victim, text: "为什么停机？我一直在用啊。"}
+      - {role: scammer, text: "这张卡涉嫌发送诈骗短信，我给您转接公安局，您跟民警说清楚。"}
+  - id: police-02
+    turns:
+      - {role: scammer, text: "我是{城市}公安局的{姓氏}警官，你的银行卡涉嫌洗钱，你知道吗？"}
+      - {role: victim, text: "不可能啊，我就一张工资卡。"}
+      - {role: scammer, text: "那你需要自证清白。这个案子保密，不能告诉任何人。"}
+      - {role: victim, text: "我能去派出所当面说明吗？"}
+      - {role: scammer, text: "不用，你在电话里配合就行，去了反而会被直接拘留。"}
+  - id: police-03
+    turns:
+      - {role: scammer, text: "你的资金需要清查，把卡里的钱转到国家安全账户 {银行卡}。"}
+      - {role: victim, text: "转过去还能回来吗？"}
+      - {role: scammer, text: "查清之后二十四小时内原路退回，你只要按我说的做。"}
+source: 维护者根据公开反诈宣传归纳改写，不含真实案例原文。
