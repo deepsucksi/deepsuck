@@ -364,6 +364,9 @@ section.end{padding:72px 0 96px}
 .composer{flex:none}
 .chat-foot{flex:none;margin:0;padding:0 24px 16px;font-size:12px;line-height:1.7;color:var(--dim)}
 .chat-foot b{font-weight:500;color:var(--muted)}
+.chat-foot .sample-src:not(:empty){display:block}
+.chat-foot .sample-src a{color:inherit;text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:2px}
+.chat-foot .sample-src a:hover{color:var(--accent);text-decoration-color:currentColor}
 #scenarioOpts{min-height:116px}
 #personaOpts{min-height:52px}
 @media (max-width:640px){

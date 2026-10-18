@@ -57,8 +57,27 @@
     }).join('');
     var sc = D.scenarios.BY_ID[state.scenario];
     $('samples').innerHTML = '<span class="note" style="flex:none;align-self:center">样例：</span>' + sc.samples.map(function (l, i) {
-      return '<button data-sample="' + i + '" title="' + esc(l) + '">' + (i + 1) + '. ' + esc(l) + '</button>';
+      var src = (sc.sampleSources || [])[i];
+      return '<button data-sample="' + i + '" title="' + esc(l) + (src ? '\n来源：' + esc(src.label) : '') + '">' + (i + 1) + '. ' + esc(l) + '</button>';
     }).join('');
+    renderSampleSources(sc);
+  }
+  /* 样例出处：按 label 汇总条数，有公开链接的挂链接（数据见 scenarios.json 的 sampleSources[]） */
+  function renderSampleSources(sc) {
+    var el = $('sampleSrc');
+    if (!el) return;
+    var list = sc.sampleSources || [], order = [], by = {};
+    list.forEach(function (x) {
+      if (!x || !x.label) return;
+      if (!by[x.label]) { by[x.label] = { n: 0, url: '' }; order.push(x.label); }
+      by[x.label].n++;
+      if (!by[x.label].url && /^https:\/\//.test(x.url || '') && x.sourceType !== 'awareness') by[x.label].url = x.url;
+    });
+    el.innerHTML = order.length ? '本场景样例：' + order.map(function (k) {
+      var t = esc(k);
+      if (by[k].url) t = '<a href="' + esc(by[k].url) + '" target="_blank" rel="noopener noreferrer">' + t + '</a>';
+      return t + ' ' + by[k].n + ' 条';
+    }).join('，') + '。' : '';
   }
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-sc],[data-pe],[data-sample]');
