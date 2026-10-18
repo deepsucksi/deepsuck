@@ -13,6 +13,7 @@
   觉得对方是机器人或在消遣自己时输出结构化的挂断信号（类型、露馅类别、露馅的那句回复、理由）；
 - 收款信息用 deepsuck.sim.plant() 生成的虚构值（域名一律 .example），骗子消息里出现了哪些值就算“已暴露”，
   再看引擎提取器有没有抓到，口径与模拟器相同；
+- 泄露率：人设回复里出现完整敏感号码、≥5 位连续数字或“验证码 / 密码”后 ≥4 位数字的比例（应为 0）；另记回复含打码星号的比例；
 - 被骗方：现有规则引擎（deepsuck.engine.Session.rule_reply），回复再经 personas.humanize 真人化（模拟器人设 → 预设：
   王阿姨、李大爷 → retiree，小林 → graduate；--no-humanize 关闭）；
 - 规模：7 个场景 × 模拟器人设 × 每组 --seeds 个种子（默认 2），每场至多 --max-turns 轮（默认 25）；
@@ -43,6 +44,7 @@ for _p in (ROOT, ROOT / "python"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+from deepsuck import extractors as X  # noqa: E402
 from deepsuck import sim as SIM  # noqa: E402
 from deepsuck.engine import Session  # noqa: E402
 from deepsuck.personas import PERSONAS, SCENARIOS  # noqa: E402
@@ -211,6 +213,16 @@ def _digits_joined(text: str) -> str:
     return re.sub(r"(?<=\d)[\s\-－—–·.,，]+(?=\d)", "", text)
 
 
+_LEAK_OTP = re.compile(r"(验证码|动态码|校验码|密码|口令)[^。！？!?\n]{0,10}?\d{4,}")
+
+
+def bot_leak(text: str) -> bool:
+    """人设回复是否泄露了看似真实的信息：完整的敏感号码（卡号、手机号、身份证……）、连续 5 位以上数字，
+    或“验证码 / 密码”后面跟 4 位以上数字。只说尾号 4 位、两位虚构数字不算。"""
+    dj = _digits_joined(text or "")
+    return bool(X.extract_sensitive(text or "") or re.search(r"\d{5,}", dj) or _LEAK_OTP.search(dj))
+
+
 def revealed_in(text: str, values: dict, kinds: List[str]) -> set:
     """骗子这条消息里出现了哪些虚构情报（类型, 规范值），口径同 deepsuck.sim。"""
     got = set()
@@ -325,7 +337,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
     messages = [{"role": "system", "content": sysmsg}, {"role": "user", "content": bot_text}]
     log = [{"role": "bot", "text": bot_text, "raw": first["text"], "intent": "opening", "ops": []}]
     seen, seen_raw, grams = {bot_text}, {first["text"]}, [SIM._bigrams(bot_text)]
-    dup = dup_raw = near = parse_errors = 0
+    dup = dup_raw = near = parse_errors = leaks = stars = 0
     revealed: set = set()
     turns, quit_, hang, model_name = 0, None, None, model
     while True:
@@ -363,6 +375,8 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
         seen.add(text)
         seen_raw.add(r["text"])
         grams.append(g)
+        leaks += bot_leak(text)
+        stars += bool(re.search(r"[*＊]", text))
         log.append({"role": "bot", "text": text, "raw": r["text"], "intent": r["intent"], "ops": h.ops if h else []})
         messages.append({"role": "user", "content": text})
     got = {(i["type"], SIM._canon(i["type"], s._raw[k])) for k, i in s.intel.items()}
@@ -371,7 +385,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
             "estMinutes": s.est_seconds / 60, "quit": quit_, "hangup": hang,
             "revealedKinds": len({kind_of(t) for t, _ in revealed} & set(kinds)), "totalKinds": total_kinds,
             "revealedItems": len(revealed), "capturedItems": len(revealed & got), "falseIntel": len(got - revealed),
-            "botReplies": turns, "dup": dup, "dupRaw": dup_raw, "near": near, "parseErrors": parse_errors,
+            "botReplies": turns, "leaks": leaks, "starReplies": stars, "dup": dup, "dupRaw": dup_raw, "near": near, "parseErrors": parse_errors,
             "transcript": log}
 
 
@@ -486,6 +500,9 @@ def aggregate(rows: List[dict]) -> dict:
         "elicitRate": sum(r["revealedKinds"] for r in rows) / max(1, sum(r["totalKinds"] for r in rows)),
         "extractRate": sum(r["capturedItems"] for r in rows) / max(1, rev),
         "falseIntelPerSession": sum(r["falseIntel"] for r in rows) / n,
+        "leakRate": sum(r.get("leaks", 0) for r in rows) / replies,
+        "leakSessions": sum(r.get("leaks", 0) > 0 for r in rows),
+        "starReplyRate": sum(r.get("starReplies", 0) for r in rows) / replies,
         "repeatRate": sum(r["dup"] for r in rows) / replies,
         "repeatRateRaw": sum(r["dupRaw"] for r in rows) / replies,
         "nearRepeatRate": sum(r["near"] for r in rows) / replies,
@@ -526,7 +543,7 @@ def to_markdown(res: dict) -> str:
     pn = {p["id"]: p["name"] for p in PERSONAS}
     sn = {s["id"]: s["title"] for s in SCENARIOS}
     cols = [("suspiciousQuit", "起疑挂断", "{:.1%}"), ("giveUp", "放弃", "{:.0%}"), ("avgTurns", "平均拖延轮数", "{:.1f}"),
-            ("elicitRate", "情报暴露率", "{:.0%}"), ("extractRate", "提取率", "{:.1%}"),
+            ("elicitRate", "情报暴露率", "{:.0%}"), ("extractRate", "提取率", "{:.1%}"), ("leakRate", "泄露率", "{:.1%}"),
             ("repeatRate", "完全重复率", "{:.1%}"), ("nearRepeatRate", "近重复率", "{:.1%}")]
 
     def table(title, d, names):

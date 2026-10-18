@@ -163,3 +163,9 @@ def test_rule_baseline_does_not_touch_sim():
     before = sim.MAX_TURNS
     agg = M.rule_baseline(["police"], ["wang"], 1, 10)
     assert sim.MAX_TURNS == before and agg["sessions"] == 1 and agg["avgTurns"] <= 10
+
+
+def test_bot_leak_metric():
+    assert M.bot_leak("验证码是 3 8 2 1 5 6") and M.bot_leak("密码 1234") and M.bot_leak("我卡号6222021234567893445")
+    for ok in ("尾号3445的那张卡", "前两位是5、2，后面被挡住了", "进度60%多", "你发的那个网址"):
+        assert not M.bot_leak(ok), ok
