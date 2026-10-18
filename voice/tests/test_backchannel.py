@@ -374,3 +374,41 @@ def test_profile_backchannel_delay_env():
     from voice.tuning import get_profile
     assert get_profile("web").backchannel_delay_ms == 0 and get_profile("phone").backchannel_delay_ms == 0
     assert get_profile("phone", {"DEEPSUCK_PHONE_LAT_BACKCHANNEL_DELAY_MS": "120"}).backchannel_delay_ms == 120
+
+
+# ---------------- 数据源：personas/voice_traits.yaml ----------------
+
+ONLINE_FIRST8 = {  # ccca71b 线上的口头语；音频缓存按文本区分，这几条不能变
+    "wang": ["嗯……", "啊？", "哎……", "哎哟……", "你说啥？", "等一下啊……", "我听听啊……", "哦……"],
+    "li": ["啊？", "嗯？", "啥？", "你说啥？", "大点声……", "哦……", "等会儿……", "嗯……"],
+    "lin": ["呃……", "嗯嗯", "啊？", "等下哈", "哦哦", "啊这……", "嗯……我想想", "诶？"],
+}
+
+
+def test_fillers_come_from_voice_traits_yaml_and_keep_online_lines():
+    from personas.voice_traits import fillers
+    assert FILLERS == fillers()
+    for pid, lines in ONLINE_FIRST8.items():
+        assert FILLERS[pid][:8] == lines
+
+
+def test_load_fillers_direct_yaml_and_missing_file(tmp_path):
+    from voice.persona import load_fillers
+    f = tmp_path / "t.yaml"
+    f.write_text("personas:\n  wang:\n    backchannel: ['嗯……', '啊？']\n", encoding="utf-8")
+    assert load_fillers(f) == {"wang": ["嗯……", "啊？"]}
+    assert load_fillers(tmp_path / "nope.yaml") == {}
+
+
+def test_new_yaml_lines_synthesized_on_first_use_old_cache_kept(tmp_path):
+    """前 8 条已在缓存里：只补合成新增的条目。"""
+    import hashlib
+    for line in ONLINE_FIRST8["wang"]:
+        (tmp_path / f"v-24000-{hashlib.sha1(line.encode()).hexdigest()[:12]}.pcm").write_bytes(LOUD)
+    calls = []
+
+    async def synth(text, voice, sample_rate):
+        calls.append(text)
+        yield LOUD
+    got = asyncio.run(synth_fillers("wang", "v", 24000, synth=synth, cache_dir=tmp_path))
+    assert calls == FILLERS["wang"][8:] and set(got) == set(FILLERS["wang"])

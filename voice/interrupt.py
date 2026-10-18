@@ -7,6 +7,7 @@ Pipecat 的 MinWordsUserTurnStartStrategy 用 text.split() 数词，对不带空
 from __future__ import annotations
 
 import re
+from typing import Optional
 
 from pipecat.frames.frames import InterimTranscriptionFrame, TranscriptionFrame
 from pipecat.turns.types import ProcessFrameResult
@@ -56,8 +57,27 @@ class ChineseMinCharsUserTurnStartStrategy(MinWordsUserTurnStartStrategy):
         return ProcessFrameResult.CONTINUE
 
 
-def user_turn_strategies(min_chars: int):
-    """开始：中文有效字策略（代替默认的 VAD/任意转写即打断）；结束：沿用 Pipecat 默认。"""
+def digits_enabled(env=None) -> bool:
+    import os
+    env = os.environ if env is None else env
+    return (env.get("DEEPSUCK_TURN_DIGITS", "1") or "1").strip().lower() not in ("0", "false", "off", "no")
+
+
+def user_turn_strategies(min_chars: int, *, digit_hold_ms: int = 1800, text_complete_ms: int = 1200,
+                         digits: Optional[bool] = None):
+    """开始：中文有效字策略（代替默认的 VAD/任意转写即打断）。
+    结束：DEEPSUCK_TURN_DIGITS=1（默认）时用 DigitAwareTurnStopStrategy（Pipecat 默认的 Smart Turn v3 策略 +
+    念数字多等、完整句不等 3s 兜底，见 voice/turndigits.py）；=0 时沿用 Pipecat 默认。"""
     from pipecat.turns.user_turn_strategies import UserTurnStrategies
 
-    return UserTurnStrategies(start=[ChineseMinCharsUserTurnStartStrategy(min_chars=min_chars)])
+    start = [ChineseMinCharsUserTurnStartStrategy(min_chars=min_chars)]
+    if not (digits_enabled() if digits is None else digits):
+        return UserTurnStrategies(start=start)
+    from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
+
+    from .turndigits import DigitAwareTurnStopStrategy
+
+    stop = DigitAwareTurnStopStrategy(turn_analyzer=LocalSmartTurnAnalyzerV3(),
+                                      digit_hold_secs=digit_hold_ms / 1000.0,
+                                      text_complete_secs=text_complete_ms / 1000.0)
+    return UserTurnStrategies(start=start, stop=[stop])

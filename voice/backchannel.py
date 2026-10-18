@@ -1,6 +1,6 @@
 """短口头语（backchannel）：对方说完后先用预合成音频应一声"嗯……""啊？你说啥"。
 
-- 选择规则（skip_reason）：对方这一回合的话很短、在催促、或是很短的追问时不说；规则只看文本，简单可测。
+- 选择规则（skip_reason）：对方这一回合的话很短、正在念数字、在催促、或是很短的追问时不说；规则只看文本，简单可测。
 - 轮换（Backchannel）：每回合最多一条，随机挑选，和上一回合播过的那条不重复；只从已合成好的音频里挑。
 - 音频缓存：按 音色/采样率/文本 缓存到 DATA_DIR/voice/fillers（未设 DATA_DIR 时用 ~/.cache/deepsuck/voice），
   并在进程内存里留一份；载入时裁掉首尾静音，保证播放即出声。
@@ -30,11 +30,16 @@ def enabled(env: Optional[Mapping[str, str]] = None) -> bool:
 
 
 def skip_reason(text: str) -> Optional[str]:
-    """不该应声时返回原因（short / urge / followup），否则 None。"""
+    """不该应声时返回原因（short / digits / urge / followup），否则 None。
+    digits：对方正在念数字或刚说要念（voice.turndigits.digit_state），别插嘴。"""
+    from .turndigits import digit_state
+
     t = (text or "").strip()
     n = len(_CONTENT.findall(t))
     if n < MIN_CHARS:
         return "short"
+    if digit_state(t):
+        return "digits"
     if any(w in t for w in URGE_WORDS):
         return "urge"
     if n <= FOLLOWUP_MAX and _Q_END.search(t):

@@ -26,18 +26,24 @@ class LatencyProfile:
     filler_delay_ms: int
     # 短口头语（DEEPSUCK_BACKCHANNEL=1）：用户回合结束后多少毫秒播口头语；0 = 立刻
     backchannel_delay_ms: int
+    # 回合判定（DEEPSUCK_TURN_DIGITS=1）：对方正在念数字时，停说后至少等这么久才结束回合
+    turn_digit_hold_ms: int
+    # Smart Turn 判"没说完"但转写已是完整句时，停说后这么久就结束回合（不等 3s 兜底）；0 关闭
+    turn_text_complete_ms: int
     # 流式合成：一个分句至少攒几个字再送 TTS（遇到逗号等子句标点时）
     tts_clause_min_chars: int
 
 
 WEB = LatencyProfile(name="web", asr_max_silence_ms=450, vad_confidence=0.75, vad_start_secs=0.3,
                      vad_stop_secs=0.2, vad_min_volume=0.6, interrupt_min_chars=2,
-                     filler_delay_ms=650, backchannel_delay_ms=0, tts_clause_min_chars=6)
+                     filler_delay_ms=650, backchannel_delay_ms=0, turn_digit_hold_ms=1800,
+                     turn_text_complete_ms=1200, tts_clause_min_chars=6)
 
 # 电话线路：8k 窄带、底噪和回声更重，VAD 更保守、打断门槛更高、断句静音稍长
 PHONE = LatencyProfile(name="phone", asr_max_silence_ms=500, vad_confidence=0.8, vad_start_secs=0.3,
                        vad_stop_secs=0.3, vad_min_volume=0.5, interrupt_min_chars=3,
-                       filler_delay_ms=650, backchannel_delay_ms=0, tts_clause_min_chars=6)
+                       filler_delay_ms=650, backchannel_delay_ms=0, turn_digit_hold_ms=1800,
+                     turn_text_complete_ms=1200, tts_clause_min_chars=6)
 
 _DEFAULTS = {"web": WEB, "phone": PHONE}
 _PREFIX = {"web": "DEEPSUCK_LAT_", "phone": "DEEPSUCK_PHONE_LAT_"}

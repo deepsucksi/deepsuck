@@ -114,18 +114,20 @@
 
 做法：
 
-- **预合成 + 缓存**：每个人设 8 条（见下表），用该人设的 CosyVoice 音色合成 24k PCM；部署时 `VOICE_PREWARM=1` 启动即合成，否则开场先用缓存、缺的在后台补齐（网页和电话都一样；电话链路由 transport 统一重采样到 8k）。缓存按"音色/采样率/文本"分文件放在 `$DATA_DIR/voice/fillers`（生产在 `voice-data` 卷，重启不再计费），进程内存再留一份。CosyVoice 合成结果开头固定有 0.34–0.47 s 静音（本次 8 条实测），载入时裁掉首尾静音（阈值 500/32768，两端各留 20 ms），播放就是推一帧现成音频，不走 TTS。合成失败只是少几条，全失败就不播。
+- **预合成 + 缓存**：每个人设 10 条（见下表，来自 `personas/voice_traits.yaml`），用该人设的 CosyVoice 音色合成 24k PCM；部署时 `VOICE_PREWARM=1` 启动即合成，否则开场先用缓存、缺的在后台补齐（网页和电话都一样；电话链路由 transport 统一重采样到 8k）。缓存按"音色/采样率/文本"分文件放在 `$DATA_DIR/voice/fillers`（生产在 `voice-data` 卷，重启不再计费），进程内存再留一份。CosyVoice 合成结果开头固定有 0.34–0.47 s 静音（本次 8 条实测），载入时裁掉首尾静音（阈值 500/32768，两端各留 20 ms），播放就是推一帧现成音频，不走 TTS。合成失败只是少几条，全失败就不播。
 - **何时说、说哪条**（`voice/backchannel.py`，纯文本规则）：按本回合转写判断——有效字（汉字/字母数字）少于 4 个（"喂""对""好的"）不说；含催促词（快点、赶紧、听到没、在吗、喂喂……）不说；以问号/吗/呢结尾且不超过 8 个字的追问不说。其余每回合说一条：随机挑选，和上一条不重复，只从已合成好的里挑。
 - **时机**：`FillerProcessor` 收到 `UserStoppedSpeakingFrame`（回合判定结束、同时触发大模型）就播，不等大模型；机器人正在说话时不插；句中停顿不插（只看回合结束）。
 - **写进上下文**：`IntelProcessor` 拿到转写时就定下本回合说哪条，并在系统提示词里加一句"本轮你已经先随口应了一声"X"，开头不要再用嗯、啊、哎、哦之类的语气词，也不要重复这句"。
 - **打断**：口头语就是普通输出音频，对方开口打断时随 `InterruptionFrame` 一起从输出队列清掉（测试用 Pipecat 的 `BaseOutputTransport` 验证：1 s 的口头语播 0.15 s 后打断，只播出一小段）。
 - **指标**：`LatencyObserver` 新增 `first_audible`（对方说完 → 第一个声音，含口头语，取 FillerProcessor 推出口头语帧、`BotStartedSpeakingFrame`、回复首包三者最早）和 `filler`（本回合是否播了口头语/填充音），`e2e_reply`（正式回复首包）保留。probe 汇总多了 `headline`：`first_audible_p50`、`client_first_audible_p50`、`reply_first_packet_p50`、`filler_turns`。
 
-| 人设 | 口头语 |
-|---|---|
-| 王阿姨（wang） | 嗯…… / 啊？ / 哎…… / 哎哟…… / 你说啥？ / 等一下啊…… / 我听听啊…… / 哦…… |
-| 李大爷（li） | 啊？ / 嗯？ / 啥？ / 你说啥？ / 大点声…… / 哦…… / 等会儿…… / 嗯…… |
-| 小林（lin） | 呃…… / 嗯嗯 / 啊？ / 等下哈 / 哦哦 / 啊这…… / 嗯……我想想 / 诶？ |
+口头语清单的唯一数据源是 `personas/voice_traits.yaml`（每个人设 `backchannel` 10 条，`voice/persona.py` 运行时读取，镜像里一并复制）。王阿姨 / 李大爷 / 小林的前 8 条就是本轮上线时的 8 条（下表），音频缓存按文本区分，所以这些不会重新合成；后加的 2 条在首次使用时补合成。
+
+| 人设 | 前 8 条（上线时） | 后加 |
+|---|---|---|
+| 王阿姨（wang） | 嗯…… / 啊？ / 哎…… / 哎哟…… / 你说啥？ / 等一下啊…… / 我听听啊…… / 哦…… | 是吗…… / 哎呀…… |
+| 李大爷（li） | 啊？ / 嗯？ / 啥？ / 你说啥？ / 大点声…… / 哦…… / 等会儿…… / 嗯…… | 慢点说…… / 听不清…… |
+| 小林（lin） | 呃…… / 嗯嗯 / 啊？ / 等下哈 / 哦哦 / 啊这…… / 嗯……我想想 / 诶？ | 真的假的？ / 好家伙…… |
 
 ### 开 / 关对比（本地端到端 probe）
 
@@ -150,6 +152,53 @@
 
 `e2e_any` 旧字段说明：它取 `BotStartedSpeakingFrame` 与回复首包中较早者，本次实测在有填充音的回合也等于回复首包（输出 transport 的 `BotStartedSpeakingFrame` 没有在口头语开始时被观测到），所以新加了直接以口头语帧计时的 `first_audible`；看"多久出声"请用 `first_audible`。
 
+## 回合判定：念数字多等、完整句不等 3 秒（2026-10-18，第四轮）
+
+### 现在回合结束由谁决定
+
+Pipecat 1.12 默认的 `TurnAnalyzerUserTurnStopStrategy` + `LocalSmartTurnAnalyzerV3`，三者串起来：
+
+1. Silero VAD 静音满 `stop_secs`（网页 0.2 s / 电话 0.3 s）→ `VADUserStoppedSpeakingFrame`；
+2. Smart Turn v3 对这段音频打分：**COMPLETE** → 等最终转写（Paraformer 句末静音 450/500 ms 后出 `finalized=True` 的结果）就结束回合；**INCOMPLETE** → 继续听，静音累计到 `SmartTurnParams.stop_secs`（默认 **3 s**）才强制结束；
+3. 对方 VAD 再次开口会作废已有结论。
+
+所以："卡号我现在念给您。"每次约 3.2 s ＝ Smart Turn 判"没说完"后的 3 s 兜底 + VAD 0.2 s；念卡号中途停 0.8 s，Smart Turn 判 COMPLETE、Paraformer 出了最终结果，回合就被切开。
+
+### 策略（`voice/turndigits.py`，`DEEPSUCK_TURN_DIGITS=1` 默认开）
+
+`DigitAwareTurnStopStrategy` 继承默认策略，只按本回合已有的中间 / 最终转写加两条规则：
+
+- **在念数字**（`digit_state`）：结尾是没念完的数字串——引导词"卡号/账号/银行卡"后不足 16 位、"手机号/电话/号码"后不足 11 位、"验证码/密码"后不足 6 位、"金额/转/保证金"后还没说单位；无引导词时 3–10 位或 12–15 位。阿拉伯数字和"零一二…幺两"都算，Paraformer 在停顿处加的句号不算断开（"62220212。 345678"累计 14 位）。此时即使 Smart Turn 判 COMPLETE，也要真实停说后满 `TURN_DIGIT_HOLD_MS`（默认 1800 ms）仍没再开口才结束；接着念就还是同一回合。判 INCOMPLETE 时保持原来的 3 s 兜底。
+- **预告要念**（"卡号我现在念给您"这类：有引导词 + 念/报/告诉/发给，后面还没数字）：Smart Turn 判 INCOMPLETE 时等 `TURN_DIGIT_HOLD_MS` 就结束（原来 3 s）。
+- **完整句**：Smart Turn 判 INCOMPLETE、但最终转写以句末标点结尾、最后一句至少 4 个字、不以"那个/就是/然后"等收尾、也不在念数字：停说后 `TURN_TEXT_COMPLETE_MS`（默认 1200 ms）结束，不再等 3 s；设 0 关闭。
+- 其余（COMPLETE 且不在念数字）与 Pipecat 默认完全一样，平时的阈值没有变长。
+- 口头语联动：`voice/backchannel.py` 的跳过规则加了 `digits`——在念数字或预告要念时不应声。
+
+为什么默认 1800 ms 而不是 1500：对方停顿后重新开口，要再过 VAD `start_secs`（0.3 s）外加网络抖动才报"开口"。第一版用 1500 ms 实测，卡号中间停 1.0 s 那一下仍被切开（开口在停说后约 1.6 s 才报到）；1800 ms 大约能容忍 1.3 s 的停顿。
+
+| 变量 | 网页 | 电话 | 含义 |
+|---|---|---|---|
+| `DEEPSUCK_TURN_DIGITS` | 1 | 1 | 总开关；0 = Pipecat 默认策略 |
+| `DEEPSUCK_LAT_TURN_DIGIT_HOLD_MS` / `DEEPSUCK_PHONE_LAT_TURN_DIGIT_HOLD_MS` | 1800 | 1800 | 念数字时停说后至少等多久 |
+| `DEEPSUCK_LAT_TURN_TEXT_COMPLETE_MS` / `DEEPSUCK_PHONE_LAT_TURN_TEXT_COMPLETE_MS` | 1200 | 1200 | 完整句不等 3 s 兜底的等待；0 关闭 |
+
+### 前后对比（本地端到端 probe）
+
+测试音频 `digits16k.wav`：CosyVoice（longanyang）分段合成，段间用静音拼出停顿（10 次 TTS）：
+卡号"你记一下，卡号是六二二二零二一二 ‖0.8s‖ 三四五六七八 ‖1.0s‖ 九零一二三。"（19 位）；手机号"我的手机号是幺三八 ‖0.9s‖ 零零幺三 ‖0.7s‖ 八八八八。"；验证码"验证码是四七二 ‖0.8s‖ 九一五，快点告诉我。"；普通句"您好，我是公安局的 ‖0.7s‖ 您名下有一张银行卡涉嫌洗钱。"。另跑原 `scammer16k.wav`。关 = `DEEPSUCK_TURN_DIGITS=0`。共 5 次 probe（digits 关 1、开 2——第 1 次开是 1500 ms 版本，scammer 关 1、开 1）。`turn_ms` = 真实停说 → 判定说完。
+
+| 用例 | 关：切成几段 | 开（1500 ms 版） | 开（1800 ms，最终） | 判定说完等待 `turn_ms`（关 → 开） |
+|---|---|---|---|---|
+| 卡号（两次停顿，19 位） | 3 段（"你记一下" / "卡号是62220212" / "345678 90123"） | 2 段（1.0 s 停顿处切开） | **1 段** | 末段 3201 → 752 ms |
+| 手机号（两次停顿） | 3 段 | 1 段 | **1 段** | 1697 → 1202 ms |
+| 验证码（一次停顿） | 2 段（"472 915" / "快点告诉我"） | 1 段 | 2 段，但 6 位验证码在同一段；切在"915，快点告诉我"的逗号处（不是数字） | — |
+| 普通句（逗号处停 0.7 s） | 1 段 | 1 段 | 1 段 | 922 → 960 / 804 ms |
+| scammer16k 第 6 句"卡号我现在念给您。" | — | — | — | **3200 → 1802 ms** |
+
+scammer16k 其余 5 句（普通话、不含数字）：`turn_ms` 关 1001 / 1007 / 930 / 1001 / 1000，开 1001 / 1346 / 710 / 794 / 735；对应 `first_audible` 关 1022 / 1010 / 934 / 1004 / 1003，开 1021 / 1349 / 714 / 797 / 739。普通句的首个声音没有系统性变慢（1346 那一回合日志显示 Smart Turn 判 COMPLETE 后在等 Paraformer 最终结果，是 ASR 慢，与新策略无关）。逗号停顿被切开：关 3 次、开 1 次，这条规则并不针对切句，差别应视为波动。
+
+手机号末段"八八八八"被 Paraformer 识别成"Ba ba?"（合成音频的问题），所以最后一段是按完整句规则约 1.2 s 结束，不是按 11 位号码念完结束。
+
 ## 复现
 
 ```bash
@@ -157,5 +206,6 @@ python -m voice.app --port 7863 &
 python -m voice.probe --url http://127.0.0.1:7863 --wav scammer16k.wav --seconds 96 --json-out after.json
 # 只测回复本身：服务端加 DEEPSUCK_BACKCHANNEL=0 DEEPSUCK_LAT_FILLER_DELAY_MS=0
 # 口头语开/关对比：服务端 DEEPSUCK_BACKCHANNEL=1 / 0；probe 汇总看 headline
+# 回合判定开/关对比：服务端 DEEPSUCK_TURN_DIGITS=1 / 0，看服务端日志 latency turn 的 turn_ms 与切分
 # 生成同款骗子音频（计费，约 150 字）：python -m voice.probe --make-wav scammer16k.wav
 ```

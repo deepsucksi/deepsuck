@@ -15,16 +15,39 @@ from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS
 
 INTENT_HINTS: dict = load("personas")["intentHints"]
 
-# 短口头语（backchannel）：对方说完后先用预合成的音频"嗯……""啊？你说啥"接一下，像反应慢半拍的普通人，
-# 也盖住 LLM + TTS 的首包延迟。每个人设 8 条，随机轮换、连续两轮不重复（见 voice/backchannel.py）。
-FILLERS = {
-    # 王阿姨：62 岁退休会计，糊涂热心
-    "wang": ["嗯……", "啊？", "哎……", "哎哟……", "你说啥？", "等一下啊……", "我听听啊……", "哦……"],
-    # 李大爷：71 岁，慢吞吞、耳背
-    "li": ["啊？", "嗯？", "啥？", "你说啥？", "大点声……", "哦……", "等会儿……", "嗯……"],
-    # 小林：大二学生
-    "lin": ["呃……", "嗯嗯", "啊？", "等下哈", "哦哦", "啊这……", "嗯……我想想", "诶？"],
-}
+# 短口头语（backchannel）：唯一数据源是 personas/voice_traits.yaml（每个人设的 backchannel 列表），运行时读取。
+# 对方说完后先用预合成的音频"嗯……""啊？你说啥"接一下（见 voice/backchannel.py）；音频缓存按文本区分，
+# 所以 YAML 里已有条目的文字不要改（改了会重新合成），新增条目首次使用时补合成即可。
+_TRAITS_YAML = Path(__file__).resolve().parents[1] / "personas" / "voice_traits.yaml"
+
+
+def load_fillers(path: Path = _TRAITS_YAML) -> dict:
+    """{persona_id: [口头语, ...]}。优先复用 personas.voice_traits.fillers()；导入不了（部署里没有该包）就直接读 YAML；
+    都失败则返回 {}（口头语整体不播，通话不受影响）。"""
+    if path == _TRAITS_YAML:
+        root = str(path.parents[1])
+        if root not in sys.path:
+            sys.path.append(root)
+        try:
+            from personas.voice_traits import fillers
+
+            return fillers()
+        except ImportError:
+            pass
+        except Exception as e:  # noqa: BLE001
+            print(f"voice.persona: personas.voice_traits 读取失败（{e}），改为直接读 YAML", file=sys.stderr)
+    try:
+        import yaml
+
+        with open(path, encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        return {pid: [str(x) for x in t.get("backchannel", [])] for pid, t in (data.get("personas") or {}).items()}
+    except Exception as e:  # noqa: BLE001
+        print(f"voice.persona: 读取口头语失败（{path}: {e}），本进程不播口头语", file=sys.stderr)
+        return {}
+
+
+FILLERS = load_fillers()
 
 
 def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,

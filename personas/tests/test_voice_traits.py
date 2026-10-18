@@ -93,10 +93,10 @@ def test_fillers_drop_in_compatible():
 
 
 def test_current_fillers_match_voice_source():
-    """CURRENT 与 voice/persona.py 保持同步（只读源码文本）。"""
+    """voice/persona.py 不再手写 FILLERS，运行时从本 YAML 读取（只读源码文本，不 import voice）；
+    CURRENT（线上已缓存音频的前 8 条）由上面的测试保证与 YAML 一致。"""
     from pathlib import Path
     src = (Path(__file__).resolve().parents[2] / "voice" / "persona.py").read_text(encoding="utf-8")
+    assert "voice_traits.yaml" in src and "FILLERS = load_fillers()" in src
     for pid, cur in CURRENT.items():
-        m = re.search(rf'"{pid}": \[(.*?)\]', src)
-        assert m, pid
-        assert re.findall(r'"([^"]*)"', m.group(1)) == cur
+        assert not re.search(rf'"{pid}": \[', src), f"{pid} 仍在 voice/persona.py 里手写"

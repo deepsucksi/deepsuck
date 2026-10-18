@@ -137,7 +137,8 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         from pipecat.audio.vad.silero import SileroVADAnalyzer
 
         vad_analyzer = SileroVADAnalyzer(params=vad_params(prof))
-    strategies = user_turn_strategies(prof.interrupt_min_chars)
+    strategies = user_turn_strategies(prof.interrupt_min_chars, digit_hold_ms=prof.turn_digit_hold_ms,
+                                      text_complete_ms=prof.turn_text_complete_ms)
 
     if engine == "rule":
         # 规则模式也要能打断：VAD 在 STT 前，回合处理器在 STT 后，开口超过门槛就广播打断
