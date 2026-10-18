@@ -16,7 +16,10 @@
 .post-item h2 a{text-decoration:none}
 .post-item h2 a:hover{text-decoration:underline;text-decoration-color:var(--ink)}
 .post-item p{margin:0;color:var(--muted);font-size:15px;line-height:1.85}
-.blog-empty{max-width:820px;margin:0;padding:28px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--line);color:var(--muted)}
+.blog-empty{max-width:820px;margin:0;padding:36px 0 40px;border-top:1px solid var(--ink);border-bottom:1px solid var(--line)}
+.blog-empty h2{font-size:21px;line-height:1.5;margin:0 0 10px}
+.blog-empty p{margin:0;max-width:600px;color:var(--muted);font-size:15px;line-height:1.85}
+.blog-empty .blog-empty-actions{margin-top:24px}
 .blog-feed{margin:32px 0 0;font-size:13px}
 .blog-feed a{color:var(--dim)}
 .tag.amber{vertical-align:middle;margin-left:6px;font-weight:400;letter-spacing:0}
