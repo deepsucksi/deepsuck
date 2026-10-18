@@ -238,6 +238,8 @@
       return '<span class="tag">' + esc(t.label) + (t.count > 1 ? ' ×' + t.count : '') + '</span>';
     }).join('') : '<span class="empty">暂无</span>';
     $('engineLabel').textContent = '引擎：' + ({ rule: '规则引擎（本地）', proxy: LIVE ? '大模型 · 在线服务' : '大模型 · 本地代理', direct: '大模型 · 直连 ' + state.direct.model }[state.engine]);
+    $('engineLabel').setAttribute('data-short', state.engine === 'rule' ? '规则' : '大模型');
+    $('engineLabel').classList.toggle('is-llm', state.engine !== 'rule');
   }
 
   /* ---------- 弹窗 ---------- */
