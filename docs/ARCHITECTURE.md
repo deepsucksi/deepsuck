@@ -30,12 +30,17 @@ deepsuck/
 ├── server/                   # 可选：零依赖 Node 后端（静态托管 + /api/chat 代理 + 限流/预算护栏）
 ├── python/deepsuck/          # Python 核心移植 + 黑名单客户端 + 骗子模拟器 + STIX 2.1 导出（零依赖，stix2 可选）
 ├── voice/                    # 语音演示：Pipecat + DashScope（Paraformer / qwen-plus / CosyVoice）+ SmallWebRTC
+│   ├── app.py                # 入口：浏览器 WebRTC 管线（电话入口按开关挂载）
+│   ├── tuning.py · latency.py · interrupt.py · textagg.py  # 网页/电话两套延迟参数、分回合延迟指标、中文打断策略、子句切分（见 docs/VOICE_LATENCY.md）
+│   ├── telephony/            # 电话接入抽象层：TelephonyAdapter + ws-raw / pipecat-ws 适配器；默认关闭，只接不拨
+│   ├── static/               # 语音演示页面
+│   └── tests/                # 假 WebSocket / 本地回环测试，不联网、不拨打电话
 ├── deploy/                   # 公开部署包：Docker Compose、Caddyfile、bootstrap.sh、.env.example
 ├── eval/                     # 骗子剧本、TeleAntiFraud 评测脚本、评测结果 JSON
 ├── scripts/                  # build-core · gen-fixtures · fetch-blocklists · fetch-cardbin · screenshots · og
 ├── tests/                    # node:test 单元测试 + fixtures/（JS 生成、Python 复用的黄金用例）
 ├── screenshots/              # README 截图（npm run screenshots 生成）
-├── docs/                     # QUICKSTART · ARCHITECTURE · DEPLOY · PHONE · INTEL · EVAL · ETHICS
+├── docs/                     # QUICKSTART · ARCHITECTURE · DEPLOY · VOICE_LATENCY · PHONE · INTEL · EVAL · ETHICS
 └── .github/                  # Pages 部署 / 测试工作流 + 情报提交、下架申诉 Issue 模板
 ```
 

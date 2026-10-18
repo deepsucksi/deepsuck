@@ -1,6 +1,6 @@
 # 5 分钟自托管上手（docs/QUICKSTART.md）
 
-从 `git clone` 到在本机跑起沙盒、接入通义千问、打开语音演示。每一步都能单独停下：**不填任何 Key，项目照常以规则引擎运行。**
+从 `git clone` 到在本机跑起沙盒、接入通义千问、打开语音演示，以及电话接入的现状。每一步都能单独停下：**不填任何 Key，项目照常以规则引擎运行。**
 
 ## 0. 你需要
 
@@ -69,11 +69,49 @@ curl -s http://127.0.0.1:7860/api/voice/health
 
 静态站可以直接放在 GitHub Pages、Cloudflare Pages 或 OSS 上（发布 `site/` 目录即可）。要对公网开放大模型对话和语音，见 [DEPLOY.md](DEPLOY.md)（Docker Compose + Caddy 自动 HTTPS，带每日预算、限流和并发护栏）。部署时请把域名和证书邮箱换成**你自己的**。
 
-## 6. 来电转接到 AI：目前只在设计中
+## 6. 电话接入：适配层已有，默认关闭，只接不拨
 
-现在**没有**可运行的电话接入代码，也不支持 Twilio、SIP 中继等云通信。已有的语音演示只用浏览器麦克风。
+**现状（以仓库代码为准）**
 
-规划中的方案（iPhone 静音陌生来电 → 运营商无应答转移 `**61*` → 本人实名副卡 → EC20/EG25 4G 模组；多线路再用 Asterisk）、合规边界和待验证项见 [PHONE.md](PHONE.md)。欢迎在 Issue 里认领和实测。
+- `voice/telephony/` 已有电话接入抽象层（`TelephonyAdapter` 接口与注册表）和两个适配器：
+  - `ws-raw`：极简 WebSocket 协议，一条连接对应一通电话；SIP 协议栈放在独立进程里（FreeSWITCH、Asterisk 或自写 UAS）。
+  - `pipecat-ws`：复用 Pipecat 内置的 Twilio、Telnyx、Plivo、Exotel 媒体流序列化器，适合海外部署或兼容 Twilio Media Streams 的网关。
+- 入口**默认关闭**：不设置 `VOICE_TELEPHONY=1` 和 `VOICE_TELEPHONY_TOKEN` 时，路由根本不注册。
+- 代码**只接听、不外呼**，仓库里没有任何发起呼叫的代码。电话入口和浏览器入口共用并发名额、每日预算，以及时长、轮数、静默护栏。
+- `deploy/` 目前**没有**暴露电话入口。
+- 阿里云语音服务「智能语音交互呼入」适配器**只有设计稿**，尚未实现。阿里云 SIP Trunk（语音中继）是邀约制，需要企业实名与资质、固定公网 IP，个人一般开不了。
+
+**本地联调**：启用方法、`ws-raw` 协议、`pipecat-ws` 的凭据变量和测试命令，统一以 [voice/telephony/README.md](../voice/telephony/README.md) 为准，这里不重复，避免两处不一致。单元测试走本地回环 WebSocket，不连服务商，也不拨打电话。
+
+**已定政策**（标“计划”的是代码尚未实现的部分）
+
+| 事项 | 决定 | 代码现状 |
+|---|---|---|
+| 号码 | 本轮不购买号码 | 不涉及代码 |
+| 开场告知语 | 可配置，默认**不播** | 已可用 `VOICE_TELEPHONY_DISCLOSURE` 配置；当前默认仍会播放“本通话由智能助理接听。”，改为默认不播是**计划** |
+| 原始音频 | 默认不保留 | 当前代码不录音、不落盘。`KEEP_AUDIO` 开关（打开后最多保留 7 天）是**计划** |
+| 文字记录 | 只保留经共享脱敏模块 `python/deepsuck/redact.py` 处理后的文本 | 语音管线里的转写已先脱敏再交给看板和大模型；持久化保存脱敏文字记录是**计划** |
+| 公网部署 | `deploy/` 中的电话入口默认关闭，保留开关 | 开关是**计划**；当前 `deploy/` 没有这个入口 |
+| 断句静音 | 网页暂保持 450ms | 已是默认值（`DEEPSUCK_LAT_ASR_MAX_SILENCE_MS`，见第 7 节） |
+
+无论接入方式如何变化，底线不变：**只做防御，机器人从不主动外呼或联系真实的人**（见 [ETHICS.md](ETHICS.md)）。个人可开通的 SIP、云号码和呼叫转移方案正在 [PHONE.md](PHONE.md) 中整理对比（**接入方案对比整理中**）。
+
+## 7. 语音延迟调参
+
+填充音、打断、流式合成的做法、测量方法和前后对比数据见 [VOICE_LATENCY.md](VOICE_LATENCY.md)。以下可调参数取自该文档：网页用 `DEEPSUCK_LAT_<字段>`，电话用 `DEEPSUCK_PHONE_LAT_<字段>`。
+
+| 字段 | 网页 | 电话 | 含义 |
+|---|---|---|---|
+| `ASR_MAX_SILENCE_MS` | 450 | 500 | Paraformer 断句静音（200–6000） |
+| `VAD_CONFIDENCE` | 0.75 | 0.8 | Silero 置信度 |
+| `VAD_START_SECS` | 0.3 | 0.3 | 判定开口所需语音时长 |
+| `VAD_STOP_SECS` | 0.2 | 0.3 | 判定停说所需静音时长 |
+| `VAD_MIN_VOLUME` | 0.6 | 0.5 | 最小音量 |
+| `INTERRUPT_MIN_CHARS` | 2 | 3 | 机器人说话时打断所需有效字数 |
+| `FILLER_DELAY_MS` | 650 | 650 | 停说后多久仍无首 token 就播填充音；0 关闭 |
+| `TTS_CLAUSE_MIN_CHARS` | 6 | 6 | 逗号处切分前至少攒的字数 |
+
+另有 `DEEPSUCK_TTS_STREAM=0`，可回退到旧的每句一连接合成。例如 `DEEPSUCK_LAT_ASR_MAX_SILENCE_MS=500` 就是把网页断句静音调到 500ms。
 
 ## 常见问题
 
