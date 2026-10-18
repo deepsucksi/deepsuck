@@ -198,3 +198,4 @@ def test_speakable_reads_numbers_digitwise_and_no_stars():
     assert unmask("卡号622202*********3445") == "卡号尾号3445"
     assert unmask("尾号是130-***-8600") == "尾号是8600"
     assert unmask("号码 ****") == "号码那个号"
+    assert unmask("*0123。") == "尾号0123。"  # 跨回合报号时上一段被打码，只剩一个星号
