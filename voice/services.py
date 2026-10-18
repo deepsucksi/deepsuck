@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import uuid
 from dataclasses import dataclass
 from typing import AsyncGenerator, Optional
@@ -31,7 +32,15 @@ from pipecat.services.tts_service import TTSService, WebsocketTTSService
 from pipecat.utils.time import time_now_iso8601
 
 from . import dashscope_ws as ds
+from .persona import pause_range, split_pause
 from .textagg import ClauseTextAggregator
+
+
+def pause_silence(sample_rate: int, rng=random) -> bytes:
+    """一段随机时长的静音 PCM（断续停顿用）；范围见 persona.pause_range。"""
+    lo, hi = pause_range()
+    ms = rng.randint(lo, hi) if hi > 0 else 0
+    return b"\x00\x00" * int(sample_rate * ms / 1000)
 
 
 @dataclass
@@ -153,7 +162,10 @@ class CosyVoiceTTSService(TTSService):
 
     async def run_tts(self, text: str, context_id: str) -> AsyncGenerator[Frame, None]:
         sr = self.sample_rate
+        text, pause = split_pause(text)
         try:
+            if not text:
+                return
             await self.start_tts_usage_metrics(text)
             if self._meter is not None:
                 self._meter.tts(len(text))
@@ -164,6 +176,9 @@ class CosyVoiceTTSService(TTSService):
                                                                        context_id=context_id):
                 await self.stop_ttfb_metrics()
                 yield frame
+            gap = pause_silence(sr) if pause else b""
+            if gap:
+                yield TTSAudioRawFrame(audio=gap, sample_rate=sr, num_channels=1, context_id=context_id)
         except Exception as e:
             logger.error(f"{self}: CosyVoice 合成失败: {e}")
             yield ErrorFrame(error=f"CosyVoice 合成失败: {e}")
@@ -206,6 +221,11 @@ class CosyVoiceStreamTTSService(WebsocketTTSService):
         self._task_done.set()
         self._finish_sent = False
         self._conn_lock = asyncio.Lock()
+        # 断续停顿：分句以「…」结尾时，该句单独成一个任务，合成完插一段静音，回合不结束，下一句再开新任务
+        self._pause_task = False                # 当前任务结束后要插静音（不是回合结束）
+        self._flush_pending = False             # 停顿任务进行中收到了回合结束
+        self._open_ctx: Optional[str] = None    # 停顿后仍未结束的回合
+        self.pauses = 0                         # 插入的停顿次数（测试/观测用）
         self.connects = 0                      # 建连次数（测试/观测用）
         self.tasks = 0                         # 发起的合成任务数
 
@@ -244,6 +264,8 @@ class CosyVoiceStreamTTSService(WebsocketTTSService):
     async def _disconnect_websocket(self):
         ws, self._websocket = self._websocket, None
         self._reset_task()
+        self._pause_task = self._flush_pending = False
+        self._open_ctx = None
         if ws is not None:
             try:
                 await ws.close()
@@ -261,9 +283,19 @@ class CosyVoiceStreamTTSService(WebsocketTTSService):
             await self._connect()
 
     # ---- 任务 ----
-    async def _open_task(self, context_id: str):
-        if self._task_id is not None and self._task_ctx == context_id:
+    async def _close_open_ctx(self, keep: Optional[str] = None):
+        ctx = self._open_ctx
+        if ctx is None or ctx == keep:
             return
+        self._open_ctx = None
+        if self.audio_context_available(ctx):
+            await self.append_to_audio_context(ctx, TTSStoppedFrame(context_id=ctx))
+            await self.remove_audio_context(ctx)
+
+    async def _open_task(self, context_id: str):
+        if self._task_id is not None and self._task_ctx == context_id and not self._finish_sent:
+            return
+        await self._close_open_ctx(keep=context_id)  # 上一回合以停顿句收尾但没等到 flush：先把它结束掉
         if self._task_id is not None and not self._task_done.is_set():
             try:
                 await asyncio.wait_for(self._task_done.wait(), self._task_wait)
@@ -289,6 +321,10 @@ class CosyVoiceStreamTTSService(WebsocketTTSService):
             await self._disconnect_websocket()
 
     async def run_tts(self, text: str, context_id: str) -> AsyncGenerator[Frame | None, None]:
+        text, pause = split_pause(text)
+        if not text:
+            yield None
+            return
         try:
             await self._open_task(context_id)
             await asyncio.wait_for(self._task_started.wait(), 10)
@@ -298,6 +334,10 @@ class CosyVoiceStreamTTSService(WebsocketTTSService):
             if self._meter is not None:
                 self._meter.tts(len(text))
             await self._websocket.send(json.dumps(ds.continue_task_text(self._task_id, text)))
+            if pause:
+                # 这一句合成完就结束任务，task-finished 时插静音；回合继续
+                self._pause_task, self._flush_pending, self._finish_sent = True, False, True
+                await self._websocket.send(json.dumps(ds.finish_task(self._task_id)))
             yield None
         except Exception as e:
             logger.error(f"{self}: CosyVoice 合成失败: {e}")
@@ -306,7 +346,16 @@ class CosyVoiceStreamTTSService(WebsocketTTSService):
             yield TTSStoppedFrame(context_id=context_id)
 
     async def flush_audio(self, context_id: Optional[str] = None):
-        ctx = context_id or self._task_ctx
+        ctx = context_id or self._task_ctx or self._open_ctx
+        if self._pause_task and self._task_id is not None and ctx == self._task_ctx:
+            self._flush_pending = True  # 停顿任务还没结束：结束时直接收尾，不再插静音
+            return
+        if self._task_id is None and ctx is not None and ctx == self._open_ctx:
+            self._open_ctx = None  # 回合最后一句是停顿句，任务已结束：在这里补 TTSStoppedFrame
+            if self.audio_context_available(ctx):
+                await self.append_to_audio_context(ctx, TTSStoppedFrame(context_id=ctx))
+                await self.remove_audio_context(ctx)
+            return
         if self._task_id is None or ctx != self._task_ctx or self._finish_sent or self._websocket is None:
             return
         self._finish_sent = True
@@ -339,14 +388,26 @@ class CosyVoiceStreamTTSService(WebsocketTTSService):
                 if name == "task-failed":
                     logger.error(f"{self}: CosyVoice 任务失败: {ev.get('error_message')}")
                     await self.push_error(error_msg=f"CosyVoice 任务失败: {ev.get('error_message')}")
-                if ctx and self.audio_context_available(ctx):
+                pause, self._pause_task = self._pause_task and name == "task-finished", False
+                if pause and not self._flush_pending and ctx and self.audio_context_available(ctx):
+                    gap = pause_silence(self.sample_rate)
+                    if gap:
+                        self.pauses += 1
+                        await self.append_to_audio_context(
+                            ctx, TTSAudioRawFrame(audio=gap, sample_rate=self.sample_rate, num_channels=1,
+                                                  context_id=ctx))
+                    self._open_ctx = ctx
+                elif ctx and self.audio_context_available(ctx):
                     await self.append_to_audio_context(ctx, TTSStoppedFrame(context_id=ctx))
                     await self.remove_audio_context(ctx)
+                self._flush_pending = False
                 self._reset_task()
 
     # ---- 打断 ----
     async def _handle_interruption(self, frame: InterruptionFrame, direction: FrameDirection):
         busy = self._task_id is not None and not self._task_done.is_set()
+        self._pause_task = self._flush_pending = False
+        self._open_ctx = None
         await super()._handle_interruption(frame, direction)
         await self.stop_all_metrics()
         if busy:

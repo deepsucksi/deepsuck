@@ -124,3 +124,8 @@ python -m pytest voice/tests -q    # 全部用假 WebSocket，不联网、不需
 - 打断（barge-in）：机器人说话时需要说出 2 个以上有效字（电话 3 个）才打断，"嗯/对/好的"不打断；门槛是按合成音频定的，没用真人通话校准过。
 - 只在 Linux + Chrome（伪造麦克风输入）下做过端到端测试；真实麦克风、回声消除、移动端浏览器未测。
 - 使用 Pipecat 1.12 的 `PipelineTask` / 上下文内 system 消息（2.0 将移除），已在 requirements 中锁 `<2`。
+
+## 断续停顿与环境底噪
+
+- **断续停顿**：回复里的「…」不再读成逗号，而是当停顿。流式 TTS 遇到以「…」结尾的分句，就把这一句单独合成，结束后插 300 到 900 毫秒的随机静音，再接下一句。每个回合的第一句走原来的路径，所以首包延迟不变。`DEEPSUCK_PAUSE_MS=300-900` 调范围，`DEEPSUCK_PAUSES=0` 关闭（省略号退回读成逗号）。CosyVoice 的 SSML `<break>` 要求整段文字一次发完，没法边生成边合成，所以没有用它。
+- **环境底噪**：`voice/ambience.py` 按人设给发出去的音频混一层低音量循环底噪：王阿姨是厨房，李大爷是隔壁屋电视，小林是街道。网页通话和 SIP 电话都会混。底噪只加在发给对方的音频上，不进 ASR，也不影响打断。`DEEPSUCK_AMBIENCE=0` 关闭，填 `kitchen`、`street` 或 `tv` 可以强制用某一段；`DEEPSUCK_AMBIENCE_VOLUME` 调音量，默认 0.2，大约比说话低 28 dB。素材出处和授权见 `voice/assets/ambience/SOURCES.md`。

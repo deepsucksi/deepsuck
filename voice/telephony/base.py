@@ -58,12 +58,15 @@ class TelephonyAdapter(ABC):
     def create_serializer(self, call: CallInfo):
         """返回 pipecat FrameSerializer。"""
 
-    def create_transport(self, websocket, call: CallInfo, *, session_timeout: Optional[float] = None):
-        """默认：FastAPIWebsocketTransport + 本适配器的 serializer。采样率由 PipelineParams 决定。"""
+    def create_transport(self, websocket, call: CallInfo, *, session_timeout: Optional[float] = None,
+                         audio_out_mixer=None):
+        """默认：FastAPIWebsocketTransport + 本适配器的 serializer。采样率由 PipelineParams 决定；
+        audio_out_mixer 是环境底噪（voice/ambience.py），None 表示不混。"""
         from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPIWebsocketTransport
 
         params = FastAPIWebsocketParams(audio_in_enabled=True, audio_out_enabled=True, add_wav_header=False,
-                                        serializer=self.create_serializer(call), session_timeout=session_timeout)
+                                        serializer=self.create_serializer(call), session_timeout=session_timeout,
+                                        audio_out_mixer=audio_out_mixer)
         return FastAPIWebsocketTransport(websocket=websocket, params=params)
 
     async def hangup(self, call: CallInfo) -> None:  # pragma: no cover - 默认交给 serializer

@@ -211,6 +211,7 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
 
     from deepsuck.blocklist import Client
 
+    from .ambience import make_mixer
     from .processors import fillers_missing, synth_fillers
 
     limits = limits or G.Limits()
@@ -227,7 +228,8 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
         call_id = uuid.uuid4().hex[:12]
         recorder = REC.recorder_for(call_id)  # KEEP_AUDIO=1 才录音
         transport = SmallWebRTCTransport(webrtc_connection=connection, params=TransportParams(
-            audio_in_enabled=True, audio_out_enabled=True, audio_in_sample_rate=IN_RATE, audio_out_sample_rate=OUT_RATE))
+            audio_in_enabled=True, audio_out_enabled=True, audio_in_sample_rate=IN_RATE, audio_out_sample_rate=OUT_RATE,
+            audio_out_mixer=make_mixer(session.persona["id"])))
 
         async def notify(msg: dict) -> None:
             try:

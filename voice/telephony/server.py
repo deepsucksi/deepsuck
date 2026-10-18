@@ -81,8 +81,11 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
     session = Session(scenario=scenario, persona=persona, engine=f"phone-{engine}")
     recorder = REC.recorder_for(call.call_id)  # KEEP_AUDIO=1 才录音
     bg_fill: Optional[asyncio.Task] = None
+    from ..ambience import make_mixer
+
     transport = adapter.create_transport(websocket, call, session_timeout=limits.max_minutes * 60 + 30
-                                         if limits.max_minutes > 0 else None)
+                                         if limits.max_minutes > 0 else None,
+                                         audio_out_mixer=make_mixer(session.persona["id"]))
 
     async def notify(msg: dict) -> None:  # 电话没有看板；情报留在 session 里，通话结束记日志
         return None

@@ -52,7 +52,8 @@ FILLERS = load_fillers()
 
 
 # 说话风格（与 personas/prompts/retiree.yaml 的规则一致，俊杰定的克制标准）：年龄感只靠节奏和偶尔没听清带出来。
-STYLE_RULE = ("6. 说话平常、克制，像普通人接电话：句子短，情绪平，不用感叹号和省略号，不用“哎哟”“哎呀”开头；"
+STYLE_RULE = ("6. 说话平常、克制，像普通人接电话：句子短，不用感叹号，不用“哎哟”“哎呀”开头；想一下、说一半停住的地方用“…”，"
+              "可以重复半个词、说了又改口；多反问、含糊一点，别把话说完整，也别替对方把话说圆；"
               "不主动提年龄，不拿听力、眼神、认字慢、手机用不惯说事；不编孙子、玩具、老花镜、药、锅里炖汤这类小道具和段子，"
               "也不抖机灵。偶尔没听清就说“你再说一遍”。")
 _AGE = re.compile(r"^\s*\d+\s*岁\s*")
@@ -95,11 +96,41 @@ _TILDE = re.compile(r"[~～]+")
 _DRAWL = re.compile(r"([啊呀哎哟嗯哦噢呃诶唉])\1{2,}")
 
 
-def calm(text: str) -> str:
-    """语气降调（只作用于送给 TTS 的文本）：感叹号读成句号，省略号读成逗号，去掉波浪号拖音和「啊啊啊」式重复。
-    俊杰要求王阿姨说话克制；提示词改不干净时这里兜底。DEEPSUCK_CALM_TTS=0 关闭。"""
+PAUSE = "…"
+# 断续停顿（俊杰要求说话断断续续）：省略号保留为停顿标记，TTS 在这里切段并插 300–900ms 静音（见 services.py）。
+# DEEPSUCK_PAUSES=0 关闭，省略号退回读成逗号。
+_PAUSES = os.environ.get("DEEPSUCK_PAUSES", "1").strip().lower() not in ("0", "off", "false", "no")
+
+
+def pause_range(env: str | None = None) -> tuple[int, int]:
+    """停顿静音的毫秒范围，DEEPSUCK_PAUSE_MS="300-900"；"0" 表示不插静音。"""
+    v = (os.environ.get("DEEPSUCK_PAUSE_MS", "300-900") if env is None else env).strip()
+    try:
+        lo, _, hi = v.partition("-")
+        lo_i = max(0, int(lo)); hi_i = max(lo_i, int(hi or lo))
+        return min(lo_i, 3000), min(hi_i, 3000)
+    except ValueError:
+        return 300, 900
+
+
+def split_pause(text: str) -> tuple[str, bool]:
+    """TTS 前处理：去掉句中的停顿标记（读成逗号），返回 (要合成的文字, 句末是否停顿)。"""
+    t = text.rstrip()
+    tail = t.endswith(PAUSE)
+    t = t.rstrip(PAUSE).rstrip()
+    t = re.sub(r"…+", "，", t).lstrip("，, ")
+    return t, tail
+
+
+def calm(text: str, pauses: bool | None = None) -> str:
+    """语气降调（只作用于送给 TTS 的文本）：感叹号读成句号，省略号统一成一个「…」停顿标记（关掉停顿时读成逗号），
+    去掉波浪号拖音和「啊啊啊」式重复。DEEPSUCK_CALM_TTS=0 关闭。"""
+    keep = _PAUSES if pauses is None else pauses
     s = _EXCL.sub("。", text)
-    s = _ELLIPSIS.sub("，", s)
+    s = _ELLIPSIS.sub(PAUSE if keep else "，", s)
+    if keep:
+        s = re.sub(r"…\s*[，,。]+", "…", s)
+        s = re.sub(r"[，,]\s*…", "…", s)
     s = _TILDE.sub("", s)
     s = _DRAWL.sub(r"\1", s)
     s = re.sub(r"，\s*([。？?，])", r"\1", s)
