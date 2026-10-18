@@ -1,0 +1,12 @@
+# Caddy + caddy-l4：让 TURN（明文 TCP 和 TLS）与 HTTPS 共用 443（GitHub #3，见 deploy/caddy/Caddyfile 开头说明）。
+# 2C2G 上编译：限一个并发编译进程，峰值内存约几百 MB（有 swap 时足够），只在升级 Caddy 时重建一次。
+ARG CADDY_VERSION=2.11.7
+FROM caddy:${CADDY_VERSION}-builder-alpine AS build
+ARG CADDY_VERSION
+ARG CADDY_L4_VERSION=v0.1.2
+ENV GOFLAGS=-p=1 GOMAXPROCS=1
+RUN xcaddy build v${CADDY_VERSION} --with github.com/mholt/caddy-l4@${CADDY_L4_VERSION}
+
+FROM caddy:${CADDY_VERSION}-alpine
+COPY --from=build /usr/bin/caddy /usr/bin/caddy
+RUN caddy list-modules | grep -q '^layer4.matchers.tls$'

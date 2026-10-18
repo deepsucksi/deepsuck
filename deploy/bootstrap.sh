@@ -117,7 +117,7 @@ if [ ! -f .env ]; then
   setv PRIVATE_IP "$PRIVATE_IP"
   if [ "${WITH_TURN:-0}" = 1 ]; then
     setv TURN_SECRET "$(openssl rand -hex 24)"
-    setv TURN_URLS "turn:$LIVE_DOMAIN:3478?transport=udp,turn:$LIVE_DOMAIN:3478?transport=tcp"
+    setv TURN_URLS "turn:$LIVE_DOMAIN:443?transport=tcp,turns:$LIVE_DOMAIN:443?transport=tcp"
   fi
   if [ "${WITH_SIP:-0}" = 1 ]; then SIP_NEW=1; sip_env; fi
   chmod 600 .env
@@ -150,7 +150,6 @@ if command -v ufw >/dev/null && ufw status | grep -q active; then
   udp="$(getv VOICE_UDP_PORTS 40000-40199)"
   ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw allow 443/udp >/dev/null
   ufw allow "${udp/-/:}/udp" >/dev/null
-  [ "${WITH_TURN:-0}" = 1 ] && { ufw allow 3478 >/dev/null; ufw allow 49160:49200/udp >/dev/null; }
   if [ "${WITH_SIP:-0}" = 1 ]; then
     rtp="$(getv SIP_RTP_PORTS 40100-40199)"; ufw allow "${rtp/-/:}/udp" >/dev/null
     ufw allow "$(getv SIP_PORT 25060)/udp" >/dev/null
@@ -195,7 +194,7 @@ cat <<MSG
 
   下一步：
   1) DNS：添加 A 记录  ${LIVE_DOMAIN%%.*} → $PUBLIC_IP（Caddy 会在解析生效后自动申请证书）
-  2) 云控制台防火墙放行：TCP 80、443；UDP 443；UDP $(getv VOICE_UDP_PORTS 40000-40199)$( [ "${WITH_TURN:-0}" = 1 ] && echo '；TCP/UDP 3478、UDP 49160-49200' )
+  2) 云控制台防火墙放行：TCP 80、443；UDP 443；UDP $(getv VOICE_UDP_PORTS 40000-40199)
   3) 打开 https://$LIVE_DOMAIN/ 试语音；curl https://$LIVE_DOMAIN/api/health 看文字代理
   4) 在仓库 site/assets/js/live-config.js 里把 api 设为 'https://$LIVE_DOMAIN' 并推送，主站沙盒即切到大模型
   更新：cd $DIR && git pull && cd deploy && docker compose up -d --build${sip_msg}

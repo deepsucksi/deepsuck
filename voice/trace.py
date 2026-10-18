@@ -582,6 +582,58 @@ def feedback(trace_id: str, note: str = "", turn=None, env=None, now: Optional[f
     return {"ok": True}
 
 
+# ---- 前端上报（GitHub #3：连接失败原因写进同一编号的追踪） ----
+CLIENT_STAGES = ("connected", "ice_failed", "ice_timeout", "offer_failed", "mic_denied", "media_error", "dc_timeout")
+CLIENT_DETAIL_KEYS = ("ice", "conn", "gather", "relayOffered", "local", "remote", "path", "elapsedMs", "browser",
+                      "online", "error")
+MAX_CLIENT_REPORTS = 10
+_STAGE_KEY = {"connected": "clientConnected", "ice_failed": "clientIceFailed", "ice_timeout": "clientIceTimeout",
+              "offer_failed": "clientOfferFailed", "mic_denied": "clientMicDenied", "media_error": "clientMediaError",
+              "dc_timeout": "clientDcTimeout"}
+
+
+def _clean_detail(detail) -> dict:
+    """只留白名单字段、标量值、短字符串（脱敏）；不收 SDP、IP 之类的原始数据。"""
+    out: dict = {}
+    if not isinstance(detail, dict):
+        return out
+    for k in CLIENT_DETAIL_KEYS:
+        v = detail.get(k)
+        if isinstance(v, bool) or v is None:
+            if v is not None:
+                out[k] = v
+        elif isinstance(v, (int, float)):
+            out[k] = max(-1, min(int(v), 10_000_000))
+        elif isinstance(v, str):
+            out[k] = redact(re.sub(r"\d{1,3}(?:\.\d{1,3}){3}", "<ip>", v[:80])).strip()
+    return out
+
+
+def client_report(trace_id: Optional[str], stage: str, reason: str = "", detail=None, env=None,
+                  now: Optional[float] = None) -> dict:
+    """前端上报连接结果。总是只计一次数（无内容）；同意存储的网页通话再把阶段/原因/少量诊断字段
+    追加进同一编号的 JSONL（connected → client_connected，其余 → client_error）。每通最多 MAX_CLIENT_REPORTS 条。"""
+    if stage not in CLIENT_STAGES:
+        return {"ok": False, "error": "bad stage"}
+    count(_STAGE_KEY[stage], env=env, now=now)
+    clean = _clean_detail(detail)
+    if stage == "connected" and str(clean.get("path", "")).startswith("relay"):
+        count("clientRelay", env=env, now=now)
+    if not trace_id or not valid_id(trace_id):
+        return {"ok": True, "stored": False}
+    p = trace_dir(env) / f"{trace_id}.jsonl"
+    rows = _lines(p)
+    if not rows or rows[0].get("type") != "start" or rows[0].get("consent") is not True:
+        return {"ok": True, "stored": False}
+    if sum(1 for r in rows if r.get("type") in ("client_error", "client_connected")) >= MAX_CLIENT_REPORTS:
+        return {"ok": True, "stored": False}
+    row = {"type": "client_connected" if stage == "connected" else "client_error", "t": iso(now), "stage": stage,
+           "reason": redact(re.sub(r"\d{1,3}(?:\.\d{1,3}){3}", "<ip>", str(reason or "")[:200])).strip(),
+           "detail": clean}
+    _append(p, row)
+    return {"ok": True, "stored": True}
+
+
 def load(trace_id: str, env=None) -> Optional[dict]:
     if not valid_id(trace_id):
         return None

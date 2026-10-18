@@ -97,5 +97,5 @@ def _tmp_data_dir(tmp_path, monkeypatch):
     for k in ("KEEP_AUDIO", "KEEP_AUDIO_DAYS", "VOICE_TRANSCRIPTS", "VOICE_TRANSCRIPT_DAYS",
               "VOICE_AI_DISCLOSURE", "VOICE_AI_DISCLOSURE_TEXT", "VOICE_TELEPHONY_DISCLOSURE",
               "TRACE_DIR", "TRACE_DAYS", "TRACE_MAX_MB", "TRACE_MIN_FREE_MB", "TRACE_AUDIO", "VOICE_TRACE",
-              "TRACE_ADMIN_TOKEN"):
+              "TRACE_ADMIN_TOKEN", "TURN_SECRET", "TURN_URLS", "TURN_TTL", "VOICE_BROWSER_STUN"):
         monkeypatch.delenv(k, raising=False)

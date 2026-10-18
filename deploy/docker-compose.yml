@@ -79,12 +79,15 @@ services:
       interval: 30s
       timeout: 6s
 
+  # 带 caddy-l4 的 Caddy：443 上同时承载 HTTPS 和 TURN over TCP/TLS（不需要额外开端口，见 caddy/Caddyfile）
   caddy:
     <<: *common
-    image: caddy:2-alpine
+    build: { context: .., dockerfile: deploy/Dockerfile.caddy }
+    image: deepsuck-caddy
     environment:
       LIVE_DOMAIN: ${LIVE_DOMAIN:?在 deploy/.env 设置 LIVE_DOMAIN（你自己的域名）}
       ACME_EMAIL: ${ACME_EMAIL:?在 deploy/.env 设置 ACME_EMAIL（证书邮箱）}
+      TURN_PORT: ${TURN_PORT:-3478}
     volumes:
       # 挂整个目录而不是单个文件：git pull 替换 Caddyfile 后容器能看到新内容（单文件挂载绑的是旧 inode）
       - ./caddy:/etc/caddy:ro
@@ -93,18 +96,22 @@ services:
     mem_limit: 128m
     depends_on: [ proxy, voice ]
 
-  # 可选：给 UDP 被封的访客（公司网络等）走 TURN 中继。默认不启动。
+  # 可选：给 UDP 被封的访客（公司网络、代理/VPN）走 TURN 中继。默认不启动：docker compose --profile turn up -d coturn
+  # 只听本机 127.0.0.1:${TURN_PORT}（TCP），公网经 Caddy 443 转进来（turn:域名:443?transport=tcp、turns:域名:443?transport=tcp）。
+  # 中继地址用内网 IP，只允许中继到本机内网 IP（语音服务），所以中继端口段不需要对公网开放。
   coturn:
     <<: *common
     profiles: [ "turn" ]
     image: coturn/coturn:4.6-alpine
     command: >-
-      -n --log-file=stdout --no-cli --no-tls --no-dtls --fingerprint
-      --listening-port=3478 --min-port=${TURN_MIN_PORT:-49160} --max-port=${TURN_MAX_PORT:-49200}
+      -n --log-file=stdout --no-cli --no-tls --no-dtls --no-udp --fingerprint
+      --listening-ip=127.0.0.1 --listening-port=${TURN_PORT:-3478}
+      --relay-ip=${PRIVATE_IP}
+      --min-port=${TURN_MIN_PORT:-49160} --max-port=${TURN_MAX_PORT:-49200}
       --use-auth-secret --static-auth-secret=${TURN_SECRET} --realm=${LIVE_DOMAIN:?}
-      --external-ip=${VOICE_PUBLIC_IP}/${PRIVATE_IP}
       --allowed-peer-ip=${PRIVATE_IP} --denied-peer-ip=0.0.0.0-255.255.255.255
-      --total-quota=${TURN_TOTAL_QUOTA:-6} --user-quota=2 --max-bps=${TURN_MAX_BPS:-200000} --stale-nonce=600
+      --no-tcp-relay --no-multicast-peers
+      --total-quota=${TURN_TOTAL_QUOTA:-12} --user-quota=4 --max-bps=${TURN_MAX_BPS:-200000} --stale-nonce=600
     mem_limit: 64m
 
   # 可选：自建 SIP 软电话接入（零成本演示）。默认不启动；只让自己手机上的 SIP 软电话注册后拨一个分机跟 AI 对话。

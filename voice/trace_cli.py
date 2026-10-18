@@ -29,6 +29,12 @@ def _lat(l) -> str:
     return " ".join(f"{name}={l[k]}ms" for k, name in keys if l.get(k) is not None)
 
 
+def _kv(d) -> str:
+    if not isinstance(d, dict):
+        return str(d or "")
+    return " ".join(f"{k}={v}" for k, v in d.items())
+
+
 def render(t: dict, audio: bool = False) -> str:
     out = []
     for r in t["lines"]:
@@ -64,7 +70,9 @@ def render(t: dict, audio: bool = False) -> str:
         elif typ == "audio_stopped":
             out.append(f"[{ts}] 录音停止: {r.get('reason')}")
         elif typ == "client_error":
-            out.append(f"[{ts}] 前端上报: {r.get('stage')} {r.get('reason')} {r.get('detail') or ''}".rstrip())
+            out.append(f"[{ts}] 前端上报失败: {r.get('stage')} {r.get('reason') or ''} {_kv(r.get('detail'))}".rstrip())
+        elif typ == "client_connected":
+            out.append(f"[{ts}] 前端已接通: {_kv(r.get('detail'))}".rstrip())
     if audio:
         if t["audio"]:
             for k, v in t["audio"].items():

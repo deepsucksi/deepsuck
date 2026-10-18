@@ -3,9 +3,64 @@
 # LIVE_DOMAIN、ACME_EMAIL 没有默认值，由 docker-compose.yml 的 ${VAR:?} 强制要求设置。
 #   /api/chat、/api/health → Node 大模型代理（127.0.0.1:8787）
 #   其余（语音演示页面、/api/config、/api/offer）→ 语音服务（127.0.0.1:7860）
+#
+# TURN 走 443（GitHub #3：UDP 被封的网络连不上 WebRTC）：镜像带 caddy-l4（deploy/Dockerfile.caddy），
+# 在 TLS 解密之前先看连接的头几个字节——
+#   1. 明文 STUN/TURN（turn:域名:443?transport=tcp）→ 本机 coturn 127.0.0.1:{$TURN_PORT:3478}
+#   2. TLS 但没带任何 HTTP 的 ALPN（浏览器的 turns: 不带 ALPN）→ 用本站证书解开，
+#      里面是 STUN/TURN 就交给 coturn，否则（少数不带 ALPN 的 HTTP 客户端）带 PROXY 协议转给本机 127.0.0.1:8444 照常服务
+#   3. 其余（浏览器 HTTPS h2/http1.1、ACME tls-alpn-01）不受影响，照常进 HTTP
+# 不需要新开端口，也不需要新子域名。coturn 没启动时 1、2 两类连接直接断开，网页照常。
 {
 	email {$ACME_EMAIL}
-	servers {
+	servers :443 {
+		listener_wrappers {
+			layer4 {
+				# STUN 头（按十六进制匹配前 8 字节）：第 1 字节 0x00/0x01，第 5-8 字节是 magic cookie 2112A442。
+				# 不能写 {6} 之类的量词：Caddy 会把花括号当占位符替换掉
+				@turn regexp ^0[01]......2112A442$ 8 hex
+				route @turn {
+					proxy 127.0.0.1:{$TURN_PORT:3478}
+				}
+				@turns {
+					tls
+					not tls alpn h2 http/1.1 acme-tls/1
+				}
+				route @turns {
+					# 不带 SNI 的 TURN 客户端也用本站证书；带 RFC 7443 ALPN（stun.turn）的客户端照常握手
+					tls {
+						connection_policy {
+							default_sni {$LIVE_DOMAIN}
+							alpn stun.turn stun.nat-discovery
+						}
+					}
+					subroute {
+						@stun regexp ^0[01]......2112A442$ 8 hex
+						route @stun {
+							proxy 127.0.0.1:{$TURN_PORT:3478}
+						}
+						route {
+							proxy {
+								proxy_protocol v2
+								upstream 127.0.0.1:8444
+							}
+						}
+					}
+				}
+			}
+			tls
+		}
+		timeouts {
+			read_body 15s
+			idle 2m
+		}
+	}
+	servers 127.0.0.1:8444 {
+		listener_wrappers {
+			proxy_protocol {
+				allow 127.0.0.1/32
+			}
+		}
 		timeouts {
 			read_body 15s
 			idle 2m
@@ -13,7 +68,7 @@
 	}
 }
 
-{$LIVE_DOMAIN} {
+(live) {
 	encode zstd gzip
 	request_body {
 		max_size 64KB
@@ -47,4 +102,14 @@
 		output stdout
 		format console
 	}
+}
+
+{$LIVE_DOMAIN} {
+	import live
+}
+
+# 只给上面第 2 类（TLS 无 ALPN 的 HTTP 客户端）用：本机回环、PROXY 协议带真实客户端 IP，内容与主站相同
+http://{$LIVE_DOMAIN}:8444 {
+	bind 127.0.0.1
+	import live
 }

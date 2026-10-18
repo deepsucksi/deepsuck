@@ -45,6 +45,7 @@ code{font-family:var(--mono);font-size:.92em}
 #st{overflow:hidden;text-overflow:ellipsis;max-width:380px}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#a9b2b7;margin-right:8px;flex:none}
 .dot.ok{background:#3f6b4a}.dot.bad{background:#a3301c}.dot.live{background:var(--signal);animation:p 1.4s ease-in-out infinite}
+.dot.wait{background:#a9b2b7;animation:p 1.4s ease-in-out infinite}
 @keyframes p{50%{opacity:.3}}
 /* 标题区：与首页首屏同一套字号与小标题 */
 .intro{padding:40px 0 44px;background:linear-gradient(to bottom,#fff 0%,#fff 55%,#f3f4f3 100%)}
@@ -137,7 +138,12 @@ button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:
 .fb-done{font-size:12px;color:var(--d-dim)}
 .trace[hidden],.fb[hidden],.fb-done[hidden],.consent[hidden],.consent-info[hidden],.keep[hidden]{display:none}
 .controls .consent label{flex:0 1 auto}.controls .consent .linkbtn{flex:none}
-@media (prefers-reduced-motion:reduce){.dot.live{animation:none}.pb-toggle::after{transition:none}}
+/* 连接失败说明（GitHub #3）：同 consent-info 的线框，不加新颜色 */
+.net-help{margin:0 0 12px;padding:12px 14px;border:1px solid var(--edge2);font-size:12.5px;line-height:1.8;color:var(--d-text)}
+.net-help p{margin:0}.net-help p+p,.net-help ul+p{margin-top:4px}.net-help b{color:var(--d-ink);font-weight:500}
+.net-help ul{margin:2px 0 0;padding-left:1.3em}.net-help code{color:var(--d-ink);letter-spacing:.06em}
+.net-help[hidden],.net-help [hidden]{display:none}
+@media (prefers-reduced-motion:reduce){.dot.live,.dot.wait{animation:none}.pb-toggle::after{transition:none}}
 @media(max-width:1100px){.wrap{padding:0 32px}.intro h1{font-size:46px;letter-spacing:-1.8px}}
 @media(max-width:860px){
   .wrap{padding:0 20px}
@@ -232,6 +238,17 @@ button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:
     </form>
     <div id="fbDone" class="fb-done" hidden></div>
     <div id="err"></div>
+    <div id="netHelp" class="net-help" role="alert" hidden>
+      <p><b>没有连上语音通道。</b><span id="netWhy">多半是当前网络或代理拦截了实时音频（UDP）</span>。</p>
+      <p>可以试试：</p>
+      <ul>
+        <li>换一个网络，比如手机热点；</li>
+        <li>暂时关闭代理、VPN 或加速器，刷新页面再拨；</li>
+        <li>公司、学校网络常限制实时语音，换到家用网络；</li>
+        <li>用最新版 Chrome、Edge 或 Safari。</li>
+      </ul>
+      <p id="netId" hidden>反馈问题时请附上通话编号 <code id="netIdCode"></code>。</p>
+    </div>
     <div id="limits" class="limits"></div>
     <div id="log"><div class="empty">点「开始通话」并允许麦克风。机器人会先开口，然后你可以试着用退款、冒充公检法、刷单等话术"诈骗"它。</div></div>
     <audio id="audio" autoplay></audio>

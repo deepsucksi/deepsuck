@@ -72,16 +72,33 @@ def has_key() -> bool:
     return bool(os.environ.get("DASHSCOPE_API_KEY"))
 
 
-def browser_ice_servers() -> list:
+TURN_TTL_DEFAULT = 600
+
+
+def turn_ttl() -> int:
+    """临时 TURN 凭据有效期（秒）。默认 10 分钟，够一通 5 分钟的电话；限制在 60–3600。"""
+    try:
+        v = int(os.environ.get("TURN_TTL", TURN_TTL_DEFAULT))
+    except ValueError:
+        v = TURN_TTL_DEFAULT
+    return max(60, min(v, 3600))
+
+
+def turn_configured() -> bool:
+    return bool(os.environ.get("TURN_SECRET") and os.environ.get("TURN_URLS", "").strip())
+
+
+def browser_ice_servers(include_turn: bool = True, now: Optional[float] = None) -> list:
     """给浏览器的 ICE 服务器。VOICE_BROWSER_STUN 逗号分隔；配置 TURN_SECRET + TURN_URLS 时下发临时 TURN 凭据
-    （coturn use-auth-secret / REST API 约定：username = 过期时间戳:随机串，credential = base64(HMAC-SHA1(secret, username))）。"""
+    （coturn use-auth-secret / REST API 约定：username = 过期时间戳:随机串，credential = base64(HMAC-SHA1(secret, username))）。
+    凭据现算现发、不落盘，有效期 TURN_TTL 秒；secret 本身从不出现在返回值里。"""
     out = []
     stun = [u.strip() for u in os.environ.get("VOICE_BROWSER_STUN", "").split(",") if u.strip()]
     if stun:
         out.append({"urls": stun})
     secret, urls = os.environ.get("TURN_SECRET", ""), [u.strip() for u in os.environ.get("TURN_URLS", "").split(",") if u.strip()]
-    if secret and urls:
-        user = f"{int(time.time()) + 3600}:{uuid.uuid4().hex[:8]}"
+    if include_turn and secret and urls:
+        user = f"{int(now if now is not None else time.time()) + turn_ttl()}:{uuid.uuid4().hex[:8]}"
         cred = base64.b64encode(hmac.new(secret.encode(), user.encode(), hashlib.sha1).digest()).decode()
         out.append({"urls": urls, "username": user, "credential": cred})
     return out
@@ -105,7 +122,9 @@ def public_config(engine: str, limits: Optional[G.Limits] = None, budget: Option
     lim = limits or G.Limits()
     return {
         "keyConfigured": has_key(),
-        "iceServers": browser_ice_servers(),
+        # TURN 凭据不放进页面配置（页面可能开着很久）：开始通话前再 POST /api/ice 现取
+        "iceServers": browser_ice_servers(include_turn=False),
+        "turn": turn_configured(),
         "limits": {"maxSessions": lim.max_sessions, "maxMinutes": lim.max_minutes, "maxTurns": lim.max_turns,
                    "idleSeconds": lim.idle_seconds, "perIpPerHour": lim.per_ip_per_hour, "perIpPerDay": lim.per_ip_per_day},
         "budget": budget.status() if budget is not None else None,
@@ -512,6 +531,50 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
             if trace_id and started["v"] and consent and TR.enabled():
                 ans["trace_id"] = trace_id  # 只有同意存储时才把编号给页面（用于反馈和复制）
         return ans
+
+    small_hits: Dict[str, list] = {}
+
+    def _small_rate(request: Request, kind: str, per_min: int = 20) -> None:
+        """/api/ice、/api/client-report 的简易限频：同一 IP 每分钟 per_min 次（内存里，重启清零）。"""
+        key, now = f"{kind}:{client_ip(request)}", time.time()
+        hits = [t for t in small_hits.get(key, []) if now - t < 60]
+        if len(hits) >= per_min:
+            raise HTTPException(429, "too many requests")
+        hits.append(now)
+        small_hits[key] = hits
+        if len(small_hits) > 5000:  # 防止字典无限长：清掉一分钟没来过的
+            for k in [k for k, v in small_hits.items() if not v or now - v[-1] >= 60]:
+                small_hits.pop(k, None)
+
+    @app.post("/api/ice")
+    async def ice(request: Request):
+        """开始通话前现取 ICE 服务器（含临时 TURN 凭据，有效期 TURN_TTL 秒）。POST 才带 Origin，便于校验来源；
+        同一 IP 每分钟最多 20 次。"""
+        if origins and request.headers.get("origin", "").rstrip("/") not in origins:
+            raise HTTPException(403, "origin not allowed")
+        _small_rate(request, "ice")
+        return JSONResponse({"iceServers": browser_ice_servers(), "ttl": turn_ttl() if turn_configured() else None},
+                            headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/client-report")
+    async def client_report(request: Request):
+        """前端上报连接结果（GitHub #3）：connected / ice_failed / ice_timeout / offer_failed / mic_denied / ...
+        只计数；页面勾选同意并拿到了编号时，再写进同一编号的通话追踪。"""
+        if origins and request.headers.get("origin", "").rstrip("/") not in origins:
+            raise HTTPException(403, "origin not allowed")
+        _small_rate(request, "report")
+        try:
+            body = await request.json()
+        except Exception:
+            body = None
+        if not isinstance(body, dict):
+            raise HTTPException(400, "bad report")
+        tid = body.get("trace_id")
+        res = await asyncio.to_thread(TR.client_report, tid if isinstance(tid, str) else None,
+                                      str(body.get("stage") or ""), str(body.get("reason") or ""), body.get("detail"))
+        if not res.get("ok"):
+            raise HTTPException(400, "bad stage")
+        return {"ok": True}
 
     @app.post("/api/feedback/{trace_id}")
     async def feedback(trace_id: str, request: Request):

@@ -47,8 +47,6 @@
 | 443 | TCP | HTTPS（语音页面、/api/*） | 是 |
 | 443 | UDP | HTTP/3（可选，Caddy 默认开启） | 可选 |
 | **40000–40199** | **UDP** | **WebRTC 音频（`VOICE_UDP_PORTS`）** | 是 |
-| 3478 | TCP+UDP | TURN（仅启用 coturn 时） | 可选 |
-| 49160–49200 | UDP | TURN 中继端口（仅启用 coturn 时） | 可选 |
 | 25060（`SIP_PORT`） | UDP（`SIP_TCP=1` 时另加 TCP） | 自建 SIP 软电话信令（仅 `WITH_SIP=1` / `--profile sip`，[PHONE.md 第 10 节](PHONE.md)） | 可选 |
 
 开自建 SIP 时，40000–40199 拆成两段：40000–40099 给网页语音（`VOICE_UDP_PORTS`），40100–40199 给 SIP 的 RTP（`SIP_RTP_PORTS`），防火墙规则不用改。
@@ -59,9 +57,25 @@
   `VOICE_PUBLIC_IP` 让语音服务在 SDP 应答里额外声明“公网 IP + 同端口”的候选（同 mediasoup `announcedIp` / Janus `nat_1_1_mapping`），
   浏览器无论在家用路由器、手机 4G/5G 还是对称型 NAT 后面，都能主动打到服务器；服务器从入站检查学到浏览器的对端反射地址，不依赖任何 STUN。
 - aioice 默认用随机 UDP 端口，`voice/netpatch.py` 把它限制在 `VOICE_UDP_PORTS`，所以防火墙只需开这一段（每路通话占 1–3 个端口，200 个足够）。
-- 只有**访客网络完全封 UDP**（部分公司/校园网）才连不上。这时可以 `WITH_TURN=1` 启用 coturn（TURN over TCP 3478）。
-  已做限制：临时凭据（HMAC，1 小时过期）、只允许中继到本机内网 IP、总配额 6 路、每路 200 kbps。
-  不支持 TURN-over-TLS-443（需要第二个 IP 或 SNI 分流）；真遇到再说。
+- 只有**访客网络完全封 UDP**（部分公司/校园网、不转发 UDP 的代理/VPN）才连不上。这时启用 coturn：`WITH_TURN=1`，
+  或手动在 `.env` 填 `TURN_SECRET`（`openssl rand -hex 32`）、`TURN_URLS=turn:域名:443?transport=tcp,turns:域名:443?transport=tcp`，
+  再 `docker compose --profile turn up -d coturn && docker compose up -d --build caddy voice`。
+
+### TURN 走 443（不用另开端口）
+
+Caddy 镜像带 [caddy-l4](https://github.com/mholt/caddy-l4)（`deploy/Dockerfile.caddy`），在 443 上 TLS 解密之前先看连接头几个字节：
+
+| 连接 | 判断 | 去向 |
+|---|---|---|
+| 明文 TURN（`turn:域名:443?transport=tcp`） | 前 8 字节是 STUN 头（magic cookie `2112A442`） | 本机 coturn `127.0.0.1:3478` |
+| TURN over TLS（`turns:域名:443?transport=tcp`） | TLS，且没带 `h2` / `http/1.1` / `acme-tls/1` ALPN | Caddy 用本站证书解开；里面是 STUN 就转 coturn，否则带 PROXY 协议转本机 `127.0.0.1:8444` 照常当网站服务 |
+| 浏览器 HTTPS、证书续期 | 其余 | 照常进 HTTP，不受影响 |
+
+coturn 只监听 `127.0.0.1`，中继地址用内网 IP、只允许中继到本机内网 IP（语音服务），所以 3478 和中继端口段都**不需要**对公网开放。
+凭据：`POST /api/ice` 在开始通话前现发 coturn REST 临时凭据（HMAC-SHA1，`TURN_TTL` 默认 600 秒），不落盘；页面配置 `/api/config` 里不带凭据。
+限制：只中继到本机、总配额 12 个分配、每路 200 kbps、coturn 内存上限 64 MB。
+
+验证（只走中继，计费一通）：`python -m voice.probe --url https://域名 --origin https://域名 --wav x.wav --relay tcp`（或 `--relay tls`）。
 
 ## 3. 一键部署（约 10 分钟）
 
@@ -210,7 +224,7 @@ TTS（字符计费）是语音的大头，ASR 次之，大模型最便宜。
   服务端 UDP 端口落在 40000–40199（通过）；2 路并发通话 + 第 3 路 503（通过）。
 - 预算护栏：`CHAT_DAILY_BUDGET_CNY=0.0012` → 第 4 次起 429 `budget` 且不再打上游（通过）；
   `VOICE_DAILY_BUDGET_CNY=0.15` + `VOICE_MAX_MINUTES=0.4` → 第 2 路因预占不足 429、第 1 路 24 秒时“锅里还炖着汤呢，我先挂了啊”并断开（通过）。
-- coturn profile 能启动并监听 3478（未做跨网中继实测）。
+- TURN 走 443：本地 caddy-l4 + coturn，aiortc 只收集中继候选（relay-only），`turn:…:443?transport=tcp` 与 `turns:…:443?transport=tcp` 都能连通；同时 h2 / http1.1 / 不带 ALPN 的 HTTPS 请求照常（通过）。
 
 **尚未在真实云服务器上验证**：公网 IP 候选在阿里云 1:1 NAT 下的连通性、证书签发、国内各运营商 UDP 到香港的质量。上线后先跑第 3 节的 `voice.probe`。
 

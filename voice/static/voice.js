@@ -3,6 +3,9 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   let pc = null, dc = null, pcId = null, mic = null, interimEl = null, iceServers = [], traceId = null, traceOn = true;
+  // 连接状态（GitHub #3）：connecting → connected / failed。超时没接通就给出原因和建议，并上报（同意时写进同一编号）
+  const CONNECT_TIMEOUT_MS = 20000;
+  let turnOn = false, relayOffered = false, connTimer = null, connState = "idle", tStart = 0, reported = false;
 
   function setStatus(cls, text) { $("dot").className = "dot " + cls; $("st").textContent = text; }
   function err(t) { $("err").textContent = t || ""; }
@@ -11,6 +14,7 @@
     try {
       const c = await (await fetch("/api/config", { cache: "no-store" })).json();
       iceServers = c.iceServers || [];
+      turnOn = !!c.turn;
       traceOn = !c.trace || c.trace.enabled !== false;
       if (!traceOn) { $("consentRow").hidden = true; $("keepNote").hidden = true; }
       if (c.limits) $("limits").textContent = `公开体验限制：每局最长 ${c.limits.maxMinutes} 分钟 / ${c.limits.maxTurns} 轮，同时最多 ${c.limits.maxSessions} 路通话` +
@@ -83,17 +87,104 @@
     await pc.setRemoteDescription({ sdp: ans.sdp, type: ans.type });
   }
 
+  // 开始通话前现取 ICE 服务器（含临时 TURN 凭据）；取不到就用页面配置里的（只有 STUN 或为空）
+  async function freshIce() {
+    if (!turnOn) return iceServers;
+    try {
+      const r = await fetch("/api/ice", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: "{}" });
+      if (r.ok) { const j = await r.json(); if (Array.isArray(j.iceServers)) return j.iceServers; }
+    } catch {}
+    return iceServers;
+  }
+
+  // 只取候选类型/协议的计数和最终选中的路径，不取 IP、端口
+  async function iceSummary() {
+    const out = { ice: pc ? pc.iceConnectionState : "", conn: pc ? pc.connectionState : "", gather: pc ? pc.iceGatheringState : "",
+      relayOffered, elapsedMs: Date.now() - tStart, online: navigator.onLine, browser: browserName() };
+    if (!pc) return out;
+    try {
+      const st = await pc.getStats(), local = {}, remote = {}, byId = {};
+      let selected = null;
+      st.forEach((r) => {
+        byId[r.id] = r;
+        if (r.type === "local-candidate" || r.type === "remote-candidate") {
+          const k = `${r.candidateType}/${r.relayProtocol || r.protocol}`, m = r.type === "local-candidate" ? local : remote;
+          m[k] = (m[k] || 0) + 1;
+        }
+        if (r.type === "transport" && r.selectedCandidatePairId) selected = r.selectedCandidatePairId;
+      });
+      if (!selected) st.forEach((r) => { if (r.type === "candidate-pair" && r.nominated && r.state === "succeeded") selected = r.id; });
+      const fmt = (m) => Object.entries(m).map(([k, v]) => `${k}:${v}`).join(" ");
+      out.local = fmt(local); out.remote = fmt(remote);
+      const pair = selected && byId[selected], lc = pair && byId[pair.localCandidateId];
+      if (lc) out.path = `${lc.candidateType}/${lc.relayProtocol || lc.protocol}`;
+    } catch {}
+    return out;
+  }
+  function browserName() {
+    const u = navigator.userAgent;
+    const m = u.match(/(Edg|OPR|Firefox|Chrome|Version)\/(\d+)/);
+    const os = /Windows/.test(u) ? "Windows" : /Android/.test(u) ? "Android" : /iPhone|iPad/.test(u) ? "iOS" : /Mac/.test(u) ? "macOS" : /Linux/.test(u) ? "Linux" : "";
+    return m ? `${m[1] === "Version" ? "Safari" : m[1]} ${m[2]} ${os}`.trim() : os;
+  }
+  async function report(stage, reason) {
+    if (reported && stage !== "connected") return;
+    if (stage !== "connected") reported = true;
+    const detail = await iceSummary();
+    try {
+      await fetch("/api/client-report", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trace_id: traceId, stage, reason: reason || "", detail }) });
+    } catch {}
+  }
+
+  function setConn(state) {
+    connState = state;
+    if (state === "connecting") setStatus("wait", "正在连接…");
+    else if (state === "connected") setStatus("live", "已接通 · 通话中");
+    else if (state === "failed") setStatus("bad", "连接失败");
+  }
+  function showNetHelp(why) {
+    $("netWhy").textContent = why;
+    $("netId").hidden = !traceId; $("netIdCode").textContent = traceId || "";
+    $("netHelp").hidden = false;
+  }
+  async function fail(stage, why) {
+    if (connState === "failed" || connState === "idle") return;
+    clearTimeout(connTimer); connTimer = null;
+    setConn("failed");
+    showNetHelp(why);
+    await report(stage, why); // 先取连接统计再关连接
+    stop(true);
+  }
+  async function onConnected() {
+    if (connState === "connected") return;
+    clearTimeout(connTimer); connTimer = null;
+    setConn("connected");
+    report("connected");
+  }
+
   async function start() {
-    err(""); $("call").disabled = true;
+    err(""); $("call").disabled = true; $("netHelp").hidden = true;
+    reported = false; tStart = Date.now();
     try {
       mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-      pc = new RTCPeerConnection({ iceServers });
+    } catch (e) {
+      err("拿不到麦克风：请在浏览器地址栏允许麦克风后再试。"); $("call").disabled = false; return;
+    }
+    try {
+      setConn("connecting");
+      const servers = await freshIce();
+      relayOffered = servers.some((s) => [].concat(s.urls || []).some((u) => /^turns?:/.test(u)));
+      pc = new RTCPeerConnection({ iceServers: servers });
       pc.addTransceiver(mic.getAudioTracks()[0], { direction: "sendrecv" });
       pc.addTransceiver("video", { direction: "sendrecv" }); // SmallWebRTC 期望有视频收发器；不发送画面
       pc.ontrack = (e) => { if (e.track.kind === "audio") $("audio").srcObject = new MediaStream([e.track]); };
       pc.onconnectionstatechange = () => {
-        if (pc && pc.connectionState === "connected") setStatus("live", "通话中");
-        if (pc && ["failed", "closed", "disconnected"].includes(pc.connectionState)) stop();
+        if (!pc) return;
+        const s = pc.connectionState;
+        if (s === "connected") onConnected();
+        else if (s === "failed" && connState === "connecting") fail("ice_failed", failWhy());
+        else if (["failed", "closed", "disconnected"].includes(s)) stop();
       };
       dc = pc.createDataChannel("chat", { ordered: true });
       dc.onmessage = (e) => {
@@ -103,20 +194,32 @@
       };
       $("log").innerHTML = "";
       hideTrace();
-      await negotiate({ persona: $("persona").value, scenario: $("scenario").value, consent: consentOn() });
+      try {
+        await negotiate({ persona: $("persona").value, scenario: $("scenario").value, consent: consentOn() });
+      } catch (e) {
+        err("无法开始通话：" + e.message); report("offer_failed", String(e.message || "").slice(0, 120)); setConn("failed"); stop(true); return;
+      }
       $("hang").hidden = false;
+      if (pc && pc.connectionState === "connected") onConnected();
+      else connTimer = setTimeout(() => fail("ice_timeout", failWhy()), CONNECT_TIMEOUT_MS);
     } catch (e) {
-      err("无法开始通话：" + e.message); stop();
+      err("无法开始通话：" + e.message); setConn("failed"); stop(true);
     }
   }
+  function failWhy() {
+    return relayOffered ? "多半是当前网络或代理拦截了实时音频（UDP），经 443 端口的中继也没接通"
+      : "多半是当前网络或代理拦截了实时音频（UDP）";
+  }
 
-  function stop() {
+  function stop(keepStatus) {
+    clearTimeout(connTimer); connTimer = null;
     if (dc) try { dc.close(); } catch {}
     if (pc) try { pc.close(); } catch {}
     if (mic) mic.getTracks().forEach((t) => t.stop());
     pc = dc = mic = null; pcId = null;
     $("hang").hidden = true; $("call").disabled = false;
-    if ($("dot").classList.contains("live")) setStatus("ok", "已挂断");
+    if (keepStatus !== true && (connState === "connected" || connState === "connecting")) setStatus("ok", "已挂断");
+    if (connState !== "failed") connState = "idle";
   }
 
   // ---- 通话追踪：同意、编号、反馈 ----
@@ -154,7 +257,7 @@
   };
 
   $("call").onclick = start;
-  $("hang").onclick = stop;
-  window.__deepsuckVoice = { onData }; // 便于本地截图/调试
+  $("hang").onclick = () => stop();
+  window.__deepsuckVoice = { onData, showNetHelp, setConn }; // 便于本地截图/调试
   loadConfig();
 })();

@@ -6,12 +6,17 @@
 
 会真实调用 DashScope（按量计费，受服务端预算护栏约束）。
 
+强制只走 TURN 中继（验证 UDP 被封时的兜底，GitHub #3）：
+    python -m voice.probe --url https://live.deepsuck.si --origin https://live.deepsuck.si --wav x.wav --relay tcp
+--relay tcp 只用 turn:...?transport=tcp，--relay tls 只用 turns:；凭据从 POST /api/ice 现取，只生成 relay 候选。
+
 退出码（JSON 汇总里的 exit / exit_reason 同步给出）：
   0  正常：/api/offer 200，连上并收到机器人音频
   2  /api/offer 被拒（非 200，例如 403 来源不符、429 限频、503 名额已满）
   3  offer 成功但媒体没连上（ICE/DTLS 失败：多半是 UDP 端口或 VOICE_PUBLIC_IP）
   4  连上了但整段时间没收到任何机器人音频
   5  探测本身正常，但 --json-out 写文件失败
+  6  --relay 模式下没拿到中继候选（/api/ice 没给对应的 TURN 地址，或 TURN 连不上 / 凭据被拒）
 """
 from __future__ import annotations
 
@@ -97,9 +102,51 @@ async def make_scammer_wav(path: str, gap_s: float = 9.0, lead_s: float = 7.0, v
     return speech_segments(bytes(buf))
 
 
+def pick_relay(ice_servers: list, mode: str) -> Optional[dict]:
+    """从 /api/ice 的结果里挑出唯一一条 TURN 地址：tcp → turn:...?transport=tcp，tls → turns:。"""
+    for srv in ice_servers or []:
+        urls = srv.get("urls") or []
+        urls = [urls] if isinstance(urls, str) else urls
+        for u in urls:
+            if mode == "tls" and u.startswith("turns:"):
+                return {"urls": [u], "username": srv.get("username"), "credential": srv.get("credential")}
+            if mode == "tcp" and u.startswith("turn:") and "transport=tcp" in u:
+                return {"urls": [u], "username": srv.get("username"), "credential": srv.get("credential")}
+    return None
+
+
+def force_relay_policy() -> None:
+    """aiortc 没暴露 iceTransportPolicy：给它的 ICE 连接参数补上 aioice 的 TransportPolicy.RELAY（只收集中继候选）。"""
+    import aiortc.rtcicetransport as rit
+    from aioice.ice import TransportPolicy
+
+    if getattr(rit.connection_kwargs, "_relay_only", False):
+        return
+    orig = rit.connection_kwargs
+
+    def relay_kwargs(servers):
+        kw = orig(servers)
+        kw["transport_policy"] = TransportPolicy.RELAY
+        return kw
+
+    relay_kwargs._relay_only = True
+    rit.connection_kwargs = relay_kwargs
+
+
+def candidate_types(sdp: str) -> dict:
+    out: dict = {}
+    for line in sdp.splitlines():
+        if line.startswith("a=candidate:"):
+            parts = line.split()
+            if "typ" in parts:
+                t = parts[parts.index("typ") + 1]
+                out[t] = out.get(t, 0) + 1
+    return out
+
+
 async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenario: str, origin: Optional[str],
               out_wav: Optional[str] = None, quiet: bool = False, insecure: bool = False,
-              consent: bool = False) -> dict:
+              consent: bool = False, relay: Optional[str] = None) -> dict:
     import aiohttp
     import numpy as np
     from aiortc import MediaStreamTrack, RTCConfiguration, RTCPeerConnection, RTCSessionDescription
@@ -130,12 +177,31 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
             f.sample_rate, f.pts, f.time_base = 16000, (self.n - 1) * 320, fractions.Fraction(1, 16000)
             return f
 
-    pc = RTCPeerConnection(RTCConfiguration(iceServers=[]))
+    from aiortc import RTCIceServer
+
+    ice_servers: list = []
+    stats_relay: dict = {}
+    if relay:
+        headers = {"Content-Type": "application/json"}
+        if origin:
+            headers["Origin"] = origin
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False) if insecure else None) as s:
+            async with s.post(url.rstrip("/") + "/api/ice", headers=headers, json={}) as r:
+                ice_body = await r.json(content_type=None) if r.status == 200 else {}
+        srv = pick_relay((ice_body or {}).get("iceServers") or [], relay)
+        if srv is None:
+            return {"offer_status": None, "error": f"/api/ice 没有 {relay} 类 TURN 地址", "relay": {"mode": relay}}
+        force_relay_policy()
+        ice_servers = [RTCIceServer(urls=srv["urls"], username=srv["username"], credential=srv["credential"])]
+        stats_relay = {"mode": relay, "url": srv["urls"][0], "ttl": (ice_body or {}).get("ttl")}
+    pc = RTCPeerConnection(RTCConfiguration(iceServers=ice_servers))
     mic = Mic()
     pc.addTransceiver(mic, direction="sendrecv")
     pc.addTransceiver("video", direction="recvonly")
     dc = pc.createDataChannel("chat", ordered=True)
     stats = {"bot_audio_sec": 0.0, "events": [], "connected_after": None}
+    if relay:
+        stats["relay"] = stats_relay
     bot_pcm = bytearray()
     loud: list = []
     t_start = time.time()
@@ -195,6 +261,13 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
     await pc.setLocalDescription(await pc.createOffer())
     while pc.iceGatheringState != "complete":
         await asyncio.sleep(0.05)
+    if relay:
+        stats["relay"]["local_candidates"] = candidate_types(pc.localDescription.sdp)
+        if set(stats["relay"]["local_candidates"]) != {"relay"}:
+            stats["error"] = "没有拿到中继候选（TURN 不通或凭据被拒）"
+            stats["offer_status"] = None
+            await pc.close()
+            return stats
     headers = {"Content-Type": "application/json"}
     if origin:
         headers["Origin"] = origin
@@ -217,6 +290,21 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
     while time.time() < deadline and pc.connectionState not in ("failed", "closed"):
         await asyncio.sleep(0.2)
     stats["final_state"] = pc.connectionState
+    if stats.get("trace_id") and stats.get("connected_after") is not None:
+        # 同网页一样上报接通路径，写进同一编号的追踪（验证 #3 的上报链路）
+        try:
+            headers = {"Content-Type": "application/json"}
+            if origin:
+                headers["Origin"] = origin
+            path = f"relay/{'tls' if relay == 'tls' else 'tcp'}" if relay else "direct"
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False) if insecure else None) as s:
+                async with s.post(url.rstrip("/") + "/api/client-report", headers=headers, json={
+                        "trace_id": stats["trace_id"], "stage": "connected",
+                        "detail": {"path": path, "browser": "aiortc probe",
+                                   "elapsedMs": int(stats["connected_after"] * 1000)}}) as r:
+                    stats["client_report"] = r.status
+        except Exception as e:
+            stats["client_report"] = f"{type(e).__name__}"
     try:
         await pc.close()
     except Exception as e:  # 关闭时的清理异常不影响探测结果
@@ -232,12 +320,15 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
     return stats
 
 
-EXIT_REASONS = {0: "ok", 2: "offer_rejected", 3: "media_not_connected", 4: "no_bot_audio", 5: "json_out_failed"}
+EXIT_REASONS = {0: "ok", 2: "offer_rejected", 3: "media_not_connected", 4: "no_bot_audio", 5: "json_out_failed",
+                6: "relay_unavailable"}
 
 
 def exit_code(st: dict) -> int:
     """按探测结果给出退出码（见模块说明）。连通性以“收到过机器人音频或数据通道消息”为准，
     不只看 aiortc 的 connectionstatechange（该事件在部分网络/版本下可能漏报）。"""
+    if st.get("relay") and st.get("offer_status") is None:
+        return 6
     if st.get("offer_status") != 200:
         return 2
     heard = st.get("bot_audio_sec", 0) > 0
@@ -263,6 +354,8 @@ def main(argv=None) -> int:
     ap.add_argument("--insecure", action="store_true", help="不校验 HTTPS 证书（本地 Caddy 自签名测试用）")
     ap.add_argument("--make-wav", help="先用 CosyVoice 合成固定骗子台词到这个路径（计费，约 150 字）")
     ap.add_argument("--json-out", help="把逐轮延迟与汇总写到 JSON 文件")
+    ap.add_argument("--relay", choices=["tcp", "tls"],
+                    help="只走 TURN 中继：tcp = turn:...?transport=tcp，tls = turns:（凭据从 /api/ice 现取）")
     ap.add_argument("--consent", action="store_true",
                     help="同意保存录音和脱敏文字（通话追踪，30 天删除）；服务端返回的通话编号打印在 trace_id")
     a = ap.parse_args(argv)
@@ -271,7 +364,7 @@ def main(argv=None) -> int:
         if not a.wav:
             return 0
     st = asyncio.run(run(a.url, a.wav, a.seconds, a.persona, a.scenario, a.origin, a.out_wav, insecure=a.insecure,
-                         consent=a.consent))
+                         consent=a.consent, relay=a.relay))
     summary = {k: v for k, v in st.items() if k not in ("events", "state", "fillers")}
     summary["turns"] = sum(1 for e in st.get("events", []) if e.get("type") == "scammer")
     summary["intel"] = [i.get("masked") for i in (st.get("state") or {}).get("intel", [])]

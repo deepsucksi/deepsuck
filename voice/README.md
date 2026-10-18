@@ -154,3 +154,22 @@ python -m pytest voice/tests -q    # 全部用假 WebSocket，不联网、不需
 | `TRACE_MIN_FREE_MB` | `1024` | 磁盘剩余低于此值停录音 |
 | `TRACE_ADMIN_TOKEN` | 空 | 读取接口口令；留空则接口 404。生成：`openssl rand -hex 24` |
 | `GIT_SHA` | 空 | 构建参数，可选；不传时读镜像里的 `.gitmeta` |
+
+## 连不上时：TURN 走 443 与连接状态
+
+UDP 被封的网络（公司/校园网、不转发 UDP 的代理或 VPN）里，WebRTC 直连会超时。部署时启用 coturn 后，浏览器拿到
+`turn:域名:443?transport=tcp` 和 `turns:域名:443?transport=tcp` 两条中继，经 Caddy 的 443 转进本机 coturn，不用另开端口
+（分流规则见 `deploy/caddy/Caddyfile` 开头和 docs/DEPLOY.md）。
+
+- 凭据：页面在点「开始通话」后 `POST /api/ice` 现取，coturn REST 临时凭据，有效期 `TURN_TTL`（默认 600 秒），不落盘、不进 `/api/config`。
+- 页面状态：正在连接… → 已接通 · 通话中；20 秒没接通或 ICE 失败显示「连接失败」和建议（换网络、关代理/VPN、换浏览器），有通话编号时一并显示。
+- 上报：失败或接通时 `POST /api/client-report`（阶段、原因、候选类型计数、选中路径、耗时、浏览器名；不含 IP、SDP）。
+  一律只计数（`stats.json`）；勾选同意并拿到编号的通话，再写进同一编号的追踪，`python -m voice.trace_cli <编号>` 可见「前端上报失败 / 前端已接通」。
+- 实测中继：`python -m voice.probe ... --relay tcp`（或 `tls`），只收集 relay 候选，退出码 6 表示没拿到中继。
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `TURN_SECRET` | 空 | coturn `static-auth-secret`；空则不下发 TURN |
+| `TURN_URLS` | 空 | 逗号分隔，例 `turn:live.deepsuck.si:443?transport=tcp,turns:live.deepsuck.si:443?transport=tcp` |
+| `TURN_TTL` | 600 | 临时凭据有效期（秒，60–3600） |
+| `TURN_PORT` | 3478 | coturn 在 127.0.0.1 上监听的端口（Caddy 转发目标） |
