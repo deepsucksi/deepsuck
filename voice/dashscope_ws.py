@@ -17,6 +17,8 @@ import uuid
 from dataclasses import dataclass
 from typing import AsyncIterator, Awaitable, Callable, Optional
 
+from .persona_ids import canonical
+
 WS_URL = os.environ.get("DASHSCOPE_WS_URL", "wss://dashscope.aliyuncs.com/api-ws/v1/inference")
 
 # 人设 → CosyVoice 系统音色（cosyvoice-v3-flash；均为北京地域）。开箱即用，任何百炼账号都能合成。
@@ -24,6 +26,8 @@ PERSONA_VOICES = {
     "wang": "longlaoyi_v3",   # 龙老姨：烟火从容阿姨，60 岁以上
     "li": "longlaobo_v3",     # 龙老伯：沧桑岁月爷，60 岁以上
     "lin": "longanyang",      # 龙安洋：阳光大男孩，20~30 岁
+    "chen": "longanli_v3",    # 龙安莉：利落从容女，25~35 岁（小陈妈妈；推荐用设计音色，见 design_voice.py）
+    "zheng": "longsanshu_v3", # 龙三叔：沉稳质感男，25~45 岁（郑老板）
 }
 
 # 声音设计音色（voice-enrollment 生成，ID 形如 cosyvoice-v3.5-flash-vd-xxx）只属于创建它的百炼账号，
@@ -60,6 +64,7 @@ def designed_model(voice: str) -> Optional[str]:
 
 def persona_voice(pid: str, default_model: Optional[str] = None, env=None) -> VoiceSpec:
     env = os.environ if env is None else env
+    pid = canonical(pid)
     up = pid.upper()
     default_model = default_model or env.get("DEEPSUCK_TTS_MODEL", "cosyvoice-v3-flash")
     voice = (env.get(f"DEEPSUCK_VOICE_{up}") or "").strip() or PERSONA_VOICES.get(pid, "longlaoyi_v3")

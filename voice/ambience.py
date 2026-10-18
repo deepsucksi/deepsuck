@@ -1,11 +1,11 @@
-"""通话环境底噪：按人设给输出音频混一层低音量的家庭/街道环境声，整通电话循环播放。
+"""通话环境底噪：按人设给输出音频混一层低音量的家庭/街道/店铺环境声，整通电话循环播放。
 
 用 Pipecat 自带的 SoundfileMixer（输出传输层在没有语音时也会把底噪单独推出去），
 只作用于发给对方的音频，不进 ASR，也不影响打断判断（打断看的是对方的麦克风）。
 素材和授权见 voice/assets/ambience/SOURCES.md。
 
 环境变量：
-- DEEPSUCK_AMBIENCE：默认 1（按人设选）；0/off 关闭；kitchen/street/tv 强制用某一段。
+- DEEPSUCK_AMBIENCE：默认 1（按人设选）；0/off 关闭；kitchen/street/tv/living_room/shop 强制用某一段。
 - DEEPSUCK_AMBIENCE_VOLUME：混音系数，默认 0.2（素材 -26 dBFS，混进去约 -40 dBFS）。
 """
 from __future__ import annotations
@@ -16,9 +16,13 @@ from typing import Optional
 
 import numpy as np
 
+from .persona_ids import canonical
+
 DIR = Path(__file__).resolve().parent / "assets" / "ambience"
-SOUNDS = {"kitchen": DIR / "kitchen.ogg", "street": DIR / "street.ogg", "tv": DIR / "tv.ogg"}
-BY_PERSONA = {"wang": "kitchen", "li": "tv", "lin": "street"}
+SOUNDS = {name: DIR / f"{name}.ogg" for name in ("kitchen", "street", "tv", "living_room", "shop")}
+# 小陈妈妈 chen：客厅，远处有小孩；郑老板 zheng：店铺。id 归一见 persona_ids.py。
+# 李大爷 li 的 tv 先保留，等 #11 合并时再处理。
+BY_PERSONA = {"wang": "kitchen", "li": "tv", "lin": "street", "chen": "living_room", "zheng": "shop"}
 DEFAULT_VOLUME = 0.2
 _OFF = ("0", "off", "false", "no", "none", "")
 
@@ -30,7 +34,7 @@ def choose(persona_id: str, env: Optional[str] = None) -> Optional[str]:
         return None
     if v in SOUNDS:
         return v
-    return BY_PERSONA.get(persona_id, "kitchen")
+    return BY_PERSONA.get(canonical(persona_id), "kitchen")
 
 
 def volume() -> float:
