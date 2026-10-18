@@ -58,6 +58,12 @@ python -m voice.app                 # 打开 http://localhost:7860
 
 人设音色：王阿姨 `longlaoyi_v3`（龙老姨），李大爷 `longlaobo_v3`（龙老伯），小林 `longanyang`。
 
+设计音色（可选）：CosyVoice 支持按一段文字描述生成专属音色，生成的音色只属于你自己的百炼账号。
+`python -m voice.design_voice wang --preview wang.wav` 会生成王阿姨的设计音色并打印一行 `DEEPSUCK_VOICE_WANG=...`，填进 `voice/.env` 即可；
+模型会按音色 ID 自动选（如 `cosyvoice-v3.5-flash`），也可用 `DEEPSUCK_VOICE_WANG_MODEL` 指定。
+`DEEPSUCK_VOICE_WANG_INSTRUCTION` 可给设计音色加朗读指令（如「请用东北话表达。」），默认不加，填 `0` 或 `off` 也是不加；系统音色不会发送指令。
+其他人设同理（`DEEPSUCK_VOICE_LI`、`DEEPSUCK_VOICE_LIN`）。不设置时用上面的系统音色。
+
 ## 隐私与安全
 
 - 交给大模型的只有**脱敏后**的转写文本；卡号等原值只在本进程内存里用于黑名单比对，不写盘、不上报。

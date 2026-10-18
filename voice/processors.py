@@ -346,7 +346,7 @@ class BotTextTap(FrameProcessor):
 _MEM: Dict[tuple, bytes] = {}  # (缓存目录, 音色, 采样率, 文本) -> 已裁静音的 PCM，进程内共享
 
 
-async def synth_fillers(persona_id: str, voice: str, sample_rate: int, synth=None, cache_dir=None,
+async def synth_fillers(persona_id: str, voice, sample_rate: int, synth=None, cache_dir=None,
                         meter=None, out: Optional[Dict[str, bytes]] = None,
                         cached_only: bool = False) -> Dict[str, bytes]:
     """把该人设的口头语合成好（每条一次 TTS 调用）。缓存：进程内存 + 磁盘（DATA_DIR/voice/fillers，见
@@ -358,6 +358,15 @@ async def synth_fillers(persona_id: str, voice: str, sample_rate: int, synth=Non
 
     synth = synth or ds.synthesize
     out = {} if out is None else out
+    # voice 可以是音色名，也可以是 VoiceSpec（设计音色要带模型和指令；缓存键区分指令开关）
+    extra = {}
+    if isinstance(voice, ds.VoiceSpec):
+        extra = {"model": voice.model}
+        if voice.instruction:
+            extra["instruction"] = voice.instruction
+        voice_name, voice = voice.voice, voice.cache_tag
+    else:
+        voice_name = voice
     cdir = Path(cache_dir) if cache_dir else default_cache_dir()
     for line in FILLERS.get(persona_id, []):
         mk = (str(cdir), voice, sample_rate, line)
@@ -379,7 +388,7 @@ async def synth_fillers(persona_id: str, voice: str, sample_rate: int, synth=Non
             buf = bytearray()
             if meter is not None:
                 meter.tts(len(line))
-            async for chunk in synth(line, voice=voice, sample_rate=sample_rate):
+            async for chunk in synth(line, voice=voice_name, sample_rate=sample_rate, **extra):
                 buf.extend(chunk)
             pcm = trim_silence(bytes(buf), sample_rate)
             if not pcm:
@@ -396,5 +405,5 @@ async def synth_fillers(persona_id: str, voice: str, sample_rate: int, synth=Non
     return out
 
 
-def fillers_missing(persona_id: str, voice: str, sample_rate: int, have: Dict[str, bytes]) -> bool:
+def fillers_missing(persona_id: str, voice, sample_rate: int, have: Dict[str, bytes]) -> bool:
     return any(line not in have for line in FILLERS.get(persona_id, []))

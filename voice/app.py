@@ -38,7 +38,7 @@ from deepsuck.personas import PERSONAS, SCENARIOS  # noqa: E402
 from . import guard as G  # noqa: E402
 from . import records as REC  # noqa: E402
 from .disclosure import disclosure_text  # noqa: E402
-from .dashscope_ws import PERSONA_VOICES  # noqa: E402
+from .dashscope_ws import PERSONA_VOICES, persona_voice  # noqa: E402
 from .persona import system_prompt  # noqa: E402
 from . import backchannel as BC  # noqa: E402
 
@@ -85,6 +85,15 @@ def server_ice_servers() -> list:
     return [u.strip() for u in os.environ.get("VOICE_SERVER_STUN", "").split(",") if u.strip()][:1]
 
 
+def _public_voice(pid: str) -> str:
+    """对外只说用的是哪个系统音色；设计音色 ID 绑定账号，不外露，只标注模型和是否开了指令。"""
+    from .dashscope_ws import designed_model
+    vs = persona_voice(pid, TTS_MODEL)
+    if not designed_model(vs.voice):
+        return vs.voice
+    return f"designed:{vs.model}" + ("+instruction" if vs.instruction else "")
+
+
 def public_config(engine: str, limits: Optional[G.Limits] = None, budget: Optional[G.VoiceBudget] = None) -> dict:
     lim = limits or G.Limits()
     return {
@@ -96,7 +105,7 @@ def public_config(engine: str, limits: Optional[G.Limits] = None, budget: Option
         "engine": engine,
         "models": {"llm": LLM_MODEL, "asr": ASR_MODEL, "tts": TTS_MODEL},
         "personas": [{"id": p["id"], "name": p["name"], "tagline": p["tagline"],
-                      "voice": PERSONA_VOICES.get(p["id"])} for p in PERSONAS],
+                      "voice": _public_voice(p["id"])} for p in PERSONAS],
         "scenarios": [{"id": s["id"], "title": s["title"]} for s in SCENARIOS],
     }
 
@@ -121,11 +130,13 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
     stt = stt or ParaformerSTTService(model=ASR_MODEL, sample_rate=IN_RATE, meter=meter,
                                       max_sentence_silence=prof.asr_max_silence_ms)
     if tts is None:
-        voice = PERSONA_VOICES.get(pid, "longlaoyi_v3")
+        vs = persona_voice(pid, TTS_MODEL)
         if os.environ.get("DEEPSUCK_TTS_STREAM", "1") == "0":  # 回退：每句一连接的旧实现
-            tts = CosyVoiceTTSService(voice=voice, model=TTS_MODEL, text_filters=[GuardTextFilter()], meter=meter)
+            tts = CosyVoiceTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction,
+                                      text_filters=[GuardTextFilter()], meter=meter)
         else:
-            tts = CosyVoiceStreamTTSService(voice=voice, model=TTS_MODEL, text_filters=[GuardTextFilter()],
+            tts = CosyVoiceStreamTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction,
+                                            text_filters=[GuardTextFilter()],
                                             meter=meter, clause_min_chars=prof.tts_clause_min_chars)
     fillers = {} if fillers is None else fillers
     backchannel = None
@@ -225,7 +236,7 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
                 logger.debug(f"notify failed: {e}")
 
         pid = session.persona["id"]
-        pvoice = PERSONA_VOICES.get(pid, "longlaoyi_v3")
+        pvoice = persona_voice(pid, TTS_MODEL)
         # 开场不等 TTS：先用缓存的填充音，缺的在后台补齐（同一个字典，合成好就能用）
         fillers = await synth_fillers(pid, pvoice, OUT_RATE, cached_only=True)
         if fillers_missing(pid, pvoice, OUT_RATE, fillers):
@@ -364,7 +375,7 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
 
             async def go():
                 for p in PERSONAS:
-                    await synth_fillers(p["id"], PERSONA_VOICES.get(p["id"], "longlaoyi_v3"), OUT_RATE)
+                    await synth_fillers(p["id"], persona_voice(p["id"], TTS_MODEL), OUT_RATE)
                 logger.info("filler cache warmed")
             asyncio.create_task(go())
 

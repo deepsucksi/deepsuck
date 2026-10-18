@@ -89,12 +89,12 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
 
     if build is None:
         from .. import app as A
-        from ..dashscope_ws import PERSONA_VOICES
+        from ..dashscope_ws import persona_voice
         from ..processors import fillers_missing, synth_fillers
         from deepsuck.blocklist import Client
 
         pid = session.persona["id"]
-        pvoice = PERSONA_VOICES.get(pid, "longlaoyi_v3")
+        pvoice = persona_voice(pid, A.TTS_MODEL)
         # 和网页一样：先用缓存的口头语（24k 合成，输出时随整条链路重采样到 8k），缺的后台补齐
         fillers = await synth_fillers(pid, pvoice, OUT_RATE, cached_only=True)
         if fillers_missing(pid, pvoice, OUT_RATE, fillers):

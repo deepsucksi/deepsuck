@@ -12,18 +12,64 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import hashlib
 import uuid
 from dataclasses import dataclass
 from typing import AsyncIterator, Awaitable, Callable, Optional
 
 WS_URL = os.environ.get("DASHSCOPE_WS_URL", "wss://dashscope.aliyuncs.com/api-ws/v1/inference")
 
-# 人设 → CosyVoice 系统音色（cosyvoice-v3-flash；均为北京地域）
+# 人设 → CosyVoice 系统音色（cosyvoice-v3-flash；均为北京地域）。开箱即用，任何百炼账号都能合成。
 PERSONA_VOICES = {
     "wang": "longlaoyi_v3",   # 龙老姨：烟火从容阿姨，60 岁以上
     "li": "longlaobo_v3",     # 龙老伯：沧桑岁月爷，60 岁以上
     "lin": "longanyang",      # 龙安洋：阳光大男孩，20~30 岁
 }
+
+# 声音设计音色（voice-enrollment 生成，ID 形如 cosyvoice-v3.5-flash-vd-xxx）只属于创建它的百炼账号，
+# 所以不写死在代码里：用 `python -m voice.design_voice wang` 在自己账号里创建，再把 ID 填进环境变量。
+#   DEEPSUCK_VOICE_<人设>              音色 ID（不设则用上面的系统音色）
+#   DEEPSUCK_VOICE_<人设>_MODEL        模型；不设时设计音色按 ID 前缀推断（设计音色绑定创建时的模型）
+#   DEEPSUCK_VOICE_<人设>_INSTRUCTION  合成指令，例如「请用东北话表达。」；0/off/空 表示不加。
+#                                      系统音色 longlaoyi 等不支持指令，只有设计音色才发送。
+DEFAULT_INSTRUCTIONS: dict = {}  # 人设 → 默认指令（只对设计音色生效）。王阿姨对比过开/关东北话指令，盲评无差别，默认不加：少一个参数、首包快约 50 ms
+_OFF = {"", "0", "off", "none", "false", "no"}
+
+
+@dataclass(frozen=True)
+class VoiceSpec:
+    voice: str
+    model: str
+    instruction: Optional[str] = None
+
+    @property
+    def cache_tag(self) -> str:
+        """填充音缓存键：同一音色开/关指令合成出来的声音不同，要分开缓存。"""
+        if not self.instruction:
+            return self.voice
+        return f"{self.voice}-i{hashlib.sha1(self.instruction.encode()).hexdigest()[:8]}"
+
+
+def designed_model(voice: str) -> Optional[str]:
+    """cosyvoice-v3.5-flash-vd-xxx → cosyvoice-v3.5-flash；系统音色返回 None。"""
+    for mark in ("-vd-", "-vc-"):
+        if voice.startswith("cosyvoice-") and mark in voice:
+            return voice.split(mark, 1)[0]
+    return None
+
+
+def persona_voice(pid: str, default_model: Optional[str] = None, env=None) -> VoiceSpec:
+    env = os.environ if env is None else env
+    up = pid.upper()
+    default_model = default_model or env.get("DEEPSUCK_TTS_MODEL", "cosyvoice-v3-flash")
+    voice = (env.get(f"DEEPSUCK_VOICE_{up}") or "").strip() or PERSONA_VOICES.get(pid, "longlaoyi_v3")
+    model = (env.get(f"DEEPSUCK_VOICE_{up}_MODEL") or "").strip() or designed_model(voice) or default_model
+    instruction = None
+    if designed_model(voice):
+        raw = env.get(f"DEEPSUCK_VOICE_{up}_INSTRUCTION")
+        raw = DEFAULT_INSTRUCTIONS.get(pid) if raw is None else raw
+        instruction = None if raw is None or raw.strip().lower() in _OFF else raw.strip()
+    return VoiceSpec(voice=voice, model=model, instruction=instruction)
 
 
 class DashScopeError(RuntimeError):
@@ -54,12 +100,15 @@ def _header(action: str, task_id: str) -> dict:
     return {"action": action, "task_id": task_id, "streaming": "duplex"}
 
 
-def run_task_tts(task_id: str, model: str, voice: str, sample_rate: int, rate: float = 1.0, fmt: str = "pcm") -> dict:
+def run_task_tts(task_id: str, model: str, voice: str, sample_rate: int, rate: float = 1.0, fmt: str = "pcm",
+                 instruction: Optional[str] = None) -> dict:
+    params = {"text_type": "PlainText", "voice": voice, "format": fmt, "sample_rate": sample_rate,
+              "volume": 50, "rate": rate, "pitch": 1.0}
+    if instruction:
+        params["instruction"] = instruction
     return {"header": _header("run-task", task_id), "payload": {
         "task_group": "audio", "task": "tts", "function": "SpeechSynthesizer", "model": model,
-        "parameters": {"text_type": "PlainText", "voice": voice, "format": fmt, "sample_rate": sample_rate,
-                       "volume": 50, "rate": rate, "pitch": 1.0},
-        "input": {}}}
+        "parameters": params, "input": {}}}
 
 
 ASR_SILENCE_MIN_MS, ASR_SILENCE_MAX_MS = 200, 6000  # Paraformer 实时识别允许的 max_sentence_silence 范围
@@ -108,12 +157,12 @@ async def _await_started(ws, timeout: float = 10) -> None:
 
 async def synthesize(text: str, voice: str = "longlaoyi_v3", model: str = "cosyvoice-v3-flash",
                      sample_rate: int = 16000, rate: float = 1.0, key: Optional[str] = None,
-                     connect: Optional[Connector] = None) -> AsyncIterator[bytes]:
+                     connect: Optional[Connector] = None, instruction: Optional[str] = None) -> AsyncIterator[bytes]:
     """CosyVoice 流式合成：逐块产出 16-bit PCM。"""
     ws = await (connect or _connect)(key or api_key())
     task_id = uuid.uuid4().hex
     try:
-        await ws.send(json.dumps(run_task_tts(task_id, model, voice, sample_rate, rate)))
+        await ws.send(json.dumps(run_task_tts(task_id, model, voice, sample_rate, rate, instruction=instruction)))
         await _await_started(ws)
         await ws.send(json.dumps(continue_task_text(task_id, text)))
         await ws.send(json.dumps(finish_task(task_id)))

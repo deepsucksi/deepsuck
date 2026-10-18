@@ -140,10 +140,12 @@ class CosyVoiceTTSService(TTSService):
     _settings: Settings
 
     def __init__(self, *, voice: str = "longlaoyi_v3", model: str = "cosyvoice-v3-flash",
-                 rate: float = 1.0, key: Optional[str] = None, connect=None, meter=None, **kwargs):
+                 rate: float = 1.0, key: Optional[str] = None, connect=None, meter=None,
+                 instruction: Optional[str] = None, **kwargs):
         super().__init__(push_start_frame=True, push_stop_frames=True,
                          settings=self.Settings(model=model, voice=voice, language="zh"), **kwargs)
         self._rate, self._key, self._connect = rate, key, connect
+        self._instruction = instruction  # 设计音色的合成指令（例如方言），系统音色传 None
         self._meter = meter  # 按字符记账（CosyVoice 按字符计费）
 
     def can_generate_metrics(self) -> bool:
@@ -156,7 +158,8 @@ class CosyVoiceTTSService(TTSService):
             if self._meter is not None:
                 self._meter.tts(len(text))
             pcm = ds.synthesize(text, voice=self._settings.voice, model=self._settings.model,
-                                sample_rate=sr, rate=self._rate, key=self._key, connect=self._connect)
+                                sample_rate=sr, rate=self._rate, key=self._key, connect=self._connect,
+                                instruction=self._instruction)
             async for frame in self._stream_audio_frames_from_iterator(pcm, in_sample_rate=sr,
                                                                        context_id=context_id):
                 await self.stop_ttfb_metrics()
@@ -186,10 +189,12 @@ class CosyVoiceStreamTTSService(WebsocketTTSService):
 
     def __init__(self, *, voice: str = "longlaoyi_v3", model: str = "cosyvoice-v3-flash",
                  rate: float = 1.0, key: Optional[str] = None, connect=None, meter=None,
-                 clause_min_chars: int = 6, task_wait_secs: float = 10.0, **kwargs):
+                 clause_min_chars: int = 6, task_wait_secs: float = 10.0, instruction: Optional[str] = None,
+                 **kwargs):
         super().__init__(push_start_frame=True, push_stop_frames=True,
                          settings=self.Settings(model=model, voice=voice, language="zh"), **kwargs)
         self._rate, self._key, self._connect_fn = rate, key, connect
+        self._instruction = instruction  # 设计音色的合成指令（例如方言），系统音色传 None
         self._meter = meter
         self._text_aggregator = ClauseTextAggregator(min_clause_chars=clause_min_chars)
         self._task_wait = task_wait_secs
@@ -272,7 +277,8 @@ class CosyVoiceStreamTTSService(WebsocketTTSService):
         self._task_done.clear()
         self.tasks += 1
         await self._websocket.send(json.dumps(ds.run_task_tts(tid, self._settings.model, self._settings.voice,
-                                                              self.sample_rate, self._rate)))
+                                                              self.sample_rate, self._rate,
+                                                              instruction=self._instruction)))
 
     async def on_turn_context_created(self, context_id: str):
         # 回合一开始就发 run-task，与 LLM 首 token 的等待重叠

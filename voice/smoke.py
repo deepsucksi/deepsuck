@@ -16,7 +16,7 @@ import time
 import urllib.request
 import wave
 
-from .dashscope_ws import PERSONA_VOICES, synthesize, transcribe_pcm
+from .dashscope_ws import persona_voice, synthesize, transcribe_pcm
 from .persona import system_prompt
 
 
@@ -37,7 +37,9 @@ async def main_async(out: str) -> int:
     reply = chat("阿姨您好，我是淘宝客服，您买的商品有质量问题，要给您双倍理赔，您先下载个APP。")
     print(f"[1] qwen-plus ✓ {time.time() - t0:.1f}s：{reply}")
     t0 = time.time()
-    pcm = b"".join([c async for c in synthesize(reply, voice=PERSONA_VOICES["wang"], sample_rate=16000)])
+    _vs = persona_voice("wang")
+    pcm = b"".join([c async for c in synthesize(reply, voice=_vs.voice, model=_vs.model,
+                                                  instruction=_vs.instruction, sample_rate=16000)])
     with wave.open(out, "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(pcm)
     print(f"[2] CosyVoice ✓ {time.time() - t0:.1f}s：{len(pcm) / 32000:.1f}s 音频 → {out}")
