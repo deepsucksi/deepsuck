@@ -19,17 +19,42 @@ def test_json_is_up_to_date_and_deterministic():
     assert B.dump(B.build()) == B.dump(B.build())
 
 
-def test_before_matches_current_hero_chat():
+def test_before_is_fixed_baseline():
+    """改写前取自固定基准文件（首页原版），不读 hero-chat.js 的当前内容。"""
+    base = B.load_baseline()
+    assert [s["title"] for s in base] == ["冒充公检法 · 王阿姨", "刷单返利 · 小林", "冒充领导 · 李大爷"]
+    assert base == [s["before"] for s in DATA["scripts"]]
+    meta = json.loads(B.BASELINE.read_text(encoding="utf-8"))
+    assert meta["source_commit"] == B.BASELINE_REV and meta["source_file"] == "site/assets/js/hero-chat.js"
+
+
+def test_baseline_matches_git_history_when_available():
+    import subprocess
+    try:
+        src = subprocess.check_output(["git", "-C", str(ROOT), "show", f"{B.BASELINE_REV}:site/assets/js/hero-chat.js"],
+                                      text=True, stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pytest.skip("git history not available (shallow checkout)")
+    assert B.parse_scripts_js(src) == B.load_baseline()
+
+
+def test_current_hero_chat_field_names():
+    """只检查当前 hero-chat.js SCRIPTS 的字段名（内容会随网站更新而变，不做比较）。"""
     hero = B.parse_hero_js()
-    assert [s["title"] for s in hero] == [s["before"]["title"] for s in DATA["scripts"]]
-    assert hero == [s["before"] for s in DATA["scripts"]]
+    assert hero
+    assert {k for sc in hero for k in sc} <= {"title", "source", "lines"}
+    assert {k for sc in hero for ln in sc["lines"] for k in ln} <= B.LINE_KEYS
+
+
+def test_parser_handles_both_quote_styles():
+    src = "var SCRIPTS = [\n    { title: '甲 · 乙', lines: [ { r: 'a\"b' }, {\"s\": \"c'd\", \"w\": 3} ] }\n  ];"
+    assert B.parse_scripts_js(src) == [{"title": "甲 · 乙", "lines": [{"r": 'a"b'}, {"s": "c'd", "w": 3}]}]
 
 
 def test_after_matches_scripts_structure():
     """after 段严格按 hero-chat.js SCRIPTS：title / source / lines；r 或 s 二选一，可选 t/i/w。"""
-    hero_line_keys = {k for sc in B.parse_hero_js() for ln in sc["lines"] for k in ln}
-    assert hero_line_keys == B.LINE_KEYS  # 先确认 SCRIPTS 的真实字段名没变
-    assert {k for sc in B.parse_hero_js() for k in sc} == {"title", "lines"}
+    base_line_keys = {k for sc in B.load_baseline() for ln in sc["lines"] for k in ln}
+    assert base_line_keys == B.LINE_KEYS  # 原版 SCRIPTS 的真实字段名
     for s in DATA["scripts"]:
         after = s["after"]
         assert list(after) == ["title", "source", "lines"]
@@ -138,3 +163,16 @@ def test_persona_names_match_prompts():
     yaml = pytest.importorskip("yaml")
     for pid, name in B.P_NAMES.items():
         assert yaml.safe_load((ROOT / "personas/prompts" / f"{pid}.yaml").read_text(encoding="utf-8"))["name"] == name
+
+
+def test_no_deliberate_typos_in_output_or_tables():
+    from personas.humanize import confusion as C
+    forms = {w for alts in list(C.HOMOPHONE_WORDS.values()) + list(C.HOMOPHONE_CHARS.values())
+             + list(C.SHAPE_CHARS.values()) for w in alts}
+    assert not forms & set(C.DELIBERATE)
+    for s in DATA["scripts"]:
+        for ln, raw in zip(s["after"]["lines"], s["rewritten"]["lines"]):
+            text, src = ln.get("r") or ln.get("s"), raw.get("r") or raw.get("s")
+            for w in ("神马", "孩纸", "好滴", "手鸡"):
+                assert w not in text
+            assert text.count("前") <= src.count("前")

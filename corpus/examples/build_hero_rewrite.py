@@ -1,6 +1,8 @@
 """生成 corpus/examples/hero_rewrite.json：首页示例对话（site/assets/js/hero-chat.js）的改写版。
 
-改写前 = hero-chat.js 里现有的 3 段 SCRIPTS（只读解析，不改 site/）；
+改写前 = 首页原版 3 段（王阿姨 / 小林 / 李大爷），固定在 corpus/examples/hero_before.json
+（从 git 历史 420a81f 的 hero-chat.js 取出；网站后来换成了改写版，所以不再读 hero-chat.js 的当前内容，
+当前 hero-chat.js 只用于检查 SCRIPTS 的字段名）；
 改写后 = 新人设（personas/prompts/*.yaml）+ 话术库（corpus/scripts/*.yaml）重写骗子与被骗两侧台词，
 再用 personas.humanize 以固定随机种子做真人化。输出的 after 段按 hero-chat.js 的 SCRIPTS 结构：
 title（「诈骗类型 · 人设名」）、source（来源类型，如「据公开反诈宣传改写」；SCRIPTS 现有代码不读这个字段）、
@@ -29,6 +31,9 @@ from personas.humanize import Humanizer  # noqa: E402
 
 HERO_JS = ROOT / "site" / "assets" / "js" / "hero-chat.js"
 OUT = Path(__file__).resolve().parent / "hero_rewrite.json"
+BASELINE = Path(__file__).resolve().parent / "hero_before.json"
+# 原版 hero-chat.js 最后一次修改的提交（bea5696 之前；之后首页换成了改写版）
+BASELINE_REV = "420a81f"
 BASE_SEED = 20261018
 
 # 骗子一侧只做轻度错别字：话术照“剧本”复制粘贴，标点通常整齐（乱加 ~ 会削弱施压语气），偶尔手打有错字
@@ -151,9 +156,8 @@ P_NAMES = {"retiree": "周伯", "mom": "小陈妈妈", "graduate": "小宇", "sh
 KEEP = ["王总", "小宇", "张警官", "星辰任务", "王**", "赵**", "孙**", "警察同志"]
 
 
-def parse_hero_js(path: Path = HERO_JS) -> list:
-    """把 hero-chat.js 的 SCRIPTS 数组（JS 对象字面量，单引号字符串）转成 Python 数据。"""
-    src = path.read_text(encoding="utf-8")
+def parse_scripts_js(src: str) -> list:
+    """把 hero-chat.js 源码里的 SCRIPTS 数组（JS 对象字面量，单/双引号字符串均可）转成 Python 数据。"""
     m = re.search(r"var SCRIPTS = (\[.*?\n  \]);", src, re.S)
     if not m:
         raise ValueError("SCRIPTS not found in hero-chat.js")
@@ -161,9 +165,9 @@ def parse_hero_js(path: Path = HERO_JS) -> list:
     out, i = [], 0
     while i < len(js):
         c = js[i]
-        if c == "'":
+        if c in "'\"":
             j, buf = i + 1, []
-            while js[j] != "'":
+            while js[j] != c:
                 if js[j] == "\\":
                     j += 1
                 buf.append(js[j])
@@ -179,8 +183,34 @@ def parse_hero_js(path: Path = HERO_JS) -> list:
     return json.loads(text)
 
 
+def parse_hero_js(path: Path = HERO_JS) -> list:
+    """当前 hero-chat.js 的 SCRIPTS（只用于字段名检查，内容会随网站更新而变）。"""
+    return parse_scripts_js(path.read_text(encoding="utf-8"))
+
+
+def load_baseline(path: Path = BASELINE) -> list:
+    """改写前基准：首页原版 3 段（王阿姨 / 小林 / 李大爷），固定在 hero_before.json，不随网站更新。"""
+    return json.loads(path.read_text(encoding="utf-8"))["scripts"]
+
+
+def write_baseline(rev: str = BASELINE_REV) -> dict:
+    """从 git 历史取原版 hero-chat.js 生成基准文件（只需在基准需要更换时运行一次）。"""
+    import subprocess
+    src = subprocess.check_output(["git", "-C", str(ROOT), "show", f"{rev}:site/assets/js/hero-chat.js"], text=True)
+    data = {
+        "schema": "deepsuck.hero_before/1",
+        "comment": "首页示例对话改写前的基准（原版，台词与号码均为虚构）。取自 git 历史，不随网站更新；"
+                   "由 build_hero_rewrite.py --write-baseline 生成。",
+        "source_file": "site/assets/js/hero-chat.js",
+        "source_commit": rev,
+        "scripts": parse_scripts_js(src),
+    }
+    BASELINE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return data
+
+
 def build() -> dict:
-    before = {s["title"]: s for s in parse_hero_js()}
+    before = {s["title"]: s for s in load_baseline()}
     scripts = []
     for k, rw in enumerate(REWRITES):
         seed = BASE_SEED + k
@@ -250,7 +280,7 @@ def markdown(data: dict) -> str:
         out.append(f"来源：{s['after']['source']}。人设 `{s['persona']}`，话术库 `corpus/scripts/{s['script']}.yaml`，"
                    f"人设种子 {s['seed']}，骗子种子 {s['scammer_seed']}。")
         out.append("")
-        for label, block in (("改写前（hero-chat.js 现有）", s["before"]), ("改写稿（真人化之前）", s["rewritten"]),
+        for label, block in (("改写前（首页原版，hero_before.json）", s["before"]), ("改写稿（真人化之前）", s["rewritten"]),
                              ("改写后（真人化）", s["after"])):
             out.append(f"**{label}**")
             out.append("")
@@ -268,7 +298,13 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--md", action="store_true")
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--write-baseline", metavar="REV", nargs="?", const=BASELINE_REV,
+                    help="从 git 历史重新生成 hero_before.json（默认 %(const)s）")
     a = ap.parse_args(argv)
+    if a.write_baseline:
+        write_baseline(a.write_baseline)
+        print(f"wrote {BASELINE.relative_to(ROOT)} from {a.write_baseline}")
+        return 0
     data = build()
     if a.md:
         print(markdown(data))

@@ -14,7 +14,7 @@ corpus/
 │   ├── task_rebate.yaml          刷单返利
 │   ├── investment.yaml           投资理财
 │   └── loan_credit.yaml          贷款征信
-├── examples/        由话术库与人设生成的成品示例（hero_rewrite.json：首页示例对话改写版，生成脚本同目录）
+├── examples/        由话术库与人设生成的成品示例（hero_before.json：首页原版基准；hero_rewrite.json：改写版；生成脚本同目录）
 └── tests/           话术库格式与脱敏检查、示例一致性检查（pytest）
 ```
 
