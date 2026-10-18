@@ -150,19 +150,26 @@ def extract(text: Optional[str]) -> List[dict]:
         return md
 
     scan(RE["urlFull"], "url", clean=_trim_url)
+    # 完整的 ETH / TRON 地址先认领：地址里常含 vx / VX 等字母组合，不能先被当成微信号截走（#8）
+    scan(RE["eth"], "crypto_eth", meta=lambda *a: {"chain": "Ethereum/EVM"})
+    scan(RE["tron"], "crypto_tron", meta=lambda *a: {"chain": "TRON"})
     scan(RE["alipay"], "alipay", group=1)
     scan(RE["qq"], "qq", group=1)
     scan(RE["wechat"], "wechat", group=1)
     scan(RE["email"], "email")
     scan(RE["urlBare"], "url", clean=_trim_url,
          meta=lambda raw, m, st: {"bare": True} if re.search(r"[a-z]", raw.split(".")[0], re.I) else False)
-    scan(RE["eth"], "crypto_eth", meta=lambda *a: {"chain": "Ethereum/EVM"})
-    scan(RE["tron"], "crypto_tron", meta=lambda *a: {"chain": "TRON"})
     scan(RE["btc"], "crypto_btc", meta=lambda *a: {"chain": "Bitcoin"})
     scan(RE["idCard"], "id_card", meta=id_meta)
     scan(RE["bankCard"], "bank_card", meta=card_meta)
     scan(RE["hotline"], "phone", meta=lambda *a: {"kind": "hotline"})
-    scan(RE["landline"], "phone", meta=lambda *a: {"kind": "landline"})
+    def landline_meta(raw, m, start):
+        # 不带横杠的座机（多由断续报号拼接而来）：前面紧挨订单号 / 工号 / 验证码等词时不算电话
+        if "-" not in raw and _RE_BLOCK_BEFORE and _RE_BLOCK_BEFORE.search(_unblock_typos(s[max(0, start - 16):start])):
+            return False
+        return {"kind": "landline"}
+
+    scan(RE["landline"], "phone", meta=landline_meta)
     scan(RE["mobile"], "phone", meta=lambda *a: {"kind": "mobile"})
     scan(RE["name"], "name", group=1, clean=_clean_name)
     scan(RE["nameMid"], "name", group=1, clean=_clean_name_mid)
@@ -212,7 +219,7 @@ _ST: dict = _C.get("stitch") or {}
 _DJ = _C["obfuscation"]["digitJoin"]
 _SEP_CLS = "[" + "".join("\\" + c if c in "]\\^-" else {"\n": "\\n", "\r": "\\r", "\t": "\\t"}.get(c, c)
                          for c in _DJ["separators"]) + "]"
-_FRAG = "[0-9](?:" + _SEP_CLS + "{0,3}[0-9])*"
+_FRAG = "[0-9](?:" + _SEP_CLS + "{0,%d}[0-9])*" % _DJ["maxSep"]
 _RE_TAIL = re.compile("(" + _FRAG + ")(" + re.sub(r"\$$", "", _ST.get("tailFiller", "$")) + ")$")
 _RE_HEAD = re.compile("(" + re.sub(r"^\^", "", _ST.get("headFiller", "^")) + ")(" + _FRAG + ")")
 _RE_TAIL_ONLY = re.compile("^" + _ST.get("tailFiller", "$"))
@@ -229,6 +236,20 @@ def _unblock_typos(t: str) -> str:
     """屏蔽词的手写错字（房问号 / 工好）换回正写再判断（等长替换）。"""
     return _RE_BLOCK_TYPOS.sub(lambda m: _BLOCK_TYPOS[m.group(0)], t) if _RE_BLOCK_TYPOS else t
 
+
+# #8：钱包地址跨回合拼接（上一回合末尾 0x… / T… + 下一回合开头的十六进制 / Base58 片段）
+_WST: dict = _ST.get("wallet") or {}
+_B58C = "1-9A-HJ-NP-Za-km-z"
+# 片段内部也可以带停顿分段（“0x2bc，9fff9efd…”“然后…sNoN，aNDswW，L63c”），每处分隔至多 maxSep 个
+_WCHUNKS = "[0-9A-Za-z]+(?:" + _SEP_CLS + "{1,%d}[0-9A-Za-z]+)*" % _DJ["maxSep"]
+_RE_WTAIL = re.compile("(?<![0-9A-Za-z])((?:0x|T)" + _WCHUNKS + ")(" + re.sub(r"\$$", "", _ST.get("tailFiller", "$")) + ")$") if _WST else None
+_RE_WHEAD = re.compile("(" + re.sub(r"^\^", "", _ST.get("headFiller", "^")) + ")(" + _WCHUNKS + ")(?![0-9A-Za-z])") if _WST else None
+_RE_ALNUM = re.compile("[0-9A-Za-z]+")
+_RE_PAUSE_END = re.compile(r"^[\s，,、]*(?:…|⋯|\.{2,})")
+_RE_W_CTX = re.compile(_WST["context"]) if _WST.get("context") else None
+_RE_HEX_ONLY = re.compile("[0-9a-fA-F]+")
+_RE_B58_ONLY = re.compile("[" + _B58C + "]+")
+_WALLET_TYPES = ("crypto_eth", "crypto_tron", "crypto_btc")
 
 _NUMERALS: dict = _C["obfuscation"]["numerals"]
 _RE_NUMERAL_CHAR = re.compile("[" + "".join(_NUMERALS) + "]")
@@ -250,18 +271,25 @@ def _fragments(raw: str) -> dict:
         sa, sb = norm.span(a, b)
         return not any(e["start"] < sb and e["end"] > sa for e in ents)
 
-    def weak_card(a, b):
+    def weak_card(a, b, pause_after=False):
         """#1：片段被单回合提取认成了银行卡、但只是 16–18 位且不过 Luhn（多半是拆开的长卡号的一段）：
-        允许它参与拼接，拼接结果过 Luhn 时取代这条单段结果（stitch 输出里的 supersedes）。"""
+        允许它参与拼接，拼接结果过 Luhn 时取代这条单段结果（stitch 输出里的 supersedes）。
+        #8：断续报卡号时，后半段（“1776…1855…023”“1567…5024…481”）可能整段或部分被认成手机号 / 座机，同样处理（拼接时还要求有卡号上下文）；
+        回合以停顿（…）收尾的 16–18 位卡号即使过 Luhn 也允许接上下一回合开头的 1–3 位，拼成 19 位且过 Luhn 时取代（weakLuhn）。"""
         sa, sb = norm.span(a, b)
         hit = [e for e in ents if e["start"] < sb and e["end"] > sa]
-        if len(hit) != 1 or hit[0]["type"] != "bank_card":
+        if len(hit) != 1 or hit[0]["type"] not in ("bank_card", "phone"):
             return None
         d = re.sub(r"[^0-9]", "", s[a:b])
         e = hit[0]
-        if re.sub(r"[^0-9]", "", str(e["value"])) != d or len(d) > 18 or luhn(d):
+        v = re.sub(r"[^0-9]", "", str(e["value"]))
+        if e["type"] == "phone":
+            # 片段只有一部分是手机号，或整段被拼成了不带横杠的座机 / 热线（“0750…8275…730”）
+            joined = v == d and "-" not in str(e["value"]) and "." not in str(e["value"]) and " " not in str(e["value"])
+            return e if (len(v) < len(d) and v in d) or joined else None
+        if v != d or len(d) > 18 or (luhn(d) and not pause_after):
             return None
-        return e
+        return dict(e, weakLuhn=True) if luhn(d) else e
 
     def mk(a, b, **extra):
         sa, sb = norm.span(a, b)
@@ -273,7 +301,7 @@ def _fragments(raw: str) -> dict:
     t = _RE_TAIL.search(s)
     if t:
         a, b = t.start(), t.start() + len(t.group(1))
-        wk = None if free(a, b) else weak_card(a, b)
+        wk = None if free(a, b) else weak_card(a, b, pause_after=bool(_RE_PAUSE_END.match(s[b:])))
         if (wk or free(a, b)) and not (_RE_BLOCK_BEFORE and _RE_BLOCK_BEFORE.search(_unblock_typos(s[max(0, a - 16):a]))):
             out["tail"] = mk(a, b, before=s[max(0, a - 16):a])
             if wk:
@@ -290,6 +318,21 @@ def _fragments(raw: str) -> dict:
                 out["head"]["weak"] = wk
     if out["tail"] and _RE_UNIT.match(s[out["tail"]["ne"]:]):
         out["tail"] = None
+    out["wtail"] = out["whead"] = None
+    if _RE_WTAIL:
+
+        def chunks(a, b):
+            """片段里的字母数字段（原文坐标），拼接时按需要的长度取前缀 / 全部。"""
+            return [(norm.span(a + m.start(), a + m.end()), m.group(0)) for m in _RE_ALNUM.finditer(s[a:b])]
+        w = _RE_WTAIL.search(s)
+        if w:
+            a = w.start(1)
+            ctx = s[max(0, a - _WST.get("contextChars", 24)):a]
+            if _RE_W_CTX is None or _RE_W_CTX.search(ctx):
+                out["wtail"] = chunks(a, w.end(1))
+        h = _RE_WHEAD.match(s)
+        if h:
+            out["whead"] = chunks(h.start(2), h.end(2))
     return out
 
 
@@ -299,6 +342,8 @@ def _score(d: str, ctx: str) -> Optional[dict]:
         return None
     if kind == "phone":
         return {"type": "phone", "conf": _round2(0.6 + (0.3 if _RE_PHONE_CTX.search(ctx) else 0)), "meta": {"kind": "mobile"}}
+    if kind in ("landline", "hotline"):
+        return {"type": "phone", "conf": _round2(0.3 + (0.3 if _RE_PHONE_CTX.search(ctx) else 0)), "meta": {"kind": kind}}
     b = _bin_lookup(d)
     lu = luhn(d)
     conf = 0.3 + (0.3 if lu else 0) + (0.2 if b else 0) + (0.1 if b and b["lengthOk"] else 0) \
@@ -342,8 +387,12 @@ def stitch(turns, window: Optional[int] = None, min_confidence: Optional[float] 
             if len(d) > 19:
                 break
             sc = _score(d, tail["before"] + F[i]["text"][tail["ns"]:tail["ne"]])
-            if sc and any(p[1].get("weak") for p in parts) and not (sc["type"] == "bank_card" and sc["meta"]["luhn"]):
-                sc = None  # 含被单回合认成卡号的片段：拼接结果必须是过 Luhn 的银行卡才取代它
+            weak = [p[1]["weak"] for p in parts if p[1].get("weak")]
+            if sc and weak and not (sc["type"] == "bank_card" and sc["meta"]["luhn"]
+                                    and (not any(w["type"] == "phone" for w in weak)
+                                         or _RE_BANK_CTX.search(tail["before"] + F[i]["text"][tail["ns"]:tail["ne"]]))
+                                    and (not any(w.get("weakLuhn") for w in weak) or len(d) == 19)):
+                sc = None  # 含被单回合认成卡号 / 手机号的片段：拼接结果必须是过 Luhn 的银行卡才取代它（手机号段另需卡号上下文，过 Luhn 的段须拼成 19 位）
             if sc and sc["conf"] >= min_conf and (best is None or sc["conf"] > best[0]["conf"]
                                                     or (sc["conf"] == best[0]["conf"] and len(d) > len(best[1]))):
                 best = (sc, d, list(parts))
@@ -374,4 +423,64 @@ def stitch(turns, window: Optional[int] = None, min_confidence: Optional[float] 
             o["supersedes"] = sup
         out.append(o)
         i = ps[-1][0]  # 已用掉的回合不再作为起点（JS 版 i = last - 1 后 i++）
+    out += _stitch_wallets(F, seen)
+    return out
+
+
+def _wallet_part(chunks, ents, take=None):
+    """取片段的全部（take=None）或前若干个字符段，凑满 take 个字符；返回 (文本, 原文起止, 被取代的非钱包情报) 或 None。"""
+    used, n = [], 0
+    for sp, txt in chunks:
+        if take is not None and n >= take:
+            break
+        used.append((sp, txt))
+        n += len(txt)
+    if not used or (take is not None and n != take):
+        return None
+    sa, sb = used[0][0][0], used[-1][0][1]
+    hit = [e for e in ents if e["start"] < sb and e["end"] > sa]
+    if any(e["type"] in _WALLET_TYPES or e["start"] < sa or e["end"] > sb for e in hit):
+        return None  # 已是完整钱包地址，或与片段外的情报重叠
+    return "".join(x for _, x in used), sa, sb, hit
+
+
+def _stitch_wallets(F, seen) -> List[dict]:
+    """#8：钱包地址拆进相邻两个回合（每段内部也可带停顿）。上一回合末尾片段 + 下一回合开头片段合计正好 0x+40 / T+33、
+    字符集吻合、上一回合片段前有钱包上下文词才输出；被单回合误认成微信号等的部分由拼接结果取代（supersedes）。"""
+    out = []
+    for i in range(len(F) - 1):
+        tc, hc = F[i].get("wtail"), F[i + 1].get("whead")
+        if not tc or not hc:
+            continue
+        tp = _wallet_part(tc, F[i]["ents"])
+        if not tp or len(tp[0]) < _WST.get("minTail", 4):
+            continue
+        eth = tp[0].startswith("0x")
+        need = (42 if eth else 34) - len(tp[0])
+        if need < _WST.get("minHead", 3):
+            continue
+        hp = _wallet_part(hc, F[i + 1]["ents"], need)
+        if not hp:
+            continue
+        v = tp[0] + hp[0]
+        type_ = "crypto_eth" if eth else "crypto_tron"
+        if not (_RE_HEX_ONLY.fullmatch(v[2:]) if eth else _RE_B58_ONLY.fullmatch(v)):
+            continue
+        key = type_ + "|" + v.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        masked = R.mask(type_, v)
+        same = len(masked) == len(v)
+        n0 = len(tp[0])
+        parts = [{"turn": i, "start": tp[1], "end": tp[2], "masked": masked[:n0] if same else "*" * n0},
+                 {"turn": i + 1, "start": hp[1], "end": hp[2], "masked": masked[n0:] if same else "*" * len(hp[0])}]
+        o = {"type": type_, "label": LABELS.get(type_, type_), "value": v, "masked": masked, "sensitive": True,
+             "confidence": 0.9, "turns": [i, i + 1], "parts": parts,
+             "meta": {"chain": "Ethereum/EVM" if eth else "TRON", "stitched": True}}
+        sup = [{"turn": turn, "type": e["type"], "value": e["value"], "start": e["start"], "end": e["end"]}
+               for turn, part in ((i, tp), (i + 1, hp)) for e in part[3]]
+        if sup:
+            o["supersedes"] = sup
+        out.append(o)
     return out
