@@ -30,7 +30,7 @@ personas:
       chars_per_sec: 4.0
       dialect_words: [咋, 啥, 这么着]
       accent: false
-      accent_desc: 普通话，语气热情但平稳，爱用“你看看”。
+      accent_desc: 普通话，语气平；短句、半截话、爱反问，不替对方把话说圆（例句见 personas.json 王阿姨的 voiceShots）。
     rhythm:
       pre_speech_pause: 中
       pause_ms: [400, 900]
