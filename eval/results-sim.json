@@ -8,9 +8,9 @@
  "byPolicy": {
   "rule": {
    "sessions": 630,
-   "avgTurns": 17.566666666666666,
-   "avgEstMinutes": 27.68558201058201,
-   "elicitRate": 0.9809523809523809,
+   "avgTurns": 17.423809523809524,
+   "avgEstMinutes": 27.462089947089947,
+   "elicitRate": 0.9785714285714285,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
    "repeatRate": 0.0,
@@ -22,7 +22,7 @@
   "random": {
    "sessions": 630,
    "avgTurns": 15.095238095238095,
-   "avgEstMinutes": 24.74920634920635,
+   "avgEstMinutes": 24.74910052910053,
    "elicitRate": 0.8313492063492064,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -62,9 +62,9 @@
   },
   "li": {
    "sessions": 210,
-   "avgTurns": 17.566666666666666,
-   "avgEstMinutes": 27.5665873015873,
-   "elicitRate": 0.9809523809523809,
+   "avgTurns": 17.13809523809524,
+   "avgEstMinutes": 26.89611111111111,
+   "elicitRate": 0.9738095238095238,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
    "repeatRate": 0.0,
@@ -90,8 +90,8 @@
  "byScenario": {
   "refund": {
    "sessions": 90,
-   "avgTurns": 17.733333333333334,
-   "avgEstMinutes": 28.09037037037037,
+   "avgTurns": 17.58888888888889,
+   "avgEstMinutes": 27.762592592592593,
    "elicitRate": 1.0,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -103,8 +103,8 @@
   },
   "police": {
    "sessions": 90,
-   "avgTurns": 17.366666666666667,
-   "avgEstMinutes": 25.65574074074074,
+   "avgTurns": 17.22222222222222,
+   "avgEstMinutes": 25.356666666666666,
    "elicitRate": 1.0,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -116,8 +116,8 @@
   },
   "pig": {
    "sessions": 90,
-   "avgTurns": 18.6,
-   "avgEstMinutes": 27.493148148148148,
+   "avgTurns": 18.366666666666667,
+   "avgEstMinutes": 27.19648148148148,
    "elicitRate": 1.0,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -142,8 +142,8 @@
   },
   "loan": {
    "sessions": 90,
-   "avgTurns": 17.4,
-   "avgEstMinutes": 25.309444444444445,
+   "avgTurns": 17.166666666666668,
+   "avgEstMinutes": 25.13925925925926,
    "elicitRate": 1.0,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
@@ -155,9 +155,9 @@
   },
   "boss": {
    "sessions": 90,
-   "avgTurns": 15.866666666666667,
-   "avgEstMinutes": 26.29425925925926,
-   "elicitRate": 0.875,
+   "avgTurns": 15.811111111111112,
+   "avgEstMinutes": 26.098518518518517,
+   "elicitRate": 0.8583333333333333,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
    "repeatRate": 0.0,
@@ -168,8 +168,8 @@
   },
   "campus": {
    "sessions": 90,
-   "avgTurns": 17.766666666666666,
-   "avgEstMinutes": 28.607592592592592,
+   "avgTurns": 17.57777777777778,
+   "avgEstMinutes": 28.332592592592594,
    "elicitRate": 1.0,
    "extractRate": 1.0,
    "falseIntelPerSession": 0.0,
