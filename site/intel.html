@@ -3,23 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>公开诈骗情报库 · DeepSuck</title>
-<meta name="description" content="DeepSuck 公开诈骗情报库：诈骗电话、钱包地址、网址/APP 与话术完整公开，银行卡与姓名部分打码。支持检索、筛选与 JSON/CSV 下载。">
+<title data-i18n="meta.intel.title">公开诈骗情报库 · DeepSuck</title>
+<meta name="description" content="DeepSuck 公开诈骗情报库：诈骗电话、钱包地址、网址/APP 与话术完整公开，银行卡与姓名部分打码。支持检索、筛选与 JSON/CSV 下载。" data-i18n-attr="content:meta.intel.desc">
 <link rel="canonical" href="https://deepsuck.si/intel.html">
-<link rel="alternate" type="application/rss+xml" title="DeepSuck 公开诈骗情报库" href="https://deepsuck.si/data/intel.rss">
+<link rel="alternate" type="application/rss+xml" title="DeepSuck 公开诈骗情报库" href="https://deepsuck.si/data/intel.rss" data-i18n-attr="title:meta.intel.og">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="DeepSuck">
-<meta property="og:title" content="DeepSuck 公开诈骗情报库">
-<meta property="og:description" content="诈骗电话、钱包地址、网址/APP 与话术完整公开，银行卡与姓名部分打码。可检索、可下载。">
+<meta property="og:title" content="DeepSuck 公开诈骗情报库" data-i18n-attr="content:meta.intel.og">
+<meta property="og:description" content="诈骗电话、钱包地址、网址/APP 与话术完整公开，银行卡与姓名部分打码。可检索、可下载。" data-i18n-attr="content:meta.intel.ogdesc">
 <meta property="og:url" content="https://deepsuck.si/intel.html">
 <meta property="og:image" content="https://deepsuck.si/assets/og-intel.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="DeepSuck 公开诈骗情报库">
-<meta property="og:locale" content="zh_CN">
+<meta property="og:image:alt" content="DeepSuck 公开诈骗情报库" data-i18n-attr="content:meta.intel.og">
+<meta property="og:locale" content="zh_CN" data-i18n-attr="content:meta.locale">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="DeepSuck 公开诈骗情报库">
-<meta name="twitter:description" content="诈骗电话、钱包地址、网址/APP 与话术完整公开，银行卡与姓名部分打码。可检索、可下载。">
+<meta name="twitter:title" content="DeepSuck 公开诈骗情报库" data-i18n-attr="content:meta.intel.og">
+<meta name="twitter:description" content="诈骗电话、钱包地址、网址/APP 与话术完整公开，银行卡与姓名部分打码。可检索、可下载。" data-i18n-attr="content:meta.intel.ogdesc">
 <meta name="twitter:image" content="https://deepsuck.si/assets/og-intel.png">
 <meta name="theme-color" content="#ffffff">
 <script type="application/ld+json">
@@ -41,20 +41,22 @@
   <div class="wrap">
     <a class="brand" href="./" aria-label="DeepSuck"><span class="brand-symbol"><img src="assets/brand/on-hold-mono-96.png" alt="" width="96" height="96"></span><img class="brand-wordmark" src="assets/brand/wordmark.svg" alt="DeepSuck" width="146" height="40"></a>
     <nav class="nav">
-      <a class="hide-m" href="#policy">发布策略</a>
-      <a class="hide-m" href="#report">如何举报</a>
-      <a class="hide-m" href="#contribute">提交情报</a>
+      <a class="hide-m" href="#policy" data-i18n="i.policy">发布策略</a>
+      <a class="hide-m" href="#report" data-i18n="i.report">如何举报</a>
+      <a class="hide-m" href="#contribute" data-i18n="i.contribute">提交情报</a>
       <a class="hide-m nav-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg class="github-mark" aria-hidden="true" focusable="false" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg><span>GitHub</span> ↗</a>
-      <a class="btn small primary" href="demo.html">进入沙盒</a>
+      <button class="btn small ghost lang-toggle" type="button">EN</button>
+      <a class="btn small primary" href="demo.html" data-i18n="nav.demo">进入沙盒</a>
     </nav>
     <details class="menu">
-      <summary class="btn small">菜单</summary>
-      <nav class="menu-panel" aria-label="页面导航">
-        <a href="./">首页</a>
-        <a href="#policy">发布策略</a>
-        <a href="#report">如何举报</a>
-        <a href="#contribute">提交情报</a>
+      <summary class="btn small" data-i18n="nav.menu">菜单</summary>
+      <nav class="menu-panel" aria-label="页面导航" data-i18n-attr="aria-label:aria.pagenav">
+        <a href="./" data-i18n="nav.home">首页</a>
+        <a href="#policy" data-i18n="i.policy">发布策略</a>
+        <a href="#report" data-i18n="i.report">如何举报</a>
+        <a href="#contribute" data-i18n="i.contribute">提交情报</a>
         <a class="mobile-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg class="github-mark" aria-hidden="true" focusable="false" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg><span>GitHub ↗</span></a>
+        <button class="lang-toggle" type="button">EN</button>
       </nav>
     </details>
   </div>
@@ -62,89 +64,89 @@
 
 <main class="wrap intel-page">
   <div class="intel-hero">
-    <h1>公开诈骗情报库</h1>
-    <p class="lead">DeepSuck 会公开发布它收集到的诈骗情报：<b>诈骗电话、加密钱包地址、诈骗网址 / APP 名称、话术套路</b>完整公开，方便任何人检索、拦截与预警；<b>银行卡号、姓名、个人账号</b>只部分公开——很多收款卡属于被冒用、被利用的普通人。</p>
-    <div class="notice" id="notice">当前库中全部为 <b>示例数据</b>（虚构号码、无效地址与 RFC 2606 保留域名 .example），用于展示格式与功能，<b>不对应任何真实个人或网站</b>。真实情报经审核后才会收录。</div>
+    <h1 data-i18n="c8.t">公开诈骗情报库</h1>
+    <p class="lead" data-i18n="i.lead">DeepSuck 会公开发布它收集到的诈骗情报：<b>诈骗电话、加密钱包地址、诈骗网址 / APP 名称、话术套路</b>完整公开，方便任何人检索、拦截与预警；<b>银行卡号、姓名、个人账号</b>只部分公开——很多收款卡属于被冒用、被利用的普通人。</p>
+    <div class="notice" id="notice" data-i18n="i.notice">当前库中全部为 <b>示例数据</b>（虚构号码、无效地址与 RFC 2606 保留域名 .example），用于展示格式与功能，<b>不对应任何真实个人或网站</b>。真实情报经审核后才会收录。</div>
   </div>
 
   <div class="intel-stats" id="typeStats"></div>
 
   <div class="panel intel-toolbar">
-    <input type="search" id="q" placeholder="搜索号码、地址、域名、APP、话术关键词…（如 10000000001、TRON、安全账户）" aria-label="搜索">
-    <select id="fType" aria-label="按类型筛选"><option value="">全部类型</option></select>
-    <select id="fScenario" aria-label="按场景筛选"><option value="">全部场景</option></select>
+    <input type="search" id="q" placeholder="搜索号码、地址、域名、APP、话术关键词…（如 10000000001、TRON、安全账户）" aria-label="搜索" data-i18n-attr="placeholder:i.q.ph;aria-label:i.q.aria">
+    <select id="fType" aria-label="按类型筛选" data-i18n-attr="aria-label:i.ftype"><option value="" data-i18n="i.alltypes">全部类型</option></select>
+    <select id="fScenario" aria-label="按场景筛选" data-i18n-attr="aria-label:i.fsc"><option value="" data-i18n="i.allsc">全部场景</option></select>
     <span class="dl">
       <button class="btn small" id="dlJson" type="button">JSON</button>
       <button class="btn small" id="dlCsv" type="button">CSV</button>
     </span>
   </div>
-  <p class="note" id="resultInfo">加载中…</p>
+  <p class="note" id="resultInfo" data-i18n="i.loading">加载中…</p>
   <div class="intel-grid" id="results"></div>
-  <div class="more"><button class="btn" id="moreBtn" type="button" hidden>显示更多</button></div>
-  <p class="note">完整数据：<a href="data/intel.json">data/intel.json</a> · STIX 2.1：<a href="data/intel.stix.json">data/intel.stix.json</a>（不含姓名/账号/身份证，银行卡为打码值）· 订阅：<a href="data/intel.rss">RSS</a> · <a href="data/intel.csv">CSV</a>（只含公开中的条目）· 格式定义：<a href="data/intel.schema.json">data/intel.schema.json</a>（<code>deepsuck.intel-library/v1</code>）· 下载按钮导出的是当前筛选结果。</p>
-  <p class="note" id="dataLicense">数据以 <a href="https://creativecommons.org/licenses/by/4.0/legalcode" target="_blank" rel="noopener license">CC BY 4.0</a> 许可发布，署名：DeepSuck (deepsuck.si) · 详见 <a href="https://github.com/deepsucksi/deepsuck/blob/main/DATA_LICENSE" target="_blank" rel="noopener">DATA_LICENSE</a>（代码仍为 Apache-2.0）</p>
+  <div class="more"><button class="btn" id="moreBtn" type="button" hidden data-i18n="i.more">显示更多</button></div>
+  <p class="note" data-i18n="i.data">完整数据：<a href="data/intel.json">data/intel.json</a> · STIX 2.1：<a href="data/intel.stix.json">data/intel.stix.json</a>（不含姓名/账号/身份证，银行卡为打码值）· 订阅：<a href="data/intel.rss">RSS</a> · <a href="data/intel.csv">CSV</a>（只含公开中的条目）· 格式定义：<a href="data/intel.schema.json">data/intel.schema.json</a>（<code>deepsuck.intel-library/v1</code>）· 下载按钮导出的是当前筛选结果。</p>
+  <p class="note" id="dataLicense" data-i18n="i.license">数据以 <a href="https://creativecommons.org/licenses/by/4.0/legalcode" target="_blank" rel="noopener license">CC BY 4.0</a> 许可发布，署名：DeepSuck (deepsuck.si) · 详见 <a href="https://github.com/deepsucksi/deepsuck/blob/main/DATA_LICENSE" target="_blank" rel="noopener">DATA_LICENSE</a>（代码仍为 Apache-2.0）</p>
 
   <section id="policy">
-    <h2>发布策略</h2>
+    <h2 data-i18n="i.policy">发布策略</h2>
     <div class="two">
       <div class="card">
-        <h3>完整公开</h3>
+        <h3 data-i18n="tag.完整公开">完整公开</h3>
         <ul class="plain">
-          <li>诈骗电话（含 400/800、座机、改号来电显示号码）</li>
-          <li>加密货币钱包地址（TRON / ETH / BTC 等）</li>
-          <li>诈骗网址、域名，诈骗 APP / 平台名称</li>
-          <li>话术与手法模式（不含受害人信息）</li>
+          <li data-i18n="i.full1">诈骗电话（含 400/800、座机、改号来电显示号码）</li>
+          <li data-i18n="i.full2">加密货币钱包地址（TRON / ETH / BTC 等）</li>
+          <li data-i18n="i.full3">诈骗网址、域名，诈骗 APP / 平台名称</li>
+          <li data-i18n="i.full4">话术与手法模式（不含受害人信息）</li>
         </ul>
-        <p class="note">这些是诈骗分子的“基础设施”，公开得越快越完整，越多人能在接到电话、点开链接之前识别它。</p>
+        <p class="note" data-i18n="i.full.note">这些是诈骗分子的“基础设施”，公开得越快越完整，越多人能在接到电话、点开链接之前识别它。</p>
       </div>
       <div class="card">
-        <h3>部分打码</h3>
+        <h3 data-i18n="tag.部分打码">部分打码</h3>
         <ul class="plain">
-          <li>银行卡号：按 PCI DSS 只留前 6 位（BIN）与后 4 位，如 <code>622202*********1234</code>，并标注开户行及 BIN 推断的发卡行、卡种</li>
-          <li>收款户名 / 姓名：只留姓，如 <code>王**</code></li>
-          <li>身份证号：<code>110101********1234</code></li>
-          <li>支付宝 / 微信 / QQ / 邮箱等个人账号：首尾各留 2 位</li>
+          <li data-i18n="i.mask1">银行卡号：按 PCI DSS 只留前 6 位（BIN）与后 4 位，如 <code>622202*********1234</code>，并标注开户行及 BIN 推断的发卡行、卡种</li>
+          <li data-i18n="i.mask2">收款户名 / 姓名：只留姓，如 <code>王**</code></li>
+          <li data-i18n="i.mask3">身份证号：<code>110101********1234</code></li>
+          <li data-i18n="i.mask4">支付宝 / 微信 / QQ / 邮箱等个人账号：首尾各留 2 位</li>
         </ul>
-        <p class="note">大量“跑分卡”“收款卡”属于被冒用身份、被诱骗出租或出借账户的普通人（不少是学生和老人）。部分打码既能帮助比对，又不至于让无辜者被网暴。</p>
+        <p class="note" data-i18n="i.mask.note">大量“跑分卡”“收款卡”属于被冒用身份、被诱骗出租或出借账户的普通人（不少是学生和老人）。部分打码既能帮助比对，又不至于让无辜者被网暴。</p>
       </div>
     </div>
     <ul class="ethics">
-      <li><b>只收录诈骗方主动暴露的信息：</b>不收录受害人信息，不做“人肉”，不对任何号码发起骚扰或“反击”。</li>
-      <li><b>每条可溯源：</b>标注首次/最近出现时间、场景、话术标签、举报次数与来源（沙盒、社区提交、自有诱饵号码）。</li>
-      <li><b>示例与真实分开：</b>示例条目一律标注 <code>example: true</code> 与「示例数据」。</li>
-      <li><b>情报仅供参考：</b>号码可能被回收、改号或冒用，不能作为定罪依据；请以公安机关认定为准。</li>
+      <li data-i18n="i.r1"><b>只收录诈骗方主动暴露的信息：</b>不收录受害人信息，不做“人肉”，不对任何号码发起骚扰或“反击”。</li>
+      <li data-i18n="i.r2"><b>每条可溯源：</b>标注首次/最近出现时间、场景、话术标签、举报次数与来源（沙盒、社区提交、自有诱饵号码）。</li>
+      <li data-i18n="i.r3"><b>示例与真实分开：</b>示例条目一律标注 <code>example: true</code> 与「示例数据」。</li>
+      <li data-i18n="i.r4"><b>情报仅供参考：</b>号码可能被回收、改号或冒用，不能作为定罪依据；请以公安机关认定为准。</li>
     </ul>
   </section>
 
   <section id="appeal">
-    <h2>下架与申诉</h2>
+    <h2 data-i18n="i.appeal">下架与申诉</h2>
     <div class="disclaimer">
-      <p style="margin-top:0">如果你认为某条情报<b>错误收录了你的号码、账户或网站</b>（例如号码被回收再分配、银行卡被他人冒用、域名已易主），请提交下架申诉：</p>
+      <p style="margin-top:0" data-i18n="i.ap0">如果你认为某条情报<b>错误收录了你的号码、账户或网站</b>（例如号码被回收再分配、银行卡被他人冒用、域名已易主），请提交下架申诉：</p>
       <ol>
-        <li>打开 <a href="https://github.com/deepsucksi/deepsuck/issues/new?template=intel-appeal.yml" target="_blank" rel="noopener">GitHub 下架申诉模板</a>，<b>只需填写条目 ID</b>（如 <code>EX-0001</code>），无需公开你的任何个人信息；</li>
-        <li>维护者收到后会优先处理：先将条目标记为 <code>disputed</code>（页面隐藏具体值），核实后下架（<code>removed</code>）或恢复；</li>
-        <li>若涉及隐私不便公开说明，可在申诉中注明，维护者会提供非公开的沟通方式。</li>
+        <li data-i18n="i.ap1">打开 <a href="https://github.com/deepsucksi/deepsuck/issues/new?template=intel-appeal.yml" target="_blank" rel="noopener">GitHub 下架申诉模板</a>，<b>只需填写条目 ID</b>（如 <code>EX-0001</code>），无需公开你的任何个人信息；</li>
+        <li data-i18n="i.ap2">维护者收到后会优先处理：先将条目标记为 <code>disputed</code>（页面隐藏具体值），核实后下架（<code>removed</code>）或恢复；</li>
+        <li data-i18n="i.ap3">若涉及隐私不便公开说明，可在申诉中注明，维护者会提供非公开的沟通方式。</li>
       </ol>
-      <p style="margin-bottom:0" class="note">如你的银行卡被冒用于诈骗收款，请同时尽快联系发卡银行并向公安机关报案说明情况。</p>
+      <p style="margin-bottom:0" class="note" data-i18n="i.ap4">如你的银行卡被冒用于诈骗收款，请同时尽快联系发卡银行并向公安机关报案说明情况。</p>
     </div>
   </section>
 
   <section id="report">
-    <h2>遇到诈骗，先报警、再举报</h2>
+    <h2 data-i18n="i.rep.h">遇到诈骗，先报警、再举报</h2>
     <div class="cards3">
-      <div class="card"><h3>110 / 96110</h3><p>已经转账或正在被骗：<b>立即拨打 110</b> 报警，并联系银行尝试止付。<b>96110</b> 是全国反诈预警劝阻专线，接到 96110 来电请务必接听。</p></div>
-      <div class="card"><h3>国家反诈中心 App</h3><p>在官方应用商店搜索“国家反诈中心”安装。首页“我要举报”可提交诈骗电话、短信、网址、APP、收款账户等线索，还能开启来电/短信预警。</p></div>
-      <div class="card"><h3>其他渠道</h3><p>垃圾短信/骚扰电话/不良网址可向 <b>12321</b>（网络不良与垃圾信息举报受理中心）举报；网络违法犯罪线索可通过公安部网络违法犯罪举报网站提交。</p></div>
+      <div class="card"><h3>110 / 96110</h3><p data-i18n="i.rep1">已经转账或正在被骗：<b>立即拨打 110</b> 报警，并联系银行尝试止付。<b>96110</b> 是全国反诈预警劝阻专线，接到 96110 来电请务必接听。</p></div>
+      <div class="card"><h3 data-i18n="i.rep2.h">国家反诈中心 App</h3><p data-i18n="i.rep2">在官方应用商店搜索“国家反诈中心”安装。首页“我要举报”可提交诈骗电话、短信、网址、APP、收款账户等线索，还能开启来电/短信预警。</p></div>
+      <div class="card"><h3 data-i18n="i.rep3.h">其他渠道</h3><p data-i18n="i.rep3">垃圾短信/骚扰电话/不良网址可向 <b>12321</b>（网络不良与垃圾信息举报受理中心）举报；网络违法犯罪线索可通过公安部网络违法犯罪举报网站提交。</p></div>
     </div>
-    <p class="note">DeepSuck 的情报库是公益补充，不能替代报警。请优先通过以上官方渠道举报。</p>
+    <p class="note" data-i18n="i.rep.note">DeepSuck 的情报库是公益补充，不能替代报警。请优先通过以上官方渠道举报。</p>
   </section>
 
   <section id="contribute">
-    <h2>提交情报</h2>
+    <h2 data-i18n="i.contribute">提交情报</h2>
     <div class="steps steps3">
-      <div class="step"><div class="n">01</div><h3>整理</h3><p>打开<a href="demo.html">沙盒</a>，选择最接近的场景，把骗子发给你的原话<b>逐条粘贴</b>进去（或在“骗子”位置复述）。提取与打码全部在你的浏览器本地完成。</p></div>
-      <div class="step"><div class="n">02</div><h3>生成</h3><p>点“结束对话 · 生成情报看板”，再点 <b>“提交到情报库”</b>：会按发布策略生成提交内容（电话/地址/网址完整，银行卡/姓名已打码）并复制到剪贴板。</p></div>
-      <div class="step"><div class="n">03</div><h3>提交</h3><p>在打开的 <a href="https://github.com/deepsucksi/deepsuck/issues/new?template=intel-submission.yml" target="_blank" rel="noopener">GitHub 情报提交模板</a>中粘贴并补充时间、渠道，维护者审核后收录。<b>请勿提交受害人信息或沙盒里的虚构样例。</b></p></div>
+      <div class="step"><div class="n">01</div><h3 data-i18n="i.s1.t">整理</h3><p data-i18n="i.s1">打开<a href="demo.html">沙盒</a>，选择最接近的场景，把骗子发给你的原话<b>逐条粘贴</b>进去（或在“骗子”位置复述）。提取与打码全部在你的浏览器本地完成。</p></div>
+      <div class="step"><div class="n">02</div><h3 data-i18n="i.s2.t">生成</h3><p data-i18n="i.s2">点“结束对话 · 生成情报看板”，再点 <b>“提交到情报库”</b>：会按发布策略生成提交内容（电话/地址/网址完整，银行卡/姓名已打码）并复制到剪贴板。</p></div>
+      <div class="step"><div class="n">03</div><h3 data-i18n="i.s3.t">提交</h3><p data-i18n="i.s3">在打开的 <a href="https://github.com/deepsucksi/deepsuck/issues/new?template=intel-submission.yml" target="_blank" rel="noopener">GitHub 情报提交模板</a>中粘贴并补充时间、渠道，维护者审核后收录。<b>请勿提交受害人信息或沙盒里的虚构样例。</b></p></div>
     </div>
   </section>
 </main>
@@ -153,13 +155,14 @@
 
 <footer>
   <div class="wrap">
-    <span>DeepSuck · 代码 Apache-2.0 · 数据 <a href="https://github.com/deepsucksi/deepsuck/blob/main/DATA_LICENSE" target="_blank" rel="noopener">CC BY 4.0</a> · 仅用于防诈研究与教育</span>
-    <span>遇到诈骗请拨打 110 / 96110</span>
-    <a href="./">返回首页</a>
+    <span data-i18n="i.footer">DeepSuck · 代码 Apache-2.0 · 数据 <a href="https://github.com/deepsucksi/deepsuck/blob/main/DATA_LICENSE" target="_blank" rel="noopener">CC BY 4.0</a> · 仅用于防诈研究与教育</span>
+    <span data-i18n="foot.110">遇到诈骗请拨打 110 / 96110</span>
+    <a href="./" data-i18n="nav.home.back">返回首页</a>
     <a href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">GitHub</a>
   </div>
 </footer>
 
+<script src="assets/js/i18n.js"></script>
 <script src="assets/js/core-data.js"></script>
 <script src="assets/js/redact.js"></script>
 <script src="assets/js/normalize.js"></script>

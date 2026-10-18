@@ -4,6 +4,8 @@
   'use strict';
   var SCRIPTS = (window.DeepSuckHero && window.DeepSuckHero.SCRIPTS) || [];
   var $ = function (id) { return document.getElementById(id); };
+  // 动态文案的英文由 i18n.js 的 DATA 提供；示例对话本身（骗子原话、人设回复）英文版保留中文
+  var I = window.DeepSuckI18n || { tr: function (x) { return x; }, trParts: function (x) { return x; } };
   // 剧本类型 → 语音/沙盒场景 id；查不到（如「冒充供应商」）时人设卡链到不带场景参数的 demo.html
   var SCENARIO = { '冒充客服': 'refund', '冒充公检法': 'police', '杀猪盘': 'pig', '刷单返利': 'task', '虚假贷款': 'loan', '冒充领导': 'boss', '注销校园贷': 'campus' };
   // 人设 id / 名字取自 personas/prompts/*.yaml
@@ -44,7 +46,7 @@
     $('portraitNumber').textContent = '0' + (active + 1) + ' / 0' + CAST.length;
     $('scamPrompt').hidden = !c.scam;
     $('scamLine').textContent = c.scam ? '“' + c.scam + '”' : '';
-    $('botSpeaker').textContent = c.title;
+    $('botSpeaker').textContent = I.trParts(c.title);
     $('personaReply').textContent = c.reply || '';
     $('personaLink').href = 'demo.html' + (c.scenario ? '?scenario=' + c.scenario : '');
     $('personaSource').hidden = !c.source;
@@ -84,7 +86,7 @@
   console_.addEventListener('keyup', function (e) { if (e.key === 'Tab' && console_.contains(document.activeElement)) rot.set('focus', keyboardFocus(document.activeElement)); });
   document.addEventListener('visibilitychange', syncMotion);
   document.addEventListener('deepsuck:motionchange', syncMotion);
-  document.addEventListener('deepsuck:languagechange', function (e) { lang = e.detail && e.detail.lang === 'en' ? 'en' : 'zh'; rot.sync(); });
+  document.addEventListener('deepsuck:languagechange', function (e) { lang = e.detail && e.detail.lang === 'en' ? 'en' : 'zh'; rot.sync(); renderPersona(false); renderClues(); });
   if (reduced.addEventListener) reduced.addEventListener('change', syncMotion); else if (reduced.addListener) reduced.addListener(syncMotion);
   if ('IntersectionObserver' in window) new IntersectionObserver(function (es) {
     var e = es[es.length - 1];
@@ -94,7 +96,7 @@
   syncMotion();
 
   // 提取结果表：首页第一段示例的骗子原话、已打码情报与话术标签
-  (function () {
+  function renderClues() {
     var sc = SCRIPTS[0]; if (!sc) { $('clueSheet').hidden = true; return; }
     var lines = sc.lines || [], said = '', intel = [], tags = [];
     lines.forEach(function (l) {
@@ -102,22 +104,27 @@
       if (l.i) String(l.i).split(' · ').forEach(function (x) { intel.push(x); });
       if (l.t) String(l.t).split(' · ').forEach(function (x) { if (tags.indexOf(x) < 0) tags.push(x); });
     });
-    $('clueTitle').textContent = sc.title;
-    $('clueSource').textContent = sc.source || '';
+    $('clueTitle').textContent = I.trParts(sc.title);
+    $('clueSource').textContent = I.tr(sc.source || '');
     $('clueSaid').textContent = said ? '“' + said + '”' : '';
     var dd = $('clueIntel'); dd.textContent = '';
     intel.forEach(function (x) {
       var row = document.createElement('span'); row.className = 'clue-item';
+      // 「类型 值」：类型按语言显示；值是示例里的虚构打码情报（可能含户名姓氏、APP 名），原样保留
+      var sp = String(x).indexOf(' '), label = sp > 0 ? String(x).slice(0, sp) : '', value = sp > 0 ? String(x).slice(sp + 1) : String(x);
+      if (label) row.appendChild(document.createTextNode(I.tr(label) + ' '));
+      var val = document.createElement('span'); val.setAttribute('data-i18n-keep', 'intel-data'); row.appendChild(val);
       // 打码部分（*）用强调色
-      String(x).split(/(\*+)/).forEach(function (part) {
+      value.split(/(\*+)/).forEach(function (part) {
         if (!part) return;
-        if (/^\*+$/.test(part)) { var m = document.createElement('span'); m.className = 'mask'; m.textContent = part; row.appendChild(m); }
-        else row.appendChild(document.createTextNode(part));
+        if (/^\*+$/.test(part)) { var m = document.createElement('span'); m.className = 'mask'; m.textContent = part; val.appendChild(m); }
+        else val.appendChild(document.createTextNode(part));
       });
       dd.appendChild(row);
     });
-    $('clueTactics').textContent = tags.join(' · ');
-  })();
+    $('clueTactics').textContent = tags.map(I.tr).join(' · ');
+  }
+  renderClues();
 
   // 语音演示入口：与沙盒一致，live 服务健康时才显示
   var LIVE = String((window.DEEPSUCK_LIVE && window.DEEPSUCK_LIVE.api) || '').replace(/\/+$/, '');
