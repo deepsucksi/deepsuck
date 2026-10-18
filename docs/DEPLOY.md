@@ -82,6 +82,7 @@ LIVE_DOMAIN='live.你的域名' ACME_EMAIL='你的邮箱' DASHSCOPE_API_KEY='sk-
 从阿里云元数据（`100.100.100.200`）探测公网/内网 IP → 生成 `deploy/.env`（权限 600；Key 只在这里）→ 若有 ufw 自动放行端口 →
 `docker compose up -d --build` → 等健康检查通过。可重复运行（不覆盖已有 `.env`）。
 首次部署（本次运行新建了 `deploy/.env`）结尾会打印下面 DNS、防火墙、`live-config.js` 的提示；重跑只打印一行「已更新」摘要。
+例外：重跑时带 `WITH_SIP=1` 且本次才生成 SIP 账号（运行前 `.env` 里没有 `SIP_USER`），会在摘要后打印完整 SIP 说明：要放行的 UDP 端口（`SIP_PORT` 与 RTP 段）、接 AI 的分机（默认 9000）、Linphone/Zoiper 配置和账号。密码一律不打印，用 `grep -n ^SIP_PASSWORD /opt/deepsuck/deploy/.env` 查看。首次部署带 `WITH_SIP=1` 时，SIP 说明附在下一步提示里。
 
 然后：
 

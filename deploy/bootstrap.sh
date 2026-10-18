@@ -98,6 +98,7 @@ sip_env() { # WITH_SIP=1：只补空值，不覆盖已有账号密码；密码�
   log "  自建 SIP 已开启：账号密码在 deploy/.env（grep -E '^SIP_(USER|PASSWORD|PORT|AI_EXTEN)=' $DIR/deploy/.env）"
 }
 FIRST_RUN=0  # 本次运行新建了 .env 才算首次部署；重跑只打印简短摘要
+SIP_NEW=0    # 本次运行才生成 SIP 账号（运行前 .env 里没有 SIP_USER）：重跑也打印完整 SIP 说明
 if [ ! -f .env ]; then
   FIRST_RUN=1
   [ -n "$LIVE_DOMAIN" ] || die "请设置 LIVE_DOMAIN（你自己的域名，例如 live.example.com）"
@@ -118,14 +119,17 @@ if [ ! -f .env ]; then
     setv TURN_SECRET "$(openssl rand -hex 24)"
     setv TURN_URLS "turn:$LIVE_DOMAIN:3478?transport=udp,turn:$LIVE_DOMAIN:3478?transport=tcp"
   fi
-  [ "${WITH_SIP:-0}" = 1 ] && sip_env
+  if [ "${WITH_SIP:-0}" = 1 ]; then SIP_NEW=1; sip_env; fi
   chmod 600 .env
   unset DASHSCOPE_API_KEY
 else
   LIVE_DOMAIN="$(getv LIVE_DOMAIN)"
   [ -n "$LIVE_DOMAIN" ] || die "deploy/.env 里 LIVE_DOMAIN 为空"
   log "  已存在 .env，保留（如需修改：nano $DIR/deploy/.env 后 docker compose up -d）"
-  if [ "${WITH_SIP:-0}" = 1 ]; then (umask 077; sip_env); chmod 600 .env; fi
+  if [ "${WITH_SIP:-0}" = 1 ]; then
+    [ -n "$(getv SIP_USER)" ] || SIP_NEW=1
+    (umask 077; sip_env); chmod 600 .env
+  fi
 fi
 
 # 自建 SIP：security 日志目录 + fail2ban 防暴力注册 + 日志轮转
@@ -175,11 +179,16 @@ done
 [ "${WITH_SIP:-0}" = 1 ] && { sleep 3; docker compose ps sip | grep -q Up || { docker compose logs --tail=30 sip; die "sip 容器没有启动（见上面的 [deepsuck-sip] 提示）"; }; }
 docker compose ps
 sip_msg=""
-if [ "${WITH_SIP:-0}" = 1 ]; then
+if [ "${WITH_SIP:-0}" = 1 ]; then  # 账号可以显示；密码一律不打印，只给出 .env 里的位置
+  sip_port="$(getv SIP_PORT 25060)"; sip_exten="$(getv SIP_AI_EXTEN 9000)"
   sip_msg="
-  自建 SIP 软电话（docs/PHONE.md 第 10 节）：云防火墙再放行 UDP $(getv SIP_PORT 25060)$( [ "$(getv SIP_TCP 0)" = 1 ] && echo "、TCP $(getv SIP_PORT 25060)")（信令）和 UDP $(getv SIP_RTP_PORTS 40100-40199)（RTP，若尚未放行）
-  手机 Linphone/Zoiper：服务器 $PUBLIC_IP:$(getv SIP_PORT 25060)，传输 UDP，账号/密码见 grep -E '^SIP_(USER|PASSWORD)=' $DIR/deploy/.env，拨 $(getv SIP_AI_EXTEN 9000)
-  更新时带上 profile：docker compose --profile sip up -d --build"
+  自建 SIP 软电话（docs/PHONE.md 第 10 节）：
+    云防火墙放行 UDP $sip_port（SIP 信令）$( [ "$(getv SIP_TCP 0)" = 1 ] && echo "、TCP $sip_port")和 UDP $(getv SIP_RTP_PORTS 40100-40199)（RTP 音频）
+    接 AI 的分机：$sip_exten（拨其他号码一律 404）
+    账号：$(getv SIP_USER)；密码不在这里显示，查看：grep -n ^SIP_PASSWORD $DIR/deploy/.env
+    Linphone：选“使用 SIP 账号”，用户名填账号，密码填上面的密码，域名填 $PUBLIC_IP:$sip_port，传输 UDP，媒体加密选“无”，登录后拨 $sip_exten
+    Zoiper：添加账号输入 账号@$PUBLIC_IP:$sip_port 和密码，自动探测卡住时手动选 SIP UDP，关闭 STUN，拨 $sip_exten
+    更新时带上 profile：docker compose --profile sip up -d --build"
 fi
 if [ "$FIRST_RUN" = 1 ]; then
 cat <<MSG
@@ -194,4 +203,5 @@ MSG
 else
   rev="$(git -C "$DIR" rev-parse --short HEAD 2>/dev/null || true)"
   log "已更新：$BRANCH${rev:+@$rev}，容器已重建，https://$LIVE_DOMAIN/ 沿用现有 .env${sip_msg:+（含自建 SIP）}"
+  if [ "$SIP_NEW" = 1 ]; then printf '%s\n' "$sip_msg"; fi
 fi

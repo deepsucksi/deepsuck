@@ -21,6 +21,7 @@
 ### bootstrap 重跑不再重复首次部署提示
 
 - `bootstrap.sh` 结尾的「下一步」（加 DNS、放行防火墙、改 `live-config.js`）只在首次部署时显示，判断依据是本次运行新建了 `deploy/.env`；重跑只打印一行「已更新」摘要。只是脚本输出的变化，已部署的服务器不需要做任何操作。
+- 重跑时若本次才启用 SIP（运行前 `.env` 没有 `SIP_USER`，账号密码是这次生成的），摘要后照样打印完整 SIP 说明（UDP 端口、分机 9000、Linphone/Zoiper 配置、账号）；密码不打印，只提示 `grep -n ^SIP_PASSWORD deploy/.env`。SIP 已启用的重跑仍只有一行摘要。
 
 ### 部署修复：bootstrap 重跑 WITH_SIP=1、Caddyfile 目录挂载
 

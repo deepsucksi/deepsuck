@@ -59,7 +59,19 @@ echo "ok - existing .env without SIP vars + WITH_SIP=1"
 
 grep -q "已更新" "$T/out" || fail "rerun summary missing"
 if grep -qE "live-config|DNS" "$T/out"; then fail "first-deploy hints shown on rerun"; fi
-echo "ok - rerun prints short summary, no DNS/live-config hints"
+grep -q "自建 SIP 软电话" "$T/out" || { cat "$T/out"; fail "SIP newly enabled but SIP guide missing"; }
+grep -q "UDP 25060" "$T/out" && grep -q "UDP 40100-40199" "$T/out" || fail "SIP ports missing in guide"
+grep -q "分机：9000" "$T/out" && grep -q "Linphone" "$T/out" && grep -q "Zoiper" "$T/out" || fail "SIP guide incomplete"
+grep -q "账号：$(getenv SIP_USER)" "$T/out" || fail "SIP_USER not shown"
+grep -q "grep -n ^SIP_PASSWORD" "$T/out" || fail "password location hint missing"
+if grep -qF "$(getenv SIP_PASSWORD)" "$T/out"; then fail "SIP_PASSWORD printed"; fi
+echo "ok - SIP newly enabled on rerun: SIP guide without DNS/live-config, no password"
+
+# 1b) 紧接着再跑一次：只有摘要，没有 SIP 说明
+run_bootstrap WITH_SIP=1 || { cat "$T/out"; fail "rerun after SIP enable exited non-zero"; }
+grep -q "已更新" "$T/out" || fail "summary missing"
+if grep -qE "自建 SIP 软电话|Linphone|live-config|DNS" "$T/out"; then cat "$T/out"; fail "guide shown on plain rerun"; fi
+echo "ok - plain rerun with SIP already enabled prints summary only"
 
 # 2) 再跑一次：账号密码不变（只补空值）；SIP_LOG_DIR 显式设置时使用该值
 pw="$(getenv SIP_PASSWORD)"
@@ -88,6 +100,16 @@ if grep -q "test-not-a-real-key" "$T/out"; then fail "key leaked to output"; fi
 run_bootstrap || fail "rerun after first deploy exited non-zero"
 if grep -qE "live-config|DNS" "$T/out"; then fail "hints shown on rerun after first deploy"; fi
 echo "ok - first deploy shows hints, rerun does not"
+
+# 3c) 首次部署就带 WITH_SIP=1：完整下一步提示，含 SIP 说明，不含密码
+setup
+run_bootstrap WITH_SIP=1 LIVE_DOMAIN=live.example.com ACME_EMAIL=ops@example.com DASHSCOPE_API_KEY=test-not-a-real-key \
+  || { cat "$T/out"; fail "first run with SIP exited non-zero"; }
+grep -q "DNS" "$T/out" && grep -q "live-config.js" "$T/out" || fail "first-deploy hints missing (SIP)"
+grep -q "自建 SIP 软电话" "$T/out" && grep -q "分机：9000" "$T/out" && grep -q "账号：$(getenv SIP_USER)" "$T/out" || { cat "$T/out"; fail "SIP guide missing on first deploy"; }
+if grep -qF "$(getenv SIP_PASSWORD)" "$T/out"; then fail "SIP_PASSWORD printed on first deploy"; fi
+if grep -q "已更新" "$T/out"; then fail "summary shown on first deploy"; fi
+echo "ok - first deploy with WITH_SIP=1 shows full hints including SIP guide"
 
 # 4) 旧服务器迁移：caddy 容器仍是单文件挂载时，bootstrap 自动 force-recreate caddy 一次
 printf '#!/bin/sh\necho "docker $*" >> "%s/calls"\ncase "$*" in *"ps -q caddy"*) echo abc123;; inspect*) echo /data; echo /etc/caddy/Caddyfile;; esac\nexit 0\n' "$T" > "$T/bin/docker"
