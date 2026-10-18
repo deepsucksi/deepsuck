@@ -97,7 +97,7 @@ python -m voice.app
 - 开场 AI 告知语默认**不播**；`VOICE_AI_DISCLOSURE=1` 打开，`VOICE_AI_DISCLOSURE_TEXT` 自定义文案（与网页入口共用，见 `voice/disclosure.py`）。旧变量 `VOICE_TELEPHONY_DISCLOSURE` 已废弃。
 - 留存：默认只保存脱敏文字记录，`KEEP_AUDIO=1` 才保存原始音频（最多 7 天）。全部电话相关环境变量见 [docs/PHONE.md 第 6 节](../../docs/PHONE.md#6-环境变量清单供-deploy-使用)。
 - 日志里的号码只保留后 4 位。
-- `deploy/` 目前**没有**暴露这个入口；上线前需要单独评审。
+- `deploy/` 已带这个入口的开关（`VOICE_TELEPHONY`，默认关闭）；公网开启前需要单独评审。
 
 测试：`python -m pytest voice/tests/test_telephony.py -q`（本地回环 WebSocket，直通管线，不连服务商、不拨打电话）。
 

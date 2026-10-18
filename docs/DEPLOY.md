@@ -67,11 +67,15 @@
 ```bash
 ssh root@<服务器公网IP>
 curl -fsSL https://raw.githubusercontent.com/deepsucksi/deepsuck/main/deploy/bootstrap.sh -o bootstrap.sh
-DASHSCOPE_API_KEY='sk-...' ACME_EMAIL='你的邮箱' bash bootstrap.sh
-# 不想把 Key 留在 shell 历史里：直接 bash bootstrap.sh，会提示输入（不回显）
+LIVE_DOMAIN='live.你的域名' ACME_EMAIL='你的邮箱' DASHSCOPE_API_KEY='sk-...' bash bootstrap.sh
+# 不想把 Key 留在 shell 历史里：只传 LIVE_DOMAIN 和 ACME_EMAIL，Key 会提示输入（不回显）；
+# 或者写进 600 权限的文件：  set -a; . /root/deepsuck.env; set +a; bash bootstrap.sh
 ```
 
-脚本做的事：装 git/curl → 内存 < 2.6 GB 时建 1 GB swap → 装 Docker（get.docker.com）→ clone 到 `/opt/deepsuck` →
+`LIVE_DOMAIN` 和 `ACME_EMAIL` **必填，没有默认值**：bootstrap.sh 缺了会退出，`docker compose` 读到空值也会直接报错，
+避免用别人的域名或邮箱去申请证书。
+
+脚本做的事：装 git/curl → 内存 < 2.6 GB 且没有 swap 时建 swap（默认 1 GB，`SWAP_MB=2048` 可调） → 装 Docker（get.docker.com）→ clone 到 `/opt/deepsuck` →
 从阿里云元数据（`100.100.100.200`）探测公网/内网 IP → 生成 `deploy/.env`（权限 600；Key 只在这里）→ 若有 ufw 自动放行端口 →
 `docker compose up -d --build` → 等健康检查通过。可重复运行（不覆盖已有 `.env`）。
 
@@ -133,6 +137,20 @@ docker compose down                                                         # �
 
 其它：Caddy 限制请求体 64 KB；应用只监听 127.0.0.1；账本按北京时间自然日存到卷里（重启不清零）；
 只有 proxy/voice 容器拿到 Key；`/api/health`、`/api/config` 只返回百分比，不回显 Key。
+
+**电话入口与留存（默认全部关闭，详见 [PHONE.md 第 6 节](PHONE.md#6-环境变量清单供-deploy-使用)）**
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `VOICE_TELEPHONY` | `0` | `1` 才挂载 `WS /telephony/{adapter}`（经 Caddy 转发到语音服务） |
+| `VOICE_TELEPHONY_TOKEN` | 空 | 开电话时必填；为空时拒绝所有电话连接 |
+| `VOICE_TELEPHONY_ADAPTERS` | `ws-raw` | `ws-raw`、`pipecat-ws` |
+| `VOICE_AI_DISCLOSURE` / `_TEXT` | `0` / 默认文案 | 开场白前播告知语（网页和电话共用） |
+| `VOICE_TRANSCRIPTS` / `VOICE_TRANSCRIPT_DAYS` | `1` / `30` | 脱敏文字记录及保留天数 |
+| `KEEP_AUDIO` / `KEEP_AUDIO_DAYS` | `0` / `7` | 原始音频，最长 7 天 |
+
+容器内 `DATA_DIR=/data` 固定挂命名卷 `voice-data`（留存文件在 `/data/voice/{transcripts,audio}/`），重建容器不会丢；
+查看：`docker compose exec voice ls /data/voice`。
 
 ## 5. 月度费用估算
 

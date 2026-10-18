@@ -2,14 +2,17 @@
 # DeepSuck 实时服务一键部署（全新 Ubuntu 22.04+/Debian 12+，root 运行）。
 #
 #   curl -fsSL https://raw.githubusercontent.com/deepsucksi/deepsuck/main/deploy/bootstrap.sh -o bootstrap.sh
-#   sudo DASHSCOPE_API_KEY=sk-xxx ACME_EMAIL=you@example.com bash bootstrap.sh
+#   sudo LIVE_DOMAIN=live.example.com ACME_EMAIL=you@example.com DASHSCOPE_API_KEY=sk-xxx bash bootstrap.sh
 #
-# 可选环境变量：LIVE_DOMAIN（默认 live.deepsuck.si）、REPO、BRANCH、DIR（默认 /opt/deepsuck）、
+# 首次运行必填：LIVE_DOMAIN、ACME_EMAIL（没有默认值）、DASHSCOPE_API_KEY。
+# Key 不想出现在命令行/历史里：先写进一个 600 权限的文件，再 set -a; . 该文件; set +a 后运行。
+# 可选环境变量：REPO、BRANCH、DIR（默认 /opt/deepsuck）、
 #   WITH_TURN=1（同时启动 coturn）、SWAP_MB（内存 < 2G 时自动建 swap，默认 1024）、SKIP_DOCKER_INSTALL=1。
 # 重复运行是安全的：已有 deploy/.env 不会被覆盖（Key 不会丢），只会更新代码并重建容器。
 set -euo pipefail
 
-LIVE_DOMAIN="${LIVE_DOMAIN:-live.deepsuck.si}"
+LIVE_DOMAIN="${LIVE_DOMAIN:-}"
+ACME_EMAIL="${ACME_EMAIL:-}"
 REPO="${REPO:-https://github.com/deepsucksi/deepsuck.git}"
 BRANCH="${BRANCH:-main}"
 DIR="${DIR:-/opt/deepsuck}"
@@ -61,6 +64,8 @@ log "  公网 $PUBLIC_IP / 内网 $PRIVATE_IP"
 
 log "6/7 写入 deploy/.env"
 if [ ! -f .env ]; then
+  [ -n "$LIVE_DOMAIN" ] || die "请设置 LIVE_DOMAIN（你自己的域名，例如 live.example.com）"
+  [ -n "$ACME_EMAIL" ] || die "请设置 ACME_EMAIL（证书邮箱）"
   if [ -z "${DASHSCOPE_API_KEY:-}" ]; then
     if [ -t 0 ]; then read -rsp "DashScope API Key（输入不回显）: " DASHSCOPE_API_KEY; echo; else die "请通过环境变量 DASHSCOPE_API_KEY 提供 Key"; fi
   fi
@@ -73,7 +78,7 @@ if [ ! -f .env ]; then
   }
   setv DASHSCOPE_API_KEY "$DASHSCOPE_API_KEY"
   setv LIVE_DOMAIN "$LIVE_DOMAIN"
-  setv ACME_EMAIL "${ACME_EMAIL:-admin@${LIVE_DOMAIN#*.}}"
+  setv ACME_EMAIL "$ACME_EMAIL"
   setv VOICE_ALLOWED_ORIGINS "https://$LIVE_DOMAIN,https://deepsuck.si"
   setv VOICE_PUBLIC_IP "$PUBLIC_IP"
   setv PRIVATE_IP "$PRIVATE_IP"
@@ -84,6 +89,8 @@ if [ ! -f .env ]; then
   chmod 600 .env
   unset DASHSCOPE_API_KEY
 else
+  LIVE_DOMAIN="$(grep -E '^LIVE_DOMAIN=' .env | cut -d= -f2-)"
+  [ -n "$LIVE_DOMAIN" ] || die "deploy/.env 里 LIVE_DOMAIN 为空"
   log "  已存在 .env，保留（如需修改：nano $DIR/deploy/.env 后 docker compose up -d）"
 fi
 

@@ -1,9 +1,10 @@
 # DeepSuck 实时服务反向代理（自动 HTTPS，Let's Encrypt / ZeroSSL）。
-# 静态站仍在 GitHub Pages（deepsuck.si）；这里只服务 {$LIVE_DOMAIN}（默认 live.deepsuck.si）：
+# 静态站仍在 GitHub Pages（deepsuck.si）；这里只服务 {$LIVE_DOMAIN}：
+# LIVE_DOMAIN、ACME_EMAIL 没有默认值，由 docker-compose.yml 的 ${VAR:?} 强制要求设置。
 #   /api/chat、/api/health → Node 大模型代理（127.0.0.1:8787）
 #   其余（语音演示页面、/api/config、/api/offer）→ 语音服务（127.0.0.1:7860）
 {
-	email {$ACME_EMAIL:admin@deepsuck.si}
+	email {$ACME_EMAIL}
 	servers {
 		timeouts {
 			read_body 15s
@@ -12,7 +13,7 @@
 	}
 }
 
-{$LIVE_DOMAIN:live.deepsuck.si} {
+{$LIVE_DOMAIN} {
 	encode zstd gzip
 	request_body {
 		max_size 64KB
@@ -30,6 +31,7 @@
 	handle /api/health {
 		reverse_proxy 127.0.0.1:8787
 	}
+	# 其余（含 VOICE_TELEPHONY=1 时的 WS /telephony/*）都交给语音服务
 	handle {
 		reverse_proxy 127.0.0.1:7860
 	}

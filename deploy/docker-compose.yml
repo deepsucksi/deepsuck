@@ -3,6 +3,8 @@
 #   可选 TURN：docker compose --profile turn up -d
 # 全部使用 host 网络：WebRTC 需要服务器真实 UDP 端口（VOICE_UDP_PORTS），host 网络最省内存也最少 NAT 坑。
 # 只有 proxy / voice 读取 .env（含 Key）；caddy、coturn 只拿到各自需要的变量。
+# LIVE_DOMAIN、ACME_EMAIL 必填（没有默认值），缺了 docker compose 直接报错退出，避免拿别人的域名/邮箱去申请证书。
+# 电话入口、AI 告知语、原始录音默认全部关闭，开关见 .env.example 与 docs/PHONE.md 第 6 节。
 # 应用只监听 127.0.0.1，对外只有 Caddy 的 80/443 和语音的 UDP 端口段。
 name: deepsuck
 
@@ -44,6 +46,18 @@ services:
       DATA_DIR: /data
       XDG_CACHE_HOME: /cache
       VOICE_PREWARM: "1"
+      # 电话入口（docs/PHONE.md 6.1）：默认关；开了也必须设 VOICE_TELEPHONY_TOKEN，否则拒绝连接
+      VOICE_TELEPHONY: ${VOICE_TELEPHONY:-0}
+      VOICE_TELEPHONY_TOKEN: ${VOICE_TELEPHONY_TOKEN:-}
+      VOICE_TELEPHONY_ADAPTERS: ${VOICE_TELEPHONY_ADAPTERS:-ws-raw}
+      # 告知语（6.2）：默认不播
+      VOICE_AI_DISCLOSURE: ${VOICE_AI_DISCLOSURE:-0}
+      # 留存（6.3）：脱敏文字记录默认开、30 天；原始音频默认不存，最长 7 天
+      VOICE_TRANSCRIPTS: ${VOICE_TRANSCRIPTS:-1}
+      VOICE_TRANSCRIPT_DAYS: ${VOICE_TRANSCRIPT_DAYS:-30}
+      KEEP_AUDIO: ${KEEP_AUDIO:-0}
+      KEEP_AUDIO_DAYS: ${KEEP_AUDIO_DAYS:-7}
+    # DATA_DIR=/data 固定指向命名卷 voice-data（留存文件在 /data/voice/{transcripts,audio}/），重建容器不丢
     volumes: [ "voice-data:/data", "voice-cache:/cache" ]
     mem_limit: ${VOICE_MEM_LIMIT:-700m}
     healthcheck:
@@ -55,8 +69,8 @@ services:
     <<: *common
     image: caddy:2-alpine
     environment:
-      LIVE_DOMAIN: ${LIVE_DOMAIN:-live.deepsuck.si}
-      ACME_EMAIL: ${ACME_EMAIL:-admin@deepsuck.si}
+      LIVE_DOMAIN: ${LIVE_DOMAIN:?在 deploy/.env 设置 LIVE_DOMAIN（你自己的域名）}
+      ACME_EMAIL: ${ACME_EMAIL:?在 deploy/.env 设置 ACME_EMAIL（证书邮箱）}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -72,7 +86,7 @@ services:
     command: >-
       -n --log-file=stdout --no-cli --no-tls --no-dtls --fingerprint
       --listening-port=3478 --min-port=${TURN_MIN_PORT:-49160} --max-port=${TURN_MAX_PORT:-49200}
-      --use-auth-secret --static-auth-secret=${TURN_SECRET} --realm=${LIVE_DOMAIN}
+      --use-auth-secret --static-auth-secret=${TURN_SECRET} --realm=${LIVE_DOMAIN:?}
       --external-ip=${VOICE_PUBLIC_IP}/${PRIVATE_IP}
       --allowed-peer-ip=${PRIVATE_IP} --denied-peer-ip=0.0.0.0-255.255.255.255
       --total-quota=${TURN_TOTAL_QUOTA:-6} --user-quota=2 --max-bps=${TURN_MAX_BPS:-200000} --stale-nonce=600
