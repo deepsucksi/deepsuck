@@ -19,7 +19,7 @@
 
 <p align="center"><a href="https://live.deepsuck.si/"><img src="screenshots/live-1280.webp" width="820" alt="语音演示页 live.deepsuck.si：通话、参考话术与实时看板"></a></p>
 
-DeepSuck 是 [apate.ai](https://apate.ai) 思路的开源中文实现：用会聊天的“潜在受害人”人设（王阿姨、李大爷、大学生小林）陪骗子周旋，慢慢回、反复确认、偶尔没听清，消耗骗子的时间；同时自动提取对方暴露的收款账户、钱包地址、电话、网址与话术模式，脱敏后形成结构化情报，用于预防与早期预警。
+DeepSuck 是一个开源的中文 AI 反诈“拖住”机器人：用会聊天的“潜在受害人”人设（王阿姨、李大爷、大学生小林）陪骗子周旋，慢慢回、反复确认、偶尔没听清，消耗骗子的时间；同时自动提取对方暴露的收款账户、钱包地址、电话、网址与话术模式，脱敏后形成结构化情报，用于预防与早期预警。
 
 ## 快速开始
 
@@ -97,7 +97,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 
 ## 致谢
 
-[pipecat-ai/pipecat](https://github.com/pipecat-ai/pipecat)、[pipecat-asterisk](https://github.com/NikolayShakin/pipecat-asterisk)、[callpilot](https://github.com/tianye1999/callpilot)、[scambuster](https://github.com/laugiov/scambuster)、[TeleAntiFraud](https://github.com/JimmyMa99/TeleAntiFraud)、[destroylist](https://github.com/phishdestroy/destroylist)、[Phishing.Database](https://github.com/Phishing-Database/Phishing.Database)、[OFAC 钱包地址](https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses)、[ScamSniffer](https://github.com/scamsniffer/scam-database)、[SmsForwarder](https://github.com/pppscn/SmsForwarder)，以及经典的 “Lenny” 电话机器人与 apate.ai。许可证以各项目为准。
+[pipecat-ai/pipecat](https://github.com/pipecat-ai/pipecat)、[pipecat-asterisk](https://github.com/NikolayShakin/pipecat-asterisk)、[callpilot](https://github.com/tianye1999/callpilot)、[scambuster](https://github.com/laugiov/scambuster)、[TeleAntiFraud](https://github.com/JimmyMa99/TeleAntiFraud)、[destroylist](https://github.com/phishdestroy/destroylist)、[Phishing.Database](https://github.com/Phishing-Database/Phishing.Database)、[OFAC 钱包地址](https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses)、[ScamSniffer](https://github.com/scamsniffer/scam-database)、[SmsForwarder](https://github.com/pppscn/SmsForwarder)，以及经典的 “Lenny” 电话机器人。许可证以各项目为准。
 
 ## 免责声明与许可证
 
