@@ -75,3 +75,26 @@ def test_lin_no_antifraud_class_line_and_li_no_phone_after_confirm():
                     confirms += 1
                     assert phone_ask not in r["text"], r["text"]
     assert confirms > 20
+
+
+def test_lin_no_cut_away_right_after_re_ask():
+    lin = next(p for p in PERSONAS if p["id"] == "lin")
+    for v in lin["templates"].values():
+        for t in v:
+            assert "反诈" not in (t if isinstance(t, str) else t["t"])
+    assert [p["id"] for p in PERSONAS if p.get("afterReAskAvoid")] == ["lin"]
+    cut = re.compile(lin["afterReAskAvoid"])
+    after = 0
+    for sc in SCENARIOS:
+        for seed in range(1, 41):
+            s = Session(sc["id"], "lin", rng=mulberry32(seed), now=lambda: 0)
+            s.opening()
+            prev = None
+            lines = list(sc["samples"]) + ["验证码发我", "快点操作", "你切回来看一下页面", "验证码收到没有", "额度多少你说"]
+            for line in lines + lines:
+                r = s.rule_reply(s.ingest(line))
+                if prev == "re_ask":
+                    after += 1
+                    assert not cut.search(r["text"]), r["text"]
+                prev = r["intent"]
+    assert after > 20

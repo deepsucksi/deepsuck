@@ -116,3 +116,25 @@ test('遗留修复：小林无“反诈课 PPT”句；李大爷 confirm_intel �
   }
   assert.ok(confirms > 20, String(confirms));
 });
+
+test('小林：无“反诈专员”句；说完“我在找”（re_ask）的下一轮不接切屏说法；其他人设没有 afterReAskAvoid', () => {
+  const C = require('../site/assets/core/personas.json');
+  const lin = C.personas.find((p) => p.id === 'lin');
+  for (const v of Object.values(lin.templates)) for (const t of v) assert.ok(!/反诈/.test(typeof t === 'string' ? t : t.t));
+  for (const t of lin.templates.re_ask) assert.ok(!/切出去|切回|切到|切屏/.test(typeof t === 'string' ? t : t.t));
+  assert.deepEqual(C.personas.filter((p) => p.afterReAskAvoid).map((p) => p.id), ['lin']);
+  const CUT = new RegExp(lin.afterReAskAvoid);
+  let after = 0;
+  for (const sc of S.SCENARIOS) for (let seed = 1; seed <= 40; seed++) {
+    const s = new E.Session({ scenario: sc.id, persona: 'lin', rng: H.mulberry32(seed) });
+    s.opening();
+    let prev = null;
+    const lines = sc.samples.concat(['验证码发我', '快点操作', '你切回来看一下页面', '验证码收到没有', '额度多少你说']);
+    for (const l of lines.concat(lines)) {
+      const r = s.ruleReply(s.ingest(l));
+      if (prev === 're_ask') { after++; assert.ok(!CUT.test(r.text), r.text); }
+      prev = r.intent;
+    }
+  }
+  assert.ok(after > 20, String(after));
+});

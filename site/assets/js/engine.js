@@ -61,7 +61,12 @@
     var list = this.templateList(intent);
     ctx = String(ctx || '');
     var used = this.used[intent] = this.used[intent] || [];
-    function ok(i) { var it = list[i]; return typeof it === 'string' || (it.re && it.re.test(ctx)); }
+    var avoid = this.avoidRe;
+    function ok(i) {
+      var it = list[i];
+      if (avoid && avoid.test(typeof it === 'string' ? it : it.t)) return false;
+      return typeof it === 'string' || (it.re && it.re.test(ctx));
+    }
     var avail = [], ctxHits = [];
     for (var i = 0; i < list.length; i++) {
       if (!ok(i)) continue;
@@ -295,6 +300,7 @@
   /** 规则引擎回复 */
   Session.prototype.ruleReply = function (analysis) {
     var self = this;
+    var prevIntent = this.lastIntent;
     var intent = this.freshIntent(this.chooseIntent(analysis));
     if (PURE_STALL.indexOf(intent) >= 0 && PURE_STALL.indexOf(this.lastIntent) >= 0 && this.persona.templates.coop_step) intent = 'coop_step';
     // 同一场已经要过的情报不再直接索要，改成"我在找"（re_ask）
@@ -314,7 +320,11 @@
       vars.ask = (g0 && !skip && !this.asked[g0] && this.persona.asks[g0]) || this.persona.asks.none;
       if (g0 && !skip) this.asked[g0] = true;
     }
+    // afterReAskAvoid：刚说完"我在找"（re_ask）的下一轮不接这些说法（如小林"切出去了"，连着说像找借口拖）
+    var av = this.persona.afterReAskAvoid;
+    this.avoidRe = av && prevIntent === 're_ask' ? new RegExp(av) : null;
     var text = this.fill(this.pick(intent, analysis.redacted), vars);
+    this.avoidRe = null;
     return this.recordBot(text, intent);
   };
 

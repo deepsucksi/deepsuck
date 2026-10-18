@@ -119,8 +119,12 @@ class Session:
         ctx = str(ctx or "")
         used = self.used.setdefault(intent, [])
 
+        avoid = getattr(self, "avoid_re", None)
+
         def ok(i):
             it = lst[i]
+            if avoid is not None and avoid.search(it if isinstance(it, str) else it["t"]):
+                return False
             return isinstance(it, str) or bool(it["re"].search(ctx))
 
         avail, ctx_hits = [], []
@@ -325,6 +329,7 @@ class Session:
                  .replace("{s}", s).replace("{label}", item["label"]))
 
     def rule_reply(self, analysis: dict) -> dict:
+        prev_intent = self.last_intent
         intent = self.fresh_intent(self.choose_intent(analysis))
         if (intent in self.PURE_STALL and self.last_intent in self.PURE_STALL
                 and self.persona["templates"].get("coop_step")):
@@ -347,7 +352,11 @@ class Session:
             vars["ask"] = (asks.get(g0) if g0 and not skip and not self.asked.get(g0) else None) or asks["none"]
             if g0 and not skip:
                 self.asked[g0] = True
+        # afterReAskAvoid：刚说完"我在找"（re_ask）的下一轮不接这些说法（如小林"切出去了"，连着说像找借口拖）
+        av = self.persona.get("afterReAskAvoid")
+        self.avoid_re = re.compile(av) if av and prev_intent == "re_ask" else None
         text = self.fill(self.pick(intent, analysis["redacted"]), vars)
+        self.avoid_re = None
         return self.record_bot(text, intent)
 
     def reply(self, raw_text: str) -> dict:
