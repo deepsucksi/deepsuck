@@ -77,8 +77,10 @@ CACHE_DIR = ROOT / "eval" / ".llm-scammer-cache"
 LINES_PER_PHASE = 2
 PHASES = ("opening", "trust", "pressure", "request", "payout")
 PHASE_NAME = {"opening": "开场", "trust": "建立信任", "pressure": "施压", "request": "索要", "payout": "收款指令"}
-# 模拟器人设 → humanize 预设
-HUMANIZE_PROFILE = {"wang": "retiree", "li": "retiree", "lin": "graduate"}
+# 模拟器人设 → humanize 预设（personas.json 里每个人设的 humanize 字段：王阿姨、李大爷基于 retiree，小林基于 graduate）
+HUMANIZE_PROFILE = {"wang": "wang", "li": "li", "lin": "lin"}
+# 命令行覆盖（--handwriting / --typo-rate），按人设：{"wang": {"handwriting": True, "typo_per_100": 3.5}}
+HUMANIZE_OVERRIDES: Dict[str, dict] = {}
 SUSPICIOUS = ("bot", "trolling")
 CATEGORIES = {
     "repetition": "重复：同一句话或同一套说辞反复出现",
@@ -331,7 +333,8 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
     sysmsg = system_prompt(corpus, scenario, values, kinds, seed)
     params = params_for(model, session_seed(scenario, persona, seed))
     s = Session(scenario, persona, rng=mulberry32(seed ^ 0x5EED), now=lambda: 0)
-    hum = Humanizer(profile=HUMANIZE_PROFILE.get(persona, "graduate"), seed=seed ^ 0x4855) if humanize else None
+    hum = (Humanizer(profile=HUMANIZE_PROFILE.get(persona, "lin"), seed=seed ^ 0x4855, **HUMANIZE_OVERRIDES.get(persona, {}))
+           if humanize else None)
     first = s.opening()
     bot_text = hum.apply(first["text"]).text if hum else first["text"]
     messages = [{"role": "system", "content": sysmsg}, {"role": "user", "content": bot_text}]
@@ -366,7 +369,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
         messages.append({"role": "assistant", "content": json.dumps({"say": say, "action": "continue"}, ensure_ascii=False)})
         log.append({"role": "scammer", "text": say})
         r = s.rule_reply(s.ingest(say))
-        h = hum.apply(r["text"], context=say) if hum else None
+        h = hum.apply(r["text"], context=say, intent=r["intent"]) if hum else None
         text = h.text if h else r["text"]
         is_dup, g = text in seen, SIM._bigrams(text)
         dup += is_dup
@@ -448,7 +451,8 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
     if est_cost > max_cost:
         raise BudgetError(f"估算费用 {est_cost:.4f} 元超过上限 {max_cost} 元，拒绝运行；请减少 --seeds / --max-turns / 场景或人设")
     config = {"model": model, "seeds": seeds, "maxTurns": max_turns, "scenarios": scenarios, "personas": personas,
-              "humanize": {p: HUMANIZE_PROFILE.get(p, "graduate") for p in personas} if humanize else None,
+              "humanize": {p: HUMANIZE_PROFILE.get(p, "lin") for p in personas} if humanize else None,
+              "humanizeOverrides": {p: HUMANIZE_OVERRIDES[p] for p in personas if p in HUMANIZE_OVERRIDES} or None,
               "temperature": TEMPERATURE, "promptVersion": PROMPT_VERSION, "linesPerPhase": LINES_PER_PHASE}
     result = {"config": config, "date": date.today().isoformat(), "estimate": estimate, "dry_run": dry_run}
     if dry_run:
@@ -583,12 +587,20 @@ def main(argv=None) -> int:
     ap.add_argument("--max-cost", type=float, default=HARD_MAX_COST_CNY, help="费用上限（元），只能调低，硬上限 3 元")
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--no-humanize", action="store_true")
+    ap.add_argument("--handwriting", default="", help="逗号分隔的人设：打开 humanize 手写输入档（错字密度改用 handwritingTypoPer100）")
+    ap.add_argument("--typo-rate", default="", help="覆盖每百字错字目标，如 wang=2.5,li=2.0")
     ap.add_argument("--refresh", action="store_true", help="忽略缓存重新请求")
     ap.add_argument("--no-rule-baseline", action="store_true", help="不跑同条件的规则骗子对照")
     ap.add_argument("--json", default=None, help="结果（聚合 + 每场挂断信息，不含对话全文）")
     ap.add_argument("--transcripts", default=None, help="可选：对话全文 JSONL（虚构值，建议不入库）")
     ap.add_argument("--md", default=None)
     a = ap.parse_args(argv)
+    HUMANIZE_OVERRIDES.clear()
+    for pid in [x for x in a.handwriting.split(",") if x.strip()]:
+        HUMANIZE_OVERRIDES.setdefault(pid.strip(), {})["handwriting"] = True
+    for kv in [x for x in a.typo_rate.split(",") if x.strip()]:
+        pid, v = kv.split("=")
+        HUMANIZE_OVERRIDES.setdefault(pid.strip(), {})["typo_per_100"] = float(v)
     sc = a.scenarios.split(",") if a.scenarios else None
     ps = a.personas.split(",") if a.personas else None
     try:

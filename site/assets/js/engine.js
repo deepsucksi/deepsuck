@@ -44,6 +44,7 @@
     this.used = {};          // 模板去重
     this.estSeconds = 0;     // 估算骗子耗费的时间
     this.turn = 0;
+    this.asked = {}; // 本场已经索要过的情报目标（bank / url / phone / wallet / name）
     // 最近几个骗子回合的原文（只在内存里，用于跨回合拼接；不进 report）
     Object.defineProperty(this, 'recentTurns', { value: [], writable: true, enumerable: false });
     Object.defineProperty(this, 'recentPicks', { value: [], writable: true, enumerable: false }); // 近 RECENT_N 次选中的台词（近期去重）
@@ -96,6 +97,7 @@
   // 另外同一意图最近 floor(可用台词数 / 2) 次选过的也不选（池子越大窗口越大，用完一轮重置后不会马上回到刚说过的）
   var RECENT_N = 8;
   // 纯拖延意图：同一场不连续两轮都用纯拖延，第二轮换成"小步配合"（coop_step）——看起来在配合、卡在某一步、问具体操作
+  var ELICIT_GOAL = { elicit_account: 'bank', elicit_url: 'url', elicit_contact: 'phone', elicit_wallet: 'wallet' };
   var PURE_STALL = ['otp_stall', 'urgency_stall', 'tech_trouble', 'slow_walk', 'ask_repeat', 'misunderstand', 'info_stall', 'generic'];
   var DIGIT_TYPES = ['bank_card', 'phone', 'alipay', 'qq'];
   /** 把尾号报错一位（让对方纠正）：末两位不同则对调，否则末位 +1 */
@@ -283,12 +285,20 @@
     var self = this;
     var intent = this.freshIntent(this.chooseIntent(analysis));
     if (PURE_STALL.indexOf(intent) >= 0 && PURE_STALL.indexOf(this.lastIntent) >= 0 && this.persona.templates.coop_step) intent = 'coop_step';
+    // 同一场已经要过的情报不再直接索要，改成"我在找"（re_ask）
+    var goal = ELICIT_GOAL[intent];
+    if (goal) {
+      if (this.asked[goal] && this.persona.templates.re_ask) intent = 're_ask';
+      this.asked[goal] = true;
+    }
     this.lastIntent = intent;
     var vars = {};
     if (intent === 'confirm_intel') {
       vars.intel = this.lastNew.map(function (i) { return self.speakIntel(i); }).join('，');
       var missing = this.missingGoals();
-      vars.ask = this.persona.asks[missing[0]] || this.persona.asks.none;
+      var g0 = missing[0];
+      vars.ask = (g0 && !this.asked[g0] && this.persona.asks[g0]) || this.persona.asks.none;
+      if (g0) this.asked[g0] = true;
     }
     var text = this.fill(this.pick(intent, analysis.redacted), vars);
     return this.recordBot(text, intent);

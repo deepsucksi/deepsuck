@@ -215,6 +215,8 @@ def build() -> dict:
     for k, rw in enumerate(REWRITES):
         seed = BASE_SEED + k
         victim = Humanizer(profile=rw["persona"], seed=seed, keep=KEEP)
+        # 首页每条气泡 ≤40 字、每段 4–6 条：不拆条、不跑题，也不追加报年龄 / 道歉 / 收尾（这些在真实对话里按场计次）
+        victim.ops -= {"split", "extras", "digress"}
         scammer = Humanizer(seed=seed + 1000, keep=KEEP, **SCAMMER_HUMANIZE)
         after, trace, last_r = [], [], ""
         for line in rw["lines"]:
@@ -225,6 +227,12 @@ def build() -> dict:
                 last_r = line["r"]
             else:
                 res = victim.apply(line["s"], context=last_r)
+                alt = 1
+                while len(res.text) > MAX_CHARS and alt <= 50:  # 超长时换个确定的种子重做这一条（首页气泡限长）
+                    h2 = Humanizer(profile=rw["persona"], seed=seed * 100 + alt, keep=KEEP)
+                    h2.ops = set(victim.ops)
+                    res = h2.apply(line["s"], context=last_r)
+                    alt += 1
                 new["s"] = res.text
             after.append(new)
             trace.append(res.ops)

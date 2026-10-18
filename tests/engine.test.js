@@ -111,3 +111,36 @@ test('验证码拖延句池 ≥16，按池大小自适应的去重窗口', () =>
     picks.forEach((x, i) => assert.ok(picks.slice(Math.max(0, i - w), i).indexOf(x) < 0, persona + ' ' + i));
   }
 });
+
+test('coop_step：骗子没提表格时不出“身份证 / 表单”句；界面细节只在骗子给出操作指令后', () => {
+  const FORM = /表格|表单|证件类型|填在哪一栏|填哪儿|要填哪几栏|姓名写上|姓名填好/;
+  const UI = /按钮|页面|屏幕|右下角|图标|下拉框|绿色的勾|请稍候|请核对信息|首页有|"收款人"|"用途"|会议号|实时到账|允许安装|百分之/;
+  for (const persona of ['wang', 'li', 'lin']) {
+    const s = new E.Session({ scenario: 'police', persona, rng: seeded(5) });
+    for (let i = 0; i < 80; i++) {
+      const t = s.pick('coop_step', ['请提供一下您的个人信息', '你的资料我这边要核实', '你的账户涉嫌转账洗钱', '我们的APP很安全', '你配合一下调查'][i % 5]);
+      assert.ok(!FORM.test(t), persona + ' ' + t);
+      assert.ok(!UI.test(t), persona + ' ' + t);
+    }
+    const s2 = new E.Session({ scenario: 'police', persona, rng: seeded(5) });
+    const got = [];
+    for (let i = 0; i < 40; i++) got.push(s2.pick('coop_step', '你先打开手机银行，点转账，然后填写这张表格'));
+    assert.ok(got.some((t) => UI.test(t) || FORM.test(t)), persona);
+  }
+});
+
+test('同一场已经要过账户 / 网址：再要时改成“我在找”（re_ask）', () => {
+  for (const persona of ['wang', 'li', 'lin']) {
+    const s = new E.Session({ scenario: 'police', persona, rng: seeded(2) });
+    s.opening();
+    const intents = [], texts = [];
+    for (const l of ['把钱转到安全账户', '你听不懂吗', '马上转账到安全账户', '转账，快点', '下载我们的APP', '下载APP啊', '怎么还没下载']) {
+      const r = s.ruleReply(s.ingest(l));
+      intents.push(r.intent); texts.push(r.text);
+    }
+    assert.equal(intents.filter((x) => x === 'elicit_account').length, 1, persona + intents);
+    assert.ok(intents.filter((x) => x === 'elicit_url').length <= 1, persona + intents);
+    assert.ok(intents.indexOf('re_ask') >= 0, persona + intents);
+    texts.forEach((t, i) => { if (intents[i] === 're_ask') assert.ok(t.indexOf('在找') >= 0, t); });
+  }
+});

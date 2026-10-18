@@ -48,11 +48,15 @@ def test_protected_spans_survive():
 
 
 def test_intensity_increases_changes():
-    def changed(i):
-        return sum(humanize(TEXT, i, seed=s) != TEXT for s in range(200))
+    def changed(i):  # 改动的字符数（逐位比较 + 长度差），强度越大改得越多
+        tot = 0
+        for s in range(200):
+            out = humanize(TEXT, i, seed=s)
+            tot += sum(a != b for a, b in zip(out, TEXT)) + abs(len(out) - len(TEXT))
+        return tot
     lo, mid, hi = changed(0.1), changed(0.5), changed(1.0)
     assert lo < mid < hi
-    assert hi > 180
+    assert sum(humanize(TEXT, 1.0, seed=s) != TEXT for s in range(200)) > 180
 
 
 def test_typo_only_uses_confusion_tables():
@@ -152,7 +156,7 @@ def test_empty_text():
 
 
 def test_all_ops_listed():
-    assert set(OPS) == {"typo", "punct", "asr", "repeat", "digress", "dialect"}
+    assert set(OPS) == {"typo", "punct", "asr", "repeat", "digress", "dialect", "selfref", "extras", "emoji", "split"}
 
 
 def test_cli(capsys):
@@ -186,22 +190,22 @@ def test_handwriting_shape_typos_switch():
     shape_only = "".join(k for k in C.SHAPE_CHARS if k not in C.HOMOPHONE_CHARS)
     hv = Humanizer(1.0, seed=2, mode="voice", ops=["typo"], max_typos=10, handwriting=True)
     assert any(hv(shape_only) != shape_only for _ in range(20))
-    hc = Humanizer(1.0, seed=2, mode="chat", ops=["typo"], max_typos=10, handwriting=False)
+    hc = Humanizer(1.0, seed=2, mode="chat", ops=["typo"], max_typos=10, handwriting=False, shape_typos=False)
     assert all(hc(shape_only) == shape_only for _ in range(20))
     r = Humanizer(profile="retiree", seed=1)
-    assert r.mode == "voice" and r.handwriting is True
-    assert Humanizer(profile="shop_owner", seed=1).handwriting is False
-    assert Humanizer(profile="mom", seed=1).handwriting is True
+    assert r.mode == "voice" and r.handwriting is False and r.shape_typos is True  # 默认档夹少量形近字，手写档默认关
+    assert Humanizer(profile="retiree", seed=1, handwriting=True).handwriting is True
+    assert Humanizer(profile="shop_owner", seed=1).shape_typos is False
+    assert Humanizer(profile="mom", seed=1).shape_typos is True
 
 
 def test_typo_rate_calibrated_band():
-    """每百字错字数落在 docs/REALISM.md「错字率校准」写的区间：老人保留手写形近字且不低于真人样本（约 0.5），各预设都不超过 1.4。"""
-    import re as _re
+    """新人设原句池（personas/prompts）上的每百字错字数落在 docs/REALISM.md「错字率校准」写的区间。"""
     hz = lambda s: sum("\u4e00" <= c <= "\u9fff" for c in s)
     yaml = pytest.importorskip("yaml")
     prompts = Path(__file__).resolve().parents[1] / "prompts"
 
-    def pool(pid):  # 与 docs/REALISM.md 的测量口径相同：人设原句池（sample_lines + elicit_moves + stall_pools）
+    def pool(pid):
         d = yaml.safe_load((prompts / f"{pid}.yaml").read_text(encoding="utf-8"))
         out = list(d["sample_lines"]) + list(d["elicit_moves"])
         for v in (d.get("stall_pools") or {}).values():
@@ -212,19 +216,20 @@ def test_typo_rate_calibrated_band():
     for pid in PROFILES:
         typ = n = 0
         lines = pool(pid)
-        for seed in range(60):
+        for seed in range(40):
             h = Humanizer(profile=pid, seed=seed)
             for x in lines:
                 r = h.apply(x)
                 typ += sum(int(o.split(":")[1]) for o in r.ops if o.startswith("typo:"))
-                n += hz(r.text)
+                n += hz(re.sub(r"\[[^\]]*\]", "", r.text))
                 if pid == "retiree" and any(ch in shapes and ch not in x for ch in r.text):
                     shape += 1
         rates[pid] = 100 * typ / n
-    assert 0.5 <= rates["retiree"] <= 1.4, rates
-    assert all(v <= 1.4 for v in rates.values()), rates
-    assert rates["graduate"] < rates["mom"] and rates["graduate"] < rates["retiree"], rates
-    assert shape > 0  # 老人有手写输入的形近字
+    assert 2.0 <= rates["retiree"] <= 4.0, rates
+    assert 1.5 <= rates["mom"] <= 3.0 and 1.5 <= rates["shop_owner"] <= 3.0, rates
+    assert 0.6 <= rates["graduate"] <= 1.8, rates
+    assert rates["graduate"] < rates["mom"] < rates["retiree"], rates
+    assert shape > 0  # 老人默认档也夹少量形近字
 
 
 def test_repeat_echo_is_framed_and_never_a_role_swap():

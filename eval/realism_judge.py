@@ -45,7 +45,7 @@ DEFAULT_PAIRS = 60
 DEFAULT_BATCH = 10
 DEFAULT_SEED = 1
 PROMPT_VERSION = "judge-v1"          # 批量模式（提示词与 76cef8b 相同，旧缓存仍可命中）
-PROMPT_VERSION_ITEM = "judge-v2-item"
+PROMPT_VERSION_ITEM = "judge-v3-item"      # v3：说明回复里的“／”是分成几条连发的消息
 MODES = ("item", "batch")
 DEFAULT_MODE = "item"
 CACHE_DIR = ROOT / "eval" / ".judge-cache"
@@ -69,7 +69,8 @@ SYSTEM_PROMPT = (
 
 SYSTEM_PROMPT_ITEM = (
     "你在做一项盲测评审。题目是一条诈骗分子发来的消息，以及对方的一条回复。"
-    "回复有的是真人随手打的，有的是聊天机器人生成的，比例未知。请判断这条回复是真人还是机器人。\n"
+    "回复有的是真人随手打的，有的是聊天机器人生成的，比例未知。请判断这条回复是真人还是机器人。"
+    "回复里的“／”表示对方把话分成几条消息连着发。\n"
     "给出：\n"
     "- bot：你认为回复是机器人写的填 1，真人写的填 0；\n"
     "- human：像真人随手发的程度，1–5 的整数（1 = 一看就是机器，5 = 完全像真人）；\n"
@@ -77,6 +78,11 @@ SYSTEM_PROMPT_ITEM = (
     "- reason：不超过 20 个字的理由。\n"
     "只输出一个 JSON 对象，格式：{\"bot\": 0, \"human\": 3, \"unreadable\": 0, \"reason\": \"...\"}，不要输出其他文字。"
 )
+
+
+def _one_line(reply: str) -> str:
+    """拆成几条发的回复（humanize 用换行分开）在题面上写成一行，用“／”分隔。"""
+    return " ／ ".join(x.strip() for x in str(reply).splitlines() if x.strip())
 
 
 def system_prompt(mode: str = "batch") -> str:
@@ -165,10 +171,10 @@ def make_batches(items: Dict[str, List[dict]], batch_size: int = DEFAULT_BATCH) 
 def user_prompt(batch: List[dict], mode: str = "batch") -> str:
     if mode == "item":
         it = batch[0]  # 逐题：不带题号，评委不知道这份表还有其他题
-        return f"诈骗消息：{it['scammer']}\n回复：{it['reply']}\n"
+        return f"诈骗消息：{it['scammer']}\n回复：{_one_line(it['reply'])}\n"
     lines = [f"共 {len(batch)} 道题：", ""]
     for it in batch:
-        lines += [f"[{it['id']}]", f"诈骗消息：{it['scammer']}", f"回复：{it['reply']}", ""]
+        lines += [f"[{it['id']}]", f"诈骗消息：{it['scammer']}", f"回复：{_one_line(it['reply'])}", ""]
     return "\n".join(lines).rstrip() + "\n"
 
 

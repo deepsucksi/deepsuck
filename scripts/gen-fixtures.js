@@ -18,6 +18,7 @@ const P = require('../site/assets/js/personas.js');
 const { mulberry32 } = require('./lib/rng.js');
 const BL = require('../site/assets/js/blocklist.js');
 const CB = require('../site/assets/js/cardbin.js');
+const HZ = require('../site/assets/js/humanize.js');
 
 const DIR = path.join(__dirname, '..', 'tests', 'fixtures');
 const HEADER = '由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。';
@@ -86,6 +87,41 @@ for (const sc of S.SCENARIOS) for (const p of P.PERSONAS) SESSIONS.push({ scenar
 SESSIONS.push({ scenario: 'police', persona: 'wang', seed: 11, lines: ['把钱转到卡号 六二二二 零二零二 零零一一', '呃 二二三三 四四五，户名王某某', '有事打 一三九 零零一一', '二二三三', '记住了吗'] });
 SESSIONS.push({ scenario: 'police', persona: 'li', seed: 7, lines: ['我是公安局的', '你涉嫌洗钱', '马上把验证码发我', '不要告诉任何人', '转到安全账户', '你听不懂吗？', '快点', '再不配合就逮捕你'] });
 
+// ---- 真人化（humanize）：JS 与 Python personas/humanize 逐字一致（一个实例 = 一场对话，按顺序调用） ----
+const HZ_DIGIT_LINES = ['好的，卡号尾号3454对吧？我记下了。', '你说转5000块到6222020200112233445是吧，我找找笔。', '那个网址 refund-tb.example 我打不开啊，你再发一遍？',
+  '地址 TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe 太长了，我抄不下来。', '电话139****2233是你们的吗？我已经知道了。', '我只有两千块，转一千块行不行？', '{call}，我在派出所门口，马上去银行网点。'];
+function hzLines(pid) {
+  const p = P.PERSONAS.find((x) => x.id === pid) || P.PERSONAS[0];
+  const out = [];
+  for (const k of ['generic', 'otp_stall', 'coop_step', 'fake_progress', 'scared', 'tech_trouble', 'slow_walk', 'info_stall']) {
+    p.templates[k].slice(0, 2).forEach((t) => out.push([typeof t === 'string' ? t : t.t, k]));
+  }
+  return out.concat(HZ_DIGIT_LINES.map((t) => [t, null]));
+}
+function buildHumanize() {
+  const ctxs = S.SCENARIOS.map((sc) => sc.samples).reduce((a, b) => a.concat(b), []);
+  const configs = [];
+  for (const prof of ['retiree', 'mom', 'graduate', 'shop_owner', 'wang', 'li', 'lin']) {
+    for (const hw of [false, true]) configs.push({ profile: prof, handwriting: hw });
+  }
+  configs.push({ intensity: 0.5 }, { intensity: 1.0, mode: 'voice', dialect: '西南' }, { intensity: 0.8, mode: 'chat', dialect: '东北', keep: ['周伯'] },
+    { intensity: 1.0, ops: ['punct'] }, { intensity: 0.6, typoPer100: 8, punctStyle: 'none' });
+  const cases = [];
+  configs.forEach((cfg, ci) => {
+    for (const sd of [1, 2]) {
+      const pid = ['wang', 'li', 'lin'].indexOf(cfg.profile) >= 0 ? cfg.profile : (ci % 3 === 0 ? 'wang' : ci % 3 === 1 ? 'li' : 'lin');
+      const h = new HZ.Humanizer(Object.assign({}, cfg, { seed: sd * 7919 + ci }));
+      const turns = hzLines(pid).map(([t, intent], i) => {
+        const ctx = ctxs[(i * 5 + sd + ci) % ctxs.length];
+        const r = h.apply(t, ctx, intent);
+        return { input: t, context: ctx, intent: intent, text: r.text, ops: r.ops };
+      });
+      cases.push({ config: cfg, seed: sd * 7919 + ci, turns: turns, typoMap: h.typoMap });
+    }
+  });
+  return { comment: HEADER, cases: cases };
+}
+
 // ---- 生成 ----
 function pickEntity(e) {
   const o = { type: e.type, value: e.value, masked: e.masked, start: e.start, end: e.end, sensitive: e.sensitive, meta: e.meta };
@@ -150,6 +186,7 @@ function build() {
       '6230 5200 1234 5678 901', '1234567890123456', '62220212', '', '4033611234567890', '6222021234']
       .map((input) => ({ input, expected: CB.lookup(input) }))
   };
+  out.humanize = buildHumanize();
   return out;
 }
 

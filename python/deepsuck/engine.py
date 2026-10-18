@@ -73,6 +73,7 @@ class Session:
         self.used: dict = {}
         self.est_seconds = 0
         self.turn = 0
+        self.asked: dict = {}  # 本场已经索要过的情报目标（bank / url / phone / wallet / name）
         self.last_intent = None
         self._recent_picks: list = []  # 近 RECENT_N 次选中的台词（近期去重）
         self._recent: list = []  # 最近几个骗子回合的原文（只在内存里，用于跨回合拼接；不进 report）
@@ -87,6 +88,7 @@ class Session:
     # 另外同一意图最近 floor(可用台词数 / 2) 次选过的也不选（池子越大窗口越大，用完一轮重置后不会马上回到刚说过的）
     RECENT_N = 8
     # 纯拖延意图：同一场不连续两轮都用纯拖延，第二轮换成"小步配合"（coop_step）——看起来在配合、卡在某一步、问具体操作
+    ELICIT_GOAL = {"elicit_account": "bank", "elicit_url": "url", "elicit_contact": "phone", "elicit_wallet": "wallet"}
     PURE_STALL = ["otp_stall", "urgency_stall", "tech_trouble", "slow_walk", "ask_repeat", "misunderstand", "info_stall",
                   "generic"]
 
@@ -316,13 +318,22 @@ class Session:
         if (intent in self.PURE_STALL and self.last_intent in self.PURE_STALL
                 and self.persona["templates"].get("coop_step")):
             intent = "coop_step"
+        # 同一场已经要过的情报不再直接索要，改成"我在找"（re_ask）
+        goal = self.ELICIT_GOAL.get(intent)
+        if goal:
+            if self.asked.get(goal) and self.persona["templates"].get("re_ask"):
+                intent = "re_ask"
+            self.asked[goal] = True
         self.last_intent = intent
         vars = {}
         if intent == "confirm_intel":
             vars["intel"] = "，".join(self.speak_intel(i, raw) for i, raw in self._last_new)
             missing = self.missing_goals()
             asks = self.persona["asks"]
-            vars["ask"] = (asks.get(missing[0]) if missing else None) or asks["none"]
+            g0 = missing[0] if missing else None
+            vars["ask"] = (asks.get(g0) if g0 and not self.asked.get(g0) else None) or asks["none"]
+            if g0:
+                self.asked[g0] = True
         text = self.fill(self.pick(intent, analysis["redacted"]), vars)
         return self.record_bot(text, intent)
 

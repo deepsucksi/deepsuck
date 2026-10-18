@@ -2,7 +2,8 @@
 """从 personas/humanize/confusion.py（语料与人设维护的混淆表，只读）生成提取器 / 分类器用的关键词错别字归一化表，
 写入 site/assets/core/extractors.json 的 obfuscation.typoKeywords（错写 → 正写，等长，JS 与 Python 共用）。
 
-不另写一套混淆表：同音整词（HOMOPHONE_WORDS）、同音单字（HOMOPHONE_CHARS）、形近字（SHAPE_CHARS）全部来自 personas。
+不另写一套混淆表：同音整词（HOMOPHONE_WORDS、COMMON_WORDS、PLACE_WORDS）、同音单字（HOMOPHONE_CHARS）、形近字（SHAPE_CHARS、
+手写档的 HANDWRITING_CHARS）全部来自 personas（数据在 site/assets/core/personas.json 的 humanize.confusion）。
 词表 = 提取器规则里的中文关键词 + tactics.json 话术规则里的纯中文字面词。只收：
   - 与正写等长（保证规范化前后位置一一对应，脱敏区间不变）；
   - 错写本身不是词表里的另一个词；同一个错写对应多个正写时丢弃。
@@ -54,13 +55,13 @@ def build() -> dict:
     vs = set(vocab)
     cand: dict = {}
     for v in vocab:
-        for w, alts in C.HOMOPHONE_WORDS.items():
+        for w, alts in list(C.HOMOPHONE_WORDS.items()) + list(C.COMMON_WORDS.items()) + list(C.PLACE_WORDS.items()):
             if w in v:
                 for a in alts:
                     if len(a) == len(w):
                         cand.setdefault(v.replace(w, a), set()).add(v)
         for i, ch in enumerate(v):
-            for a in list(C.HOMOPHONE_CHARS.get(ch, ())) + list(C.SHAPE_CHARS.get(ch, ())):
+            for a in list(C.HOMOPHONE_CHARS.get(ch, ())) + list(C.SHAPE_CHARS.get(ch, ())) + list(C.HANDWRITING_CHARS.get(ch, ())):
                 if len(a) == 1 and not (len(v) <= 2 and (ch in PARTICLES or a in PARTICLES)):
                     cand.setdefault(v[:i] + a + v[i + 1:], set()).add(v)
     out = {}

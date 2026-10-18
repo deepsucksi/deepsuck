@@ -5,7 +5,7 @@ import argparse
 import json
 import sys
 
-from . import PROFILES, Humanizer
+from . import PERSONA_PROFILES, PROFILES, Humanizer
 from .confusion import DIALECT
 
 
@@ -16,16 +16,18 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--mode", choices=["chat", "voice"], default=None)
     ap.add_argument("--dialect", choices=sorted(DIALECT), default=None)
-    ap.add_argument("--profile", choices=sorted(PROFILES), default=None)
+    ap.add_argument("--profile", choices=sorted(PROFILES) + sorted(PERSONA_PROFILES), default=None)
+    ap.add_argument("--handwriting", action="store_true", help="手写输入档（错字密度用 handwritingTypoPer100）")
+    ap.add_argument("--intent", default=None, help="规则引擎意图（配合类不接跑题句）")
     ap.add_argument("--context", default=None, help="对方上一条消息（用于重复确认）")
     ap.add_argument("-n", type=int, default=1, help="同一条文本生成几个变体")
     ap.add_argument("--json", action="store_true", help="输出 JSON（含生效的操作）")
     a = ap.parse_args(argv)
-    h = Humanizer(a.intensity, a.seed, mode=a.mode, dialect=a.dialect, profile=a.profile)
+    h = Humanizer(a.intensity, a.seed, mode=a.mode, dialect=a.dialect, profile=a.profile, handwriting=a.handwriting or None)
     lines = [a.text] if a.text is not None else [x.rstrip("\n") for x in sys.stdin]
     for line in lines:
         for _ in range(a.n):
-            r = h.apply(line, a.context)
+            r = h.apply(line, a.context, a.intent)
             print(json.dumps({"text": r.text, "ops": r.ops}, ensure_ascii=False) if a.json else r.text)
     return 0
 
