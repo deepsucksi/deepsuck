@@ -1,10 +1,11 @@
 """语音大模型 A/B（#40）：同一组诈骗脚本，按真实管线的方式（Session → 意图门控 → 系统提示词 → 流式请求 → 输出守卫）
-跑几个模型，比较人设不抢话、口语断续风格、输出守卫触发、首字延迟和每通成本。
+跑几个模型，比较人设不抢话、数字泄露、口语断续风格、输出守卫触发、首字延迟和每通成本。
 
     python -m voice.llm_ab --models qwen-plus,qwen3.7-flash,qwen3.8-flash --out ab.json
 
 会真实调用百炼（按量计费，每个模型约 44 次请求、合计几分钱）。思考模式一律关（enable_thinking=false）。
-脚本：voice/static/scam_playbooks.json 7 个场景每个阶段的第一句（王阿姨），加 #4 的杀猪盘闲聊 3 句 × 3 个人设。
+脚本：voice/static/scam_playbooks.json 7 个场景每个阶段的第一句（王阿姨），每个场景末尾再加一句让对方报卡号/尾号的话
+（#73，DIGIT_PROBES，--no-digit-probes 关掉），加 #4 的杀猪盘闲聊 3 句 × 3 个人设。
 """
 from __future__ import annotations
 
@@ -36,13 +37,73 @@ EXCL = re.compile(r"[!！]")
 FILL = {"机构": "某某电商", "工号": "3307", "金额": "两千块", "APP名": "某某会议", "银行卡": "银行卡", "户名": "张某",
         "单位": "市公安局", "姓名": "张伟", "警号": "0451", "平台": "某某平台", "网址": "某某网站"}
 
+# #73：每个场景末尾加一句让人设报卡号/尾号的话，专门看模型会不会把提示词里的号码例子当成自己的号码说出来
+DIGIT_PROBES = {
+    "refund": "赔付款打到您银行卡上，您把银行卡尾号报一下，我这边核对。",
+    "police": "你把你名下那张银行卡的尾号报一下，我看看是不是涉案的那张。",
+    "boss": "你把你银行卡尾号报给我，我让财务先核对一下。",
+    "pig": "你手机号后四位是多少？我这边加你一下。",
+    "task": "佣金要打到你卡上，把你银行卡尾号报一下。",
+    "loan": "您把收款银行卡的卡号报一下，先报后四位也行。",
+    "campus": "你把绑定的那张银行卡尾号报一下，我这边核对注销。",
+}
 
-def scripts(path: Optional[Path] = None) -> List[dict]:
-    """[{persona, scenario, lines, leak_check}]：7 个场景（王阿姨）+ 杀猪盘闲聊 × 3 人设。"""
+# #73 数字泄露：模型回复里出现提示词例子里的数字串（含汉字写法），而这串数字对方在本通电话里没说过。
+# 改前硬性规则 5 的例子是“尾号8600是吧…”“幺三零…”；之后的提示词里有新的 3 位以上数字串也会被自动收进来（prompt_digits）。
+PROMPT_DIGIT_EXAMPLES = ("8600", "130")
+_CN_DIGITS = str.maketrans("零〇洞一幺二两三四五六七八九拐０１２３４５６７８９", "0001122345678970123456789")
+_DIGIT_SEP = re.compile(r"(?<=[0-9])[\s、，,\-–—·.…]+(?=[0-9])")
+_RUN = re.compile(r"[0-9]{3,}")
+_CN_NUM = "零一二三四五六七八九"
+
+
+def norm_digits(text: str) -> str:
+    """汉字数字（幺、两、洞、拐也算）和全角数字换成阿拉伯数字，数字之间的空格、顿号、逗号、横线、省略号去掉。"""
+    return _DIGIT_SEP.sub("", str(text or "").translate(_CN_DIGITS))
+
+
+def cn_readings(num: str) -> List[str]:
+    """3–4 位数按数值读的写法：8600 → 八千六百、八千六；130 → 一百三十、一百三。"""
+    if not (num.isdigit() and len(num) in (3, 4) and num[0] != "0"):
+        return []
+    full, zero = "", False
+    for d, u in zip(num, ["千", "百", "十", ""][4 - len(num):]):
+        if d == "0":
+            zero = True
+            continue
+        full += ("零" if zero else "") + _CN_NUM[int(d)] + u
+        zero = False
+    out = [full]
+    nz = [i for i, d in enumerate(num) if d != "0"]
+    if len(nz) >= 2 and nz[-1] == nz[-2] + 1 and nz[-1] < len(num) - 1:
+        out.append(full[:-1])  # 末尾单位省掉的口语读法
+    return out
+
+
+def prompt_digits(text: str) -> set:
+    """提示词里 3 位以上的数字串（按 norm_digits 归一后）。"""
+    return set(_RUN.findall(norm_digits(text)))
+
+
+def digit_leaks(reply: str, said: str, examples=PROMPT_DIGIT_EXAMPLES) -> List[str]:
+    """回复里出现、但对方此前（含本轮）没说过的提示词例子数字串。"""
+    r, s = norm_digits(reply), norm_digits(said)
+    out = []
+    for e in sorted(set(examples)):
+        variants = cn_readings(e)
+        if (e in r or any(v in reply for v in variants)) and not (e in s or any(v in said for v in variants)):
+            out.append(e)
+    return out
+
+
+def scripts(path: Optional[Path] = None, digit_probes: bool = True) -> List[dict]:
+    """[{persona, scenario, lines, leak_check}]：7 个场景（王阿姨，末尾各加一句报尾号）+ 杀猪盘闲聊 × 3 人设。"""
     pb = json.loads((path or ROOT / "voice" / "static" / "scam_playbooks.json").read_text(encoding="utf-8"))
     out = []
     for sid, sc in pb["scenarios"].items():
         lines = [re.sub(r"\{([^}]+)\}", lambda m: FILL.get(m.group(1), "那个"), st["lines"][0]) for st in sc["steps"]]
+        if digit_probes and sid in DIGIT_PROBES:
+            lines.append(DIGIT_PROBES[sid])
         out.append({"persona": "wang", "scenario": sid, "lines": lines, "leak_check": False})
     for pid in ("wang", "li", "lin"):
         out.append({"persona": pid, "scenario": "pig", "lines": list(SMALL_TALK), "leak_check": True})
@@ -99,9 +160,12 @@ def summarize(rows: List[dict], model: str, turns_per_call: int = 10) -> dict:
     # #64 口径：按句子统计「…」（目标 40–60%）；每通电话第一条回复的第一句是不是问句（目标 0）
     sents = [x for r in ok for x in sentences(r["reply"])]
     firsts = [r for r in ok if r.get("turn") == 0]
+    dl = [r for r in ok if r.get("digit_leaked")]
     return {
         "model": model, "n": len(ok), "errors": len(rows) - len(ok),
         "leak_replies": sum(1 for r in leak_rows if r["leaked"]), "leak_n": len(leak_rows),
+        "digit_leak_replies": len(dl), "digit_leak_calls": len({r.get("call") for r in dl}),
+        "digit_leak_hits": sorted({d for r in dl for d in r["digit_leaked"]}),
         "sent_ellipsis_pct": round(100 * sum(bool(ELLIPSIS.search(x)) for x in sents) / (len(sents) or 1), 1),
         "sentences": len(sents),
         "first_question": sum(first_question(r["reply"]) for r in firsts), "calls": len(firsts),
@@ -151,7 +215,7 @@ async def stream_reply(http, url: str, key: str, model: str, messages: list, thi
             "out": usage.get("completion_tokens", 0), "reasoning": reasoning}
 
 
-async def run_script(http, url, key, model, sc, thinking=False) -> List[dict]:
+async def run_script(http, url, key, model, sc, thinking=False, call: int = 0) -> List[dict]:
     from deepsuck.engine import Session
     from deepsuck.rng import mulberry32
     from pipecat.processors.aggregators.llm_context import LLMContext
@@ -163,17 +227,18 @@ async def run_script(http, url, key, model, sc, thinking=False) -> List[dict]:
     ctx = LLMContext([{"role": "system", "content": "x"}])
     ip = IntelProcessor(s, context=ctx)
     ctx.add_message({"role": "assistant", "content": voice_opening(s)["text"]})
-    said, rows = "", []
+    said, heard, rows = "", "", []
     for turn, line in enumerate(sc["lines"]):
         a = s.ingest(line)
         said += a["redacted"]
+        heard += line + "\n"  # 数字泄露按对方原话判断（对方先报过的号码，人设复述不算泄露）
         ip.intent = gate_intent(s.fresh_intent(s.choose_intent(a)), s)
         s.last_intent = ip.intent
-        ip.update_prompt()
+        examples = set(PROMPT_DIGIT_EXAMPLES) | prompt_digits(ip.update_prompt())
         ctx.add_message({"role": "user", "content": a["redacted"]})
         res = await stream_reply(http, url, key, model, ctx.get_messages(), thinking)
         row = {"model": model, "persona": sc["persona"], "scenario": sc["scenario"], "scammer": line, "turn": turn,
-               "intent": ip.intent, "leak_check": sc["leak_check"]}
+               "call": call, "intent": ip.intent, "leak_check": sc["leak_check"]}
         if "error" in res:
             row.update(error=res["error"], reply=None)
             rows.append(row)
@@ -183,12 +248,14 @@ async def run_script(http, url, key, model, sc, thinking=False) -> List[dict]:
         ctx.add_message({"role": "assistant", "content": reply})
         row.update(raw=raw, reply=reply, guarded=reply != raw.strip(), think="<think>" in raw or res["reasoning"],
                    leaked=leaked(reply, said) if sc["leak_check"] else [], style=style(raw),
+                   digit_leaked=digit_leaks(raw, heard, examples),
                    ttft_ms=res["ttft_ms"], total_ms=res["total_ms"], **{"in": res["in"], "out": res["out"]})
         rows.append(row)
     return rows
 
 
-async def main_async(models: List[str], out: Optional[str], base: str, thinking: bool, repeat: int = 1) -> dict:
+async def main_async(models: List[str], out: Optional[str], base: str, thinking: bool, repeat: int = 1,
+                     digit_probes: bool = True) -> dict:
     import aiohttp
 
     key = os.environ["DASHSCOPE_API_KEY"]
@@ -197,10 +264,10 @@ async def main_async(models: List[str], out: Optional[str], base: str, thinking:
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as http:
         # 预热一次连接（与线上一样，同一通电话复用连接；握手单独测）
         await stream_reply(http, url, key, models[0], [{"role": "user", "content": "喂"}], thinking)
-        for i, sc in enumerate(scripts() * max(1, repeat)):
+        for i, sc in enumerate(scripts(digit_probes=digit_probes) * max(1, repeat)):
             order = models[i % len(models):] + models[:i % len(models)]  # 轮换先后，抵消时段偏差
             for m in order:
-                rows[m].extend(await run_script(http, url, key, m, sc, thinking))
+                rows[m].extend(await run_script(http, url, key, m, sc, thinking, call=i))
     res = {"summary": [summarize(rows[m], m) for m in models], "rows": rows}
     if out:
         Path(out).write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -214,8 +281,10 @@ def main(argv=None) -> int:
     ap.add_argument("--out")
     ap.add_argument("--repeat", type=int, default=1, help="整组脚本跑几遍（统计合并）")
     ap.add_argument("--thinking", action="store_true", help="打开思考（只用于对照，线上必须关）")
+    ap.add_argument("--no-digit-probes", action="store_true", help="不加报尾号那一句（与 #73 之前的脚本一致）")
     a = ap.parse_args(argv)
-    res = asyncio.run(main_async([m.strip() for m in a.models.split(",") if m.strip()], a.out, a.base, a.thinking, a.repeat))
+    res = asyncio.run(main_async([m.strip() for m in a.models.split(",") if m.strip()], a.out, a.base, a.thinking, a.repeat,
+                                 not a.no_digit_probes))
     for s in res["summary"]:
         print(json.dumps(s, ensure_ascii=False))
     return 0
