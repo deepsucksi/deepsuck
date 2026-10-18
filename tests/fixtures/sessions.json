@@ -3579,6 +3579,219 @@
    }
   },
   {
+   "scenario": "refund",
+   "persona": "wang",
+   "seed": 21,
+   "lines": [
+    "卡号是 6221887154833655",
+    "995，户名王某某",
+    "房问号 199",
+    "0069 7308 是同事的工好"
+   ],
+   "turns": [
+    {
+     "role": "bot",
+     "text": "哎哟，客服啊？我最近是买了好多东西，你说的是哪一个呀？是那个拖把还是给我孙子买的奥特曼？",
+     "intent": "opening"
+    },
+    {
+     "role": "scammer",
+     "text": "卡号是 622188******3655",
+     "tactics": [
+      "info_harvest"
+     ]
+    },
+    {
+     "role": "bot",
+     "text": "我念一遍你听听：尾号3655的那张卡，没错吧？你们有没有网址啊？发我一下，我让楼下小张帮我点开看看。",
+     "intent": "confirm_intel"
+    },
+    {
+     "role": "scammer",
+     "text": "995，户名王**",
+     "tactics": []
+    },
+    {
+     "role": "bot",
+     "text": "记好了记好了，姓王的那位，卡号尾号5959。哎你别急啊，那接下来我该干什么？",
+     "intent": "confirm_intel"
+    },
+    {
+     "role": "scammer",
+     "text": "房问号 199",
+     "tactics": []
+    },
+    {
+     "role": "bot",
+     "text": "我在找纸笔，抄下来心里踏实，你稍等。",
+     "intent": "re_ask"
+    },
+    {
+     "role": "scammer",
+     "text": "0069 7308 是同事的工好",
+     "tactics": []
+    },
+    {
+     "role": "bot",
+     "text": "等一下等一下，我老花镜刚找到，你从头再说一下吧。",
+     "intent": "ask_repeat"
+    }
+   ],
+   "messages": [
+    "哎哟，客服啊？我最近是买了好多东西，你说的是哪一个呀？是那个拖把还是给我孙子买的奥特曼？",
+    "卡号是 622188*********5",
+    "我念一遍你听听：尾号3655的那张卡，没错吧？你们有没有网址啊？发我一下，我让楼下小张帮我点开看看。",
+    "995，户名王**",
+    "记好了记好了，姓王的那位，卡号尾号5959。哎你别急啊，那接下来我该干什么？",
+    "房问号 199",
+    "我在找纸笔，抄下来心里踏实，你稍等。",
+    "0069 7308 是同事的工好",
+    "等一下等一下，我老花镜刚找到，你从头再说一下吧。"
+   ],
+   "intel": [
+    {
+     "type": "name",
+     "label": "收款户名",
+     "masked": "王**",
+     "meta": {},
+     "count": 1,
+     "firstSeenTurn": 2
+    },
+    {
+     "type": "bank_card",
+     "label": "银行卡号",
+     "masked": "622188*********5995",
+     "meta": {
+      "digits": 19,
+      "luhn": true,
+      "unionpay": true,
+      "bank": "中国邮政储蓄银行",
+      "issuer": {
+       "bank": "中国邮政储蓄银行",
+       "bankCode": "PSBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin",
+      "stitched": true
+     },
+     "count": 1,
+     "firstSeenTurn": 2
+    }
+   ],
+   "stats": {
+    "estimatedScammerSeconds": 272,
+    "intelCount": 2,
+    "riskScore": 15
+   }
+  },
+  {
+   "scenario": "refund",
+   "persona": "lin",
+   "seed": 22,
+   "lines": [
+    "卡号是 622",
+    "1887154833655995，户名王某某",
+    "电话一三九零零一一二二三三两小时后再打"
+   ],
+   "turns": [
+    {
+     "role": "bot",
+     "text": "啊？理赔？我确实买过东西，但是哪个订单呀？你能把订单号发我对一下吗？",
+     "intent": "opening"
+    },
+    {
+     "role": "scammer",
+     "text": "卡号是 622",
+     "tactics": [
+      "info_harvest"
+     ]
+    },
+    {
+     "role": "bot",
+     "text": "我卡里就几百块，生活费下周才到。",
+     "intent": "info_stall"
+    },
+    {
+     "role": "scammer",
+     "text": "188*********5995，户名王**",
+     "tactics": []
+    },
+    {
+     "role": "bot",
+     "text": "我确认一下，收钱的人姓王，卡号尾号5959，对吧？有官网或者下载链接吗？发我看看。",
+     "intent": "confirm_intel"
+    },
+    {
+     "role": "scammer",
+     "text": "电话139****2233两小时后再打",
+     "tactics": []
+    },
+    {
+     "role": "bot",
+     "text": "收到，电话尾号2234，我截图了。接下来要我做什么？",
+     "intent": "confirm_intel"
+    }
+   ],
+   "messages": [
+    "啊？理赔？我确实买过东西，但是哪个订单呀？你能把订单号发我对一下吗？",
+    "卡号是 622",
+    "我卡里就几百块，生活费下周才到。",
+    "188*********5995，户名王**",
+    "我确认一下，收钱的人姓王，卡号尾号5959，对吧？有官网或者下载链接吗？发我看看。",
+    "电话139****2233两小时后再打",
+    "收到，电话尾号2234，我截图了。接下来要我做什么？"
+   ],
+   "intel": [
+    {
+     "type": "name",
+     "label": "收款户名",
+     "masked": "王**",
+     "meta": {},
+     "count": 1,
+     "firstSeenTurn": 2
+    },
+    {
+     "type": "bank_card",
+     "label": "银行卡号",
+     "masked": "622188*********5995",
+     "meta": {
+      "digits": 19,
+      "luhn": true,
+      "unionpay": true,
+      "bank": "中国邮政储蓄银行",
+      "issuer": {
+       "bank": "中国邮政储蓄银行",
+       "bankCode": "PSBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin",
+      "stitched": true
+     },
+     "count": 1,
+     "firstSeenTurn": 2
+    },
+    {
+     "type": "phone",
+     "label": "电话号码",
+     "masked": "139****2233",
+     "meta": {
+      "kind": "mobile"
+     },
+     "count": 1,
+     "firstSeenTurn": 3
+    }
+   ],
+   "stats": {
+    "estimatedScammerSeconds": 272,
+    "intelCount": 3,
+    "riskScore": 15
+   }
+  },
+  {
    "scenario": "police",
    "persona": "li",
    "seed": 7,

@@ -1801,6 +1801,467 @@
    "redacted": "电话 139****2233 卡号 622202*********3445"
   },
   {
+   "text": "电话 184-2893-2334，微，信 htb_6601",
+   "entities": [
+    {
+     "type": "phone",
+     "value": "184-2893-2334",
+     "masked": "184****2334",
+     "start": 3,
+     "end": 16,
+     "sensitive": true,
+     "meta": {
+      "kind": "mobile"
+     },
+     "obfuscated": false
+    },
+    {
+     "type": "channel",
+     "value": "微信",
+     "masked": "微信",
+     "start": 17,
+     "end": 20,
+     "sensitive": false,
+     "meta": {},
+     "raw": "微，信"
+    },
+    {
+     "type": "wechat",
+     "value": "htb_6601",
+     "masked": "ht****01",
+     "start": 21,
+     "end": 29,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    }
+   ],
+   "redacted": "电话 184****2334，微，信 ht****01"
+  },
+  {
+   "text": "加微、信：kefu_tb2026",
+   "entities": [
+    {
+     "type": "channel",
+     "value": "微信",
+     "masked": "微信",
+     "start": 1,
+     "end": 4,
+     "sensitive": false,
+     "meta": {},
+     "raw": "微、信"
+    },
+    {
+     "type": "wechat",
+     "value": "kefu_tb2026",
+     "masked": "ke******26",
+     "start": 5,
+     "end": 16,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    }
+   ],
+   "redacted": "加微、信：ke******26"
+  },
+  {
+   "text": "稍微，信息我晚点发",
+   "entities": [],
+   "redacted": "稍微，信息我晚点发"
+  },
+  {
+   "text": "微信，kefu_tb2026",
+   "entities": [
+    {
+     "type": "channel",
+     "value": "微信",
+     "masked": "微信",
+     "start": 0,
+     "end": 2,
+     "sensitive": false,
+     "meta": {},
+     "raw": "微信"
+    },
+    {
+     "type": "wechat",
+     "value": "kefu_tb2026",
+     "masked": "ke******26",
+     "start": 3,
+     "end": 14,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    }
+   ],
+   "redacted": "微信，ke******26"
+  },
+  {
+   "text": "支付，宝 13912345678",
+   "entities": [
+    {
+     "type": "channel",
+     "value": "支付宝",
+     "masked": "支付宝",
+     "start": 0,
+     "end": 4,
+     "sensitive": false,
+     "meta": {},
+     "raw": "支付，宝"
+    },
+    {
+     "type": "alipay",
+     "value": "13912345678",
+     "masked": "139****5678",
+     "start": 5,
+     "end": 16,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    }
+   ],
+   "redacted": "支付，宝 139****5678"
+  },
+  {
+   "text": "QQ，2876543210",
+   "entities": [
+    {
+     "type": "channel",
+     "value": "QQ",
+     "masked": "QQ",
+     "start": 0,
+     "end": 2,
+     "sensitive": false,
+     "meta": {},
+     "raw": "QQ"
+    },
+    {
+     "type": "qq",
+     "value": "2876543210",
+     "masked": "28******10",
+     "start": 3,
+     "end": 13,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    }
+   ],
+   "redacted": "QQ，28******10"
+  },
+  {
+   "text": "电话一三九零零一一二二三三两小时后再打",
+   "entities": [
+    {
+     "type": "phone",
+     "value": "13900112233",
+     "masked": "139****2233",
+     "start": 2,
+     "end": 13,
+     "sensitive": true,
+     "meta": {
+      "kind": "mobile"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "电话139****2233两小时后再打"
+  },
+  {
+   "text": "电话 一三九 零零一一 二二三三 两个小时以后",
+   "entities": [
+    {
+     "type": "phone",
+     "value": "139 0011 2233",
+     "masked": "139****2233",
+     "start": 3,
+     "end": 16,
+     "sensitive": true,
+     "meta": {
+      "kind": "mobile"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "电话 139****2233 两个小时以后"
+  },
+  {
+   "text": "卡号六二二二零二零二零零一一二二三三四四五两张卡",
+   "entities": [
+    {
+     "type": "bank_card",
+     "value": "6222020200112233445",
+     "masked": "622202*********3445",
+     "start": 2,
+     "end": 21,
+     "sensitive": true,
+     "meta": {
+      "digits": 19,
+      "luhn": false,
+      "unionpay": true,
+      "bank": "中国工商银行",
+      "issuer": {
+       "bank": "中国工商银行",
+       "bankCode": "ICBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "卡号622202*********3445两张卡"
+  },
+  {
+   "text": "电话一三九零零一一二二三三三小时后",
+   "entities": [
+    {
+     "type": "phone",
+     "value": "13900112233",
+     "masked": "139****2233",
+     "start": 2,
+     "end": 13,
+     "sensitive": true,
+     "meta": {
+      "kind": "mobile"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "电话139****2233三小时后"
+  },
+  {
+   "text": "户名周杰农业银行",
+   "entities": [
+    {
+     "type": "name",
+     "value": "周杰",
+     "masked": "周*",
+     "start": 2,
+     "end": 4,
+     "sensitive": true,
+     "meta": {}
+    },
+    {
+     "type": "bank_name",
+     "value": "农业银行",
+     "masked": "农业银行",
+     "start": 4,
+     "end": 8,
+     "sensitive": false,
+     "meta": {}
+    }
+   ],
+   "redacted": "户名周*农业银行"
+  },
+  {
+   "text": "户名郑华中国银航",
+   "entities": [
+    {
+     "type": "name",
+     "value": "郑华",
+     "masked": "郑*",
+     "start": 2,
+     "end": 4,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    },
+    {
+     "type": "bank_name",
+     "value": "中国银行",
+     "masked": "中国银行",
+     "start": 4,
+     "end": 8,
+     "sensitive": false,
+     "meta": {},
+     "raw": "中国银航"
+    }
+   ],
+   "redacted": "户名郑*中国银航"
+  },
+  {
+   "text": "户名王建国工商银行",
+   "entities": [
+    {
+     "type": "name",
+     "value": "王建国",
+     "masked": "王**",
+     "start": 2,
+     "end": 5,
+     "sensitive": true,
+     "meta": {}
+    },
+    {
+     "type": "bank_name",
+     "value": "工商银行",
+     "masked": "工商银行",
+     "start": 5,
+     "end": 9,
+     "sensitive": false,
+     "meta": {}
+    }
+   ],
+   "redacted": "户名王**工商银行"
+  },
+  {
+   "text": "收款人是我们公司财务李强，卡号6222020200112233445",
+   "entities": [
+    {
+     "type": "name",
+     "value": "李强",
+     "masked": "李*",
+     "start": 10,
+     "end": 12,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    },
+    {
+     "type": "bank_card",
+     "value": "6222020200112233445",
+     "masked": "622202*********3445",
+     "start": 15,
+     "end": 34,
+     "sensitive": true,
+     "meta": {
+      "digits": 19,
+      "luhn": false,
+      "unionpay": true,
+      "bank": "中国工商银行",
+      "issuer": {
+       "bank": "中国工商银行",
+       "bankCode": "ICBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin"
+     },
+     "obfuscated": false
+    }
+   ],
+   "redacted": "收款人是我们公司财务李*，卡号622202*********3445"
+  },
+  {
+   "text": "钱转到李强的账户上就行",
+   "entities": [
+    {
+     "type": "name",
+     "value": "李强",
+     "masked": "李*",
+     "start": 3,
+     "end": 5,
+     "sensitive": true,
+     "meta": {}
+    }
+   ],
+   "redacted": "钱转到李*的账户上就行"
+  },
+  {
+   "text": "转到王经理的卡上",
+   "entities": [],
+   "redacted": "转到王经理的卡上"
+  },
+  {
+   "text": "【示例数据】收款户名只保留姓氏。",
+   "entities": [],
+   "redacted": "【示例数据】收款户名只保留姓氏。"
+  },
+  {
+   "text": "收款人是我的朋友",
+   "entities": [],
+   "redacted": "收款人是我的朋友"
+  },
+  {
+   "text": "微信号码事 wgold_3487",
+   "entities": [
+    {
+     "type": "channel",
+     "value": "微信",
+     "masked": "微信",
+     "start": 0,
+     "end": 2,
+     "sensitive": false,
+     "meta": {}
+    },
+    {
+     "type": "wechat",
+     "value": "wgold_3487",
+     "masked": "wg******87",
+     "start": 6,
+     "end": 16,
+     "sensitive": true,
+     "meta": {}
+    }
+   ],
+   "redacted": "微信号码事 wg******87"
+  },
+  {
+   "text": "收款人叫李强找没听清",
+   "entities": [
+    {
+     "type": "name",
+     "value": "李强",
+     "masked": "李*",
+     "start": 4,
+     "end": 6,
+     "sensitive": true,
+     "meta": {}
+    }
+   ],
+   "redacted": "收款人叫李*找没听清"
+  },
+  {
+   "text": "户名周杰然后民生银航",
+   "entities": [
+    {
+     "type": "name",
+     "value": "周杰",
+     "masked": "周*",
+     "start": 2,
+     "end": 4,
+     "sensitive": true,
+     "meta": {},
+     "obfuscated": false
+    },
+    {
+     "type": "bank_name",
+     "value": "民生银行",
+     "masked": "民生银行",
+     "start": 6,
+     "end": 10,
+     "sensitive": false,
+     "meta": {},
+     "raw": "民生银航"
+    }
+   ],
+   "redacted": "户名周*然后民生银航"
+  },
+  {
+   "text": "电化，幺，八\n六，幺，七，九，五，四，三，八，六",
+   "entities": [
+    {
+     "type": "phone",
+     "value": "18617954386",
+     "masked": "186****4386",
+     "start": 3,
+     "end": 24,
+     "sensitive": true,
+     "meta": {
+      "kind": "mobile"
+     },
+     "obfuscated": true
+    }
+   ],
+   "redacted": "电化，186****4386"
+  },
+  {
+   "text": "工号 12345678 分机 139",
+   "entities": [],
+   "redacted": "工号 12345678 分机 139"
+  },
+  {
    "text": "您好，这边是某电商平台售后，您上周买的那件衣服质检不合格，平台要主动给您三倍赔付 380 元。",
    "entities": [
     {

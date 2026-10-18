@@ -40,6 +40,33 @@ RE_SPACED_LETTERS = [
 RE_SPACED_KW = [
     (re.compile(r"[\s·_\-*]+".join(re.escape(ch) for ch in w)), w) for w in _O["spaceInsideKeywords"]
 ]
+_KG = _O.get("keywordGap") or {}
+# 表情：Python 按码点；JS 版用 UTF-16 代理对 [\uD83C-\uD83E][\uDC00-\uDFFF]（同一范围 U+1F000–U+1FBFF）
+_EMOJI = "[\U0001F000-\U0001FBFF\u2600-\u27BF\u2B00-\u2BFF\u2190-\u21FF\uFE0F\u200D]"
+_GAP = ("(?:[" + _esc_cls(_KG.get("chars", "")) + "]" + ("|" + _EMOJI if _KG.get("emoji") else "") + ")") if _KG else None
+RE_GAP_KW = [
+    (re.compile(("(?:" + _GAP + "){0,%d}" % _KG.get("max", 3)).join(re.escape(ch) for ch in w)), w)
+    for w in _KG.get("keywords", [])
+] if _KG else []
+RE_EMOJI_IN_DIGITS = re.compile("(?<=[0-9" + _NUM_CHARS + "])(?:" + _EMOJI + "){1,%d}(?=[0-9" % _KG.get("max", 3) + _NUM_CHARS + "])") \
+    if _KG.get("emoji") else None
+_GAP_NOT_AFTER: dict = _KG.get("notAfter") or {}
+_GAP_NOT_BEFORE: dict = _KG.get("notBefore") or {}
+
+
+def _gap_kw(to: str):
+    def rep(m, mm, full):
+        if m == to:
+            return None
+        a, b = mm.start(), mm.end()
+        if a > 0 and full[a - 1] in _GAP_NOT_AFTER.get(to, ""):
+            return None
+        if b < len(full) and full[b] in _GAP_NOT_BEFORE.get(to, ""):
+            return None
+        return to
+    return rep
+
+
 RE_SPACED_DIGITS = re.compile(r"(?<![0-9])[0-9](?:[ \u00a0\-·.,_/]{1,2}[0-9]){6,}(?![0-9])")
 RE_FULLWIDTH = re.compile("[\uFF01-\uFF5E\u3000]+")
 _DIGIT_CHARS: dict = (_O.get("digitChars") or {}).get("map") or {}
@@ -218,6 +245,34 @@ class Normalized:
         return f"Normalized({self.text!r}, changed={self.changed})"
 
 
+def _quantity_cut(m: str) -> Optional[int]:
+    """#2：全中文数字串后面紧跟量词 / 时间单位（“一三九零零一一二二三三两小时”）时，末尾 1–2 个中文数字是数量，
+    返回号码部分的结束下标（末尾分隔符不算号码）；不需要截断时返回 None。
+    规则：末字是“两”一律截掉（“两”在单位前几乎总是数量）；否则只有整串拼不成号码、截掉末尾 1–2 个中文数字后能拼成时才截。"""
+    pos = [i for i, c in enumerate(m) if c in _NUMERALS and not ("0" <= c <= "9")]
+    if not pos or pos[-1] != len(m) - 1:
+        return None
+
+    def digits(t: str) -> str:
+        return "".join(_NUMERALS.get(c, c) for c in t if c in _NUMERALS or "0" <= c <= "9")
+
+    def end_of(cut: int) -> int:
+        while cut > 0 and not (m[cut - 1] in _NUMERALS or "0" <= m[cut - 1] <= "9"):
+            cut -= 1
+        return cut
+    if m[-1] == "两":
+        return end_of(len(m) - 1)
+    if plausible_number(digits(m)):
+        return None
+    for t in (1, 2):
+        if len(pos) <= t:
+            break
+        cut = end_of(pos[-t])
+        if plausible_number(digits(m[:cut])):
+            return cut
+    return None
+
+
 def normalize(text: Optional[str]) -> Normalized:
     raw = "" if text is None else str(text)
     state = _init(raw)
@@ -234,6 +289,10 @@ def normalize(text: Optional[str]) -> Normalized:
         state = _apply(state, RE_FILLER, lambda m: [])
     for pat, to in RE_SPACED_KW:
         state = _apply(state, pat, lambda m, to=to: None if m == to else to)
+    if RE_EMOJI_IN_DIGITS:  # “二幺幺四🌹🌹幺三六二”：数字之间的表情当作一个空格
+        state = _apply(state, RE_EMOJI_IN_DIGITS, lambda m: " ")
+    for pat, to in RE_GAP_KW:  # “微，信”“微🙏信”：平台名 / 字段名中间夹标点或表情
+        state = _apply(state, pat, _gap_kw(to), with_match=True)
     for pat in RE_SPACED_LETTERS:
         def rep(m):
             t = re.sub(r"[\s·]+", "", m)
@@ -248,10 +307,17 @@ def normalize(text: Optional[str]) -> Normalized:
         k = len(m)
         while k > 0 and m[k - 1] in _NUMERALS and not ("0" <= m[k - 1] <= "9"):
             k -= 1
-        if 0 < k < len(m) and RE_UNIT_AFTER and "0" <= m[k - 1] <= "9" and RE_UNIT_AFTER.match(full[mm.end():]):
+        unit = bool(RE_UNIT_AFTER and RE_UNIT_AFTER.match(full[mm.end():]))
+        if 0 < k < len(m) and unit and "0" <= m[k - 1] <= "9":
             if not RE_HAS_NUMERAL.search(m[:k]):
                 return None
             return [(_NUMERALS.get(c, c) if i < k else c, i) for i, c in enumerate(m)]
+        if unit:
+            cut = _quantity_cut(m)
+            if cut is not None:
+                if not RE_HAS_NUMERAL.search(m[:cut]):
+                    return None
+                return [(_NUMERALS.get(c, c) if i < cut else c, i) for i, c in enumerate(m)]
         return [(_NUMERALS.get(c, c), i) for i, c in enumerate(m)]
     state = _apply(state, RE_NUM_RUN, num, with_match=True)
     state = _apply(state, RE_SPACED_DIGITS, lambda m: [(c, i) for i, c in enumerate(m) if "0" <= c <= "9"])

@@ -217,6 +217,17 @@ class Session:
                 if e["turns"][-1] != len(recent) - 1:
                     continue  # 只处理以本回合结尾的拼接
                 key = e["type"] + "|" + e["value"]
+                # #1：拼接结果取代被单回合误认成整卡的那一段（从情报与该回合的脱敏实体里去掉，避免重叠打码）
+                for sup in e.get("supersedes") or []:
+                    sk = sup["type"] + "|" + re.sub(r"[\s-]", "", str(sup["value"])).lower()
+                    old = self.intel.pop(sk, None)
+                    self._raw.pop(sk, None)
+                    if old is not None:
+                        new_intel[:] = [x for x in new_intel if x is not old]
+                        self._last_new[:] = [x for x in self._last_new if x[0] is not old]
+                    ents = recent[sup["turn"]]["entities"]
+                    ents[:] = [x for x in ents if not (x["type"] == sup["type"] and x.get("start") == sup["start"]
+                                                       and x.get("end") == sup["end"])]
                 for p in e["parts"]:
                     recent[p["turn"]]["extra"].append({"type": e["type"], "start": p["start"], "end": p["end"],
                                                        "masked": p["masked"], "sensitive": True})

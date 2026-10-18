@@ -32,6 +32,14 @@
   var RE_SPACED_KW = O.spaceInsideKeywords.map(function (w) {
     return { re: new RegExp(w.split('').map(escRe).join('[\\s·_\\-*]+'), 'g'), to: w };
   });
+  // 平台名 / 字段名中间夹标点或表情（“微，信”“微🙏信”）：表情按 UTF-16 代理对（U+1F000–U+1FBFF）与常见符号区，与 Python 版同一范围
+  var KG = O.keywordGap || null;
+  var EMOJI = '[\\uD83C-\\uD83E][\\uDC00-\\uDFFF]|[\\u2600-\\u27BF\\u2B00-\\u2BFF\\u2190-\\u21FF\\uFE0F\\u200D]';
+  var GAP = KG ? '(?:[' + escCls(KG.chars || '') + ']' + (KG.emoji ? '|' + EMOJI : '') + ')' : null;
+  var RE_GAP_KW = KG ? (KG.keywords || []).map(function (w) {
+    return { re: new RegExp(w.split('').map(escRe).join('(?:' + GAP + '){0,' + (KG.max || 3) + '}'), 'g'), to: w };
+  }) : [];
+  var RE_EMOJI_IN_DIGITS = KG && KG.emoji ? new RegExp('(?<=[0-9' + NUM_CHARS + '])(?:' + EMOJI + '){1,' + (KG.max || 3) + '}(?=[0-9' + NUM_CHARS + '])', 'g') : null;
   var RE_SPACED_DIGITS = /(?<![0-9])[0-9](?:[ \u00a0\-·.,_/]{1,2}[0-9]){6,}(?![0-9])/g;
   var DIGIT_CHARS = (O.digitChars || {}).map || {};
   var RE_DIGIT_CHARS = Object.keys(DIGIT_CHARS).length ? new RegExp('[' + Object.keys(DIGIT_CHARS).join('') + ']+', 'g') : null;
@@ -112,6 +120,27 @@
     return null;
   }
 
+  function isNum(c) { return O.numerals[c] != null || /[0-9]/.test(c); }
+  function numDigits(t) { var r = ''; for (var i = 0; i < t.length; i++) if (isNum(t[i])) r += O.numerals[t[i]] != null ? O.numerals[t[i]] : t[i]; return r; }
+  /**
+   * #2：全中文数字串后面紧跟量词 / 时间单位（“一三九零零一一二二三三两小时”）时，末尾 1–2 个中文数字是数量，返回号码部分的结束下标；
+   * 末字是“两”一律截掉；否则只有整串拼不成号码、截掉末尾 1–2 个中文数字后能拼成时才截。与 Python _quantity_cut 一致。
+   */
+  function quantityCut(m) {
+    var pos = [];
+    for (var i = 0; i < m.length; i++) if (O.numerals[m[i]] != null && !/[0-9]/.test(m[i])) pos.push(i);
+    if (!pos.length || pos[pos.length - 1] !== m.length - 1) return null;
+    function endOf(c) { while (c > 0 && !isNum(m[c - 1])) c--; return c; }
+    if (m[m.length - 1] === '两') return endOf(m.length - 1);
+    if (plausibleNumber(numDigits(m))) return null;
+    for (var t = 1; t <= 2; t++) {
+      if (pos.length <= t) break;
+      var c = endOf(pos[pos.length - t]);
+      if (plausibleNumber(numDigits(m.slice(0, c)))) return c;
+    }
+    return null;
+  }
+
   function shift(drop, n) { var o = {}; Object.keys(drop).forEach(function (k) { o[+k + n] = 1; }); return o; }
 
   function dropper(m, drop) {
@@ -179,6 +208,16 @@
     if (RE_DIGIT_CHARS) state = apply(state, RE_DIGIT_CHARS, function (m) { var r = []; for (var i = 0; i < m.length; i++) r.push([DIGIT_CHARS[m[i]], i]); return r; });
     if (RE_FILLER) state = apply(state, RE_FILLER, function () { return []; });
     RE_SPACED_KW.forEach(function (k) { state = apply(state, k.re, function (m) { return m === k.to ? null : k.to; }); });
+    if (RE_EMOJI_IN_DIGITS) state = apply(state, RE_EMOJI_IN_DIGITS, function () { return ' '; }); // “二幺幺四🌹🌹幺三六二”：数字之间的表情当作一个空格
+    RE_GAP_KW.forEach(function (k) {
+      state = apply(state, k.re, function (m, mm, full) {
+        if (m === k.to) return null;
+        var a = mm.index, b = a + m.length;
+        if (a > 0 && ((KG.notAfter || {})[k.to] || '').indexOf(full[a - 1]) >= 0) return null;
+        if (b < full.length && ((KG.notBefore || {})[k.to] || '').indexOf(full[b]) >= 0) return null;
+        return k.to;
+      });
+    });
     RE_SPACED_LETTERS.forEach(function (re) { state = apply(state, re, function (m) { var t = m.replace(/[\s·]+/g, ''); return t === m ? null : t; }); });
     state = apply(state, RE_DOT, function () { return '.'; });
     state = apply(state, RE_NUM_RUN, function (m, mm, full) {
@@ -187,9 +226,16 @@
       var k = m.length;
       while (k > 0 && O.numerals[m[k - 1]] != null && !/[0-9]/.test(m[k - 1])) k--;
       var keep = m.length;
-      if (k > 0 && k < m.length && RE_UNIT_AFTER && /[0-9]/.test(m[k - 1]) && RE_UNIT_AFTER.test(full.slice(mm.index + m.length))) {
+      var unit = !!(RE_UNIT_AFTER && RE_UNIT_AFTER.test(full.slice(mm.index + m.length)));
+      if (k > 0 && k < m.length && unit && /[0-9]/.test(m[k - 1])) {
         if (!RE_HAS_NUMERAL.test(m.slice(0, k))) return null;
         keep = k;
+      } else if (unit) {
+        var cut = quantityCut(m);
+        if (cut != null) {
+          if (!RE_HAS_NUMERAL.test(m.slice(0, cut))) return null;
+          keep = cut;
+        }
       }
       var r = [];
       for (var i = 0; i < m.length; i++) r.push([i < keep ? (O.numerals[m[i]] || m[i]) : m[i], i]);

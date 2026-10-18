@@ -432,6 +432,121 @@
    "changed": false
   },
   {
+   "text": "电话 184-2893-2334，微，信 htb_6601",
+   "expected": "电话 184-2893-2334,微信 htb_6601",
+   "changed": true
+  },
+  {
+   "text": "加微、信：kefu_tb2026",
+   "expected": "加微信:kefu_tb2026",
+   "changed": true
+  },
+  {
+   "text": "稍微，信息我晚点发",
+   "expected": "稍微,信息我晚点发",
+   "changed": true
+  },
+  {
+   "text": "微信，kefu_tb2026",
+   "expected": "微信,kefu_tb2026",
+   "changed": true
+  },
+  {
+   "text": "支付，宝 13912345678",
+   "expected": "支付宝 13912345678",
+   "changed": true
+  },
+  {
+   "text": "QQ，2876543210",
+   "expected": "QQ,2876543210",
+   "changed": true
+  },
+  {
+   "text": "电话一三九零零一一二二三三两小时后再打",
+   "expected": "电话13900112233两小时后再打",
+   "changed": true
+  },
+  {
+   "text": "电话 一三九 零零一一 二二三三 两个小时以后",
+   "expected": "电话 139 0011 2233 两个小时以后",
+   "changed": true
+  },
+  {
+   "text": "卡号六二二二零二零二零零一一二二三三四四五两张卡",
+   "expected": "卡号6222020200112233445两张卡",
+   "changed": true
+  },
+  {
+   "text": "电话一三九零零一一二二三三三小时后",
+   "expected": "电话13900112233三小时后",
+   "changed": true
+  },
+  {
+   "text": "户名周杰农业银行",
+   "expected": "户名周杰农业银行",
+   "changed": false
+  },
+  {
+   "text": "户名郑华中国银航",
+   "expected": "户名郑华中国银行",
+   "changed": true
+  },
+  {
+   "text": "户名王建国工商银行",
+   "expected": "户名王建国工商银行",
+   "changed": false
+  },
+  {
+   "text": "收款人是我们公司财务李强，卡号6222020200112233445",
+   "expected": "收款人是我们公司财务李强,卡号6222020200112233445",
+   "changed": true
+  },
+  {
+   "text": "钱转到李强的账户上就行",
+   "expected": "钱转到李强的账户上就行",
+   "changed": false
+  },
+  {
+   "text": "转到王经理的卡上",
+   "expected": "转到王经理的卡上",
+   "changed": false
+  },
+  {
+   "text": "【示例数据】收款户名只保留姓氏。",
+   "expected": "【示例数据】收款户名只保留姓氏。",
+   "changed": false
+  },
+  {
+   "text": "收款人是我的朋友",
+   "expected": "收款人是我的朋友",
+   "changed": false
+  },
+  {
+   "text": "微信号码事 wgold_3487",
+   "expected": "微信号码事 wgold_3487",
+   "changed": false
+  },
+  {
+   "text": "收款人叫李强找没听清",
+   "expected": "收款人叫李强找没听清",
+   "changed": false
+  },
+  {
+   "text": "户名周杰然后民生银航",
+   "expected": "户名周杰然后民生银行",
+   "changed": true
+  },
+  {
+   "text": "电化，幺，八\n六，幺，七，九，五，四，三，八，六",
+   "expected": "电话,18617954386",
+   "changed": true
+  },
+  {
+   "text": "工号 12345678 分机 139",
+   "expected": "工号 12345678 分机 139",
+   "changed": false
+  },
+  {
    "text": "您好，这边是某电商平台售后，您上周买的那件衣服质检不合格，平台要主动给您三倍赔付 380 元。",
    "expected": "您好,这边是某电商平台售后,您上周买的那件衣服质检不合格,平台要主动给您三倍赔付 380 元。",
    "changed": true

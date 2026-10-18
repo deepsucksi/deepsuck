@@ -41,21 +41,37 @@ def _trim_url(u: str, *_):
     return re.sub(r"[.,;:!?'\"）)\]]+$", "", u)
 
 
-_NOT_NAMES = re.compile(r"^(?:姓名|是谁|写清|发我|多少|什么|哪个|一下|清楚)")
+_NOT_NAMES = re.compile(_C["nameRules"]["notNames"])
+_NAME_BOUNDARY = re.compile(_C["nameRules"]["boundary"])
+_SURNAMES = _C["nameRules"]["surnames"]
+_TITLES = tuple(_C["nameRules"]["titleSuffix"])
 
 
 _NAME_DIGITS = "零一二三四五六七八九"
 
 
-def _clean_name(n: str, *_):
+def _clean_name(n: str, m=None, start: Optional[int] = None):
     # ASR 数字规整（ITN）会把“张三”转成“张3”：单个阿拉伯数字还原为汉字（等长，脱敏区间不变）
     n = re.sub(r"[0-9]", lambda m: _NAME_DIGITS[int(m.group(0))], n)
     if _NOT_NAMES.search(n):
         return None
-    m = re.search(r"[开卡银账的是在和与就吧了啊呢哦，电手微那呃嗯合你我他她这打转加对说哈]", n)
-    if m and m.start() >= 2:
-        n = n[: m.start()]
+    c = re.search(r"[开卡银账的是事在和与就吧了啊呢哦，电手微那呃嗯合你我找他她这打转加对说哈]|然后", n)
+    if c and c.start() >= 2:
+        n = n[: c.start()]
+    # “户名周杰农业银行”（户名后的逗号被去掉）：第 3、4 个字起是银行名 / 开户行时截断
+    if m is not None and start is not None:
+        for k in (2, 3):
+            if k < len(n) and _NAME_BOUNDARY.match(m.string[start + k:]):
+                n = n[:k]
+                break
     return n if len(n) >= 2 else None
+
+
+def _clean_name_mid(n: str, m=None, start: Optional[int] = None):
+    """句中姓名（“钱转到李强的账户”）：必须以常见姓氏开头，其余规则同 _clean_name。"""
+    if not n or n[0] not in _SURNAMES or any(n.endswith(t) for t in _TITLES):
+        return None
+    return _clean_name(n, m, start)
 
 
 def _js_number(x: str):
@@ -149,6 +165,7 @@ def extract(text: Optional[str]) -> List[dict]:
     scan(RE["landline"], "phone", meta=lambda *a: {"kind": "landline"})
     scan(RE["mobile"], "phone", meta=lambda *a: {"kind": "mobile"})
     scan(RE["name"], "name", group=1, clean=_clean_name)
+    scan(RE["nameMid"], "name", group=1, clean=_clean_name_mid)
 
     # 非敏感的上下文情报（不打码、不占用区间）
     scan(RE["amount"], "amount", sensitive=False, no_overlap=True,
@@ -204,6 +221,15 @@ _RE_BANK_CTX = re.compile(_ST.get("bankContext", "卡号"))
 _RE_PHONE_CTX = re.compile(_ST.get("phoneContext", "电话"))
 _RE_BLOCK_BEFORE = re.compile(_ST["blockBefore"]) if _ST.get("blockBefore") else None
 _RE_BLOCK_AFTER = re.compile(_ST["blockAfter"]) if _ST.get("blockAfter") else None
+_BLOCK_TYPOS: dict = ((_ST.get("blockTypos") or {}).get("map")) or {}
+_RE_BLOCK_TYPOS = re.compile("|".join(re.escape(k) for k in sorted(_BLOCK_TYPOS, key=lambda k: (-len(k), k)))) if _BLOCK_TYPOS else None
+
+
+def _unblock_typos(t: str) -> str:
+    """屏蔽词的手写错字（房问号 / 工好）换回正写再判断（等长替换）。"""
+    return _RE_BLOCK_TYPOS.sub(lambda m: _BLOCK_TYPOS[m.group(0)], t) if _RE_BLOCK_TYPOS else t
+
+
 _NUMERALS: dict = _C["obfuscation"]["numerals"]
 _RE_NUMERAL_CHAR = re.compile("[" + "".join(_NUMERALS) + "]")
 
@@ -224,6 +250,19 @@ def _fragments(raw: str) -> dict:
         sa, sb = norm.span(a, b)
         return not any(e["start"] < sb and e["end"] > sa for e in ents)
 
+    def weak_card(a, b):
+        """#1：片段被单回合提取认成了银行卡、但只是 16–18 位且不过 Luhn（多半是拆开的长卡号的一段）：
+        允许它参与拼接，拼接结果过 Luhn 时取代这条单段结果（stitch 输出里的 supersedes）。"""
+        sa, sb = norm.span(a, b)
+        hit = [e for e in ents if e["start"] < sb and e["end"] > sa]
+        if len(hit) != 1 or hit[0]["type"] != "bank_card":
+            return None
+        d = re.sub(r"[^0-9]", "", s[a:b])
+        e = hit[0]
+        if re.sub(r"[^0-9]", "", str(e["value"])) != d or len(d) > 18 or luhn(d):
+            return None
+        return e
+
     def mk(a, b, **extra):
         sa, sb = norm.span(a, b)
         o = {"start": sa, "end": sb, "digits": re.sub(r"[^0-9]", "", s[a:b]), "ns": a, "ne": b}
@@ -234,15 +273,21 @@ def _fragments(raw: str) -> dict:
     t = _RE_TAIL.search(s)
     if t:
         a, b = t.start(), t.start() + len(t.group(1))
-        if free(a, b) and not (_RE_BLOCK_BEFORE and _RE_BLOCK_BEFORE.search(s[max(0, a - 16):a])):
+        wk = None if free(a, b) else weak_card(a, b)
+        if (wk or free(a, b)) and not (_RE_BLOCK_BEFORE and _RE_BLOCK_BEFORE.search(_unblock_typos(s[max(0, a - 16):a]))):
             out["tail"] = mk(a, b, before=s[max(0, a - 16):a])
+            if wk:
+                out["tail"]["weak"] = wk
     h = _RE_HEAD.match(s)
     if h:
         a2 = len(h.group(1))
         b2 = a2 + len(h.group(2))
         rest = s[b2:]
-        if free(a2, b2) and not _RE_UNIT.match(rest) and not (_RE_BLOCK_AFTER and _RE_BLOCK_AFTER.search(rest)):
+        wk = None if free(a2, b2) else weak_card(a2, b2)
+        if (wk or free(a2, b2)) and not _RE_UNIT.match(rest) and not (_RE_BLOCK_AFTER and _RE_BLOCK_AFTER.search(_unblock_typos(rest))):
             out["head"] = mk(a2, b2, only=bool(_RE_TAIL_ONLY.match(rest)))
+            if wk:
+                out["head"]["weak"] = wk
     if out["tail"] and _RE_UNIT.match(s[out["tail"]["ne"]:]):
         out["tail"] = None
     return out
@@ -297,6 +342,8 @@ def stitch(turns, window: Optional[int] = None, min_confidence: Optional[float] 
             if len(d) > 19:
                 break
             sc = _score(d, tail["before"] + F[i]["text"][tail["ns"]:tail["ne"]])
+            if sc and any(p[1].get("weak") for p in parts) and not (sc["type"] == "bank_card" and sc["meta"]["luhn"]):
+                sc = None  # 含被单回合认成卡号的片段：拼接结果必须是过 Luhn 的银行卡才取代它
             if sc and sc["conf"] >= min_conf and (best is None or sc["conf"] > best[0]["conf"]
                                                     or (sc["conf"] == best[0]["conf"] and len(d) > len(best[1]))):
                 best = (sc, d, list(parts))
@@ -319,7 +366,12 @@ def stitch(turns, window: Optional[int] = None, min_confidence: Optional[float] 
             off += n
         md = sc["meta"]
         md["stitched"] = True
-        out.append({"type": sc["type"], "label": LABELS.get(sc["type"], sc["type"]), "value": d, "masked": masked,
-                    "sensitive": True, "confidence": sc["conf"], "turns": [p[0] for p in ps], "parts": plist, "meta": md})
+        o = {"type": sc["type"], "label": LABELS.get(sc["type"], sc["type"]), "value": d, "masked": masked,
+             "sensitive": True, "confidence": sc["conf"], "turns": [p[0] for p in ps], "parts": plist, "meta": md}
+        sup = [{"turn": turn, "type": f["weak"]["type"], "value": f["weak"]["value"], "start": f["weak"]["start"],
+                "end": f["weak"]["end"]} for turn, f in ps if f.get("weak")]
+        if sup:
+            o["supersedes"] = sup
+        out.append(o)
         i = ps[-1][0]  # 已用掉的回合不再作为起点（JS 版 i = last - 1 后 i++）
     return out

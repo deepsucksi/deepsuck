@@ -43,15 +43,32 @@
 
   function trimUrl(u) { return u.replace(/[.,;:!?'"）)\]]+$/, ''); }
 
-  var NOT_NAMES = /^(?:姓名|是谁|写清|发我|多少|什么|哪个|一下|清楚)/;
+  var NR = C.nameRules;
+  var NOT_NAMES = new RegExp(NR.notNames);
+  var NAME_BOUNDARY = new RegExp(NR.boundary);
   // ASR 数字规整（ITN）会把“张三”转成“张3”：单个阿拉伯数字还原为汉字（等长，脱敏区间不变）
   var NAME_DIGITS = '零一二三四五六七八九';
-  function cleanName(n) {
+  function cleanName(n, m, start) {
     n = n.replace(/[0-9]/g, function (d) { return NAME_DIGITS.charAt(+d); });
     if (NOT_NAMES.test(n)) return null;
-    var cut = n.search(/[开卡银账的是在和与就吧了啊呢哦，电手微那呃嗯合你我他她这打转加对说哈]/);
+    var cut = n.search(/[开卡银账的是事在和与就吧了啊呢哦，电手微那呃嗯合你我找他她这打转加对说哈]|然后/);
     if (cut >= 2) n = n.slice(0, cut);
+    // “户名周杰农业银行”（户名后的逗号被去掉）：第 3、4 个字起是银行名 / 开户行时截断
+    if (m && start != null) {
+      for (var k = 2; k <= 3; k++) {
+        if (k < n.length && NAME_BOUNDARY.test(m.input.slice(start + k))) { n = n.slice(0, k); break; }
+      }
+    }
     return n.length >= 2 ? n : null;
+  }
+  /** 句中姓名（“钱转到李强的账户”）：必须以常见姓氏开头、不以称呼结尾，其余同 cleanName */
+  function cleanNameMid(n, m, start) {
+    if (!n || NR.surnames.indexOf(n[0]) < 0) return null;
+    for (var i = 0; i < NR.titleSuffix.length; i++) {
+      var t = NR.titleSuffix[i];
+      if (n.length >= t.length && n.slice(n.length - t.length) === t) return null;
+    }
+    return cleanName(n, m, start);
   }
 
   /**
@@ -138,6 +155,7 @@
     scan(RE.landline, 'phone', { meta: function () { return { kind: 'landline' }; } });
     scan(RE.mobile, 'phone', { meta: function () { return { kind: 'mobile' }; } });
     scan(RE.name, 'name', { group: 1, clean: cleanName });
+    scan(RE.nameMid, 'name', { group: 1, clean: cleanNameMid });
 
     // 非敏感的上下文情报（不打码、不占用区间）
     scan(RE.amount, 'amount', { sensitive: false, noOverlap: true, meta: function (raw, m) {
@@ -187,6 +205,11 @@
 
   var RE_BLOCK_BEFORE = ST.blockBefore ? new RegExp(ST.blockBefore) : null;
   var RE_BLOCK_AFTER = ST.blockAfter ? new RegExp(ST.blockAfter) : null;
+  var BLOCK_TYPOS = (ST.blockTypos || {}).map || {};
+  var BT_KEYS = Object.keys(BLOCK_TYPOS).sort(function (a, b) { return b.length - a.length || (a < b ? -1 : a > b ? 1 : 0); });
+  var RE_BLOCK_TYPOS = BT_KEYS.length ? new RegExp(BT_KEYS.map(function (k) { return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|'), 'g') : null;
+  /** 屏蔽词的手写错字（房问号 / 工好）换回正写再判断（等长替换） */
+  function unblockTypos(t) { return RE_BLOCK_TYPOS ? t.replace(RE_BLOCK_TYPOS, function (k) { return BLOCK_TYPOS[k]; }) : t; }
   var NUMERALS = C.obfuscation.numerals;
   var RE_NUMERAL_CHAR = new RegExp('[' + Object.keys(NUMERALS).join('') + ']', 'g');
 
@@ -201,6 +224,15 @@
       var sp = norm.span(a, b);
       return !ents.some(function (e) { return e.start < sp[1] && e.end > sp[0]; });
     }
+    /** #1：片段被单回合提取认成 16–18 位、不过 Luhn 的银行卡（多半是拆开的长卡号的一段）：允许参与拼接，结果过 Luhn 时取代它 */
+    function weakCard(a, b) {
+      var sp = norm.span(a, b);
+      var hit = ents.filter(function (e) { return e.start < sp[1] && e.end > sp[0]; });
+      if (hit.length !== 1 || hit[0].type !== 'bank_card') return null;
+      var d = s.slice(a, b).replace(/[^0-9]/g, '');
+      if (String(hit[0].value).replace(/[^0-9]/g, '') !== d || d.length > 18 || luhn(d)) return null;
+      return hit[0];
+    }
     function mk(a, b, extra) {
       var sp = norm.span(a, b);
       var o = { start: sp[0], end: sp[1], digits: s.slice(a, b).replace(/[^0-9]/g, ''), ns: a, ne: b };
@@ -210,13 +242,19 @@
     var out = { text: s, ents: ents, head: null, tail: null };
     var t = RE_TAIL.exec(s);
     if (t) {
-      var a = t.index, b = a + t[1].length;
-      if (free(a, b) && !(RE_BLOCK_BEFORE && RE_BLOCK_BEFORE.test(s.slice(Math.max(0, a - 16), a)))) out.tail = mk(a, b, { before: s.slice(Math.max(0, a - 16), a) });
+      var a = t.index, b = a + t[1].length, wk = free(a, b) ? null : weakCard(a, b);
+      if ((wk || free(a, b)) && !(RE_BLOCK_BEFORE && RE_BLOCK_BEFORE.test(unblockTypos(s.slice(Math.max(0, a - 16), a))))) {
+        out.tail = mk(a, b, { before: s.slice(Math.max(0, a - 16), a) });
+        if (wk) out.tail.weak = wk;
+      }
     }
     var h = RE_HEAD.exec(s);
     if (h && h.index === 0) {
-      var a2 = h[1].length, b2 = a2 + h[2].length, rest = s.slice(b2);
-      if (free(a2, b2) && !RE_UNIT.test(rest) && !(RE_BLOCK_AFTER && RE_BLOCK_AFTER.test(rest))) out.head = mk(a2, b2, { only: RE_TAIL_ONLY.test(rest) });
+      var a2 = h[1].length, b2 = a2 + h[2].length, rest = s.slice(b2), wk2 = free(a2, b2) ? null : weakCard(a2, b2);
+      if ((wk2 || free(a2, b2)) && !RE_UNIT.test(rest) && !(RE_BLOCK_AFTER && RE_BLOCK_AFTER.test(unblockTypos(rest)))) {
+        out.head = mk(a2, b2, { only: RE_TAIL_ONLY.test(rest) });
+        if (wk2) out.head.weak = wk2;
+      }
     }
     if (out.tail && RE_UNIT.test(s.slice(out.tail.ne))) out.tail = null;
     return out;
@@ -262,6 +300,8 @@
         d += h.digits;
         if (d.length > 19) break;
         var sc = score(d, tail.before + F[i].text.slice(tail.ns, tail.ne));
+        // 含被单回合认成卡号的片段：拼接结果必须是过 Luhn 的银行卡才取代它
+        if (sc && parts.some(function (p) { return p.f.weak; }) && !(sc.type === 'bank_card' && sc.meta.luhn)) sc = null;
         if (sc && sc.conf >= minConf && (!best || sc.conf > best.sc.conf || (sc.conf === best.sc.conf && d.length > best.d.length))) best = { sc: sc, d: d, parts: parts.slice() };
       }
       if (!best) continue;
@@ -270,7 +310,10 @@
       seen[key] = 1;
       var masked = R.mask(best.sc.type, best.d), off = 0, same = masked.length === best.d.length;
       var meta = best.sc.meta; meta.stitched = true;
-      out.push({
+      var sup = best.parts.filter(function (p) { return p.f.weak; }).map(function (p) {
+        return { turn: p.turn, type: p.f.weak.type, value: p.f.weak.value, start: p.f.weak.start, end: p.f.weak.end };
+      });
+      var o = {
         type: best.sc.type, label: LABELS[best.sc.type], value: best.d, masked: masked, sensitive: true, confidence: best.sc.conf,
         turns: best.parts.map(function (p) { return p.turn; }),
         parts: best.parts.map(function (p) {
@@ -279,7 +322,9 @@
           return { turn: p.turn, start: p.f.start, end: p.f.end, masked: m };
         }),
         meta: meta
-      });
+      };
+      if (sup.length) o.supersedes = sup;
+      out.push(o);
       i = best.parts[best.parts.length - 1].turn - 1; // 已用掉的回合不再作为起点
     }
     return out;

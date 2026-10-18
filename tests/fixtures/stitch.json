@@ -324,6 +324,143 @@
      }
     }
    ]
+  },
+  {
+   "turns": [
+    "卡号是 6221887154833655",
+    "995，户名王某某"
+   ],
+   "expected": [
+    {
+     "type": "bank_card",
+     "label": "银行卡号",
+     "value": "6221887154833655995",
+     "masked": "622188*********5995",
+     "sensitive": true,
+     "confidence": 1,
+     "turns": [
+      0,
+      1
+     ],
+     "parts": [
+      {
+       "turn": 0,
+       "start": 4,
+       "end": 20,
+       "masked": "622188*********5"
+      },
+      {
+       "turn": 1,
+       "start": 0,
+       "end": 3,
+       "masked": "995"
+      }
+     ],
+     "meta": {
+      "digits": 19,
+      "luhn": true,
+      "unionpay": true,
+      "bank": "中国邮政储蓄银行",
+      "issuer": {
+       "bank": "中国邮政储蓄银行",
+       "bankCode": "PSBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin",
+      "stitched": true
+     },
+     "supersedes": [
+      {
+       "turn": 0,
+       "type": "bank_card",
+       "value": "6221887154833655",
+       "start": 4,
+       "end": 20
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "turns": [
+    "卡号是 622",
+    "1887154833655995，户名王某某"
+   ],
+   "expected": [
+    {
+     "type": "bank_card",
+     "label": "银行卡号",
+     "value": "6221887154833655995",
+     "masked": "622188*********5995",
+     "sensitive": true,
+     "confidence": 1,
+     "turns": [
+      0,
+      1
+     ],
+     "parts": [
+      {
+       "turn": 0,
+       "start": 4,
+       "end": 7,
+       "masked": "622"
+      },
+      {
+       "turn": 1,
+       "start": 0,
+       "end": 16,
+       "masked": "188*********5995"
+      }
+     ],
+     "meta": {
+      "digits": 19,
+      "luhn": true,
+      "unionpay": true,
+      "bank": "中国邮政储蓄银行",
+      "issuer": {
+       "bank": "中国邮政储蓄银行",
+       "bankCode": "PSBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      },
+      "bankFrom": "bin",
+      "stitched": true
+     },
+     "supersedes": [
+      {
+       "turn": 1,
+       "type": "bank_card",
+       "value": "1887154833655995",
+       "start": 0,
+       "end": 16
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "turns": [
+    "卡号 6222 0202 0011 2233",
+    "445 元"
+   ],
+   "expected": []
+  },
+  {
+   "turns": [
+    "房问号 199",
+    "0069 7308 是同事的工好"
+   ],
+   "expected": []
+  },
+  {
+   "turns": [
+    "工好 151",
+    "0859 5928"
+   ],
+   "expected": []
   }
  ]
 }

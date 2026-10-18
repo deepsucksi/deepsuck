@@ -195,6 +195,18 @@
       D.extractors.stitch(recent.map(function (r) { return r.raw; })).forEach(function (e) {
         if (e.turns[e.turns.length - 1] !== recent.length - 1) return; // 只处理以本回合结尾的拼接
         var key = e.type + '|' + e.value;
+        // #1：拼接结果取代被单回合误认成整卡的那一段（从情报与该回合的脱敏实体里去掉，避免重叠打码）
+        (e.supersedes || []).forEach(function (sup) {
+          var sk = sup.type + '|' + String(sup.value).replace(/[\s-]/g, '').toLowerCase();
+          var old = self.intel[sk];
+          if (old) {
+            delete self.intel[sk];
+            var ix = newIntel.indexOf(old);
+            if (ix >= 0) newIntel.splice(ix, 1);
+          }
+          var ents = recent[sup.turn].entities;
+          for (var q = ents.length - 1; q >= 0; q--) if (ents[q].type === sup.type && ents[q].start === sup.start && ents[q].end === sup.end) ents.splice(q, 1);
+        });
         e.parts.forEach(function (p) { recent[p.turn].extra.push({ type: e.type, start: p.start, end: p.end, masked: p.masked, sensitive: true }); });
         e.parts.forEach(function (p) {
           var r = recent[p.turn];

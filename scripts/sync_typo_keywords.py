@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """从 personas/humanize/confusion.py（语料与人设维护的混淆表，只读）生成提取器 / 分类器用的关键词错别字归一化表，
-写入 site/assets/core/extractors.json 的 obfuscation.typoKeywords（错写 → 正写，等长，JS 与 Python 共用）。
+写入 site/assets/core/extractors.json 的 obfuscation.typoKeywords（错写 → 正写，等长，JS 与 Python 共用）；
+同样的方法给跨回合拼接的屏蔽词（stitch.blockBefore / blockAfter 里的“房间、工号、订单号…”）生成 stitch.blockTypos
+（“房问号”“工好”这类手写错字仍能挡住拼接），只在拼接器判断屏蔽词时使用，不参与通用规范化。
 
 不另写一套混淆表：同音整词（HOMOPHONE_WORDS、COMMON_WORDS、PLACE_WORDS）、同音单字（HOMOPHONE_CHARS）、形近字（SHAPE_CHARS、
 手写档的 HANDWRITING_CHARS）全部来自 personas（数据在 site/assets/core/personas.json 的 humanize.confusion）。
@@ -50,8 +52,17 @@ def vocabulary() -> list:
     return sorted(words)
 
 
-def build() -> dict:
-    vocab = vocabulary()
+def block_vocabulary() -> list:
+    ex = json.loads((CORE / "extractors.json").read_text(encoding="utf-8"))
+    st = ex.get("stitch") or {}
+    words = set()
+    for k in ("blockBefore", "blockAfter"):
+        words.update(literals(st.get(k, "")))
+    return sorted(words)
+
+
+def build(vocab=None) -> dict:
+    vocab = vocabulary() if vocab is None else vocab
     vs = set(vocab)
     cand: dict = {}
     for v in vocab:
@@ -79,18 +90,24 @@ def main(argv=None) -> int:
     path = CORE / "extractors.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     table = build()
+    block = build(block_vocabulary())
     cur = data["obfuscation"].get("typoKeywords", {}).get("map")
+    cur_block = (data.get("stitch") or {}).get("blockTypos", {}).get("map")
     if check:
-        if cur != table:
-            print("typoKeywords 过期：运行 python3 scripts/sync_typo_keywords.py && npm run build:core && npm run fixtures", file=sys.stderr)
+        if cur != table or cur_block != block:
+            print("typoKeywords / blockTypos 过期：运行 python3 scripts/sync_typo_keywords.py && npm run build:core && npm run fixtures", file=sys.stderr)
             return 1
         return 0
+    data["stitch"]["blockTypos"] = {
+        "comment": "拼接屏蔽词的错别字变体（错写 → 正写，等长）。由 scripts/sync_typo_keywords.py 从 personas 混淆表生成，请勿手改；只在判断 blockBefore / blockAfter 时替换。",
+        "map": block,
+    }
     data["obfuscation"]["typoKeywords"] = {
         "comment": "关键词错别字归一化（错写 → 正写，等长）。由 scripts/sync_typo_keywords.py 从 personas/humanize/confusion.py 生成，请勿手改。",
         "map": table,
     }
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"typoKeywords: {len(table)} 条")
+    print(f"typoKeywords: {len(table)} 条，blockTypos: {len(block)} 条")
     return 0
 
 
