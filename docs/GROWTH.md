@@ -1,22 +1,24 @@
 # 开源运营计划（docs/GROWTH.md）
 
 > 2026-10-19 起草。本文只是计划和建议：**所有对外发帖、投稿、注册账号、修改仓库设置的动作都需负责人批准**，文中逐项标注。渠道规则查证于 2026-10-19，附原始链接；查不到原文的标「待核实」。
+>
+> **2026-10-19 负责人决定**：topics 与 Discussions 已定并执行（第 1.1、1.4 节）；网站统计暂不上（第 5 节）；投稿等 v0.4 全流程跑通后再议（第 3 节）。
 
-## 0. 现状（2026-10-19 用 `gh repo view` 查询）
+## 0. 现状（2026-10-19 用 `gh repo view` 查询，已按负责人决定更新）
 
 | 项 | 现状 |
 |---|---|
 | description | 开源中文 AI 反诈“拖住”机器人：陪诈骗分子聊天、浪费其时间并提取脱敏情报。Open-source Chinese anti-scam time-waster bot. |
 | homepage | https://deepsuck.si |
-| topics | `anti-fraud` `anti-scam` `chatbot` `chinese` `qwen` `scambaiting` |
-| Discussions | 未开启 |
+| topics | `anti-fraud` `anti-scam` `chatbot` `chinese` `scambaiting` `fraud-prevention` `voice-ai`（原有 `qwen` 已去掉，见 #29） |
+| Discussions | 已开启；分类按第 1.4 节在网页上调整（#30） |
 | Releases / tags | 没有（`package.json` 版本 0.4.0，`CHANGELOG.md` 只有「未发布」） |
-| README 徽章 | Pages 工作流、Apache-2.0、CC BY 4.0、stars |
+| README 徽章 | Pages 工作流、Tests 工作流、Apache-2.0、CC BY 4.0、stars |
 | 标签 | 已有 `good first issue`、`help wanted`、`area:*`、`type:*`、`priority:*` |
 
 ## 1. 仓库优化
 
-### 1.1 description 与 topics（建议，需负责人批准后在仓库设置里改）
+### 1.1 description 与 topics（topics 已定并执行；description 仍为建议）
 
 description 建议加上情报库，中英各一句：
 
@@ -24,18 +26,18 @@ description 建议加上情报库，中英各一句：
 
 topics（GitHub 上限 20 个，全小写、连字符）：
 
-| 保留 | 建议新增 | 建议移除 |
-|---|---|---|
-| `anti-scam` `anti-fraud` `scambaiting` `chinese` `chatbot` | `fraud-prevention` `honeypot` `threat-intelligence` `stix` `scam-detection` `voice-bot` `webrtc` `conversational-ai` `data-redaction` `privacy` `open-data` | `qwen` |
+**已执行（2026-10-19，#29）**：去掉 `qwen`，补上 `fraud-prevention`、`voice-ai`（`anti-scam`、`scambaiting`、`chinese` 原本就有），保留 `anti-fraud`、`chatbot`。`package.json` 的 `keywords` 去掉 `qwen`、`dashscope`（#34）。
 
-- 移除 `qwen` 的理由：项目公开文案约定不点名商业公司或产品（`tests/brand_copy.test.js`），topic 也是公开文案。`package.json` 的 `keywords` 里还有 `qwen`、`dashscope`，可一并改成 `llm`、`voice`（改代码仓库文件，走 PR）。
+以后可以再考虑的 topics（未执行，需负责人批准）：`honeypot` `threat-intelligence` `stix` `scam-detection` `webrtc` `data-redaction` `open-data`。
+
+- 移除 `qwen` 的理由：项目公开文案约定不点名商业公司或产品（`tests/brand_copy.test.js`），topic 也是公开文案。
 - `honeypot`、`threat-intelligence`、`stix` 对应情报库与 STIX 2.1 导出，便于安全研究者检索。
 
 ### 1.2 README 徽章
 
 现有 4 个够用，保持克制。建议只补：
 
-- `test` 工作流徽章：`https://github.com/deepsucksi/deepsuck/actions/workflows/test.yml/badge.svg`；
+- `test` 工作流徽章（已加，#34）：`https://github.com/deepsucksi/deepsuck/actions/workflows/test.yml/badge.svg`；
 - 首个 release 之后加版本徽章：`https://img.shields.io/github/v/release/deepsucksi/deepsuck?color=171c1f`；
 - 博客上线后在链接行加「博客」与 RSS（`https://deepsuck.si/blog/feed.xml`）。
 
@@ -74,19 +76,20 @@ cd python && python -m pytest -q
 @维护者
 ```
 
-### 1.4 Discussions（需负责人批准后开启）
+### 1.4 Discussions（已开启，分类已定）
 
-建议开启并只设 5 个分类，避免空版块：
+负责人已定 4 个分类。GitHub API 不支持创建、改名或删除分类，需要维护者在仓库 Settings → Discussions 页面手动调整：
 
 | 分类 | 格式 | 用途 |
 |---|---|---|
-| 公告 Announcements | 公告（仅维护者发帖） | 版本发布、博客更新、重要变更 |
-| 问答 Q&A | 问答（可标记答案） | 部署、自托管、使用问题 |
-| 想法 Ideas | 开放讨论 | 新场景、新人设、新功能提议，成熟后转 issue |
-| 研究与评测 Research | 开放讨论 | 评测方法、数据集、话术分类讨论 |
-| 展示 Show and tell | 开放讨论 | 他人基于 DeepSuck 的部署、改进与宣传材料 |
+| 公告 | 公告（仅维护者发帖） | 版本发布、博客更新、讨论规则 |
+| 问答 | 问答（可标记答案） | 部署、自托管、使用问题 |
+| 想法 | 开放讨论 | 新场景、新人设、新功能提议，成熟后转 issue |
+| 诈骗话术线索 | 开放讨论 | 脱敏后的话术和套路，用 `.github/DISCUSSION_TEMPLATE/scam-script-leads.yml` 模板 |
 
-置顶一条「发帖须知」：不贴真实个人信息、不贴未打码的卡号和身份证号；情报提交走 Issue 模板；遇到诈骗先拨 110 / 96110。情报提交与申诉仍然只走 Issue 模板（IssueOps 工作流依赖它）。
+- 「诈骗话术线索」模板按分类 slug `scam-script-leads` 命名。分类建好后用 GraphQL 查 `discussionCategories { name slug }` 核对 slug，不一致就把模板文件改成实际 slug。
+- 公告分类建好后置顶一条讨论规则（草稿见交接文件），要点：禁止发布真实个人信息，只提交脱敏后的话术和套路；遇到诈骗先拨 110 / 96110。
+- 结构化情报提交与申诉仍然只走 Issue 模板（IssueOps 工作流依赖它），Discussions 里的线索只作讨论素材。
 
 ## 2. 发布节奏与 release notes
 
@@ -126,6 +129,8 @@ release notes 模板：
 
 ## 3. 投稿与分享渠道（全部需负责人批准，用负责人自己的账号）
 
+**已定（2026-10-19）：投稿等 v0.4 全流程跑通后再议。** 下表只作为届时的参考，现在不投任何渠道。
+
 原则：先上线可试用的内容（沙盒、语音演示、情报库、博客）再投稿；每个渠道只发一次首发帖，之后只在有实质更新时再发；不刷票、不找人点赞；帖子写清项目只做防御、不主动联系真人。
 
 | 渠道 | 类型 | 规则要点（查证于 2026-10-19） | 适合发什么 | 状态 |
@@ -162,17 +167,24 @@ release notes 模板：
 |---|---|---|---|
 | Star、fork、watcher | GitHub API | `gh api repos/deepsucksi/deepsuck --jq '{stars:.stargazers_count,forks:.forks_count,watchers:.subscribers_count}'` | 2026-10-19 为 1 star |
 | 仓库访问与克隆 | GitHub traffic API | `gh api repos/deepsucksi/deepsuck/traffic/views`、`/traffic/clones`、`/traffic/popular/referrers`；需要推送权限，**只保留最近 14 天**。[文档](https://docs.github.com/en/rest/metrics/traffic) | 想留长期数据，需要每天快照；建议加一个定时工作流把结果提交到单独分支，需负责人批准 |
-| 网站访问量 | 待定 | GitHub Pages 不提供访问日志。候选（都可自托管、不用 cookie）：GoatCounter（单个 Go 程序 + SQLite，EUPL-1.2）、Umami（Node + PostgreSQL/MySQL，MIT）、Plausible 社区版（AGPL-3.0，需要 ClickHouse，2C2G 小机器偏重）。若要用，建议优先 GoatCounter 或 Umami，部署在现有 VPS 上；注意 #18 磁盘容量 | **建议，需负责人拍板**；不引入任何第三方托管统计 |
+| 网站访问量 | 暂不统计 | **已定（2026-10-19）：统计工具暂不上。** deepsuck.si 在大陆可以访问，但 VPS 从大陆连不通，自托管统计会丢掉大陆访客的数据。网站相关的指标先看 GitHub traffic 和各搜索平台后台的数据 | 不引入任何第三方托管统计 |
 | 语音演示使用量 | 自有服务 | live.deepsuck.si 的 `stats.json` 计数与通话追踪（只计数，不含内容） | 已有 |
 | 收录数 | 各搜索平台后台 | Google Search Console「网页索引」、Bing「网站资源管理器」、百度「索引量」 | 依赖第 4 节的验证；`site:deepsuck.si` 搜索结果只作粗略参考 |
 | 社区参与 | GitHub | 新 issue / PR 数、外部贡献者数、`good first issue` 关闭数、Discussions 帖子数（`gh issue list`、`gh pr list --search`） | |
-| 订阅 | RSS | 静态站无法统计订阅数；可看托管统计里 `feed.xml` 的请求量（如果引入统计） | |
+| 订阅 | RSS | 静态站无法统计订阅数，暂不统计 | |
 
 ## 6. 需负责人拍板 / 批准的事项
 
-1. 修改仓库 description 与 topics（第 1.1 节），以及 `package.json` keywords 的 PR。
-2. 开启 Discussions 及分类（第 1.4 节）。
-3. 发布节奏、首个 tag 与 Release（第 2 节）。
-4. 每个投稿渠道的发帖（第 3 节），用谁的账号，首发顺序。
-5. 三个搜索平台的账号与验证（第 4 节），是否使用 IndexNow。
-6. 是否引入网站统计、选哪个、部署在哪（第 5 节）；是否加 traffic 快照工作流。
+已定（2026-10-19）：
+
+- topics（第 1.1 节）：已执行；`package.json` keywords 已随 #34 合入。
+- Discussions（第 1.4 节）：已开启，分类在网页上按表调整。
+- 网站统计（第 5 节）：暂不上。
+- 投稿（第 3 节）：v0.4 全流程跑通后再议。
+
+仍待拍板：
+
+1. 仓库 description 是否按第 1.1 节改。
+2. 发布节奏、首个 tag 与 Release（第 2 节）。
+3. 三个搜索平台的账号与验证（第 4 节），是否使用 IndexNow。
+4. 是否加 GitHub traffic 每日快照工作流（第 5 节）。

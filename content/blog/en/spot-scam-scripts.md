@@ -2,7 +2,6 @@
 title: Warning signs of seven common scam scripts
 description: Scam scripts vary endlessly, but they follow the same arc — a pretext, then trust-building, pressure, and finally a demand for money or information. This guide lists the warning signs and responses for seven common types of fraud in China. It explains how to recognise them and deliberately does not reproduce any lines that could be reused.
 date: 2026-10-19
-draft: true
 tags: [anti-fraud, awareness]
 ---
 
@@ -58,7 +57,7 @@ Nearly every phone or online scam goes through these five steps, in varying orde
 
 **What to do**: call the number you already had saved, or confirm in person. Do not trust screenshots — only money that has actually arrived in your account counts.
 
-### Romance-investment scams ("pig butchering")
+### Romance-investment scams (Pig-butchering)
 
 **Typical pretext**: a "wrong contact" turns into a long relationship, followed by an inside channel or a platform loophole to make money together.
 
@@ -66,13 +65,13 @@ Nearly every phone or online scam goes through these five steps, in varying orde
 
 **What to do**: never deposit on a site or app they provide and never send crypto to strangers. A platform that charges you before you can withdraw is fake.
 
-### Task and click-farming rebates
+### Task scam (fake order-brushing rebates)
 
 **Typical pretext**: a side job paid daily for simple tasks such as liking or following.
 
 **Warning signs**: a few small payouts first; then "bonus orders" or "combo orders" that require you to advance money; when your money is stuck, they blame your mistake and ask for more to unfreeze it.
 
-**What to do**: click-farming is illegal, and any "job" that asks you to pay first is a scam. Do not install task apps from strangers or join unknown task groups.
+**What to do**: order brushing is illegal, and any "job" that asks you to pay first is a task scam. Do not install task apps from strangers or join unknown task groups.
 
 ### Fake investment
 

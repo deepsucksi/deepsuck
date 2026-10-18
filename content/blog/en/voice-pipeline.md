@@ -2,7 +2,6 @@
 title: "Inside Auntie Wang's voice pipeline"
 description: A scammer says one sentence in the browser or over the phone. Auntie Wang has to answer within a second or two while quietly noting and masking any card number or URL. This post follows one turn through speech recognition, the language model, speech synthesis, fillers, barge-in and transport, plus the rules for extracting and masking intelligence.
 date: 2026-10-19
-draft: true
 tags: [engineering, voice, intel]
 ---
 
@@ -15,13 +14,13 @@ Every implementation detail here follows the repository, mainly [voice/README.md
 A single turn goes like this:
 
 1. The scammer's voice reaches the server over **WebRTC** (web) or a **SIP telephony adapter**;
-2. **Streaming speech recognition** produces partial results while listening and a final transcript once it decides the speaker is done;
+2. **Cloud streaming speech recognition** produces partial results while listening and a final transcript once it decides the speaker is done;
 3. The **intel processor** extracts card numbers, phone numbers, URLs and so on from the transcript, masks them, and lets the rule engine pick this turn's strategy;
 4. A system prompt is assembled from persona, scenario and strategy and sent, together with the masked conversation, to the **language model**;
 5. The model's output passes an **output guard** and is streamed clause by clause into **speech synthesis**;
 6. The audio goes back the same way, while a data channel pushes the masked intelligence to a live dashboard in the browser.
 
-Web and phone share one pipeline (`build_pipeline` in `voice/app.py`) with two sets of latency parameters (`voice/tuning.py`). It is built on an open-source real-time voice pipeline framework; recognition, the language model and synthesis are cloud APIs.
+Web and phone share one pipeline (`build_pipeline` in `voice/app.py`) with two sets of latency parameters (`voice/tuning.py`). It is built on Pipecat, an open-source real-time voice pipeline framework, served by FastAPI and Uvicorn; recognition, the language model and synthesis are cloud APIs.
 
 ## Speech recognition: when is the caller done?
 
@@ -29,9 +28,9 @@ Recognising words is the easy part. Deciding whether the caller has finished is 
 
 Three layers stack up (see "turn detection" in VOICE_LATENCY.md):
 
-- **Voice activity detection (VAD)**: a small open-source model decides whether anyone is speaking. On the web, speech must last 0.3 s at confidence 0.75 to count as started, and 0.2 s of silence counts as stopped; the phone profile is more conservative.
+- **Voice activity detection (VAD)**: the open-source Silero VAD model decides whether anyone is speaking. On the web, speech must last 0.3 s at confidence 0.75 to count as started, and 0.2 s of silence counts as stopped; the phone profile is more conservative.
 - **The recogniser's end-of-sentence silence**: lowered from the service default of about 800 ms to 450 ms (web) and 500 ms (phone), which brings the final transcript about 0.3 s earlier.
-- **An open-source turn-detection model** that judges from the audio whether the utterance is complete. When it says "incomplete", the fallback used to be a full 3-second wait.
+- **Smart Turn (v3), an open-source turn-detection model**, judges from the audio whether the utterance is complete. When it says "incomplete", the fallback used to be a full 3-second wait.
 
 On top of that we added a digit-aware rule (`voice/turndigits.py`). Scammers often pause while reading out a card number; treated as ordinary speech, a 19-digit number gets split into three turns. The rule: if the transcript ends with an unfinished number (fewer than 16 digits after "card number", fewer than 11 after "phone number", and so on), wait at least 1800 ms after the caller stops; if the sentence already ends with final punctuation and no number is being read, wait at most 1200 ms instead of 3 s.
 
@@ -68,13 +67,13 @@ The system prompt also tells the model "you have already acknowledged once this 
 
 ## Barge-in: count characters, not words
 
-When the caller talks over Auntie Wang, she should stop. The framework's default counts space-separated words, which does not work for Chinese. We count "meaningful characters" instead (`voice/interrupt.py`): punctuation and acknowledgements like "mm", "right" or "OK" are dropped, while "no" or "that's wrong" count as objections. While she is speaking, 2 meaningful characters (3 on the phone) interrupt her; when she is silent, any text starts a new turn. Backchannels are ordinary output audio and are flushed with the output queue on interruption.
+When the caller talks over Auntie Wang, she should stop. Pipecat's default counts space-separated words, which does not work for Chinese. We count "meaningful characters" instead (`voice/interrupt.py`): punctuation and acknowledgements like "mm", "right" or "OK" are dropped, while "no" or "that's wrong" count as objections. While she is speaking, 2 meaningful characters (3 on the phone) interrupt her; when she is silent, any text starts a new turn. Backchannels are ordinary output audio and are flushed with the output queue on interruption.
 
 ## Transport: web, relay and phone
 
-- **Web**: peer-to-peer WebRTC between browser and server. The server uses a fixed UDP port range and adds its public address as a candidate in the answer.
-- **When UDP is blocked**: corporate and campus networks or some proxies do not forward UDP. Deployments can enable a self-hosted TURN relay over TCP or TLS on port 443 without opening another port. Temporary credentials are fetched when "start call" is clicked, valid for 600 s by default and never stored. The page shows connecting / connected / failed, and after 20 s without a connection it suggests switching networks or turning off proxies.
-- **Phone**: an optional open-source PBX connects to the same pipeline through a WebSocket adapter; the transport resamples audio to 8 kHz. Telephony is off by default and only answers, never dials.
+- **Web**: peer-to-peer WebRTC between browser and server, with aiortc on the server side. The server uses a fixed UDP port range and adds its public address as a candidate in the answer.
+- **When UDP is blocked**: corporate and campus networks or some proxies do not forward UDP. Deployments can enable a self-hosted coturn relay over TCP or TLS on port 443: Caddy, with the caddy-l4 plugin, separates TURN traffic from HTTPS by the first bytes of each connection, so no extra port is needed. Temporary credentials are fetched when "start call" is clicked, valid for 600 s by default and never stored. The page shows connecting / connected / failed, and after 20 s without a connection it suggests switching networks or turning off proxies.
+- **Phone**: an optional Asterisk PBX connects to the same pipeline through a WebSocket adapter; the transport resamples audio to 8 kHz. Telephony is off by default and only answers, never dials; the deploy script also installs fail2ban to block brute-force registrations.
 
 ## Latency: measured numbers
 
@@ -110,7 +109,7 @@ Everything displayed, exported, stored or sent to the model is masked first. INT
 | Bank card | 16–19 digits keep first 6 and last 4; 8–15 keep last 4; shorter fully masked | `622202*********3445` |
 | Mobile number | keep first 3 and last 4 | `139****2233` |
 | ID number | keep first 6 and last 4, exactly 8 asterisks between | `110101********123X` |
-| Name | family name only | `王**` |
+| Name | family name only | <code data-i18n-keep="intel-data" lang="zh-CN">王**</code> |
 | Messaging / payment account | keep 2 characters at each end | `ke******26` |
 | URL | keep scheme and TLD, 2 characters at each end of the domain, hide the path | `https://pa***re.top/***` |
 | Crypto wallet | keep first 4 (6 for some formats) and last 4 | `TXyz...5678` |
@@ -126,7 +125,31 @@ In offline evaluation, a language model plays the scammer against three personas
 ## Still open
 
 - The barge-in threshold was tuned on synthetic audio, not calibrated on real calls;
-- End-to-end tests have only run on Linux with one desktop browser and a fake microphone; real microphones, echo cancellation and mobile are untested;
+- End-to-end tests have only run on Linux with a desktop browser and a fake microphone; real microphones, echo cancellation and mobile are untested;
 - Long sentences with comma pauses are occasionally still split into two turns.
 
 Code, parameters and reproduction commands are all in the repository. Issues and pull requests are welcome.
+
+## Acknowledgements
+
+DeepSuck is built on the open-source projects below. Thanks to their authors and maintainers. The list follows the dependencies and deployment config in the repository (`voice/requirements.txt`, `deploy/`, `scripts/`, `site/assets/core/blocklists.json`).
+
+Voice pipeline:
+
+- [Pipecat](https://github.com/pipecat-ai/pipecat): real-time voice pipeline framework
+- [Silero VAD](https://github.com/snakers4/silero-vad): voice activity detection
+- [Smart Turn](https://github.com/pipecat-ai/smart-turn): turn-detection model
+- [aiortc](https://github.com/aiortc/aiortc): WebRTC for Python
+- [FastAPI](https://github.com/fastapi/fastapi), [Uvicorn](https://github.com/encode/uvicorn), [websockets](https://github.com/python-websockets/websockets): server and WebSocket
+
+Deployment and telephony:
+
+- [coturn](https://github.com/coturn/coturn): TURN relay
+- [Asterisk](https://github.com/asterisk/asterisk): telephone exchange
+- [Caddy](https://github.com/caddyserver/caddy) and [caddy-l4](https://github.com/mholt/caddy-l4): HTTPS and port-443 multiplexing
+- [fail2ban](https://github.com/fail2ban/fail2ban): blocking brute-force registrations
+
+Website and data:
+
+- [marked](https://github.com/markedjs/marked): Markdown conversion for this blog
+- [destroylist](https://github.com/phishdestroy/destroylist), [Phishing.Database](https://github.com/Phishing-Database/Phishing.Database): public phishing-domain blocklists

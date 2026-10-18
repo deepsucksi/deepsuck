@@ -6,5 +6,298 @@
   <description>Notes from the DeepSuck open-source anti-scam project: progress, technical write-ups and scam-recognition guides.</description>
   <language>en</language>
   <atom:link href="https://deepsuck.si/blog/en/feed.xml" rel="self" type="application/rss+xml"/>
+  <lastBuildDate>Sun, 18 Oct 2026 16:00:00 GMT</lastBuildDate>
+  <item>
+    <title>Why we use AI to keep scammers busy</title>
+    <link>https://deepsuck.si/blog/en/why-we-stall-scammers/</link>
+    <guid isPermaLink="true">https://deepsuck.si/blog/en/why-we-stall-scammers/</guid>
+    <pubDate>Sun, 18 Oct 2026 16:00:00 GMT</pubDate>
+    <description>DeepSuck has a simple goal — let scammers spend their time on someone who will never fall for it, and keep the clues that help warn others. Here is why we do it, and what we will never do.</description>
+    <content:encoded><![CDATA[<p>Phone and online fraud is a business that runs on efficiency. A scam team can only make so many calls and keep so many conversations going in a day, and every call and every turn costs them time. That is where DeepSuck starts: <strong>if scammers face someone who is always willing to talk, always one step away from paying, and never actually pays, they have less time left for real people.</strong></p>
+<h2>What we do</h2>
+<p>DeepSuck is an open-source &quot;time-waster&quot; bot. It plays an ordinary potential victim: it replies a little slowly, often asks the other side to repeat, and runs into small hiccups whenever it follows instructions. Meanwhile it picks out the bank accounts, wallet addresses, phone numbers and URLs that scammers reveal, masks them, and turns them into structured intelligence.</p>
+<p>There are four personas today: Auntie Wang, Xiao Chen&#39;s Mom, Xiao Lin and Boss Zheng. Their identities and backgrounds are fictional and each talks differently, but they all follow the same rules.</p>
+<p>That serves three purposes:</p>
+<ul>
+<li><strong>Defense</strong>: every minute a scammer spends on the bot is a minute not spent on a real person.</li>
+<li><strong>Research</strong>: how a script opens, how it applies pressure, and at which step it asks for money can be recorded, classified and compared. The script corpus, evaluation scripts and results are all public so others can reproduce and improve them.</li>
+<li><strong>Education</strong>: the sandbox on our website lets anyone play the scammer once and see the whole playbook from the other side. People who have seen it end to end recognise it faster when a real call comes.</li>
+</ul>
+<h2>Our lines</h2>
+<p>These rules are written down in the <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/ETHICS.md">Ethics &amp; Acceptable Use guide</a> and enforced in the code and the contribution guide.</p>
+<p><strong>We never contact real people first.</strong> No outbound calls, no bulk messages, no unsolicited DMs, no friend requests. The bot only responds to scammers who come to it; in the sandbox, the scammer is the visitor. The telephony layer only answers, it never dials.</p>
+<p><strong>We never hand over real information.</strong> Personas never give real verification codes, card numbers, passwords or ID numbers, and never really transfer money. A guard on the voice output removes any run of five or more digits so the model cannot invent a number that looks real.</p>
+<p><strong>Data is masked by default.</strong> Before anything is displayed, exported or sent to a language model, it passes through the redaction module: bank cards keep only the first 6 and last 4 digits, phone numbers the first 3 and last 4, names only the family name. Raw values stay in memory for blocklist checks only; they are never written to disk or reported.</p>
+<p><strong>No revenge, no doxxing.</strong> We do not hunt people down, publish personal details, &quot;scam the scammers&quot; or attack any system. Many receiving accounts belong to ordinary people whose identities were stolen or who were tricked into renting out their accounts, so bank cards and names in the public intel library are always partially masked, and anyone can request removal with just the entry ID.</p>
+<p><strong>Leave it to professionals.</strong> Extracted data is a lead, never proof about anyone. If you are being scammed in mainland China, call 110 or the national anti-fraud hotline 96110; intelligence goes to official channels first.</p>
+<h2>Why open source</h2>
+<p>Anti-scam tools need trust above all. With the code public, anyone can check that &quot;answer only, never dial&quot; and &quot;mask before writing to disk&quot; are actually true. With rules and corpus public, researchers can compare methods on the same data. With evaluations public, every claim we make can be checked.</p>
+<p>The code is Apache-2.0 and the intel data is CC BY 4.0. If you want to help, you can contribute masked script samples, design personas that are harder to give up on, improve the extraction rules, or simply try the sandbox and tell us where the bot does not sound human.</p>
+<h2>What comes next</h2>
+<p>This blog will follow the project: how the voice pipeline is built, how intelligence is extracted and masked, and which signals give common scam scripts away. Every number will cite its source, a document or result file you can find in the repository.</p>
+<h2>Acknowledgements</h2>
+<p>DeepSuck is built on the open-source projects below. Thanks to their authors and maintainers. The list follows the dependencies and deployment config in the repository (<code>voice/requirements.txt</code>, <code>deploy/</code>, <code>scripts/</code>, <code>site/assets/core/blocklists.json</code>).</p>
+<p>Voice pipeline:</p>
+<ul>
+<li><a href="https://github.com/pipecat-ai/pipecat">Pipecat</a>: real-time voice pipeline framework</li>
+<li><a href="https://github.com/snakers4/silero-vad">Silero VAD</a>: voice activity detection</li>
+<li><a href="https://github.com/pipecat-ai/smart-turn">Smart Turn</a>: turn-detection model</li>
+<li><a href="https://github.com/aiortc/aiortc">aiortc</a>: WebRTC for Python</li>
+<li><a href="https://github.com/fastapi/fastapi">FastAPI</a>, <a href="https://github.com/encode/uvicorn">Uvicorn</a>, <a href="https://github.com/python-websockets/websockets">websockets</a>: server and WebSocket</li>
+</ul>
+<p>Deployment and telephony:</p>
+<ul>
+<li><a href="https://github.com/coturn/coturn">coturn</a>: TURN relay</li>
+<li><a href="https://github.com/asterisk/asterisk">Asterisk</a>: telephone exchange</li>
+<li><a href="https://github.com/caddyserver/caddy">Caddy</a> and <a href="https://github.com/mholt/caddy-l4">caddy-l4</a>: HTTPS and port-443 multiplexing</li>
+<li><a href="https://github.com/fail2ban/fail2ban">fail2ban</a>: blocking brute-force registrations</li>
+</ul>
+<p>Website and data:</p>
+<ul>
+<li><a href="https://github.com/markedjs/marked">marked</a>: Markdown conversion for this blog</li>
+<li><a href="https://github.com/phishdestroy/destroylist">destroylist</a>, <a href="https://github.com/Phishing-Database/Phishing.Database">Phishing.Database</a>: public phishing-domain blocklists</li>
+</ul>
+]]></content:encoded>
+  </item>
+  <item>
+    <title>Inside Auntie Wang's voice pipeline</title>
+    <link>https://deepsuck.si/blog/en/voice-pipeline/</link>
+    <guid isPermaLink="true">https://deepsuck.si/blog/en/voice-pipeline/</guid>
+    <pubDate>Sun, 18 Oct 2026 16:00:00 GMT</pubDate>
+    <description>A scammer says one sentence in the browser or over the phone. Auntie Wang has to answer within a second or two while quietly noting and masking any card number or URL. This post follows one turn through speech recognition, the language model, speech synthesis, fillers, barge-in and transport, plus the rules for extracting and masking intelligence.</description>
+    <content:encoded><![CDATA[<p>Auntie Wang is one of DeepSuck&#39;s voice personas: warm, fond of double-checking, and unwilling to press any button before she understands why. The goal of the voice version is to make her sound like a real person on the other end of the line — a beat slow, but never so slow that the caller thinks the line has dropped.</p>
+<p>Every implementation detail here follows the repository, mainly <a href="https://github.com/deepsucksi/deepsuck/blob/main/voice/README.md">voice/README.md</a>, <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/ARCHITECTURE.md">docs/ARCHITECTURE.md</a>, <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/VOICE_LATENCY.md">docs/VOICE_LATENCY.md</a> and <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/INTEL.md">docs/INTEL.md</a>. Every number cites its source.</p>
+<h2>One turn, end to end</h2>
+<p>A single turn goes like this:</p>
+<ol>
+<li>The scammer&#39;s voice reaches the server over <strong>WebRTC</strong> (web) or a <strong>SIP telephony adapter</strong>;</li>
+<li><strong>Cloud streaming speech recognition</strong> produces partial results while listening and a final transcript once it decides the speaker is done;</li>
+<li>The <strong>intel processor</strong> extracts card numbers, phone numbers, URLs and so on from the transcript, masks them, and lets the rule engine pick this turn&#39;s strategy;</li>
+<li>A system prompt is assembled from persona, scenario and strategy and sent, together with the masked conversation, to the <strong>language model</strong>;</li>
+<li>The model&#39;s output passes an <strong>output guard</strong> and is streamed clause by clause into <strong>speech synthesis</strong>;</li>
+<li>The audio goes back the same way, while a data channel pushes the masked intelligence to a live dashboard in the browser.</li>
+</ol>
+<p>Web and phone share one pipeline (<code>build_pipeline</code> in <code>voice/app.py</code>) with two sets of latency parameters (<code>voice/tuning.py</code>). It is built on Pipecat, an open-source real-time voice pipeline framework, served by FastAPI and Uvicorn; recognition, the language model and synthesis are cloud APIs.</p>
+<h2>Speech recognition: when is the caller done?</h2>
+<p>Recognising words is the easy part. Deciding whether the caller has finished is hard: decide too early and one sentence becomes two turns; too late and Auntie Wang feels sluggish.</p>
+<p>Three layers stack up (see &quot;turn detection&quot; in VOICE_LATENCY.md):</p>
+<ul>
+<li><strong>Voice activity detection (VAD)</strong>: the open-source Silero VAD model decides whether anyone is speaking. On the web, speech must last 0.3 s at confidence 0.75 to count as started, and 0.2 s of silence counts as stopped; the phone profile is more conservative.</li>
+<li><strong>The recogniser&#39;s end-of-sentence silence</strong>: lowered from the service default of about 800 ms to 450 ms (web) and 500 ms (phone), which brings the final transcript about 0.3 s earlier.</li>
+<li><strong>Smart Turn (v3), an open-source turn-detection model</strong>, judges from the audio whether the utterance is complete. When it says &quot;incomplete&quot;, the fallback used to be a full 3-second wait.</li>
+</ul>
+<p>On top of that we added a digit-aware rule (<code>voice/turndigits.py</code>). Scammers often pause while reading out a card number; treated as ordinary speech, a 19-digit number gets split into three turns. The rule: if the transcript ends with an unfinished number (fewer than 16 digits after &quot;card number&quot;, fewer than 11 after &quot;phone number&quot;, and so on), wait at least 1800 ms after the caller stops; if the sentence already ends with final punctuation and no number is being read, wait at most 1200 ms instead of 3 s.</p>
+<p>In local tests, a 19-digit number read with two pauses went from 3 segments to 1, and an announcement like &quot;let me read you the card number&quot; went from 3200 ms to 1802 ms between stopping and end-of-turn (the before/after table in VOICE_LATENCY.md).</p>
+<h2>The language model only sees masked text</h2>
+<p>Only masked transcripts are sent to the model. Raw values such as card numbers stay in process memory for blocklist checks and are never written to disk or reported (voice/README.md, &quot;Privacy and safety&quot;).</p>
+<p><code>voice/persona.py</code> builds the system prompt from persona, scenario and the strategy chosen by the rule engine: repeat back and probe when new intel appears, stall when asked for a verification code, steer towards the receiving account when asked to transfer. One easily missed constraint: <strong>only follow up on what the caller has already said</strong>. If the scammer has not mentioned a platform yet, the prompt will not tell Auntie Wang to ask which platform — otherwise she would bring up something they never said and give herself away.</p>
+<h2>Output guard: no invented numbers</h2>
+<p>Before synthesis, each reply goes through a guard that strips stage directions in brackets and Markdown symbols and removes any run of five or more digits, so the model cannot invent a plausible verification code or card number. When a number has to be repeated, it is read digit by digit and the masking asterisks are never spoken.</p>
+<h2>Speech synthesis: speak while generating</h2>
+<p>The first version opened a new connection per sentence and waited for the full sentence before synthesising, so the first audio packet took a long time. Now (the &quot;changes&quot; table in VOICE_LATENCY.md):</p>
+<ul>
+<li>each call keeps one long-lived connection, opened at the start;</li>
+<li>a synthesis task is opened as soon as each model turn begins;</li>
+<li>as the model streams tokens, a clause splitter cuts at final punctuation immediately and at commas once 6 characters have accumulated, never inside unclosed brackets or quotes, so the output guard always sees complete fragments;</li>
+<li>on barge-in, if the service is still synthesising, the connection is cancelled and reopened immediately.</li>
+</ul>
+<p>After this round the median time to the first synthesised packet dropped from 2781 ms to 1385 ms (stage table under &quot;results&quot; in VOICE_LATENCY.md; n=6 before, n=9 after). The remaining ~1.2 s is mostly the synthesis service itself; direct measurements show fast and slow modes that do not correlate with model, voice or sample rate, so the client side has done what it can.</p>
+<h2>Fillers: acknowledge first</h2>
+<p>Even so, two to three seconds pass between the caller stopping and the real reply. A real person usually says &quot;mm&quot; in that gap.</p>
+<p>So each persona has <strong>short backchannels</strong> (<code>voice/backchannel.py</code>): ten pre-synthesised lines such as &quot;mm…&quot;, &quot;say that again?&quot; or &quot;hold on…&quot;, cached on disk with the 0.34–0.47 s of leading silence trimmed. One plays as soon as the turn ends, without waiting for the model. It is skipped when the caller said fewer than 4 meaningful characters, used a hurry-up phrase, asked a short question of 8 characters or less, or is in the middle of reading out digits.</p>
+<p>The system prompt also tells the model &quot;you have already acknowledged once this turn&quot;, so the real reply does not open with another filler word. In a local on/off comparison, replies starting with a filler word fell from 9/14 to 3/14 (backchannel comparison table in VOICE_LATENCY.md).</p>
+<h2>Barge-in: count characters, not words</h2>
+<p>When the caller talks over Auntie Wang, she should stop. Pipecat&#39;s default counts space-separated words, which does not work for Chinese. We count &quot;meaningful characters&quot; instead (<code>voice/interrupt.py</code>): punctuation and acknowledgements like &quot;mm&quot;, &quot;right&quot; or &quot;OK&quot; are dropped, while &quot;no&quot; or &quot;that&#39;s wrong&quot; count as objections. While she is speaking, 2 meaningful characters (3 on the phone) interrupt her; when she is silent, any text starts a new turn. Backchannels are ordinary output audio and are flushed with the output queue on interruption.</p>
+<h2>Transport: web, relay and phone</h2>
+<ul>
+<li><strong>Web</strong>: peer-to-peer WebRTC between browser and server, with aiortc on the server side. The server uses a fixed UDP port range and adds its public address as a candidate in the answer.</li>
+<li><strong>When UDP is blocked</strong>: corporate and campus networks or some proxies do not forward UDP. Deployments can enable a self-hosted coturn relay over TCP or TLS on port 443: Caddy, with the caddy-l4 plugin, separates TURN traffic from HTTPS by the first bytes of each connection, so no extra port is needed. Temporary credentials are fetched when &quot;start call&quot; is clicked, valid for 600 s by default and never stored. The page shows connecting / connected / failed, and after 20 s without a connection it suggests switching networks or turning off proxies.</li>
+<li><strong>Phone</strong>: an optional Asterisk PBX connects to the same pipeline through a WebSocket adapter; the transport resamples audio to 8 kHz. Telephony is off by default and only answers, never dials; the deploy script also installs fail2ban to block brute-force registrations.</li>
+</ul>
+<h2>Latency: measured numbers</h2>
+<p>All numbers below come from VOICE_LATENCY.md, measured on the same machine with the same six-sentence synthetic scammer recording. Every run makes real paid calls and samples are small, so P90 is indicative only.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Metric (client side, scammer stops → bot audible)</th>
+<th>P50</th>
+<th>P90</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Before, reply itself</td>
+<td>5842 ms</td>
+<td>6282 ms</td>
+</tr>
+<tr>
+<td>After, first audible sound (incl. filler)</td>
+<td>1653 ms</td>
+<td>2803 ms</td>
+</tr>
+<tr>
+<td>After, reply itself (fillers off, 3 sentences)</td>
+<td>4162 ms</td>
+<td>5827 ms</td>
+</tr>
+</tbody></table></div>
+<p>In one external probe of the live service, the first packet of the real reply arrived at 2469, 2627 and 2484 ms: about 650 ms recognition, 430–680 ms to the model&#39;s first token and 1050–1340 ms to the first synthesised packet — synthesis is still the largest share (&quot;TTS first-packet breakdown&quot; in VOICE_LATENCY.md).</p>
+<h2>Extracting intelligence</h2>
+<p>There is a single set of extraction rules in <code>site/assets/core/extractors.json</code>. The browser and Python implementations match byte for byte and check each other through shared test fixtures (INTEL.md, &quot;noise robustness and cross-turn stitching&quot;). The voice server reuses the Python implementation.</p>
+<p>It recognises bank cards, mobile and landline numbers, messaging and payment accounts, email addresses, URLs, crypto wallet addresses and payee names. Spoken transcripts are messy, so text is normalised first:</p>
+<ul>
+<li><strong>Disguised digits</strong>: full-width digits, circled numbers, Chinese numerals and spoken variants are converted back to Arabic digits;</li>
+<li><strong>Variant characters and typos</strong>: traditional and variant forms of key characters are unified, and common homophone typos normalised;</li>
+<li><strong>Joining fragments</strong>: digits separated by spaces, dashes or punctuation are joined only if the result looks like a valid phone number or bank card (check digit, issuer prefix);</li>
+<li><strong>Cross-turn stitching</strong>: when a card number is read over two or three sentences, fragments from up to 3 adjacent turns by the same speaker are joined with a confidence score. Corrections (&quot;no, wait…&quot;), numbers with units, and digits next to order numbers or verification codes are excluded.</li>
+</ul>
+<p>URLs and wallet addresses are checked against public blocklists and labelled &quot;listed&quot; or &quot;not listed&quot;. A hit is only a hint; not being listed does not mean safe.</p>
+<h2>Masking rules</h2>
+<p>Everything displayed, exported, stored or sent to the model is masked first. INTEL.md has the full table (&quot;masking rules by type&quot;); the essentials:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Rule</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bank card</td>
+<td>16–19 digits keep first 6 and last 4; 8–15 keep last 4; shorter fully masked</td>
+<td><code>622202*********3445</code></td>
+</tr>
+<tr>
+<td>Mobile number</td>
+<td>keep first 3 and last 4</td>
+<td><code>139****2233</code></td>
+</tr>
+<tr>
+<td>ID number</td>
+<td>keep first 6 and last 4, exactly 8 asterisks between</td>
+<td><code>110101********123X</code></td>
+</tr>
+<tr>
+<td>Name</td>
+<td>family name only</td>
+<td><code data-i18n-keep="intel-data" lang="zh-CN">王**</code></td>
+</tr>
+<tr>
+<td>Messaging / payment account</td>
+<td>keep 2 characters at each end</td>
+<td><code>ke******26</code></td>
+</tr>
+<tr>
+<td>URL</td>
+<td>keep scheme and TLD, 2 characters at each end of the domain, hide the path</td>
+<td><code>https://pa***re.top/***</code></td>
+</tr>
+<tr>
+<td>Crypto wallet</td>
+<td>keep first 4 (6 for some formats) and last 4</td>
+<td><code>TXyz...5678</code></td>
+</tr>
+</tbody></table></div>
+<p>Masking is deterministic — the same input always yields the same output — so masked values can be used for deduplication. Only recognised fragments are replaced, so the docs recommend a second regex pass before storage, for example removing any run of 7+ digits; the intel library validator also rejects masked entries containing 7+ consecutive digits.</p>
+<p>On retention: for web calls the visitor chooses whether to save. If they agree, each turn&#39;s masked text and latencies are logged and two audio tracks are recorded; if not, only content-free counters are kept. Phone calls store masked text only, no audio, and the caller number is masked. Traces are kept for 30 days by default, and recording stops automatically when disk space runs low (voice/README.md, &quot;call tracing and feedback&quot;).</p>
+<h2>Does it hold them?</h2>
+<p>In offline evaluation, a language model plays the scammer against three personas in 7 scenarios with 6 random seeds, 126 sessions per tier. In the default tier, the suspicious hang-up rate is 13.5% (95% interval 8.6–20.5%), the average stall is 23.6 turns (cap 25), extraction rate is 99.8% (430/431) and the leak rate is 0 (main table in section 1 of <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/EVAL.md">docs/EVAL.md</a>, result file <code>eval/results-llm-scammer.json</code>). This is a simulated opponent, not real scammers, and the document notes that recent persona changes still need re-testing.</p>
+<h2>Still open</h2>
+<ul>
+<li>The barge-in threshold was tuned on synthetic audio, not calibrated on real calls;</li>
+<li>End-to-end tests have only run on Linux with a desktop browser and a fake microphone; real microphones, echo cancellation and mobile are untested;</li>
+<li>Long sentences with comma pauses are occasionally still split into two turns.</li>
+</ul>
+<p>Code, parameters and reproduction commands are all in the repository. Issues and pull requests are welcome.</p>
+<h2>Acknowledgements</h2>
+<p>DeepSuck is built on the open-source projects below. Thanks to their authors and maintainers. The list follows the dependencies and deployment config in the repository (<code>voice/requirements.txt</code>, <code>deploy/</code>, <code>scripts/</code>, <code>site/assets/core/blocklists.json</code>).</p>
+<p>Voice pipeline:</p>
+<ul>
+<li><a href="https://github.com/pipecat-ai/pipecat">Pipecat</a>: real-time voice pipeline framework</li>
+<li><a href="https://github.com/snakers4/silero-vad">Silero VAD</a>: voice activity detection</li>
+<li><a href="https://github.com/pipecat-ai/smart-turn">Smart Turn</a>: turn-detection model</li>
+<li><a href="https://github.com/aiortc/aiortc">aiortc</a>: WebRTC for Python</li>
+<li><a href="https://github.com/fastapi/fastapi">FastAPI</a>, <a href="https://github.com/encode/uvicorn">Uvicorn</a>, <a href="https://github.com/python-websockets/websockets">websockets</a>: server and WebSocket</li>
+</ul>
+<p>Deployment and telephony:</p>
+<ul>
+<li><a href="https://github.com/coturn/coturn">coturn</a>: TURN relay</li>
+<li><a href="https://github.com/asterisk/asterisk">Asterisk</a>: telephone exchange</li>
+<li><a href="https://github.com/caddyserver/caddy">Caddy</a> and <a href="https://github.com/mholt/caddy-l4">caddy-l4</a>: HTTPS and port-443 multiplexing</li>
+<li><a href="https://github.com/fail2ban/fail2ban">fail2ban</a>: blocking brute-force registrations</li>
+</ul>
+<p>Website and data:</p>
+<ul>
+<li><a href="https://github.com/markedjs/marked">marked</a>: Markdown conversion for this blog</li>
+<li><a href="https://github.com/phishdestroy/destroylist">destroylist</a>, <a href="https://github.com/Phishing-Database/Phishing.Database">Phishing.Database</a>: public phishing-domain blocklists</li>
+</ul>
+]]></content:encoded>
+  </item>
+  <item>
+    <title>Warning signs of seven common scam scripts</title>
+    <link>https://deepsuck.si/blog/en/spot-scam-scripts/</link>
+    <guid isPermaLink="true">https://deepsuck.si/blog/en/spot-scam-scripts/</guid>
+    <pubDate>Sun, 18 Oct 2026 16:00:00 GMT</pubDate>
+    <description>Scam scripts vary endlessly, but they follow the same arc — a pretext, then trust-building, pressure, and finally a demand for money or information. This guide lists the warning signs and responses for seven common types of fraud in China. It explains how to recognise them and deliberately does not reproduce any lines that could be reused.</description>
+    <content:encoded><![CDATA[<p>This guide is based on the script corpus and scenario playbooks in the DeepSuck repository (<code>site/assets/core/scam_scripts.json</code> and <code>scam_playbooks.json</code>) and on the categories used by the public intel library. All corpus material comes from public sources, labelled by type: public police bulletins, typical cases published by courts, official anti-fraud handbooks and public datasets. Most entries are summarised from multiple public awareness materials and do not correspond to any single case (see the &quot;scam script corpus&quot; section of <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/INTEL.md">docs/INTEL.md</a>).</p>
+<p>We only describe warning signs and responses. Actual lines are not repeated here; to see a full playbook, you can play the scammer once in the <a href="https://deepsuck.si/demo.html">sandbox</a>.</p>
+<h2>Five stages that almost always appear</h2>
+<p>Nearly every phone or online scam goes through these five steps, in varying order and weight:</p>
+<ol>
+<li><strong>Opening</strong>: a claimed identity and a pretext — a refund, a criminal case, a &quot;wrong friend request&quot;, a side job, a loan;</li>
+<li><strong>Building trust</strong>: confirming your personal details, quoting a staff number, small talk, a small payout, screenshots;</li>
+<li><strong>Pressure</strong>: threats of loss, deadlines, demands for secrecy, leveraging money you have already put in, forged documents or receipts;</li>
+<li><strong>The ask</strong>: verification codes, card numbers, balances, ID photos; installing an app, sharing your screen, borrowing or topping up;</li>
+<li><strong>Payment instructions</strong>: an account, wallet address, URL or contact to pay, plus a request to delete the chat.</li>
+</ol>
+<p><strong>Once a conversation reaches step 3 or 4, stop — no matter who the caller claims to be.</strong></p>
+<h2>Red flags in any scenario</h2>
+<ul>
+<li>You are asked to read out or enter a <strong>verification code</strong>;</li>
+<li>You are asked to <strong>share your screen</strong>, allow remote assistance, or install an app or join a meeting room they choose;</li>
+<li>You are told to move money into a &quot;<strong>safe account</strong>&quot;, &quot;supervised account&quot; or &quot;verification account&quot;;</li>
+<li>You are told to <strong>keep it secret</strong>, not to hang up, not to tell family or colleagues;</li>
+<li>You are given a very short <strong>deadline</strong>;</li>
+<li>You must <strong>pay first</strong> to receive money: unfreezing fees, deposits, handling fees, taxes;</li>
+<li>You are <strong>moved off the call</strong> into a private chat, a group or an unfamiliar platform.</li>
+</ul>
+<h2>Seven common types</h2>
+<h3>Fake customer service</h3>
+<p><strong>Typical pretext</strong>: compensation for a defective product, a lost parcel, a membership about to auto-renew.</p>
+<p><strong>Warning signs</strong>: they contact you first about a refund; they want you to install meeting or remote-control software or share your screen; they ask you to open a credit line for &quot;verification&quot;; they say you will keep being charged or your credit score will suffer.</p>
+<p><strong>What to do</strong>: hang up, then open the official app or call the official hotline yourself. Legitimate refunds go back to the original payment method and never require you to make a transfer.</p>
+<h3>Fake police, prosecutors or courts</h3>
+<p><strong>Typical pretext</strong>: someone from a &quot;courier&quot;, &quot;telecom&quot; or &quot;social insurance&quot; office says your identity was misused, then transfers you to an &quot;officer&quot; or &quot;prosecutor&quot; who says you are suspected of money laundering or another crime.</p>
+<p><strong>Warning signs</strong>: a case handled over the phone; images or links to arrest warrants or freezing orders; demands for secrecy, staying on the line, or going alone to a hotel to &quot;cooperate&quot;; instructions to move funds into a &quot;safe account&quot; for review.</p>
+<p><strong>What to do</strong>: law enforcement does not handle cases by phone and there is no such thing as a &quot;safe account&quot;. Hang up and call 110 or 96110 to check.</p>
+<h3>Fake boss or acquaintance</h3>
+<p><strong>Typical pretext</strong>: a profile with the same photo and name as your boss, teacher or a relative, or &quot;I have a new number&quot;, asking you to pay or lend money because they are in a meeting or need cash urgently.</p>
+<p><strong>Warning signs</strong>: a sudden new number plus a transfer request; refusing calls because of a meeting or bad signal; asking you not to tell anyone; a screenshot claiming &quot;I have already sent you the money&quot;.</p>
+<p><strong>What to do</strong>: call the number you already had saved, or confirm in person. Do not trust screenshots — only money that has actually arrived in your account counts.</p>
+<h3>Romance-investment scams (Pig-butchering)</h3>
+<p><strong>Typical pretext</strong>: a &quot;wrong contact&quot; turns into a long relationship, followed by an inside channel or a platform loophole to make money together.</p>
+<p><strong>Warning signs</strong>: someone you met online and never met in person offers to help you invest or gamble; your first small withdrawals succeed; larger withdrawals require taxes, deposits or unfreezing fees first; you are asked to top up with crypto.</p>
+<p><strong>What to do</strong>: never deposit on a site or app they provide and never send crypto to strangers. A platform that charges you before you can withdraw is fake.</p>
+<h3>Task scam (fake order-brushing rebates)</h3>
+<p><strong>Typical pretext</strong>: a side job paid daily for simple tasks such as liking or following.</p>
+<p><strong>Warning signs</strong>: a few small payouts first; then &quot;bonus orders&quot; or &quot;combo orders&quot; that require you to advance money; when your money is stuck, they blame your mistake and ask for more to unfreeze it.</p>
+<p><strong>What to do</strong>: order brushing is illegal, and any &quot;job&quot; that asks you to pay first is a task scam. Do not install task apps from strangers or join unknown task groups.</p>
+<h3>Fake investment</h3>
+<p><strong>Typical pretext</strong>: text messages, live streams or investment groups with a &quot;mentor&quot; or &quot;analyst&quot; offering free stock tips or trading signals.</p>
+<p><strong>Warning signs</strong>: promises of high, guaranteed returns; many group members posting profits and withdrawal screenshots; limited places and short windows; opening an account through a link or app shared in the group; paying before you can withdraw.</p>
+<p><strong>What to do</strong>: trade only through official channels of licensed institutions. A promise of guaranteed high returns is itself a warning sign.</p>
+<h3>Fake loans and credit repair</h3>
+<p><strong>Typical pretext</strong>: either &quot;no collateral, low interest, instant approval&quot;, or a fake lending-platform agent saying an old student loan was never closed and will hurt your credit.</p>
+<p><strong>Warning signs</strong>: fees before the loan is released — membership, deposit, unfreezing; claims that you entered your card number wrong and must pay to unlock funds; being told to borrow on a real platform and transfer it out to &quot;clear the credit line&quot;; misuse of regulators&#39; names; insistence on finishing today.</p>
+<p><strong>What to do</strong>: legitimate lenders never charge before releasing a loan. Credit records cannot be &quot;repaired&quot;, and &quot;cancelling a student loan account&quot; or &quot;clearing a credit line&quot; is not a thing. Check your credit report only through the official central bank credit reference channel.</p>
+<h2>If you have already paid</h2>
+<ol>
+<li><strong>Call 110 immediately</strong> (mainland China) and contact your bank to try to stop the payment;</li>
+<li>Keep chat logs, transfer receipts and the scammer&#39;s numbers and accounts;</li>
+<li>If 96110 calls you, answer — it is the national anti-fraud warning line;</li>
+<li>Report scam numbers, texts, URLs, apps and receiving accounts through the official national anti-fraud app&#39;s reporting feature; spam texts and nuisance calls can be reported to 12321.</li>
+</ol>
+<p>DeepSuck&#39;s public intel library collects phone numbers, wallet addresses, URLs and script patterns that scammers reveal, for search and early warning. Intel is only a lead — numbers may be recycled or spoofed and can never be used to accuse anyone.</p>
+]]></content:encoded>
+  </item>
 </channel>
 </rss>

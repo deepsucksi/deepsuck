@@ -2,7 +2,6 @@
 title: Why we use AI to keep scammers busy
 description: DeepSuck has a simple goal — let scammers spend their time on someone who will never fall for it, and keep the clues that help warn others. Here is why we do it, and what we will never do.
 date: 2026-10-19
-draft: true
 tags: [project, ethics]
 ---
 
@@ -11,6 +10,8 @@ Phone and online fraud is a business that runs on efficiency. A scam team can on
 ## What we do
 
 DeepSuck is an open-source "time-waster" bot. It plays an ordinary potential victim: it replies a little slowly, often asks the other side to repeat, and runs into small hiccups whenever it follows instructions. Meanwhile it picks out the bank accounts, wallet addresses, phone numbers and URLs that scammers reveal, masks them, and turns them into structured intelligence.
+
+There are four personas today: Auntie Wang, Xiao Chen's Mom, Xiao Lin and Boss Zheng. Their identities and backgrounds are fictional and each talks differently, but they all follow the same rules.
 
 That serves three purposes:
 
@@ -41,3 +42,27 @@ The code is Apache-2.0 and the intel data is CC BY 4.0. If you want to help, you
 ## What comes next
 
 This blog will follow the project: how the voice pipeline is built, how intelligence is extracted and masked, and which signals give common scam scripts away. Every number will cite its source, a document or result file you can find in the repository.
+
+## Acknowledgements
+
+DeepSuck is built on the open-source projects below. Thanks to their authors and maintainers. The list follows the dependencies and deployment config in the repository (`voice/requirements.txt`, `deploy/`, `scripts/`, `site/assets/core/blocklists.json`).
+
+Voice pipeline:
+
+- [Pipecat](https://github.com/pipecat-ai/pipecat): real-time voice pipeline framework
+- [Silero VAD](https://github.com/snakers4/silero-vad): voice activity detection
+- [Smart Turn](https://github.com/pipecat-ai/smart-turn): turn-detection model
+- [aiortc](https://github.com/aiortc/aiortc): WebRTC for Python
+- [FastAPI](https://github.com/fastapi/fastapi), [Uvicorn](https://github.com/encode/uvicorn), [websockets](https://github.com/python-websockets/websockets): server and WebSocket
+
+Deployment and telephony:
+
+- [coturn](https://github.com/coturn/coturn): TURN relay
+- [Asterisk](https://github.com/asterisk/asterisk): telephone exchange
+- [Caddy](https://github.com/caddyserver/caddy) and [caddy-l4](https://github.com/mholt/caddy-l4): HTTPS and port-443 multiplexing
+- [fail2ban](https://github.com/fail2ban/fail2ban): blocking brute-force registrations
+
+Website and data:
+
+- [marked](https://github.com/markedjs/marked): Markdown conversion for this blog
+- [destroylist](https://github.com/phishdestroy/destroylist), [Phishing.Database](https://github.com/Phishing-Database/Phishing.Database): public phishing-domain blocklists

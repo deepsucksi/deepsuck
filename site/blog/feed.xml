@@ -6,5 +6,298 @@
   <description>DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。</description>
   <language>zh-CN</language>
   <atom:link href="https://deepsuck.si/blog/feed.xml" rel="self" type="application/rss+xml"/>
+  <lastBuildDate>Sun, 18 Oct 2026 16:00:00 GMT</lastBuildDate>
+  <item>
+    <title>为什么用 AI 拖住骗子</title>
+    <link>https://deepsuck.si/blog/why-we-stall-scammers/</link>
+    <guid isPermaLink="true">https://deepsuck.si/blog/why-we-stall-scammers/</guid>
+    <pubDate>Sun, 18 Oct 2026 16:00:00 GMT</pubDate>
+    <description>DeepSuck 想做的事很简单：让骗子把时间花在一个不会上当的对象身上，同时留下可以用来预警的线索。这篇文章讲清楚我们为什么这样做，以及哪些事我们坚决不做。</description>
+    <content:encoded><![CDATA[<p>电信网络诈骗是一门讲效率的生意。一个话术团队一天能拨出的电话、能聊下去的对象是有限的，每一通电话、每一轮对话都在消耗他们的时间。DeepSuck 的出发点就在这里：<strong>如果骗子面对的是一个永远愿意聊、永远差一步就要转账、却从不真的转账的对象，那么他们花在真人身上的时间就会少一些。</strong></p>
+<h2>我们做的事</h2>
+<p>DeepSuck 是一个开源的“拖住”机器人。它扮演一位普通的潜在受害人，回得慢一点，常常要对方再说一遍，按步骤操作时总会遇到点小状况。对话进行时，它会把骗子主动暴露的收款账户、钱包地址、电话和网址识别出来，脱敏后整理成结构化的情报。</p>
+<p>现在有四位人设：王阿姨、小陈妈妈、小林和郑老板。他们的身份和背景都是虚构的，说话习惯各不相同，守的规矩是一样的。</p>
+<p>这件事有三个用途：</p>
+<ul>
+<li><strong>防御</strong>：每一分钟被拖住的时间，都是骗子没有拿去骗真人的时间。</li>
+<li><strong>研究</strong>：话术如何开场、如何施压、在哪一步要钱，这些模式可以被记录、分类和比较。仓库里的话术语料、评测脚本和结果都公开，方便别人复现和改进。</li>
+<li><strong>教育</strong>：网站上的沙盒让任何人都能扮演一次骗子，从另一侧看清这套流程。看过一遍完整套路的人，再接到类似电话时更容易认出来。</li>
+</ul>
+<h2>底线</h2>
+<p>这些规则写在 <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/ETHICS.md">伦理与使用规范</a> 里，也落实在代码和贡献指南中。</p>
+<p><strong>不主动联系任何真实的人。</strong> 不外呼、不群发、不主动私信、不加好友。机器人只回应找上门来的骗子；网站沙盒里，扮演骗子的是访客自己。电话接入层同样是“只接不拨”。</p>
+<p><strong>不提供真实信息。</strong> 人设不会说出真实的验证码、卡号、密码或身份证号，也不会真的转账。语音输出前有一道守卫，会抹掉五位以上的数字串，防止模型编造看起来像真的号码。</p>
+<p><strong>数据默认脱敏。</strong> 展示、导出和发送给大模型之前，文本都先经过脱敏模块：银行卡只留前 6 位和后 4 位，手机号只留前 3 位和后 4 位，姓名只留姓。原始值只在本次处理的内存里用于比对，不写盘、不上报。</p>
+<p><strong>不报复、不曝光。</strong> 不人肉，不公开个人信息，不“以骗制骗”，不攻击任何系统。很多收款卡属于被冒用、被诱骗出租账户的普通人，所以公开情报库里的银行卡和姓名一律部分打码，任何人都可以凭条目编号申诉下架。</p>
+<p><strong>线索交给专业的人。</strong> 提取结果只是线索，不能据此认定任何人。遇到诈骗请拨打 110 或全国反诈专线 96110；情报优先提交给官方渠道。</p>
+<h2>为什么开源</h2>
+<p>反诈工具最需要的是信任。代码公开，别人才能检查我们说的“只接不拨”“先脱敏再落盘”是否真的成立；规则和语料公开，研究者才能在同一套数据上比较方法；评测公开，我们说的效果才有据可查。</p>
+<p>项目采用 Apache-2.0 许可，情报数据以 CC BY 4.0 发布。如果你想参与，可以补充脱敏后的话术样本、设计更耐聊的人设、改进提取规则，或者只是在沙盒里试一试，告诉我们哪里不像真人。</p>
+<h2>接下来</h2>
+<p>这个博客会记录项目的进展：语音链路是怎么搭起来的，情报是怎么提取和脱敏的，常见的诈骗话术有哪些识别信号。所有数字都会注明出处，能在仓库里找到对应的文档或结果文件。</p>
+<h2>致谢</h2>
+<p>DeepSuck 用到了下面这些开源项目，感谢它们的作者和维护者。名单以仓库里的依赖和部署配置为准（<code>voice/requirements.txt</code>、<code>deploy/</code>、<code>scripts/</code>、<code>site/assets/core/blocklists.json</code>）。</p>
+<p>语音链路：</p>
+<ul>
+<li><a href="https://github.com/pipecat-ai/pipecat">Pipecat</a>：实时语音管线框架</li>
+<li><a href="https://github.com/snakers4/silero-vad">Silero VAD</a>：语音活动检测</li>
+<li><a href="https://github.com/pipecat-ai/smart-turn">Smart Turn</a>：回合判定模型</li>
+<li><a href="https://github.com/aiortc/aiortc">aiortc</a>：Python 的 WebRTC 实现</li>
+<li><a href="https://github.com/fastapi/fastapi">FastAPI</a>、<a href="https://github.com/encode/uvicorn">Uvicorn</a>、<a href="https://github.com/python-websockets/websockets">websockets</a>：服务端与 WebSocket</li>
+</ul>
+<p>部署与电话：</p>
+<ul>
+<li><a href="https://github.com/coturn/coturn">coturn</a>：TURN 中继</li>
+<li><a href="https://github.com/asterisk/asterisk">Asterisk</a>：电话交换机</li>
+<li><a href="https://github.com/caddyserver/caddy">Caddy</a> 与 <a href="https://github.com/mholt/caddy-l4">caddy-l4</a>：HTTPS 与 443 端口分流</li>
+<li><a href="https://github.com/fail2ban/fail2ban">fail2ban</a>：拦截暴力注册</li>
+</ul>
+<p>网站与数据：</p>
+<ul>
+<li><a href="https://github.com/markedjs/marked">marked</a>：本博客的 Markdown 转换</li>
+<li><a href="https://github.com/phishdestroy/destroylist">destroylist</a>、<a href="https://github.com/Phishing-Database/Phishing.Database">Phishing.Database</a>：公开的钓鱼域名黑名单</li>
+</ul>
+]]></content:encoded>
+  </item>
+  <item>
+    <title>技术拆解：王阿姨的语音链路</title>
+    <link>https://deepsuck.si/blog/voice-pipeline/</link>
+    <guid isPermaLink="true">https://deepsuck.si/blog/voice-pipeline/</guid>
+    <pubDate>Sun, 18 Oct 2026 16:00:00 GMT</pubDate>
+    <description>骗子在浏览器或电话里说一句话，王阿姨要在一两秒内应声，还要把对方报出的卡号、网址悄悄记下并打码。这篇文章按一轮对话的顺序，拆开语音识别、大模型、语音合成、填充音、打断和传输各环节，以及情报提取与脱敏的规则。</description>
+    <content:encoded><![CDATA[<p>王阿姨是 DeepSuck 的语音人设之一：热心，爱确认，凡事都要问清楚再动手。语音版的目标是让她在电话那头听起来像一个真人，反应慢半拍，但不能慢到让对方觉得线路断了。</p>
+<p>本文所有实现细节以仓库为准，主要参考 <a href="https://github.com/deepsucksi/deepsuck/blob/main/voice/README.md">voice/README.md</a>、<a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/ARCHITECTURE.md">docs/ARCHITECTURE.md</a>、<a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/VOICE_LATENCY.md">docs/VOICE_LATENCY.md</a> 和 <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/INTEL.md">docs/INTEL.md</a>。文中的数字都注明了出处。</p>
+<h2>一轮对话的数据流</h2>
+<p>一轮对话按下面的顺序走完：</p>
+<ol>
+<li>骗子的声音经 <strong>WebRTC</strong>（网页）或 <strong>SIP 电话适配器</strong> 进入服务端；</li>
+<li><strong>云端流式语音识别</strong> 边听边出中间结果，判断说完后给出最终转写；</li>
+<li><strong>情报处理器</strong> 从转写中提取卡号、电话、网址等，先脱敏，再交给规则引擎选本轮策略；</li>
+<li>根据人设、场景和策略拼出系统提示词，连同脱敏后的对话记录交给 <strong>大模型</strong>；</li>
+<li>大模型的输出先过 <strong>输出守卫</strong>，再按子句流式送进 <strong>语音合成</strong>；</li>
+<li>合成的音频经原路传回，同时通过数据通道把脱敏后的情报推到浏览器看板。</li>
+</ol>
+<p>网页和电话共用同一条管线（<code>voice/app.py</code> 的 <code>build_pipeline</code>），只是延迟参数分两套（<code>voice/tuning.py</code>）。整条链路搭在开源的实时语音管线框架 Pipecat 上，服务端是 FastAPI 加 Uvicorn；语音识别、大模型和语音合成都调用云端接口。</p>
+<h2>语音识别：什么时候算说完</h2>
+<p>识别本身不难，难的是判断对方说完了没有。说完判断得太早，会把一句话切成两段；太晚，王阿姨的反应就慢。</p>
+<p>现在的做法是三层叠加（见 VOICE_LATENCY.md「回合判定」一节）：</p>
+<ul>
+<li><strong>语音活动检测（VAD）</strong>：开源的 Silero VAD 模型判断有没有人在说话。网页上开口需持续 0.3 秒、置信度 0.75，静音 0.2 秒算停说；电话线路更保守。</li>
+<li><strong>识别服务的断句静音</strong>：从服务端默认的约 800 毫秒调到网页 450 毫秒、电话 500 毫秒，让最终转写提前约 0.3 秒。</li>
+<li><strong>回合判定模型 Smart Turn（v3，开源）</strong>：根据这段音频判断一句话是否完整。判为“没说完”时，原本要再等满 3 秒。</li>
+</ul>
+<p>在此之上，我们加了一条针对数字的规则（<code>voice/turndigits.py</code>）。骗子念卡号时常常停顿，如果按普通句子处理，一个 19 位卡号会被切成三段。规则是：转写结尾是没念完的数字串时（比如“卡号”后面不足 16 位、“手机号”后面不足 11 位），停说后至少再等 1800 毫秒；一句话已经以句末标点结束、不在念数字时，最多等 1200 毫秒，不再等 3 秒。</p>
+<p>本地测试里，两次停顿的 19 位卡号从切成 3 段变为 1 段；“卡号我现在念给您”这类预告句，从停说到判定说完由 3200 毫秒降到 1802 毫秒（VOICE_LATENCY.md「前后对比」表）。</p>
+<h2>大模型：只拿脱敏后的文字</h2>
+<p>交给大模型的只有脱敏后的转写。卡号等原值只在本进程内存里用于黑名单比对，不写盘、不上报（voice/README.md「隐私与安全」）。</p>
+<p>系统提示词由 <code>voice/persona.py</code> 按人设、场景和本轮策略生成。策略来自规则引擎：拿到新情报就复述追问，要验证码就拖延，要转账就引导对方报出账户。有一条容易忽略的约束：<strong>只接对方已经说过的话</strong>。比如骗子还没提到平台，提示词里就不会出现“问问是哪个平台”，免得王阿姨抢先说出对方没提的东西，反而露馅。</p>
+<h2>输出守卫：不让模型编号码</h2>
+<p>大模型的回复在送去合成之前，先过一道守卫：去掉括号里的动作描写和 Markdown 符号，抹掉 5 位以上的数字串，防止模型编出看起来像真的验证码或卡号。需要复述号码时，按“逐位读”的方式念，不念打码用的星号。</p>
+<h2>语音合成：边生成边说</h2>
+<p>最早的实现是每句话新建一条连接，等整句生成完再合成，首包要等很久。现在的做法（VOICE_LATENCY.md「改动」表）：</p>
+<ul>
+<li>每通会话保持一条长连接，开局就建好；</li>
+<li>每个大模型回合一开始就预开合成任务；</li>
+<li>大模型边吐字，分句器边切：句末标点立即切，逗号处攒够 6 个字就切，括号或引号没闭合时不切，保证输出守卫拿到的是完整片段；</li>
+<li>被打断时，如果服务端还在合成就断开取消并立即重连。</li>
+</ul>
+<p>这一轮优化后，合成首包的中位数从 2781 毫秒降到 1385 毫秒（VOICE_LATENCY.md「结果」分阶段表，优化前 n=6，优化后 n=9）。剩下的大约 1.2 秒基本是合成服务端从收到文字到吐出首包的时间，我们单独直连测量，结论是快慢两档与模型、音色、采样率都无明显关系，客户端能做的已经做了。</p>
+<h2>填充音：先应一声</h2>
+<p>即便如此，从对方说完到正式回复出声，仍要两三秒。真人在这段时间里通常会先“嗯”一声。</p>
+<p>现在的做法是 <strong>短口头语</strong>（<code>voice/backchannel.py</code>）：每个人设预先合成 10 条，比如“嗯……”“你说啥？”“等一下啊……”，缓存到磁盘，裁掉合成音频开头 0.34–0.47 秒的静音。回合判定一结束就播一条，不等大模型。以下情况不播：对方只说了不到 4 个有效字，含“快点”“在吗”这类催促词，或者是 8 个字以内的追问，或者正在念数字。</p>
+<p>同时在系统提示词里告诉大模型“本轮你已经先应了一声”，让正式回复别再以语气词开头。本地对比中，正式回复以语气词开头的比例从 9/14 降到 3/14（VOICE_LATENCY.md「短口头语」开关对比表）。</p>
+<h2>打断：中文要数字数</h2>
+<p>对方在王阿姨说话时插话，要能打断她。Pipecat 默认按空格分词数“词数”，对中文无效。我们改成数“有效字”（<code>voice/interrupt.py</code>）：去掉标点和“嗯”“对”“好的”这类应答词，“不是”“不对”算反驳。王阿姨说话时，网页上有效字达到 2 个、电话上达到 3 个才打断；她没在说话时，任何文字都开启新回合。口头语就是普通的输出音频，被打断时随输出队列一起清掉。</p>
+<h2>传输：网页、中继与电话</h2>
+<ul>
+<li><strong>网页</strong>：浏览器与服务端点对点的 WebRTC，服务端用的是 aiortc。服务端只用一段固定的 UDP 端口，在应答里补上公网地址候选。</li>
+<li><strong>UDP 被封时</strong>：公司网、校园网或某些代理不转发 UDP。部署时可以启用自建的 coturn 中继，经 443 端口走 TCP 或 TLS：Caddy 借助 caddy-l4 插件按连接的首字节把 TURN 流量和 HTTPS 分开，不用另开端口。临时凭据在点击“开始通话”后现取，默认有效期 600 秒，不落盘。页面会显示“正在连接 / 已接通 / 连接失败”，20 秒未接通会给出换网络、关代理等建议。</li>
+<li><strong>电话</strong>：可选的 Asterisk 电话交换机经 WebSocket 适配器接入同一条管线，音频在传输层统一重采样到 8 kHz。电话接入默认关闭，只接不拨，部署脚本会同时装上 fail2ban 拦截暴力注册。</li>
+</ul>
+<h2>延迟：实测数字</h2>
+<p>以下数字都来自 VOICE_LATENCY.md，用同一段 6 句的合成骗子音频、在同一台机器上测量。每次都是真实计费调用，样本量小，P90 只作参考。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>指标（客户端，骗子停说 → 听到机器人）</th>
+<th>P50</th>
+<th>P90</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>优化前，回复本身</td>
+<td>5842 ms</td>
+<td>6282 ms</td>
+</tr>
+<tr>
+<td>优化后，首个可听声音（含填充音）</td>
+<td>1653 ms</td>
+<td>2803 ms</td>
+</tr>
+<tr>
+<td>优化后，回复本身（关闭填充音，3 句）</td>
+<td>4162 ms</td>
+<td>5827 ms</td>
+</tr>
+</tbody></table></div>
+<p>在线上服务的一次外部探测中，正式回复首包为 2469、2627、2484 毫秒，其中识别约 650 毫秒、大模型首字 430–680 毫秒、合成首包 1050–1340 毫秒，合成仍是最大的一段（VOICE_LATENCY.md「TTS 首包拆解」）。</p>
+<h2>情报提取</h2>
+<p>提取规则只有一份，放在 <code>site/assets/core/extractors.json</code>，浏览器和 Python 两套实现逐字节对齐，用共享的测试夹具互相校验（INTEL.md「提取器噪声鲁棒性与跨回合拼接」）。语音端直接复用 Python 实现。</p>
+<p>能识别的类型包括银行卡、手机号与座机、即时通讯和支付账号、邮箱、网址、加密钱包地址，以及收款户名。口语转写里的写法很乱，所以提取前先做规范化：</p>
+<ul>
+<li><strong>数字混淆</strong>：全角数字、圈码、中文和大写数字、“幺”“两”等读法，都换算回阿拉伯数字；</li>
+<li><strong>异体字与错别字</strong>：“帐”“帳”统一为“账”，常见的同音错字归一；</li>
+<li><strong>分段拼接</strong>：数字之间夹着空格、横杠或标点时，只有拼起来像合法手机号或银行卡（校验位、发卡行前缀）才拼；</li>
+<li><strong>跨回合拼接</strong>：骗子把卡号分两三句报完时，同一说话方相邻至多 3 个回合的数字片段会被拼起来，并给出置信度。更正句（“不对，……”）、带单位的数字、订单号和验证码旁边的数字不参与拼接。</li>
+</ul>
+<p>提取到网址或钱包地址后，会与公开黑名单比对，标注“命中”或“未命中”。命中仅供参考，未命中也不代表安全。</p>
+<h2>脱敏规则</h2>
+<p>所有展示、导出、落盘和发送给大模型的文本都先脱敏，规则在 INTEL.md「各类型打码规则」中有完整表格，要点如下：</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>规则</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>银行卡</td>
+<td>16–19 位留前 6 位与后 4 位；8–15 位只留后 4 位；更短全部打码</td>
+<td><code>622202*********3445</code></td>
+</tr>
+<tr>
+<td>手机号</td>
+<td>留前 3 位与后 4 位</td>
+<td><code>139****2233</code></td>
+</tr>
+<tr>
+<td>身份证号</td>
+<td>留前 6 位与后 4 位，中间固定 8 个星号</td>
+<td><code>110101********123X</code></td>
+</tr>
+<tr>
+<td>姓名</td>
+<td>只留姓</td>
+<td><code>王**</code></td>
+</tr>
+<tr>
+<td>通讯与支付账号</td>
+<td>首尾各留 2 位</td>
+<td><code>ke******26</code></td>
+</tr>
+<tr>
+<td>网址</td>
+<td>保留协议与顶级域，域名主体留首尾各 2 位，路径隐去</td>
+<td><code>https://pa***re.top/***</code></td>
+</tr>
+<tr>
+<td>加密钱包地址</td>
+<td>留前 4 位（部分格式留前 6 位）与后 4 位</td>
+<td><code>TXyz...5678</code></td>
+</tr>
+</tbody></table></div>
+<p>打码结果是确定的，同一输入总得到同一输出，可以直接用来去重。脱敏只替换识别到的片段，识别不到的写法不会被打码，所以文档建议落盘前再用规则兜底，比如抹掉 7 位以上的连续数字；情报库的校验器也会拒绝含 7 位以上连续数字的打码类条目。</p>
+<p>留存方面：网页通话由访客勾选是否保存，勾选时每轮记录脱敏文字和延迟，并录两轨音频；不勾选时只记无内容的计数。电话线路只存脱敏文字、不录音，主叫号码也打码。追踪记录默认保留 30 天，磁盘接近上限时自动停止录音（voice/README.md「通话追踪与问题反馈」）。</p>
+<h2>拖得住吗</h2>
+<p>在离线评测中，我们让大模型扮演骗子，与三个人设在 7 个场景下各对话 6 个随机种子，每档 126 场。默认档的起疑挂断率为 13.5%（95% 区间 8.6–20.5%），平均拖延 23.6 轮（上限 25 轮），情报提取率 99.8%（430/431），泄露率为 0（<a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/EVAL.md">docs/EVAL.md</a> 第 1 节主指标表，结果文件 <code>eval/results-llm-scammer.json</code>）。这是模拟对手的结果，不代表真实骗子的反应；文档里也写明了最近几次人设改动之后需要复测。</p>
+<h2>还没解决的</h2>
+<ul>
+<li>打断门槛是按合成音频定的，还没有用真人通话校准；</li>
+<li>端到端只在 Linux 与桌面浏览器、伪造麦克风输入下测过，真实麦克风、回声消除和移动端尚未测试；</li>
+<li>带逗号停顿的长句，偶尔仍会被回合判定切成两段。</li>
+</ul>
+<p>代码、参数和复现命令都在仓库里，欢迎提 issue 或 PR。</p>
+<h2>致谢</h2>
+<p>DeepSuck 用到了下面这些开源项目，感谢它们的作者和维护者。名单以仓库里的依赖和部署配置为准（<code>voice/requirements.txt</code>、<code>deploy/</code>、<code>scripts/</code>、<code>site/assets/core/blocklists.json</code>）。</p>
+<p>语音链路：</p>
+<ul>
+<li><a href="https://github.com/pipecat-ai/pipecat">Pipecat</a>：实时语音管线框架</li>
+<li><a href="https://github.com/snakers4/silero-vad">Silero VAD</a>：语音活动检测</li>
+<li><a href="https://github.com/pipecat-ai/smart-turn">Smart Turn</a>：回合判定模型</li>
+<li><a href="https://github.com/aiortc/aiortc">aiortc</a>：Python 的 WebRTC 实现</li>
+<li><a href="https://github.com/fastapi/fastapi">FastAPI</a>、<a href="https://github.com/encode/uvicorn">Uvicorn</a>、<a href="https://github.com/python-websockets/websockets">websockets</a>：服务端与 WebSocket</li>
+</ul>
+<p>部署与电话：</p>
+<ul>
+<li><a href="https://github.com/coturn/coturn">coturn</a>：TURN 中继</li>
+<li><a href="https://github.com/asterisk/asterisk">Asterisk</a>：电话交换机</li>
+<li><a href="https://github.com/caddyserver/caddy">Caddy</a> 与 <a href="https://github.com/mholt/caddy-l4">caddy-l4</a>：HTTPS 与 443 端口分流</li>
+<li><a href="https://github.com/fail2ban/fail2ban">fail2ban</a>：拦截暴力注册</li>
+</ul>
+<p>网站与数据：</p>
+<ul>
+<li><a href="https://github.com/markedjs/marked">marked</a>：本博客的 Markdown 转换</li>
+<li><a href="https://github.com/phishdestroy/destroylist">destroylist</a>、<a href="https://github.com/Phishing-Database/Phishing.Database">Phishing.Database</a>：公开的钓鱼域名黑名单</li>
+</ul>
+]]></content:encoded>
+  </item>
+  <item>
+    <title>七类常见诈骗话术的识别信号</title>
+    <link>https://deepsuck.si/blog/spot-scam-scripts/</link>
+    <guid isPermaLink="true">https://deepsuck.si/blog/spot-scam-scripts/</guid>
+    <pubDate>Sun, 18 Oct 2026 16:00:00 GMT</pubDate>
+    <description>诈骗话术千变万化，但走的路数大致相同：先给一个由头，再建立信任、施压，最后索要钱款或信息。这篇文章按七类常见诈骗整理识别信号和应对办法，只讲怎么认出来，不复述可以照搬的台词。</description>
+    <content:encoded><![CDATA[<p>这篇文章整理自 DeepSuck 仓库里的话术语料和场景剧本（<code>site/assets/core/scam_scripts.json</code>、<code>scam_playbooks.json</code>），以及公开情报库的类型划分。语料的来源都是公开材料，按类型标注为：公安机关公开通报、法院公开发布的典型案例、官方反诈宣传手册和公开数据集；其中大部分条目是据多篇公开反诈宣传归纳改写，不对应某一具体案件（分布见 <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/INTEL.md">docs/INTEL.md</a>「诈骗话术语料」一节）。</p>
+<p>我们只写识别信号和应对办法。具体台词不在这里复述，想了解完整流程，可以去网站的 <a href="https://deepsuck.si/demo.html">沙盒</a> 扮演一次骗子。</p>
+<h2>通用的五个阶段</h2>
+<p>几乎所有电信网络诈骗都会经过下面五步，只是顺序和比重不同：</p>
+<ol>
+<li><strong>开场</strong>：报一个身份，抛出由头，比如退款、涉案、加错好友、兼职、贷款；</li>
+<li><strong>建立信任</strong>：核对你的个人信息、报工号、嘘寒问暖、先给一点小额返利、发截图；</li>
+<li><strong>施压</strong>：损失威胁、限定时间、要求保密、利用你已经投入的钱、发伪造的文书或凭证；</li>
+<li><strong>索要钱款或信息</strong>：要验证码、卡号、余额、证件照片，诱导下载应用、共享屏幕、借款或充值；</li>
+<li><strong>收款指令</strong>：给出收款账户、钱包地址、网址或联系方式，要求转账，并让你删除记录。</li>
+</ol>
+<p><strong>只要对话走到了第 3 步、第 4 步，不管对方自称是谁，都应该先停下来。</strong></p>
+<h2>任何场景都适用的危险信号</h2>
+<ul>
+<li>要你念出或输入<strong>验证码</strong>；</li>
+<li>要你<strong>共享屏幕</strong>、开远程协助，或下载对方指定的应用、进入对方给的会议号；</li>
+<li>要你把钱转到“<strong>安全账户</strong>”“监管账户”“验证账户”；</li>
+<li>要你<strong>保密</strong>，不许挂电话，不许告诉家人或同事；</li>
+<li>给你很短的<strong>时限</strong>，“今天不处理就……”；</li>
+<li>要你<strong>先交钱</strong>才能拿到钱：解冻费、保证金、手续费、税费；</li>
+<li>从电话或短信把你<strong>引到私聊、群聊或陌生平台</strong>继续谈。</li>
+</ul>
+<h2>七类常见诈骗</h2>
+<h3>冒充客服</h3>
+<p><strong>常见由头</strong>：商品有质量问题要赔付、快递丢件、会员到期要自动扣费。</p>
+<p><strong>识别信号</strong>：对方主动联系你办退款；要你下载会议或远程软件、共享屏幕；要你开通借款额度做“验证”；声称不处理会持续扣费或影响征信。</p>
+<p><strong>应对</strong>：挂断后自己打开官方应用或拨打官方客服核实。正规平台退款只走原路退回，不需要你操作任何转账。</p>
+<h3>冒充公检法</h3>
+<p><strong>常见由头</strong>：先由“快递”“通信”“社保”等工作人员说你的信息被冒用，再转接给“警官”“检察官”，称你涉嫌洗钱或其他案件。</p>
+<p><strong>识别信号</strong>：电话里办案；发来通缉令、冻结令的图片或网址；要求保密、不许挂电话、单独去宾馆“配合调查”；要求把资金转入“安全账户”接受清查。</p>
+<p><strong>应对</strong>：公检法机关不会通过电话办案，更没有“安全账户”。直接挂断，拨打 110 或 96110 核实。</p>
+<h3>冒充领导、熟人</h3>
+<p><strong>常见由头</strong>：用与领导、老师或亲友相同的头像昵称，或者说“换了新号”，以开会不便、急需周转为由让你代付或借钱。</p>
+<p><strong>识别信号</strong>：突然换号并提出转账；以开会、信号差为由拒绝通话；要你别告诉其他人；发来一张转账截图说“钱已经打给你了”。</p>
+<p><strong>应对</strong>：用原来存的号码打过去，或者当面确认。不要相信截图，以自己账户实际到账为准。</p>
+<h3>网络交友诱导投资（俗称“杀猪盘”）</h3>
+<p><strong>常见由头</strong>：“加错人”后长期聊天培养感情，再说有内部渠道、平台漏洞，带你一起赚钱。</p>
+<p><strong>识别信号</strong>：网上认识、从未见面的人主动带你投资或博彩；先让你小额提现成功；提现大额时要先交税费、保证金、解冻费；要你用虚拟币充值。</p>
+<p><strong>应对</strong>：不要在对方提供的网址或应用上充值，不要给陌生人转虚拟币。提现需要先交钱，说明平台是假的。</p>
+<h3>刷单返利</h3>
+<p><strong>常见由头</strong>：动动手指就能日结的兼职，比如点赞、关注、做任务。</p>
+<p><strong>识别信号</strong>：先返几笔小额佣金；然后出现需要垫付的“福利单”“连单”；钱卡在里面时说是你操作失误，要再充值才能解冻。</p>
+<p><strong>应对</strong>：所有刷单都是违法行为，所有要求先垫付的“兼职”都是诈骗。不要下载陌生人发来的任务应用，不要加入来路不明的任务群。</p>
+<h3>虚假投资理财</h3>
+<p><strong>常见由头</strong>：短信、直播或投资群引流，“导师”“分析师”免费荐股或带单。</p>
+<p><strong>识别信号</strong>：承诺高收益、保本保息；群里很多人晒收益和提现截图；名额有限、窗口期短；让你在群里给的链接或应用上开户；提现前要先交钱。</p>
+<p><strong>应对</strong>：只在持牌机构的官方渠道交易。保本高收益的承诺本身就是诈骗信号。</p>
+<h3>虚假贷款与征信</h3>
+<p><strong>常见由头</strong>：一类是“无抵押、低息、秒批”；另一类冒充网贷客服，说你名下的校园贷没注销、会影响征信。</p>
+<p><strong>识别信号</strong>：放款前要交会员费、保证金、解冻金，或说你卡号填错要交钱解冻；要你先在正规平台借款再转出“清空额度”；冒用监管部门名义；要求当天办完。</p>
+<p><strong>应对</strong>：正规贷款放款前不收任何费用。征信不能“修复”，也不存在“注销校园贷”“清空额度”的说法。征信问题请通过中国人民银行征信中心的官方渠道查询。</p>
+<h2>如果已经转账</h2>
+<ol>
+<li><strong>立即拨打 110</strong>，同时联系银行尝试止付；</li>
+<li>保留聊天记录、转账凭证、对方的号码和账户信息；</li>
+<li>接到 96110 的来电请务必接听，这是全国反诈预警劝阻专线；</li>
+<li>诈骗电话、短信、网址、应用和收款账户等线索，可以通过国家反诈中心 App 的“我要举报”提交；垃圾短信和骚扰电话可以向 12321 举报。</li>
+</ol>
+<p>DeepSuck 的公开情报库收录骗子主动暴露的电话、钱包地址、网址和话术模式，供检索和预警。情报只是线索，号码可能被回收或冒用，不能作为认定任何人的依据。</p>
+]]></content:encoded>
+  </item>
 </channel>
 </rss>
