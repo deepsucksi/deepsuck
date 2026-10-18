@@ -16,7 +16,7 @@
       iceServers = c.iceServers || [];
       turnOn = !!c.turn;
       traceOn = !c.trace || c.trace.enabled !== false;
-      if (!traceOn) { $("consentRow").hidden = true; $("keepNote").textContent = "本演示不保存通话内容；仅供防诈研究与教育。"; }
+      if (!traceOn) { $("consentRow").hidden = true; $("keepNote").textContent = "本演示不保存通话内容；仅供防诈研究与教育，请勿用于联系任何真实的人。"; }
       if (c.limits) $("limits").textContent = `公开体验限制：每局最长 ${c.limits.maxMinutes} 分钟 / ${c.limits.maxTurns} 轮，同时最多 ${c.limits.maxSessions} 路通话` +
         (c.budget && c.budget.capCny ? `；今日额度已用 ${c.budget.usedPct}%` : "") + "。";
       if (c.budget && c.budget.exhausted) { setStatus("bad", "今日语音体验额度已用完"); $("call").disabled = true; return; }
