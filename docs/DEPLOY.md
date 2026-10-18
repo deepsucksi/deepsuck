@@ -9,7 +9,7 @@
    │  live-config.js 配了 api 时：
    ├──HTTPS──▶ live.deepsuck.si ─ Caddy(80/443，自动证书)
    │                                ├─ /api/chat /api/health ─▶ proxy（Node，127.0.0.1:8787）─▶ DashScope qwen-plus
-   │                                └─ / /api/config /api/offer ─▶ voice（Pipecat，127.0.0.1:7860）─▶ DashScope Paraformer / qwen-plus / CosyVoice
+   │                                └─ / /api/config /api/offer ─▶ voice（Pipecat，127.0.0.1:7860）─▶ DashScope Paraformer / qwen3.7-flash / CosyVoice
    └──UDP 40000–40199（WebRTC 音频，直连服务器公网 IP）──▶ voice
 ```
 
@@ -189,7 +189,7 @@ docker compose exec caddy ls /etc/caddy        # 应看到 Caddyfile
 
 ## 5. 月度费用估算
 
-单价（2026-10 百炼北京地域原价，以控制台为准）：qwen-plus 输入 0.8 元/百万 token、输出 2 元/百万 token；
+单价（2026-10 百炼北京地域原价，以控制台为准）：文字代理 qwen-plus 输入 0.8 元/百万 token、输出 2 元/百万 token；语音默认 qwen3.7-flash（非思考）输入 0.2、输出 0.8 元/百万 token（选型见 [LLM_AB.md](LLM_AB.md)）；
 paraformer-realtime-v2 0.00024 元/秒（每月 10 小时免费）；cosyvoice-v3-flash 1 元/万字符。
 改用设计音色（`DEEPSUCK_VOICE_WANG=cosyvoice-v3.5-flash-vd-...`）时，合成按 cosyvoice-v3.5-flash 0.8 元/万字符计（约每句 0.004 元），创建音色免费，保有费以百炼控制台计费页为准，见 [voice/README.md](../voice/README.md)（2026-10-18 查询）。
 
