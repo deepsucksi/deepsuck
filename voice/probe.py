@@ -5,6 +5,13 @@
     python -m voice.probe --url https://live.deepsuck.si --origin https://live.deepsuck.si --wav scammer.wav
 
 会真实调用 DashScope（按量计费，受服务端预算护栏约束）。
+
+退出码（JSON 汇总里的 exit / exit_reason 同步给出）：
+  0  正常：/api/offer 200，连上并收到机器人音频
+  2  /api/offer 被拒（非 200，例如 403 来源不符、429 限频、503 名额已满）
+  3  offer 成功但媒体没连上（ICE/DTLS 失败：多半是 UDP 端口或 VOICE_PUBLIC_IP）
+  4  连上了但整段时间没收到任何机器人音频
+  5  探测本身正常，但 --json-out 写文件失败
 """
 from __future__ import annotations
 
@@ -12,6 +19,7 @@ import argparse
 import asyncio
 import fractions
 import json
+import sys
 import time
 import wave
 from typing import Optional
@@ -195,7 +203,10 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
     while time.time() < deadline and pc.connectionState not in ("failed", "closed"):
         await asyncio.sleep(0.2)
     stats["final_state"] = pc.connectionState
-    await pc.close()
+    try:
+        await pc.close()
+    except Exception as e:  # 关闭时的清理异常不影响探测结果
+        stats["close_error"] = f"{type(e).__name__}: {e}"
     if out_wav and bot_pcm:
         with wave.open(out_wav, "wb") as w:
             w.setnchannels(1); w.setsampwidth(2); w.setframerate(stats.get("bot_rate", 48000)); w.writeframes(bytes(bot_pcm))
@@ -207,8 +218,27 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
     return stats
 
 
+EXIT_REASONS = {0: "ok", 2: "offer_rejected", 3: "media_not_connected", 4: "no_bot_audio", 5: "json_out_failed"}
+
+
+def exit_code(st: dict) -> int:
+    """按探测结果给出退出码（见模块说明）。连通性以“收到过机器人音频或数据通道消息”为准，
+    不只看 aiortc 的 connectionstatechange（该事件在部分网络/版本下可能漏报）。"""
+    if st.get("offer_status") != 200:
+        return 2
+    heard = st.get("bot_audio_sec", 0) > 0
+    got_data = bool(st.get("events")) or bool(st.get("latency")) or st.get("state") is not None
+    if st.get("connected_after") is None and not heard and not got_data:
+        return 3
+    if not heard:
+        return 4
+    return 0
+
+
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="python -m voice.probe", description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(prog="python -m voice.probe", description=__doc__.splitlines()[0],
+                                 epilog="退出码" + __doc__.split("退出码", 1)[1],
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--url", default="http://127.0.0.1:7860")
     ap.add_argument("--wav")
     ap.add_argument("--seconds", type=float, default=30)
@@ -233,13 +263,21 @@ def main(argv=None) -> int:
     summary["server"] = summarize(lat)
     ce = [x for x in st.get("client_e2e_ms", []) if x is not None]
     summary["client_e2e"] = {"n": len(ce), "p50": percentile(ce, 50), "p90": percentile(ce, 90)}
-    print(json.dumps(summary, ensure_ascii=False))
+    code = exit_code(st)
     if a.json_out:
-        with open(a.json_out, "w", encoding="utf-8") as f:
-            json.dump({"summary": summary, "turns": lat, "client_e2e_ms": st.get("client_e2e_ms"),
-                       "client_filler": st.get("client_filler"),
-                       "events": st.get("events")}, f, ensure_ascii=False, indent=1)
-    return 0 if st.get("offer_status") == 200 and st.get("connected_after") is not None else 1
+        try:
+            with open(a.json_out, "w", encoding="utf-8") as f:
+                json.dump({"summary": {**summary, "exit": code, "exit_reason": EXIT_REASONS[code]}, "turns": lat,
+                           "client_e2e_ms": st.get("client_e2e_ms"), "client_filler": st.get("client_filler"),
+                           "events": st.get("events")}, f, ensure_ascii=False, indent=1)
+        except OSError as e:
+            print(f"probe: 写 --json-out 失败: {e}", file=sys.stderr)
+            code = code or 5
+    summary["exit"], summary["exit_reason"] = code, EXIT_REASONS[code]
+    print(json.dumps(summary, ensure_ascii=False))
+    if code:
+        print(f"probe: exit {code} ({EXIT_REASONS[code]})", file=sys.stderr)
+    return code
 
 
 if __name__ == "__main__":
