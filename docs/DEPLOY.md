@@ -177,6 +177,7 @@ docker compose exec caddy ls /etc/caddy        # 应看到 Caddyfile
 
 单价（2026-10 百炼北京地域原价，以控制台为准）：qwen-plus 输入 0.8 元/百万 token、输出 2 元/百万 token；
 paraformer-realtime-v2 0.00024 元/秒（每月 10 小时免费）；cosyvoice-v3-flash 1 元/万字符。
+改用设计音色（`DEEPSUCK_VOICE_WANG=cosyvoice-v3.5-flash-vd-...`）时，合成按 cosyvoice-v3.5-flash 0.8 元/万字符计（约每句 0.004 元），创建音色免费，保有费以百炼控制台计费页为准，见 [voice/README.md](../voice/README.md)（2026-10-18 查询）。
 
 实测单次用量（本仓库 `voice.probe`，王阿姨 × 冒充客服）：
 

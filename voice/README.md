@@ -59,10 +59,18 @@ python -m voice.app                 # 打开 http://localhost:7860
 人设音色：王阿姨 `longlaoyi_v3`（龙老姨），李大爷 `longlaobo_v3`（龙老伯），小林 `longanyang`。
 
 设计音色（可选）：CosyVoice 支持按一段文字描述生成专属音色，生成的音色只属于你自己的百炼账号。
-`python -m voice.design_voice wang --preview wang.wav` 会生成王阿姨的设计音色并打印一行 `DEEPSUCK_VOICE_WANG=...`，填进 `voice/.env` 即可；
+`python -m voice.design_voice wang --preview wang.wav` 会生成王阿姨的设计音色并打印一行 `DEEPSUCK_VOICE_WANG=...`。本地运行（`python -m voice.app`）填进 `voice/.env`；用 `deploy/` 的 Docker Compose 自托管时填进 `deploy/.env`（compose 的 voice 服务只读 `deploy/.env`，改完 `docker compose up -d` 重建容器）；
 模型会按音色 ID 自动选（如 `cosyvoice-v3.5-flash`），也可用 `DEEPSUCK_VOICE_WANG_MODEL` 指定。
 `DEEPSUCK_VOICE_WANG_INSTRUCTION` 可给设计音色加朗读指令（如「请用东北话表达。」），默认不加，填 `0` 或 `off` 也是不加；系统音色不会发送指令。
 其他人设同理（`DEEPSUCK_VOICE_LI`、`DEEPSUCK_VOICE_LIN`）。不设置时用上面的系统音色。
+
+设计音色费用（2026-10-18 查询阿里云百炼官方公开价格页，华北 2（北京）原价，不含限时优惠，**以百炼控制台计费页为准**）：
+
+- 创建设计音色：CosyVoice 系列免费（[声音设计](https://help.aliyun.com/zh/model-studio/voice-design-user-guide)「计费说明」）；
+- 用设计音色合成：按目标模型 `cosyvoice-v3.5-flash` 计费，**0.8 元/万字符**（[cosyvoice-v3.5-flash 模型信息](https://help.aliyun.com/zh/model-studio/cosyvoice-v3-5-flash)），一句 50 字左右的回复约 0.004 元；原来的系统音色走 `cosyvoice-v3-flash`，1 元/万字符（[cosyvoice-v3-flash 模型信息](https://help.aliyun.com/zh/model-studio/cosyvoice-v3-flash)）；
+- 音色保有费：官方页面未列出，以百炼控制台计费页为准。每个账号自定义音色（复刻 + 设计）上限 1000 个，不用的可以删掉。
+
+费用护栏 `guard.py` 默认按 1 元/万字符记账（`PRICE_TTS_PER_10K_CHARS`），用设计音色时会略微高估，偏保守；想按实价记账可设 `PRICE_TTS_PER_10K_CHARS=0.8`。
 
 ## 隐私与安全
 
