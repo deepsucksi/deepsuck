@@ -126,3 +126,15 @@ def test_cli_roundtrip(tmp_path):
     assert R.main(["score", "--key", str(tmp_path / "key.json"), str(out), "--json", str(res_path)]) == 0
     res = json.loads(res_path.read_text(encoding="utf-8"))
     assert res["score"]["ratings"] == 8 and set(res["auto"]) == {"raw", "humanized"}
+
+
+def test_no_duplicate_reply_within_a_form():
+    """同一份表里没有完全相同的回复句（按人设不放回抽取，句池含 stall_pools）。"""
+    data = R.make(60, seed=1)
+    for form, rows in data["forms"].items():
+        replies = [r["reply"] for r in rows]
+        assert len(replies) == len(set(replies)), form
+    raws = [p["raw"] for p in data["pairs"]]
+    assert len(raws) == len(set(raws))
+    for pid in R.PERSONAS:
+        assert len(R.persona_replies(pid)) >= 15

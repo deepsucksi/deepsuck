@@ -14,6 +14,7 @@
 - 每道题 = 一条骗子消息 + 一条人设回复；回复有三种条件：
   raw（人设原句）、humanized（同一句经 personas.humanize 真人化，固定种子）、human（可选：--human-replies 提供的真人回复，作为上限参照）；
 - 同一句的 raw / humanized 分到 A、B 两份表的不同位置（A 表第 k 题是 raw，B 表就是 humanized），同一个评测者不会看到同一句的两个版本；
+- 回复按人设不放回抽取（句池够用时一份表里没有重复句，避免评测者 / 评委跨题比较“雷同”）；
 - 评测者只看到骗子消息和回复，不知道条件；key.json 记录每题的条件、人设、种子与来源，不发给评测者。
 - make 和人工评分不调用大模型、不联网；只有显式 --judge llm 时才调用评委模型；骗子消息里的占位符一律填虚构的打码值。
 """
@@ -112,10 +113,32 @@ def load_scammer_file(path: Path) -> List[dict]:
 
 # ---------------------------------------------------------------- persona replies
 def persona_replies(persona_id: str) -> List[str]:
-    """人设原句池：sample_lines + elicit_moves（去掉句末的分号）。"""
+    """人设原句池：sample_lines + elicit_moves（去掉句末的分号）+ stall_pools 各池，去重保序。
+    原来只有前两项（每个人设 7 句），60 个句对里同一句会在一份表里出现多次，评委会拿来跨题比较；
+    加上 stall_pools 后每个人设 30 句左右，make 按人设不放回抽取，一份表里不再有重复句。"""
     d = _yaml().safe_load((PROMPTS_DIR / f"{persona_id}.yaml").read_text(encoding="utf-8"))
     pool = list(d["sample_lines"]) + [re.sub(r"[；;]\s*$", "", x) for x in d["elicit_moves"]]
-    return [x for x in pool if x]
+    for lines in (d.get("stall_pools") or {}).values():
+        pool += list(lines or [])
+    out, seen = [], set()
+    for x in pool:
+        if x and x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+
+class _Deck:
+    """按人设不放回抽句：抽完一轮才重新洗牌，保证句池够用时同一句不会出现两次。"""
+
+    def __init__(self, pool: List[str], rng: random.Random):
+        self.pool, self.rng, self.left = list(pool), rng, []
+
+    def draw(self) -> str:
+        if not self.left:
+            self.left = list(self.pool)
+            self.rng.shuffle(self.left)
+        return self.left.pop()
 
 
 def load_human_replies(path: Path) -> List[dict]:
@@ -143,13 +166,14 @@ def make(n: int = 60, seed: int = 1, scammer_file: Optional[Path] = None, human_
     lines = load_scammer_file(scammer_file) if scammer_file else load_corpus_scripts()
     personas = list(personas)
     pools = {p: persona_replies(p) for p in personas}
+    decks = {p: _Deck(pools[p], rng) for p in personas}
     humans = load_human_replies(human_file) if human_file else []
     picked = rng.sample(lines, min(n, len(lines))) if n <= len(lines) else [rng.choice(lines) for _ in range(n)]
     pairs = []
     for k, sc in enumerate(picked):
         pid = personas[k % len(personas)]
         scam = fill_placeholders(sc["text"])
-        reply = rng.choice(pools[pid])
+        reply = decks[pid].draw()
         hseed = seed * 100000 + k
         hum = Humanizer(profile=pid, seed=hseed).apply(reply, context=scam)
         pairs.append({"pair": k, "persona": pid, "scammer": scam, "scammer_id": sc["id"], "scammer_type": sc["type"],
@@ -332,7 +356,9 @@ def main(argv=None) -> int:
                     help="自动评委代理指标；默认 none，llm = 百炼 qwen-plus（需要 DASHSCOPE_API_KEY，会产生费用）")
     sc.add_argument("--forms-dir", type=Path, default=None, help="form-A/B.csv 所在目录，默认与 key.json 相同")
     sc.add_argument("--judge-n", type=int, default=60, help="评委评前多少个句对（每对 A、B 各一题），默认 60")
-    sc.add_argument("--judge-batch", type=int, default=10, help="每次请求放几道题（同一份表），默认 10")
+    sc.add_argument("--judge-mode", choices=("item", "batch"), default="item",
+                    help="item（默认）= 逐题独立判，一题一次请求；batch = 每次请求放同一份表的若干题（旧做法）")
+    sc.add_argument("--judge-batch", type=int, default=10, help="批量模式下每次请求放几道题（同一份表），默认 10")
     sc.add_argument("--judge-seed", type=int, default=1)
     sc.add_argument("--judge-model", default="qwen-plus")
     sc.add_argument("--max-cost", type=float, default=1.0, help="费用上限（元），不能超过 1 元")
@@ -356,7 +382,7 @@ def main(argv=None) -> int:
         forms_dir = a.forms_dir or a.key.parent
         try:
             out = J.run_judge(key, read_forms(forms_dir), J.default_client_factory(), n_pairs=a.judge_n,
-                              batch_size=a.judge_batch, seed=a.judge_seed, model=a.judge_model, max_cost=a.max_cost,
+                              batch_size=a.judge_batch, mode=a.judge_mode, seed=a.judge_seed, model=a.judge_model, max_cost=a.max_cost,
                               cache_dir=J.CACHE_DIR, dry_run=a.dry_run, refresh=a.refresh_cache, log=lambda m: print(m, file=sys.stderr))
         except J.BudgetError as e:
             print(f"拒绝运行：{e}", file=sys.stderr)
@@ -365,7 +391,7 @@ def main(argv=None) -> int:
             print(f"大模型评委未运行：{e}", file=sys.stderr)
             return 3
         judge = {"note": "代理指标：大模型评委的判断，不能代替人工盲测，可能有评委偏差",
-                 "model": out["model"], "date": out["date"], "seed": out["seed"], "estimate": out["estimate"],
+                 "model": out["model"], "mode": out["mode"], "date": out["date"], "seed": out["seed"], "estimate": out["estimate"],
                  "dry_run": out["dry_run"]}
         if not out["dry_run"]:
             judge.update({"items": len(out["ratings"]), "invalid_items": out["invalid_items"], "usage": out["usage"],

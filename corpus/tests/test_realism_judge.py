@@ -42,6 +42,14 @@ class FakeClient:
     def chat(self, messages, **params):
         self.calls.append((messages, params))
         user = messages[-1]["content"]
+        if not user.lstrip().startswith("共"):  # 逐题模式：只有一道题，没有题号
+            reply = user.strip().splitlines()[-1].split("：", 1)[1]
+            bot = 1 if reply and reply[-1] in "。！？" else 0
+            d = {"bot": bot, "human": 2 if bot else 4, "unreadable": 0, "reason": "测试"}
+            if any(b in reply for b in self.bad_ids):
+                d["human"] = 9
+            return {"content": json.dumps(d, ensure_ascii=False),
+                    "usage": {"prompt_tokens": 100, "completion_tokens": 20}, "model": params["model"]}
         items = []
         for block in user.split("\n\n"):
             lines = block.strip().splitlines()
@@ -92,7 +100,7 @@ def test_request_params_are_deterministic_json():
 def test_run_scores_with_shared_summary_and_caches(tmp_path):
     key, forms = _data(12)
     fake = FakeClient()
-    out = J.run_judge(key, forms, lambda: fake, n_pairs=12, batch_size=5, cache_dir=tmp_path)
+    out = J.run_judge(key, forms, lambda: fake, n_pairs=12, batch_size=5, cache_dir=tmp_path, mode="batch")
     assert len(fake.calls) == 6 and out["usage"]["requests"] == 6
     assert out["usage"]["prompt_tokens"] == 6000 and out["usage"]["completion_tokens"] == 1200
     assert out["usage"]["cost_cny"] == pytest.approx(6000 * 0.8e-6 + 1200 * 2e-6)
@@ -103,12 +111,12 @@ def test_run_scores_with_shared_summary_and_caches(tmp_path):
     assert res["detected_diff_humanized_minus_raw"]["pairs"] == 12
     # 重跑全部命中缓存：不再调用，也不计费
     fake2 = FakeClient()
-    again = J.run_judge(key, forms, lambda: fake2, n_pairs=12, batch_size=5, cache_dir=tmp_path)
+    again = J.run_judge(key, forms, lambda: fake2, n_pairs=12, batch_size=5, cache_dir=tmp_path, mode="batch")
     assert fake2.calls == [] and again["usage"]["cost_cny"] == 0 and again["usage"]["cached_requests"] == 6
     assert again["estimate"]["cost_cny"] == 0 and again["ratings"] == out["ratings"]
     # 换种子就是新的请求
     fake3 = FakeClient()
-    J.run_judge(key, forms, lambda: fake3, n_pairs=12, batch_size=5, seed=2, cache_dir=tmp_path)
+    J.run_judge(key, forms, lambda: fake3, n_pairs=12, batch_size=5, seed=2, cache_dir=tmp_path, mode="batch")
     assert len(fake3.calls) == 6
 
 
@@ -135,15 +143,19 @@ def test_default_60_pairs_estimate_is_cheap(tmp_path):
     key, forms = _data(60)
     out = J.run_judge(key, forms, None, dry_run=True, cache_dir=tmp_path)
     est = out["estimate"]
-    assert est["items"] == 120 and est["batches"] == 12
+    assert est["mode"] == "item" and est["items"] == 120 and est["batches"] == 120  # 默认逐题：一题一次请求
     assert 0 < est["cost_cny"] < 0.1 and out["ratings"] == [] and not any(tmp_path.iterdir())
+    est_b = J.run_judge(key, forms, None, dry_run=True, cache_dir=tmp_path, mode="batch")["estimate"]
+    assert est_b["batches"] == 12 and est_b["cost_cny"] < est["cost_cny"]
 
 
 def test_invalid_items_are_dropped(tmp_path):
     key, forms = _data(4)
     bad = forms["A"][0]["id"]
-    out = J.run_judge(key, forms, lambda: FakeClient(bad_ids=[bad]), cache_dir=tmp_path)
+    out = J.run_judge(key, forms, lambda: FakeClient(bad_ids=[bad]), cache_dir=tmp_path, mode="batch")
     assert out["invalid_items"] == 1 and bad not in out["judgments"]
+    out = J.run_judge(key, forms, lambda: FakeClient(bad_ids=[forms["A"][0]["reply"]]), cache_dir=tmp_path / "i")
+    assert out["invalid_items"] >= 1 and forms["A"][0]["id"] not in out["judgments"]
     assert J.parse_judgments("not json", [{"id": "A001"}]) == {}
     assert J.parse_judgments('{"items":[{"id":"X9","bot":1,"human":2}]}', [{"id": "A001"}]) == {}
 
@@ -173,7 +185,7 @@ def test_cli_default_off_and_llm_with_fake_client(tmp_path, monkeypatch, capsys)
     res_path = tmp_path / "judge.json"
     assert R.main(["score", "--key", keyf, "--judge", "llm", "--json", str(res_path)]) == 0
     res = json.loads(res_path.read_text(encoding="utf-8"))["llm_judge"]
-    assert len(fake.calls) == 2 and res["items"] == 12 and "代理指标" in res["note"]
+    assert len(fake.calls) == 12 and res["items"] == 12 and res["mode"] == "item" and "代理指标" in res["note"]
     assert set(res["score"]["conditions"]) == {"raw", "humanized"}
     with open(tmp_path / "judge-llm.csv", encoding="utf-8-sig") as f:
         assert len(list(csv.DictReader(f))) == 12
@@ -187,3 +199,24 @@ def test_cli_missing_key_does_not_run(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(J, "CACHE_DIR", tmp_path / "cache")
     assert R.main(["score", "--key", str(tmp_path / "key.json"), "--judge", "llm"]) == 3
     assert "DASHSCOPE_API_KEY" in capsys.readouterr().err
+
+
+def test_item_mode_sees_one_item_only(tmp_path):
+    """逐题模式：每次请求只有一道题，不带题号，看不到同一份表的其他题；缓存与批量模式分开。"""
+    key, forms = _data(6)
+    fake = FakeClient()
+    out = J.run_judge(key, forms, lambda: fake, n_pairs=6, cache_dir=tmp_path)
+    assert out["mode"] == "item" and len(fake.calls) == 12 and len(out["ratings"]) == 12
+    all_replies = [r["reply"] for rows in forms.values() for r in rows]
+    for messages, params in fake.calls:
+        user = messages[-1]["content"]
+        assert messages[0]["content"] == J.SYSTEM_PROMPT_ITEM and "items" not in messages[0]["content"]
+        assert not any(r["id"] in user for rows in forms.values() for r in rows)
+        assert sum(1 for x in set(all_replies) if "回复：" + x + "\n" in user) == 1
+        assert params["max_tokens"] == J.OUT_TOKENS_OVERHEAD + J.OUT_TOKENS_PER_ITEM
+    assert J.parse_judgments('{"bot": 1, "human": 2, "unreadable": 0}', [{"id": "B007"}])["B007"]["bot"] == 1
+    fake_b = FakeClient()
+    J.run_judge(key, forms, lambda: fake_b, n_pairs=6, cache_dir=tmp_path, mode="batch")
+    assert len(fake_b.calls) == 2  # 不同模式不共用缓存
+    with pytest.raises(ValueError):
+        J.run_judge(key, forms, None, dry_run=True, cache_dir=tmp_path, mode="x")

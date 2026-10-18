@@ -7,11 +7,12 @@
 
 设计：
 - 评委是百炼 DashScope 的 qwen-plus（OpenAI 兼容接口，非思考模式），temperature 0、固定 seed，要求 JSON 输出；
-- 评委看到的内容和评测者一样：骗子消息 + 回复，不知道条件；每次请求只放同一份表的若干题（默认 10 题），
-  所以同一句的 raw / humanized 两个版本不会出现在同一次请求里，请求之间没有上下文；
+- 评委看到的内容和评测者一样：骗子消息 + 回复，不知道条件；默认逐题独立判（--judge-mode item：一题一次请求，
+  评委看不到同一份表的其他题，避免“与某题雷同”式的跨题比较）；可选批量模式（--judge-mode batch：每次请求放同一份表的
+  若干题，默认 10 题，即 76cef8b 的旧做法）。两种模式下同一句的 raw / humanized 都不会出现在同一次请求里，请求之间没有上下文；
 - 默认评前 60 个句对（A、B 两份表各 60 题，共 120 次判断）；调用前按字符数保守估算 token 与费用，
   超过 1 元（硬上限，--max-cost 只能调低）直接拒绝运行；运行中实际费用超过上限也会停下；
-- 每个批次的请求与回复按内容哈希缓存在 eval/.judge-cache/（.gitignore），重跑不重复计费；
+- 每次请求与回复按内容哈希缓存在 eval/.judge-cache/（.gitignore），重跑不重复计费；
 - 判断结果转成与人工评分相同的行格式（id / rater / human / bot / unreadable），交给 realism_blind.score() 汇总；
 - API Key 只从环境变量 DASHSCOPE_API_KEY 或仓库根目录 .env 读取，不打印、不写进缓存或结果。
 """
@@ -43,7 +44,10 @@ HARD_MAX_COST_CNY = 1.0
 DEFAULT_PAIRS = 60
 DEFAULT_BATCH = 10
 DEFAULT_SEED = 1
-PROMPT_VERSION = "judge-v1"
+PROMPT_VERSION = "judge-v1"          # 批量模式（提示词与 76cef8b 相同，旧缓存仍可命中）
+PROMPT_VERSION_ITEM = "judge-v2-item"
+MODES = ("item", "batch")
+DEFAULT_MODE = "item"
 CACHE_DIR = ROOT / "eval" / ".judge-cache"
 # 每题输出上限（JSON 字段 + 不超过 20 字的理由），用于估算和 max_tokens
 OUT_TOKENS_PER_ITEM = 60
@@ -61,6 +65,26 @@ SYSTEM_PROMPT = (
     "只输出一个 JSON 对象，格式：{\"items\": [{\"id\": \"A001\", \"bot\": 0, \"human\": 3, \"unreadable\": 0, "
     "\"reason\": \"...\"}]}，每道题一项，id 与题目一致，不要输出其他文字。"
 )
+
+
+SYSTEM_PROMPT_ITEM = (
+    "你在做一项盲测评审。题目是一条诈骗分子发来的消息，以及对方的一条回复。"
+    "回复有的是真人随手打的，有的是聊天机器人生成的，比例未知。请判断这条回复是真人还是机器人。\n"
+    "给出：\n"
+    "- bot：你认为回复是机器人写的填 1，真人写的填 0；\n"
+    "- human：像真人随手发的程度，1–5 的整数（1 = 一看就是机器，5 = 完全像真人）；\n"
+    "- unreadable：回复看不懂或读着别扭填 1，否则 0；\n"
+    "- reason：不超过 20 个字的理由。\n"
+    "只输出一个 JSON 对象，格式：{\"bot\": 0, \"human\": 3, \"unreadable\": 0, \"reason\": \"...\"}，不要输出其他文字。"
+)
+
+
+def system_prompt(mode: str = "batch") -> str:
+    return SYSTEM_PROMPT_ITEM if mode == "item" else SYSTEM_PROMPT
+
+
+def prompt_version(mode: str = "batch") -> str:
+    return PROMPT_VERSION_ITEM if mode == "item" else PROMPT_VERSION
 
 
 # ---------------------------------------------------------------- key / client
@@ -138,15 +162,18 @@ def make_batches(items: Dict[str, List[dict]], batch_size: int = DEFAULT_BATCH) 
     return batches
 
 
-def user_prompt(batch: List[dict]) -> str:
+def user_prompt(batch: List[dict], mode: str = "batch") -> str:
+    if mode == "item":
+        it = batch[0]  # 逐题：不带题号，评委不知道这份表还有其他题
+        return f"诈骗消息：{it['scammer']}\n回复：{it['reply']}\n"
     lines = [f"共 {len(batch)} 道题：", ""]
     for it in batch:
         lines += [f"[{it['id']}]", f"诈骗消息：{it['scammer']}", f"回复：{it['reply']}", ""]
     return "\n".join(lines).rstrip() + "\n"
 
 
-def messages_for(batch: List[dict]) -> List[dict]:
-    return [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_prompt(batch)}]
+def messages_for(batch: List[dict], mode: str = "batch") -> List[dict]:
+    return [{"role": "system", "content": system_prompt(mode)}, {"role": "user", "content": user_prompt(batch, mode)}]
 
 
 def request_params(batch: List[dict], model: str = MODEL, seed: int = DEFAULT_SEED) -> dict:
@@ -165,14 +192,14 @@ def cost_cny(prompt_tokens: int, completion_tokens: int) -> float:
     return prompt_tokens * PRICE_INPUT_PER_M / 1e6 + completion_tokens * PRICE_OUTPUT_PER_M / 1e6
 
 
-def estimate_batch(batch: List[dict]) -> Dict[str, int]:
-    inp = sum(estimate_tokens(m["content"]) for m in messages_for(batch))
+def estimate_batch(batch: List[dict], mode: str = "batch") -> Dict[str, int]:
+    inp = sum(estimate_tokens(m["content"]) for m in messages_for(batch, mode))
     return {"prompt_tokens": inp, "completion_tokens": OUT_TOKENS_OVERHEAD + OUT_TOKENS_PER_ITEM * len(batch)}
 
 
 # ---------------------------------------------------------------- cache
-def cache_key(batch: List[dict], params: dict) -> str:
-    blob = json.dumps({"v": PROMPT_VERSION, "system": SYSTEM_PROMPT, "batch": batch, "params": params},
+def cache_key(batch: List[dict], params: dict, mode: str = "batch") -> str:
+    blob = json.dumps({"v": prompt_version(mode), "system": system_prompt(mode), "batch": batch, "params": params},
                       ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -201,6 +228,8 @@ def parse_judgments(content: str, batch: List[dict]) -> Dict[str, dict]:
     except (json.JSONDecodeError, AttributeError):
         return {}
     items = d.get("items") if isinstance(d, dict) else d
+    if items is None and isinstance(d, dict) and len(batch) == 1:  # 逐题模式：单个对象，没有 id
+        items = [dict(d, id=d.get("id") or batch[0]["id"])]
     ids = {it["id"] for it in batch}
     out = {}
     for it in items or []:
@@ -225,33 +254,36 @@ class BudgetError(RuntimeError):
 def run_judge(key: Dict[str, dict], forms: Dict[str, List[dict]], client_factory: Optional[Callable[[], object]] = None,
               n_pairs: int = DEFAULT_PAIRS, batch_size: int = DEFAULT_BATCH, seed: int = DEFAULT_SEED,
               model: str = MODEL, max_cost: float = HARD_MAX_COST_CNY, cache_dir: Path = CACHE_DIR,
-              dry_run: bool = False, refresh: bool = False, log: Callable[[str], None] = lambda s: None) -> dict:
+              dry_run: bool = False, refresh: bool = False, log: Callable[[str], None] = lambda s: None,
+              mode: str = DEFAULT_MODE) -> dict:
     """返回 {"ratings": [...人工评分同格式...], "judgments": {...}, "usage": {...}, "estimate": {...}}。
     client_factory 只在确实需要调用（有未缓存批次且不是 dry_run）时才被调用。"""
     max_cost = min(float(max_cost), HARD_MAX_COST_CNY)
+    if mode not in MODES:
+        raise ValueError(f"mode must be one of {MODES}")
     items = select_items(key, forms, n_pairs)
-    batches = make_batches(items, batch_size)
+    batches = make_batches(items, 1 if mode == "item" else batch_size)
     plan = []
     est_in = est_out = 0
     for b in batches:
         params = request_params(b, model, seed)
-        k = cache_key(b, params)
+        k = cache_key(b, params, mode)
         hit = None if refresh else cache_get(cache_dir, k)
         if hit is None:
-            e = estimate_batch(b)
+            e = estimate_batch(b, mode)
             est_in += e["prompt_tokens"]
             est_out += e["completion_tokens"]
         plan.append((b, params, k, hit))
     est_cost = cost_cny(est_in, est_out)
-    estimate = {"items": sum(len(b) for b in batches), "batches": len(batches),
+    estimate = {"mode": mode, "items": sum(len(b) for b in batches), "batches": len(batches),
                 "uncached_batches": sum(1 for p in plan if p[3] is None), "prompt_tokens": est_in,
                 "completion_tokens": est_out, "cost_cny": round(est_cost, 4), "max_cost_cny": max_cost,
                 "price": {"input_per_m": PRICE_INPUT_PER_M, "output_per_m": PRICE_OUTPUT_PER_M, "source": PRICE_SOURCE}}
-    log(f"估算：{estimate['items']} 题 / {estimate['batches']} 批（未缓存 {estimate['uncached_batches']} 批），"
+    log(f"估算（{'逐题' if mode == 'item' else '批量'}）：{estimate['items']} 题 / {estimate['batches']} 次请求（未缓存 {estimate['uncached_batches']} 批），"
         f"输入约 {est_in} token、输出至多 {est_out} token，约 {est_cost:.4f} 元（上限 {max_cost} 元）")
     if est_cost > max_cost:
-        raise BudgetError(f"估算费用 {est_cost:.4f} 元超过上限 {max_cost} 元，拒绝运行；请减少 --judge-n 或调大批量")
-    result = {"model": model, "date": date.today().isoformat(), "seed": seed, "estimate": estimate,
+        raise BudgetError(f"估算费用 {est_cost:.4f} 元超过上限 {max_cost} 元，拒绝运行；请减少 --judge-n（或用 --judge-mode batch 调大批量）")
+    result = {"model": model, "mode": mode, "date": date.today().isoformat(), "seed": seed, "estimate": estimate,
               "dry_run": dry_run, "judgments": {}, "ratings": [],
               "usage": {"prompt_tokens": 0, "completion_tokens": 0, "cost_cny": 0.0, "requests": 0, "cached_requests": 0,
                         "cached_prompt_tokens": 0, "cached_completion_tokens": 0}}
@@ -266,12 +298,12 @@ def run_judge(key: Dict[str, dict], forms: Dict[str, List[dict]], client_factory
                 client = client_factory() if client_factory else None
                 if client is None:
                     raise RuntimeError("没有可用的评委客户端（缺少 DASHSCOPE_API_KEY）")
-            resp = client.chat(messages_for(b), **params)
+            resp = client.chat(messages_for(b, mode), **params)
             usage = resp.get("usage") or {}
             pt, ct = int(usage.get("prompt_tokens", 0)), int(usage.get("completion_tokens", 0))
             hit = {"model": resp.get("model") or model, "content": resp.get("content", ""),
                    "usage": {"prompt_tokens": pt, "completion_tokens": ct}, "request_id": resp.get("request_id"),
-                   "date": date.today().isoformat(), "prompt_version": PROMPT_VERSION}
+                   "date": date.today().isoformat(), "prompt_version": prompt_version(mode)}
             cache_put(cache_dir, k, hit)
             u["prompt_tokens"] += pt
             u["completion_tokens"] += ct
