@@ -38,7 +38,7 @@ code,kbd,.mono{font-family:var(--mono);font-size:.92em}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .gh-btn{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)!important;text-decoration:none}
 .gh-btn:hover{color:var(--ink)!important}
-.gh-count{font-weight:500;color:var(--ink);font-family:var(--mono);font-size:12px}
+.gh-count{display:block;height:18px;width:auto;border-radius:4px}
 
 /* 首页 */
 .hero{padding-top:120px;padding-bottom:120px}

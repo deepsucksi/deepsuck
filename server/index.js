@@ -110,6 +110,10 @@ function serveStatic(req, res) {
   fs.stat(file, function (err, st) {
     if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('404'); }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
+    // 自托管时告诉前端"同源有 /api/"：纯静态托管（GitHub Pages 等）没有这一行，前端就不会去请求 api/health
+    if (urlPath === '/assets/js/live-config.js') {
+      return fs.readFile(file, 'utf8', function (e, js) { res.end((js || '') + '\n;(self.DEEPSUCK_LIVE = self.DEEPSUCK_LIVE || { api: \'\' }).local = true;\n'); });
+    }
     fs.createReadStream(file).pipe(res);
   });
 }

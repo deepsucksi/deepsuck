@@ -12,6 +12,9 @@
   // 公开实时服务（见 live-config.js）；为空时沿用同源 api/（npm start 自托管）
   var LIVE = String((window.DEEPSUCK_LIVE && window.DEEPSUCK_LIVE.api) || '').replace(/\/+$/, '');
   var API = LIVE ? LIVE + '/api/' : 'api/';
+  // 只有配置了实时服务（live-config.js 的 api）或由 npm start 托管（server 注入 local=true）时才探测后端；
+  // 纯静态托管不发任何 api 请求。?proxy=1 可强制探测（例如自己用 Nginx 反代了 server/）。
+  var HAS_BACKEND = !!LIVE || !!(window.DEEPSUCK_LIVE && window.DEEPSUCK_LIVE.local) || params.get('proxy') === '1';
 
   var state = {
     scenario: params.get('scenario') || 'refund',
@@ -344,7 +347,7 @@
     toast('已切换：' + $('engineLabel').textContent);
   }
   function probeProxy() {
-    if (location.protocol === 'file:' && !LIVE) { $('proxyStatus').textContent = '本地文件模式，无代理'; return; }
+    if (!HAS_BACKEND) { $('proxyStatus').textContent = '纯静态托管，未配置后端（使用规则引擎）。自托管运行 npm start 即可启用。'; return; }
     fetch(API + 'health', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       if (j && LIVE) document.querySelectorAll('[data-live-voice]').forEach(function (a) { a.href = LIVE + '/'; a.hidden = false; });
       if (j && j.llmConfigured && j.budget && j.budget.exhausted) {

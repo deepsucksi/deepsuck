@@ -89,12 +89,3 @@
   if (reduce) return; // 尊重"减少动态效果"：保留静态示例
   play();
 })();
-/* GitHub 星标数（公开 API，失败则静默隐藏） */
-(function () {
-  var el = document.getElementById('ghStars');
-  if (!el || !window.fetch) return;
-  fetch('https://api.github.com/repos/deepsucksi/deepsuck', { headers: { Accept: 'application/vnd.github+json' } })
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (j) { if (j && j.stargazers_count > 0) { el.textContent = j.stargazers_count; el.hidden = false; } })
-    .catch(function () {});
-})();

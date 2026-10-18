@@ -20,3 +20,16 @@ test('server：health / 静态文件 / 未配置 Key 时 /api/chat 返回 503 / 
     assert.ok(trav.status === 403 || trav.status === 404);
   } finally { server.close(); }
 });
+
+test('server：托管 live-config.js 时注入 local=true；直接读文件时不带', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { server } = require('../server/index.js');
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const js = await (await fetch('http://127.0.0.1:' + server.address().port + '/assets/js/live-config.js')).text();
+    assert.match(js, /\.local = true/);
+    const raw = fs.readFileSync(path.join(__dirname, '..', 'site', 'assets', 'js', 'live-config.js'), 'utf8');
+    assert.doesNotMatch(raw, /\.local = true/);
+  } finally { server.close(); }
+});

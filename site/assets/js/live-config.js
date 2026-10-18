@@ -3,6 +3,7 @@
  *  - api 为空：纯静态，沙盒只用规则引擎（默认，零成本）。
  *  - api 设为 'https://live.deepsuck.si'：沙盒探测 <api>/api/health，可用且当日额度未用完时自动切到大模型；
  *    任何失败（离线 / 限流 / 额度用完）都会回退到规则引擎。导航栏显示"语音演示"入口（<api>/）。
+ *  - npm start（server/index.js）托管时，服务器会在本文件末尾追加 local = true，沙盒才会探测同源 /api/health。
  * Apache-2.0
  */
 (function (root) {
