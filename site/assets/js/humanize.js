@@ -93,6 +93,15 @@
     return m;
   }
   function halo(m) { return m.map(function (v, i) { return v || (i > 0 && m[i - 1]) || (i + 1 < m.length && m[i + 1]); }); }
+  // 紧跟在 nameCues（户名、收款人……）后面的那个字符：不改标点、不在那里断句 / 拆条 / 放表情
+  function cueFrozen(a) {
+    var m = new Array(a.length).fill(false);
+    CF.nameCues.forEach(function (w) {
+      var L = clen(w);
+      findAll(a, w).forEach(function (s) { if (s + L < a.length) m[s + L] = true; });
+    });
+    return m;
+  }
   function digitSafePositions(text, keep) { return halo(protectedMask(text, keep)).map(function (v) { return !v; }); }
   var any = function (arr, s, e) { for (var i = s; i < e; i++) if (arr[i]) return true; return false; };
 
@@ -138,7 +147,7 @@
     ops.forEach(function (o) { if (OPS.indexOf(o) < 0) throw new Error('unknown op: ' + o); self.ops[o] = true; });
     this.weights = Object.assign({}, g('weights', {}), opts.weights || {});
     this.digressions = (opts.digressions && opts.digressions.length ? opts.digressions : (g('digressions', null) && g('digressions', []).length ? g('digressions', []) : CF.digressions)).slice();
-    this.keep = (opts.keep || []).concat(g('keep', []));
+    this.keep = (opts.keep || []).concat(g('keep', []), CF.nameCues); // 人名提示词本身不写错
     this.handwriting = !!(opts.handwriting === undefined || opts.handwriting === null ? g('handwriting', false) : opts.handwriting);
     var shape = opts.shapeTypos === undefined || opts.shapeTypos === null ? g('shapeTypos', this.mode === 'chat') : opts.shapeTypos;
     this.shapeTypos = !!shape || this.handwriting;
@@ -316,6 +325,10 @@
     this._debt = Math.min(this._debt + lam, lam + DEBT_MAX);
     var cap = Math.min(this.maxTypos, Math.max(1, Math.floor(this._debt + 1.0)));
     var h = halo(this._core(a)), taken = new Array(a.length).fill(false), sites = [];
+    CF.nameCues.forEach(function (w) { // 人名提示词后面 3 个字不写错（错字可能被提取器读成人名）
+      var L = clen(w);
+      findAll(a, w).forEach(function (st) { for (var x = st + L; x < Math.min(a.length, st + L + 3); x++) h[x] = true; });
+    });
     this._words.forEach(function (wd) {
       var L = clen(wd[0]);
       findAll(a, wd[0]).forEach(function (s) {
@@ -394,7 +407,8 @@
     for (var i = 1; i < out.length; i++) {
       var pick = this.rng.choice(seps);
       var pc = this._core(out[i - 1]);
-      if (pc[pc.length - 1] || this._core(out[i])[0]) pick = clean[i - 1][1];
+      var endsCue = CF.nameCues.some(function (w) { return out[i - 1].slice(-w.length) === w; });
+      if (pc[pc.length - 1] || this._core(out[i])[0] || endsCue) pick = clean[i - 1][1];
       s += pick + out[i];
     }
     var sc = this._core(s);
@@ -403,9 +417,9 @@
   };
 
   P._restyle = function (text, fn) {
-    var a = chars(text), core = this._core(a), n = a.length;
+    var a = chars(text), core = this._core(a), fz = cueFrozen(a), n = a.length;
     return a.map(function (ch, i) {
-      var adj = core[i] || (i > 0 && core[i - 1]) || (i + 1 < n && core[i + 1]);
+      var adj = core[i] || (i > 0 && core[i - 1]) || (i + 1 < n && core[i + 1]) || fz[i];
       return adj ? ch : fn(ch);
     }).join('');
   };
@@ -472,8 +486,8 @@
   };
 
   P._safeSeps = function (a, set) {
-    var core = this._core(a), out = [];
-    for (var i = 1; i < a.length - 1; i++) if (inSet(set, a[i]) && !(core[i - 1] || core[i] || core[i + 1])) out.push(i);
+    var core = this._core(a), fz = cueFrozen(a), out = [];
+    for (var i = 1; i < a.length - 1; i++) if (inSet(set, a[i]) && !(core[i - 1] || core[i] || core[i + 1] || fz[i])) out.push(i);
     return out;
   };
   P._emoji = function (text) {
@@ -535,5 +549,5 @@
   }
 
   return { Humanizer: Humanizer, humanize: humanize, resolve: resolve, PROFILES: PROFILES, OPS: OPS, BASE_RATES: BASE_RATES,
-    protectedMask: protectedMask, digitSafePositions: digitSafePositions, hanCount: hanCount, mulberry32: mulberry32, COOP_INTENTS: COOP_INTENTS };
+    protectedMask: protectedMask, cueFrozen: cueFrozen, digitSafePositions: digitSafePositions, hanCount: hanCount, mulberry32: mulberry32, COOP_INTENTS: COOP_INTENTS };
 });

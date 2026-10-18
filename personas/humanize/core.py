@@ -159,6 +159,17 @@ def _halo(m: List[bool]) -> List[bool]:
     return [m[i] or (i > 0 and m[i - 1]) or (i + 1 < n and m[i + 1]) for i in range(n)]
 
 
+def cue_frozen(text: str) -> List[bool]:
+    """紧跟在 NAME_CUES（户名、收款人……）后面的那个字符：不改标点、不在那里断句 / 拆条 / 放表情。"""
+    m = [False] * len(text)
+    for w in C.NAME_CUES:
+        for s in _find_all(text, w):
+            e = s + len(w)
+            if e < len(text):
+                m[e] = True
+    return m
+
+
 def digit_safe_positions(text: str, keep: Sequence[str] = ()) -> List[bool]:
     """True = 这个位置可以改动（不在受保护片段内，也不紧挨着它）。测试与评测用。"""
     return [not x for x in _halo(protected_mask(text, keep))]
@@ -214,7 +225,7 @@ class Humanizer:
             raise ValueError(f"unknown ops: {sorted(unknown)}")
         self.weights = {**prof.get("weights", {}), **(weights or {})}
         self.digressions = list(digressions or prof.get("digressions") or C.DIGRESSIONS)
-        self.keep = tuple(keep) + tuple(prof.get("keep", ()))
+        self.keep = tuple(keep) + tuple(prof.get("keep", ())) + tuple(C.NAME_CUES)  # 人名提示词本身不写错
         self.handwriting = bool(prof.get("handwriting", False) if handwriting is None else handwriting)
         if shape_typos is None:
             shape_typos = prof.get("shapeTypos", self.mode == "chat")
@@ -423,6 +434,10 @@ class Humanizer:
         self._debt = min(self._debt + lam, lam + DEBT_MAX)
         cap = min(self.max_typos, max(1, int(math.floor(self._debt + 1.0))))
         halo = _halo(self._core(text))
+        for w in C.NAME_CUES:  # 人名提示词后面 3 个字不写错（错字可能被提取器读成人名，如“户名发找”）
+            for st in _find_all(text, w):
+                for x in range(st + len(w), min(len(text), st + len(w) + 3)):
+                    halo[x] = True
         taken = [False] * len(text)
         sites = []  # [start, end, key, alts, weight]
         for word, alts, w in self._words:
@@ -523,7 +538,7 @@ class Humanizer:
         s = out[0]
         for i in range(1, len(out)):
             pick = self.rng.choice(seps)
-            if self._core(out[i - 1])[-1] or self._core(out[i])[0]:
+            if self._core(out[i - 1])[-1] or self._core(out[i])[0] or out[i - 1].endswith(tuple(C.NAME_CUES)):
                 pick = clean[i - 1][1]
             s += pick + out[i]
         if text.rstrip().endswith(("？", "?")) and self.rng.random() < 0.5 and not self._core(s)[-1]:
@@ -533,10 +548,11 @@ class Humanizer:
     def _restyle(self, text: str, fn) -> str:
         """逐个标点改写；受保护片段内部与紧挨它的标点不动。fn(ch) 返回替换串。"""
         core = self._core(text)
+        fz = cue_frozen(text)
         n = len(text)
         out = []
         for i, ch in enumerate(text):
-            adj = core[i] or (i > 0 and core[i - 1]) or (i + 1 < n and core[i + 1])
+            adj = core[i] or (i > 0 and core[i - 1]) or (i + 1 < n and core[i + 1]) or fz[i]
             out.append(ch if adj else fn(ch))
         return "".join(out)
 
@@ -611,8 +627,9 @@ class Humanizer:
 
     def _safe_seps(self, text: str, chars: str) -> List[int]:
         core = self._core(text)
+        fz = cue_frozen(text)
         n = len(text)
-        return [i for i in range(1, n - 1) if text[i] in chars and not (core[i - 1] or core[i] or core[i + 1])]
+        return [i for i in range(1, n - 1) if text[i] in chars and not (core[i - 1] or core[i] or core[i + 1] or fz[i])]
 
     def _emoji(self, text: str) -> Tuple[str, bool]:
         if not self.emojis or not self._hit(self.emoji_rate):

@@ -42,3 +42,23 @@ def test_re_ask_pool_has_no_digits_or_direct_request():
         assert len(pool) >= 10
         for t in pool:
             assert "在找" in t and not re.search(r"\d", t), t
+
+
+def test_humanized_replies_never_trip_the_extractor():
+    """真人化后的人设台词不能被自己的提取器当成情报（“户名 开户行”被认成户名、拆条后跨行拼出人名等）。"""
+    import sys
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    from personas.humanize import Humanizer
+    from deepsuck import extractors as X
+    for p in PERSONAS:
+        lines = [t if isinstance(t, str) else t["t"] for v in p["templates"].values() for t in v]
+        lines = [x.replace("{call}", "小伙子").replace("{intel}", "尾号3445").replace("{ask}", "") for x in lines]
+        for hw in (False, True):
+            for seed in range(8):
+                h = Humanizer(profile=p["id"], seed=seed, handwriting=hw)
+                for x in lines:
+                    out = h.apply(x, "把钱转到安全账户", intent="generic").text
+                    assert not X.extract_sensitive(out), (p["id"], x, out, X.extract_sensitive(out))

@@ -10,7 +10,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 from personas.humanize import PERSONA_PROFILES, PROFILES, Humanizer, han_count, protected_mask  # noqa: E402
 from personas.humanize import confusion as C  # noqa: E402
-from personas.humanize.core import COOP_INTENTS  # noqa: E402
+from personas.humanize.core import COOP_INTENTS, cue_frozen  # noqa: E402
 
 CORE = json.loads((ROOT / "site" / "assets" / "core" / "personas.json").read_text(encoding="utf-8"))
 EMOJI_RE = re.compile(r"\[[^\]]{1,3}\]|[\U0001F300-\U0001FAFF]")
@@ -101,9 +101,9 @@ def test_punct_style_fixed_per_persona():
             h = Humanizer(profile=pid, seed=s)
             for x in lines[:60]:
                 out = h.apply(x).text
-                core = protected_mask(out)
+                core, fz = protected_mask(out, C.NAME_CUES), cue_frozen(out)
                 for i, ch in enumerate(out):
-                    adj = core[i] or (i > 0 and core[i - 1]) or (i + 1 < len(out) and core[i + 1])
+                    adj = core[i] or (i > 0 and core[i - 1]) or (i + 1 < len(out) and core[i + 1]) or fz[i]
                     if adj or ch not in "，,。！？!?；;：:、…~～":
                         continue
                     if style == "comma":

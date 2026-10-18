@@ -55,5 +55,8 @@ DIGRESSIONS = _C["digressions"]
 # 刻意错字 / 网络梗写法：不进入任何混淆表（测试会检查）
 DELIBERATE = _C["deliberate"]
 
+# 提取器认作“后面跟人名”的提示词：紧跟其后的标点不改、不在那里断句或拆条
+NAME_CUES = _C["nameCues"]
+
 BANNED_YOUTH_SLANG = _C["bannedStyle"]["youthSlang"]
 BANNED_ESSAY_STYLE = _C["bannedStyle"]["essayStyle"]

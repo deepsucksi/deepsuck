@@ -1388,7 +1388,7 @@
   },
   "humanize": {
     "confusion": {
-      "comment": "真人化（humanize）用的混淆表与短语池；Python personas/humanize 与 JS site/assets/js/humanize.js 共用。只收对方仍能看懂、真人确实会打出来的错；网络梗式刻意错字见 deliberate。",
+      "comment": "真人化（humanize）用的混淆表与短语池；Python personas/humanize 与 JS site/assets/js/humanize.js 共用。只收对方仍能看懂、真人确实会打出来的错；网络梗式刻意错字见 deliberate。 nameCues：提取器认作“后面跟人名”的提示词，紧跟其后的标点不改、不在那里断句或拆条（否则“户名 开户行”会被当成户名）。",
       "homophoneWords": {
         "已经": [
           "以经",
@@ -2186,7 +2186,15 @@
           "光阴似箭",
           "岁月如歌"
         ]
-      }
+      },
+      "nameCues": [
+        "户名",
+        "收款人",
+        "账户名",
+        "开户名",
+        "收款方",
+        "姓名"
+      ]
     },
     "profiles": {
       "comment": "真人化预设。typoPer100：默认档每百字错字目标；handwriting=true 时改用 handwritingTypoPer100（手写输入档）并启用手写形近字表；shapeTypos：默认档是否夹少量形近字；punctStyle：comma 一逗到底 / none 全不打（空格断开），每个人设固定一种；split：一条拆成几条发的概率；emojiComma：用表情代替一个逗号的概率；selfRef：第三人称自称；ageLines / apologies / closings：报年龄、道歉、“你忙吧”式收尾（每场有次数上限）。错字率依据见 docs/REALISM.md「错字率校准」。",

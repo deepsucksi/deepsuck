@@ -46,13 +46,13 @@ test('会话级错字映射：同一个词一场里只错成一种写法，被�
   Object.keys(snap).forEach((k) => assert.equal(h.typoMap[k], snap[k]));
 });
 
-test('标点风格每个人设固定：王阿姨一逗到底，李大爷 / 小林全不打', () => {
+test('标点风格每个人设固定：王阿姨一逗到底，李大爷 / 小林全不打（数字串旁、“户名”等人名提示词后的原标点不动）', () => {
   for (const [pid, style] of [['wang', 'comma'], ['li', 'none'], ['lin', 'none']]) {
     const h = new HZ.Humanizer({ profile: pid, seed: 2 });
     pool(pid).slice(0, 80).forEach((x) => {
-      const out = Array.from(h.apply(x).text), core = HZ.protectedMask(out);
+      const out = Array.from(h.apply(x).text), core = HZ.protectedMask(out, C.humanize.confusion.nameCues), fz = HZ.cueFrozen(out);
       out.forEach((ch, i) => {
-        if (core[i] || core[i - 1] || core[i + 1] || '，,。！？!?；;：:、…~～'.indexOf(ch) < 0) return;
+        if (core[i] || core[i - 1] || core[i + 1] || fz[i] || '，,。！？!?；;：:、…~～'.indexOf(ch) < 0) return;
         if (style === 'comma') assert.ok(ch === '，' || ('？?'.indexOf(ch) >= 0 && (i === out.length - 1 || out[i + 1] === '\n')), out.join(''));
         else assert.fail(pid + ' ' + out.join(''));
       });
