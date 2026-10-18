@@ -48,33 +48,38 @@
 </header>
 
 <main class="wrap">
+  <h1 class="sr-only">DeepSuck 沙盒演示：你扮演骗子，AI 扮演“潜在受害人”</h1>
   <div class="demo">
     <div>
-      <div class="panel setup">
-        <div class="notice"><b>沙盒说明</b>　<b>你扮演骗子</b>，机器人扮演“潜在受害人”。请勿输入真实个人信息；样例台词中的账号、电话、地址均为虚构测试数据。所有情报仅在本页内存中处理并脱敏展示。</div>
-        <div>
-          <div class="lbl">诈骗场景</div>
-          <div class="opts" id="scenarioOpts"></div>
-        </div>
-        <div>
-          <div class="lbl">机器人人设</div>
-          <div class="opts" id="personaOpts"></div>
-        </div>
-      </div>
-
       <div class="panel chat">
-        <div class="chat-head">
-          <span class="av" id="botAvatar">王</span>
-          <span class="who" id="botName">王阿姨</span>
-          <span class="note" id="botTag"></span>
-          <span class="eng" id="engineLabel">引擎：规则引擎（本地）</span>
-        </div>
+        <details class="setup" id="setupBox">
+          <summary class="chat-head">
+            <span class="av" id="botAvatar">王</span>
+            <span class="who" id="botName">王阿姨</span>
+            <span class="note sc-label" id="scLabel">冒充客服 · 退款理赔</span>
+            <span class="eng" id="engineLabel">引擎：规则引擎（本地）</span>
+            <span class="setup-toggle">场景与人设</span>
+          </summary>
+          <div class="setup-body">
+            <div>
+              <div class="lbl">诈骗场景</div>
+              <div class="opts" id="scenarioOpts"></div>
+            </div>
+            <div>
+              <div class="lbl">机器人人设</div>
+              <div class="opts" id="personaOpts"></div>
+            </div>
+            <p class="note" id="botTag"></p>
+          </div>
+        </details>
         <div class="msgs" id="msgs" aria-live="polite"></div>
         <div class="samples" id="samples" title="一键填入样例骗子台词"></div>
         <div class="composer">
-          <textarea id="input" placeholder="以骗子身份输入消息，Enter 发送，Shift+Enter 换行…" maxlength="600"></textarea>
+          <label class="sr-only" for="input">以骗子身份输入消息</label>
+          <textarea id="input" placeholder="以骗子身份输入消息…" maxlength="600" enterkeyhint="send"></textarea>
           <button class="btn primary" id="sendBtn" type="button">发送</button>
         </div>
+        <p class="chat-foot"><b>你扮演骗子</b>，机器人扮演“潜在受害人”。请勿输入真实个人信息；样例中的账号、电话、地址均为虚构。情报只在本页内存中处理并脱敏展示。</p>
       </div>
     </div>
 

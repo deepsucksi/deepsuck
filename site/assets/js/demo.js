@@ -76,9 +76,10 @@
     var p = state.session.persona;
     $('botAvatar').textContent = p.avatar;
     $('botName').textContent = p.name;
-    $('botTag').textContent = p.tagline;
+    $('botTag').textContent = p.name + '：' + p.tagline;
+    $('scLabel').textContent = state.session.scenario.title;
     $('msgs').innerHTML = '';
-    $('liveDot').textContent = '进行中'; $('liveDot').style.color = 'var(--green)';
+    $('liveDot').textContent = '进行中'; $('liveDot').style.color = 'var(--accent)';
     $('input').disabled = false; $('sendBtn').disabled = false;
     renderOptions(); renderPanel();
     var gen = state.gen;

@@ -93,9 +93,9 @@ footer a{color:var(--muted);text-decoration:none} footer a:hover{color:var(--ink
 .demo{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:32px;padding:40px 0 72px}
 .demo>*{min-width:0}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
-.setup{padding:24px 26px;display:grid;gap:22px}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .notice{font-size:13.5px;line-height:1.85;color:var(--muted);background:var(--sunk);border-radius:var(--radius-s);padding:14px 18px}
-.setup .lbl{font-size:12px;letter-spacing:.06em;color:var(--dim);margin-bottom:10px}
+.setup-body .lbl{font-size:12px;letter-spacing:.06em;color:var(--dim);margin-bottom:10px}
 .opts{display:flex;flex-wrap:wrap;gap:8px}
 .opt{border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;padding:7px 15px;cursor:pointer;font:inherit;font-size:13.5px;line-height:1.4;text-align:left;transition:border-color .15s,background .15s}
 .opt:hover{border-color:var(--line2)}
@@ -103,8 +103,8 @@ footer a{color:var(--muted);text-decoration:none} footer a:hover{color:var(--ink
 #personaOpts .opt{border-radius:var(--radius-s);padding:8px 14px}
 .opt.on{border-color:var(--ink);background:var(--ink);color:#fff}
 .opt.on small{color:rgba(255,255,255,.6)}
-.chat{display:flex;flex-direction:column;height:calc(100vh - 360px);min-height:480px;margin-top:20px;overflow:hidden}
-.chat-head{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--line);font-size:14px}
+.chat{display:flex;flex-direction:column;height:calc(100vh - 140px);height:calc(100dvh - 140px);min-height:520px;max-height:900px;overflow:hidden}
+.chat-head{display:flex;align-items:center;gap:12px;height:64px;padding:0 24px;border-bottom:1px solid var(--line);font-size:14px;white-space:nowrap;overflow:hidden}
 .chat-head .who{font-weight:600;color:var(--ink)}
 .chat-head .eng{margin-left:auto;font-size:12px;color:var(--dim)}
 .av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);color:var(--ink);flex:none;font-size:13px;font-weight:600;line-height:1}
@@ -298,7 +298,6 @@ a.card:hover h3{text-decoration:underline;text-underline-offset:4px;text-decorat
   .steps{gap:32px}
   .dash-stats{grid-template-columns:1fr 1fr}
   .demo{padding-top:24px;gap:24px}
-  .setup{padding:20px}
   .chat{height:72vh;min-height:440px}
   .chat-head,.samples{padding-left:16px;padding-right:16px}
   .msgs{padding:20px 16px}
@@ -338,3 +337,34 @@ section.end{padding:72px 0 96px}
 .notfound h1{font-size:44px;line-height:1.2;margin:0 0 24px}
 .notfound .lead{color:var(--muted);font-size:var(--fs-l);line-height:1.9;margin:0 0 40px}
 @media (max-width:640px){.notfound{padding-top:72px;padding-bottom:96px}.notfound h1{font-size:32px}}
+
+/* 沙盒：场景/人设折叠在对话头里，首屏即见输入框；各区域固定高度，避免布局跳动 */
+.setup{flex:none}
+.setup>summary{list-style:none;cursor:pointer}
+.setup>summary::-webkit-details-marker{display:none}
+.setup>summary:hover .setup-toggle{border-color:var(--ink)}
+.chat-head .sc-label{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.setup-toggle{flex:none;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line2);border-radius:999px;padding:5px 12px;font-size:12.5px;color:var(--ink)}
+.setup-toggle::after{content:"";width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+.setup[open] .setup-toggle::after{transform:translateY(1px) rotate(-135deg)}
+.chat-head .eng{margin-left:auto}
+.setup-body{display:grid;gap:20px;padding:22px 24px 24px;border-bottom:1px solid var(--line);background:var(--surface);max-height:min(56vh,440px);overflow:auto}
+.setup-body .note{margin:0}
+.msgs{min-height:0}
+.samples{flex:none;height:56px;align-items:center;padding-top:0;padding-bottom:0}
+.composer{flex:none}
+.chat-foot{flex:none;margin:0;padding:0 24px 16px;font-size:12px;line-height:1.7;color:var(--dim)}
+.chat-foot b{font-weight:500;color:var(--muted)}
+#scenarioOpts{min-height:116px}
+#personaOpts{min-height:52px}
+@media (max-width:640px){
+  .chat{height:calc(100vh - 92px);height:calc(100dvh - 92px);min-height:500px}
+  .chat-head{height:56px;padding:0 16px;gap:10px}
+  .chat-head .note.sc-label{display:inline;font-size:12px}
+
+  .setup-toggle{font-size:0;gap:0;padding:8px 10px;margin-left:auto}
+  .setup-body{padding:18px 16px 20px}
+  .samples{height:52px}
+  .chat-foot{padding:0 16px 12px;font-size:11.5px}
+  .demo{padding-top:16px}
+}
