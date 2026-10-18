@@ -94,7 +94,7 @@ curl -s http://127.0.0.1:7860/api/voice/health
 | 公网部署 | `deploy/` 中的电话入口默认关闭，保留开关 | **已实现**：`deploy/.env.example` 暴露 `VOICE_TELEPHONY`、`VOICE_TELEPHONY_TOKEN`、`VOICE_AI_DISCLOSURE`、`KEEP_AUDIO` 等，默认全关，变量清单见 [PHONE.md 第 6 节](PHONE.md#6-环境变量清单供-deploy-使用)；`DATA_DIR` 挂命名卷 `voice-data` |
 | 断句静音 | 网页暂保持 450ms | 已是默认值（`DEEPSUCK_LAT_ASR_MAX_SILENCE_MS`，见第 7 节） |
 
-无论接入方式如何变化，底线不变：**只做防御，机器人从不主动外呼或联系真实的人**（见 [ETHICS.md](ETHICS.md)）。个人可开通的 SIP、云号码和呼叫转移方案对比（含官方价格和月费估算）见 [PHONE.md](PHONE.md)。
+无论接入方式如何变化，底线不变：**只做防御，机器人从不主动外呼或联系真实的人**（见 [ETHICS.md](ETHICS.md)）。接入方案对比、推荐方案和月成本见 [PHONE.md](PHONE.md)：长期走阿里云 SIP 中继（需企业主体），现阶段海外号码接 `pipecat-ws` 只做联调演示；移动和电信不能呼转到境外号码，跨境转接走不通。
 
 ## 7. 语音延迟调参
 
