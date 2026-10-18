@@ -7,6 +7,9 @@
   'use strict';
   var D = window.DeepSuck;
   var $ = function (id) { return document.getElementById(id); };
+  // 界面文案按语言取值（i18n.js）；人设台词、骗子样例与对话记录属演示语料，英文版保留中文（data-i18n-keep="dialogue"）
+  var I = window.DeepSuckI18n || { L: function (zh) { return zh; }, tr: function (x) { return x; }, trParts: function (x) { return x; } };
+  var L = I.L, tr = I.tr;
   var params = new URLSearchParams(location.search);
   var FAST = params.get('fast') === '1';
   // 公开实时服务（见 live-config.js）；为空时沿用同源 api/（npm start 自托管）
@@ -39,7 +42,7 @@
   function fmtHuman(sec) {
     sec = Math.round(sec);
     var m = Math.floor(sec / 60), s = sec % 60;
-    return m ? m + ' 分 ' + s + ' 秒' : s + ' 秒';
+    return m ? m + L(' 分 ', ' min ') + s + L(' 秒', ' s') : s + L(' 秒', ' s');
   }
   function toast(msg) {
     var t = $('toast'); t.textContent = msg; t.style.display = 'block';
@@ -50,15 +53,15 @@
   /* ---------- 选择器 ---------- */
   function renderOptions() {
     $('scenarioOpts').innerHTML = D.scenarios.SCENARIOS.map(function (s) {
-      return '<button class="opt' + (s.id === state.scenario ? ' on' : '') + '" data-sc="' + s.id + '">' + esc(s.title) + '</button>';
+      return '<button class="opt' + (s.id === state.scenario ? ' on' : '') + '" data-sc="' + s.id + '">' + esc(tr(s.title)) + '</button>';
     }).join('');
     $('personaOpts').innerHTML = D.personas.PERSONAS.map(function (p) {
-      return '<button class="opt' + (p.id === state.persona ? ' on' : '') + '" data-pe="' + p.id + '">' + esc(p.name) + '<small>' + esc(p.tagline) + '</small></button>';
+      return '<button class="opt' + (p.id === state.persona ? ' on' : '') + '" data-pe="' + p.id + '">' + esc(tr(p.name)) + '<small>' + esc(tr(p.tagline)) + '</small></button>';
     }).join('');
     var sc = D.scenarios.BY_ID[state.scenario];
-    $('samples').innerHTML = '<span class="note" style="flex:none;align-self:center">样例：</span>' + sc.samples.map(function (l, i) {
+    $('samples').innerHTML = '<span class="note" style="flex:none;align-self:center">' + L('样例：', 'Samples:') + '</span>' + sc.samples.map(function (l, i) {
       var src = (sc.sampleSources || [])[i];
-      return '<button data-sample="' + i + '" title="' + esc(l) + (src ? '\n来源：' + esc(src.label) : '') + '">' + (i + 1) + '. ' + esc(l) + '</button>';
+      return '<button data-sample="' + i + '" data-i18n-keep="dialogue" title="' + esc(l) + (src ? '\n' + L('来源：', 'Source: ') + esc(tr(src.label)) : '') + '">' + (i + 1) + '. ' + esc(l) + '</button>';
     }).join('');
     renderSampleSources(sc);
   }
@@ -73,11 +76,11 @@
       by[x.label].n++;
       if (!by[x.label].url && /^https:\/\//.test(x.url || '') && x.sourceType !== 'awareness') by[x.label].url = x.url;
     });
-    el.innerHTML = order.length ? '本场景样例：' + order.map(function (k) {
-      var t = esc(k);
+    el.innerHTML = order.length ? L('本场景样例：', 'Samples in this scenario: ') + order.map(function (k) {
+      var t = esc(tr(k));
       if (by[k].url) t = '<a href="' + esc(by[k].url) + '" target="_blank" rel="noopener noreferrer">' + t + '</a>';
-      return t + ' ' + by[k].n + ' 条';
-    }).join('，') + '。' : '';
+      return t + ' ' + by[k].n + L(' 条', '');
+    }).join(L('，', '; ')) + L('。', '.') : '';
   }
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-sc],[data-pe],[data-sample]');
@@ -95,13 +98,9 @@
     state.gen++;
     state.queue = Promise.resolve();
     state.session = new D.engine.Session({ scenario: state.scenario, persona: state.persona, engine: engineName() });
-    var p = state.session.persona;
-    $('botAvatar').textContent = p.avatar;
-    $('botName').textContent = p.name;
-    $('botTag').textContent = p.name + '：' + p.tagline;
-    $('scLabel').textContent = state.session.scenario.title;
+    renderHeader();
     $('msgs').innerHTML = '';
-    $('liveDot').textContent = '进行中'; $('liveDot').style.color = 'var(--accent)';
+    $('liveDot').textContent = L('进行中', 'In progress'); $('liveDot').style.color = 'var(--accent)';
     $('input').disabled = false; $('sendBtn').disabled = false;
     renderOptions(); renderPanel();
     var gen = state.gen;
@@ -109,6 +108,14 @@
     state.queue = showBot(opening, gen);
     clearInterval(state.timer);
     state.timer = setInterval(renderStats, 1000);
+  }
+
+  function renderHeader() {
+    var p = state.session.persona;
+    $('botAvatar').textContent = tr(p.avatar);
+    $('botName').textContent = tr(p.name);
+    $('botTag').textContent = tr(p.name) + L('：', ': ') + tr(p.tagline);
+    $('scLabel').textContent = tr(state.session.scenario.title);
   }
 
   function engineName() {
@@ -126,28 +133,35 @@
     return h;
   }
 
+  // metaHtml 可以是函数（按当前语言生成），切换语言时 relabelMsgs 重新调用
   function addMsg(role, html, metaHtml) {
     var p = state.session.persona;
     var el = document.createElement('div');
     el.className = 'msg ' + role;
-    el.innerHTML = '<div class="av">' + esc(role === 'bot' ? p.avatar : '骗') + '</div><div><div class="bub">' + html + '</div>' +
-      (metaHtml ? '<div class="meta">' + metaHtml + '</div>' : '') + '</div>';
+    var meta = typeof metaHtml === 'function' ? metaHtml() : metaHtml;
+    el.innerHTML = '<div class="av">' + esc(tr(role === 'bot' ? p.avatar : '骗')) + '</div><div><div class="bub" data-i18n-keep="dialogue">' + html + '</div>' +
+      (meta ? '<div class="meta">' + meta + '</div>' : '') + '</div>';
+    el._avatar = role === 'bot' ? p.avatar : '骗';
+    if (typeof metaHtml === 'function') el._meta = metaHtml;
     $('msgs').appendChild(el);
     $('msgs').scrollTop = $('msgs').scrollHeight;
     return el;
   }
 
   function showBot(msg, gen) {
-    var typing = addMsg('bot', '<span class="dots"><span></span><span></span><span></span></span> ' + esc(state.session.persona.name) + ' 正在输入…');
+    var typing = addMsg('bot', '<span class="dots"><span></span><span></span><span></span></span> ' + esc(tr(state.session.persona.name)) + L(' 正在输入…', ' is typing…'));
     typing.classList.add('typing');
     return sleep(state.session.typingDelay(msg.text)).then(function () {
       typing.remove();
       if (gen !== state.gen) return;
-      var intentLabel = { opening: '开场', ask_repeat: '请求重复', misunderstand: '故意误解', tech_trouble: '假装技术故障', slow_walk: '拖延', otp_stall: '验证码拖延',
+      var intentLabel = function () { return I.isEn && I.isEn() ? { opening: 'Opening', ask_repeat: 'Asks to repeat', misunderstand: 'Deliberate misunderstanding', tech_trouble: 'Fakes tech trouble', slow_walk: 'Stalling', otp_stall: 'OTP stalling',
+        elicit_account: 'Draws out an account', elicit_wallet: 'Draws out a wallet', elicit_contact: 'Draws out contact details', elicit_url: 'Draws out a link', confirm_intel: 'Repeats back and follows up',
+        fake_progress: 'Fakes a failed transfer', scared: 'Acts scared', secrecy: 'Pretends to keep it secret', greedy: 'Acts tempted', romance: 'Plays along warmly', info_stall: 'Withholds personal info', urgency_stall: 'Pushes back on urgency', generic: 'Agrees along',
+        verify_identity: 'Verifies their identity', task_stall: 'Task-scam stalling', loan_stall: 'Loan-scam stalling', campus_stall: 'Campus-loan stalling' }[msg.intent] || msg.intent : { opening: '开场', ask_repeat: '请求重复', misunderstand: '故意误解', tech_trouble: '假装技术故障', slow_walk: '拖延', otp_stall: '验证码拖延',
         elicit_account: '诱导暴露账户', elicit_wallet: '诱导暴露钱包', elicit_contact: '诱导留联系方式', elicit_url: '诱导发链接', confirm_intel: '复述并追问',
         fake_progress: '假装转账受阻', scared: '装害怕', secrecy: '假意保密', greedy: '装心动', romance: '周旋示好', info_stall: '拒给个人信息', urgency_stall: '反催促', generic: '附和',
-        verify_identity: '反向核验身份', task_stall: '刷单周旋', loan_stall: '贷款周旋', campus_stall: '校园贷周旋' }[msg.intent] || msg.intent;
-      addMsg('bot', esc(msg.text), '<span class="note">策略：' + esc(intentLabel) + (msg.engine ? ' · ' + esc(msg.engine) : '') + '</span>');
+        verify_identity: '反向核验身份', task_stall: '刷单周旋', loan_stall: '贷款周旋', campus_stall: '校园贷周旋' }[msg.intent] || msg.intent; };
+      addMsg('bot', esc(msg.text), function () { return '<span class="note">' + L('策略：', 'Strategy: ') + esc(intentLabel()) + (msg.engine ? ' · ' + esc(tr(msg.engine)) : '') + '</span>'; });
       renderPanel();
     });
   }
@@ -158,8 +172,10 @@
     var gen = state.gen;
     var s = state.session;
     var a = s.ingest(text);
-    var meta = a.tactics.map(function (t) { return '<span class="tag">' + esc(t.label) + '</span>'; }).join('') +
-      (a.newIntel.length ? '<span class="tag amber">+' + a.newIntel.length + ' 条情报</span>' : '');
+    var meta = function () {
+      return a.tactics.map(function (t) { return '<span class="tag">' + esc(tr(t.label)) + '</span>'; }).join('') +
+        (a.newIntel.length ? '<span class="tag amber">+' + a.newIntel.length + L(' 条情报', ' intel') + '</span>' : '');
+    };
     addMsg('scammer', highlight(a.redacted, a.newIntel), meta);
     renderPanel(a.newIntel);
     checkBlocklists(s);
@@ -184,7 +200,7 @@
       var m = s.recordBot(reply, hint); m.engine = '大模型'; return m;
     }).catch(function (e) {
       console.warn(e);
-      toast('大模型调用失败，已回退到规则引擎：' + String(e.message).slice(0, 60));
+      toast(L('大模型调用失败，已回退到规则引擎：', 'LLM call failed; fell back to the rule engine: ') + String(e.message).slice(0, 60));
       var m = s.ruleReply(a); m.engine = '规则回退'; return m;
     });
   }
@@ -202,12 +218,12 @@
       });
     });
   }
-  var BL_TEXT = { hit: '命中公开黑名单', clean: '未命中黑名单', unavailable: '黑名单暂不可用', pending: '比对黑名单中…' };
-  var BL_SHORT = { hit: '命中黑名单', clean: '未命中黑名单', unavailable: '黑名单不可用', pending: '比对中…' };
   function blBadge(b, compact) {
     if (!b) return '';
-    var title = b.status === 'hit' ? '来源：' + (b.sources || []).join('、') + (b.how === 'parent' ? '（父域名命中）' : '') + ' · 仅供参考，不能作为认定依据'
-      : b.status === 'clean' ? '已比对公开黑名单，未命中（不代表安全）' : '';
+    var BL_TEXT = { hit: L('命中公开黑名单', 'On a public blocklist'), clean: L('未命中黑名单', 'Not on blocklists'), unavailable: L('黑名单暂不可用', 'Blocklists temporarily unavailable'), pending: L('比对黑名单中…', 'Checking blocklists…') };
+    var BL_SHORT = { hit: L('命中黑名单', 'On blocklist'), clean: L('未命中黑名单', 'Not on blocklists'), unavailable: L('黑名单不可用', 'Blocklists unavailable'), pending: L('比对中…', 'Checking…') };
+    var title = b.status === 'hit' ? L('来源：', 'Sources: ') + (b.sources || []).join(L('、', ', ')) + (b.how === 'parent' ? L('（父域名命中）', ' (parent domain matched)') : '') + L(' · 仅供参考，不能作为认定依据', ' · For reference only, not proof')
+      : b.status === 'clean' ? L('已比对公开黑名单，未命中（不代表安全）', 'Checked against public blocklists, no match (does not mean safe)') : '';
     return '<span class="bl ' + b.status + '" title="' + esc(title) + '">' + esc((compact ? BL_SHORT : BL_TEXT)[b.status] || b.status) +
       (b.status === 'hit' ? ' · ' + esc((b.sources || []).join(' / ')) : '') + '</span>';
   }
@@ -230,15 +246,15 @@
     (fresh || []).forEach(function (i) { freshSet[i.type + i.masked] = 1; });
     var list = s.intelList();
     $('intelList').innerHTML = list.length ? list.map(function (i) {
-      return '<div class="intel-item' + (freshSet[i.type + i.masked] ? ' new' : '') + (i.blocklist && i.blocklist.status === 'hit' ? ' hit' : '') + '"><span class="t">' + esc(i.label) + '</span><span class="v">' + esc(i.masked) +
-        (i.meta && i.meta.bank ? ' <span class="note">' + esc(i.meta.bank) + '</span>' : '') + (i.blocklist ? '<br>' + blBadge(i.blocklist, true) : '') + '</span></div>';
-    }).join('') : '<div class="empty">等待骗子露出马脚……</div>';
+      return '<div class="intel-item' + (freshSet[i.type + i.masked] ? ' new' : '') + (i.blocklist && i.blocklist.status === 'hit' ? ' hit' : '') + '"><span class="t">' + esc(tr(i.label)) + '</span><span class="v"><span data-i18n-keep="intel-data">' + esc(i.masked) + '</span>' +
+        (i.meta && i.meta.bank ? ' <span class="note" data-i18n-keep="intel-data">' + esc(i.meta.bank) + '</span>' : '') + (i.blocklist ? '<br>' + blBadge(i.blocklist, true) : '') + '</span></div>';
+    }).join('') : '<div class="empty">' + L('等待骗子露出马脚……', 'Waiting for the scammer to slip up…') + '</div>';
     var tl = s.tacticList();
     $('tacticList').innerHTML = tl.length ? tl.map(function (t) {
-      return '<span class="tag">' + esc(t.label) + (t.count > 1 ? ' ×' + t.count : '') + '</span>';
-    }).join('') : '<span class="empty">暂无</span>';
-    $('engineLabel').textContent = '引擎：' + ({ rule: '规则引擎（本地）', proxy: LIVE ? '大模型 · 在线服务' : '大模型 · 本地代理', direct: '大模型 · 直连 ' + state.direct.model }[state.engine]);
-    $('engineLabel').setAttribute('data-short', state.engine === 'rule' ? '规则' : '大模型');
+      return '<span class="tag">' + esc(tr(t.label)) + (t.count > 1 ? ' ×' + t.count : '') + '</span>';
+    }).join('') : '<span class="empty">' + L('暂无', 'None yet') + '</span>';
+    $('engineLabel').textContent = L('引擎：', 'Engine: ') + ({ rule: L('规则引擎（本地）', 'Rule engine (local)'), proxy: LIVE ? L('大模型 · 在线服务', 'LLM · online service') : L('大模型 · 本地代理', 'LLM · local proxy'), direct: L('大模型 · 直连 ', 'LLM · direct ') + state.direct.model }[state.engine]);
+    $('engineLabel').setAttribute('data-short', state.engine === 'rule' ? L('规则', 'Rules') : L('大模型', 'LLM'));
     $('engineLabel').classList.toggle('is-llm', state.engine !== 'rule');
   }
 
@@ -261,46 +277,47 @@
     state.gen++; // 取消尚未显示的回复
     clearInterval(state.timer);
     renderStats();
-    $('liveDot').textContent = '已结束'; $('liveDot').style.color = 'var(--dim)';
+    $('liveDot').textContent = L('已结束', 'Ended'); $('liveDot').style.color = 'var(--dim)';
     $('input').disabled = true; $('sendBtn').disabled = true;
     var r = s.report();
     var st = r.stats;
-    var engLabel = r.session.engine === 'rule' ? '规则引擎' : /^llm/.test(r.session.engine) ? '大模型' : r.session.engine;
-    $('sumSub').textContent = r.session.scenario.title + ' · ' + r.session.persona.name + ' · ' + engLabel;
+    var engLabel = r.session.engine === 'rule' ? L('规则引擎', 'Rule engine') : /^llm/.test(r.session.engine) ? L('大模型', 'LLM') : r.session.engine;
+    $('sumSub').textContent = tr(r.session.scenario.title) + ' · ' + tr(r.session.persona.name) + ' · ' + engLabel;
     $('dashStats').innerHTML = [
-      ['估算骗子耗时', fmtHuman(st.estimatedScammerSeconds)], ['实际对话时长', fmtHuman(st.wallClockSeconds)],
-      ['消息数', st.messages + '（骗子 ' + st.scammerMessages + '）'], ['情报条数', st.intelCount], ['黑名单命中', r.intel.filter(function (i) { return i.blocklist && i.blocklist.status === 'hit'; }).length], ['风险评分', st.riskScore + '/100']
+      [L('估算骗子耗时', 'Estimated scammer time'), fmtHuman(st.estimatedScammerSeconds)], [L('实际对话时长', 'Actual chat duration'), fmtHuman(st.wallClockSeconds)],
+      [L('消息数', 'Messages'), st.messages + L('（骗子 ', ' (scammer ') + st.scammerMessages + L('）', ')')], [L('情报条数', 'Intel items'), st.intelCount], [L('黑名单命中', 'Blocklist hits'), r.intel.filter(function (i) { return i.blocklist && i.blocklist.status === 'hit'; }).length], [L('风险评分', 'Risk score'), st.riskScore + '/100']
     ].map(function (x) { return '<div class="stat"><div class="v" style="font-size:18px">' + esc(x[1]) + '</div><div class="k">' + esc(x[0]) + '</div></div>'; }).join('');
 
     $('dashIntel').innerHTML = r.intel.length ? r.intel.map(function (i) {
       var m = [];
-      if (i.meta.bank) m.push('开户行：' + i.meta.bank + (i.meta.bankFrom === 'bin' ? '（BIN 推断）' : ''));
-      if (i.meta.issuer) m.push(i.meta.issuer.cardTypeName + (i.meta.issuer.lengthOk ? '' : ' · 卡号长度与 BIN 不符'));
-      if (i.meta.digits) m.push(i.meta.digits + ' 位' + (i.meta.luhn ? ' · Luhn 校验通过' : ' · Luhn 未通过'));
-      if (i.meta.chain) m.push('链：' + i.meta.chain);
-      if (i.meta.kind) m.push({ mobile: '手机', hotline: '400/800 热线', landline: '座机' }[i.meta.kind]);
-      m.push('首次出现：第 ' + i.firstSeenTurn + ' 轮' + (i.count > 1 ? ' · 重复 ' + i.count + ' 次' : ''));
-      return '<div class="icard' + (i.blocklist && i.blocklist.status === 'hit' ? ' hit' : '') + '"><div class="h"><span>' + esc(i.label) + '</span><span class="tag amber">已脱敏</span></div>' +
-        '<div class="val">' + esc(i.masked) + '</div><div class="m">' + esc(m.join(' · ')) + '</div>' + (i.blocklist ? '<div class="m">' + blBadge(i.blocklist) + '</div>' : '') + '</div>';
-    }).join('') : '<div class="empty">本次对话未提取到账户/地址类情报。试试样例台词中带卡号、钱包地址的句子。</div>';
+      // m 里是已转义的 HTML 片段；开户行名称是情报数据，原样保留
+      if (i.meta.bank) m.push(esc(L('开户行：', 'Bank: ')) + '<span data-i18n-keep="intel-data">' + esc(i.meta.bank) + '</span>' + esc(i.meta.bankFrom === 'bin' ? L('（BIN 推断）', ' (inferred from BIN)') : ''));
+      if (i.meta.issuer) m.push(esc(tr(i.meta.issuer.cardTypeName) + (i.meta.issuer.lengthOk ? '' : L(' · 卡号长度与 BIN 不符', ' · card length does not match BIN'))));
+      if (i.meta.digits) m.push(esc(i.meta.digits + L(' 位', ' digits') + (i.meta.luhn ? L(' · Luhn 校验通过', ' · Luhn check passed') : L(' · Luhn 未通过', ' · Luhn check failed'))));
+      if (i.meta.chain) m.push(esc(L('链：', 'Chain: ') + i.meta.chain));
+      if (i.meta.kind) m.push(esc({ mobile: L('手机', 'Mobile'), hotline: L('400/800 热线', '400/800 hotline'), landline: L('座机', 'Landline') }[i.meta.kind]));
+      m.push(esc(L('首次出现：第 ', 'First seen: turn ') + i.firstSeenTurn + L(' 轮', '') + (i.count > 1 ? L(' · 重复 ', ' · repeated ') + i.count + L(' 次', ' times') : '')));
+      return '<div class="icard' + (i.blocklist && i.blocklist.status === 'hit' ? ' hit' : '') + '"><div class="h"><span>' + esc(tr(i.label)) + '</span><span class="tag amber">' + L('已脱敏', 'Masked') + '</span></div>' +
+        '<div class="val" data-i18n-keep="intel-data">' + esc(i.masked) + '</div><div class="m">' + m.join(' · ') + '</div>' + (i.blocklist ? '<div class="m">' + blBadge(i.blocklist) + '</div>' : '') + '</div>';
+    }).join('') : '<div class="empty">' + L('本次对话未提取到账户/地址类情报。试试样例台词中带卡号、钱包地址的句子。', 'No account or address intel was extracted from this chat. Try the sample lines that contain card numbers or wallet addresses.') + '</div>';
 
     var ctx = [];
     Object.keys(r.context).forEach(function (type) {
-      var lbl = D.extractors.LABELS[type] || type;
-      Object.keys(r.context[type]).forEach(function (v) { ctx.push('<span class="tag amber">' + esc(lbl) + '：' + esc(v) + '</span>'); });
+      var lbl = tr(D.extractors.LABELS[type] || type);
+      Object.keys(r.context[type]).forEach(function (v) { ctx.push('<span class="tag amber">' + esc(lbl) + L('：', ': ') + '<span data-i18n-keep="intel-data">' + esc(v) + '</span></span>'); });
     });
-    $('dashContext').innerHTML = ctx.join('') || '<span class="empty">无</span>';
+    $('dashContext').innerHTML = ctx.join('') || '<span class="empty">' + L('无', 'None') + '</span>';
 
     var max = Math.max.apply(null, [1].concat(r.tactics.map(function (t) { return t.count; })));
     $('dashTactics').innerHTML = r.tactics.length ? r.tactics.map(function (t) {
-      return '<div class="bar"><span class="l">' + esc(t.label) + '</span><span class="track"><i style="width:' + Math.round(100 * t.count / max) + '%"></i></span><span class="c">' + t.count + '</span></div>';
-    }).join('') : '<div class="empty">未识别到典型话术</div>';
+      return '<div class="bar"><span class="l">' + esc(tr(t.label)) + '</span><span class="track"><i style="width:' + Math.round(100 * t.count / max) + '%"></i></span><span class="c">' + t.count + '</span></div>';
+    }).join('') : '<div class="empty">' + L('未识别到典型话术', 'No typical tactics detected') + '</div>';
 
     var t0 = s.startedAt;
     $('dashTranscript').innerHTML = r.transcript.map(function (m) {
       var sec = Math.round((Date.parse(m.at) - t0) / 1000);
       return '<div class="line"><span class="tm">+' + fmt(sec) + '</span><span class="r ' + (m.role === 'bot' ? 'b' : 's') + '">' +
-        (m.role === 'bot' ? esc(s.persona.name) : '骗子') + '</span>' + esc(m.text) + '</div>';
+        (m.role === 'bot' ? esc(tr(s.persona.name)) : L('骗子', 'Scammer')) + '</span><span data-i18n-keep="dialogue">' + esc(m.text) + '</span></div>';
     }).join('');
     $('submitBox').hidden = true;
     openDialog('summaryModal');
@@ -315,7 +332,7 @@
     a.download = 'deepsuck-intel-' + r.session.scenario.id + '-' + r.generatedAt.replace(/[:.]/g, '-') + '.json';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
-    toast('已导出脱敏情报报告');
+    toast(L('已导出脱敏情报报告', 'Masked intel report exported'));
   }
 
   /* ---------- 提交到情报库 ---------- */
@@ -327,7 +344,7 @@
     var box = $('submitBox');
     if (!sub.indicators.length) {
       box.hidden = false;
-      $('submitText').value = '本次对话没有提取到可收录的情报（电话、钱包地址、网址、APP、收款账户）。';
+      $('submitText').value = L('本次对话没有提取到可收录的情报（电话、钱包地址、网址、APP、收款账户）。', 'No publishable intel (phones, wallet addresses, URLs, apps, receiving accounts) was extracted from this chat.');
       $('submitOpen').style.display = 'none';
       return;
     }
@@ -347,8 +364,8 @@
   }
   function copySubmit() {
     var v = $('submitText').value;
-    (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () { toast('已复制，可粘贴到 GitHub 情报提交模板'); },
-      function () { $('submitText').select(); toast('请手动复制（Ctrl/Cmd+C）'); });
+    (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () { toast(L('已复制，可粘贴到 GitHub 情报提交模板', 'Copied; paste it into the GitHub intel submission template')); },
+      function () { $('submitText').select(); toast(L('请手动复制（Ctrl/Cmd+C）', 'Please copy manually (Ctrl/Cmd+C)')); });
   }
 
   /* ---------- 设置 ---------- */
@@ -369,8 +386,8 @@
     state.direct.baseUrl = $('cfgBase').value.trim() || D.llm.DEFAULTS.baseUrl;
     state.direct.model = $('cfgModel').value.trim() || D.llm.DEFAULTS.model;
     state.direct.apiKey = $('cfgKey').value.trim();
-    if (eng === 'proxy' && !state.proxyOk) { toast('未检测到已配置的本地代理（npm start + .env），仍使用规则引擎'); eng = 'rule'; }
-    if (eng === 'direct' && !state.direct.apiKey) { toast('请先填写 API Key'); return; }
+    if (eng === 'proxy' && !state.proxyOk) { toast(L('未检测到已配置的本地代理（npm start + .env），仍使用规则引擎', 'No configured local proxy detected (npm start + .env); still using the rule engine')); eng = 'rule'; }
+    if (eng === 'direct' && !state.direct.apiKey) { toast(L('请先填写 API Key', 'Please enter an API key first')); return; }
     state.engine = eng;
     try {
       if ($('cfgRemember').checked) localStorage.setItem('deepsuck.llm', JSON.stringify({ engine: eng, baseUrl: state.direct.baseUrl, model: state.direct.model, apiKey: state.direct.apiKey }));
@@ -379,22 +396,24 @@
     closeDialog('settingsModal');
     state.session.engineName = engineName();
     renderPanel();
-    toast('已切换：' + $('engineLabel').textContent);
+    toast(L('已切换：', 'Switched: ') + $('engineLabel').textContent);
   }
+  var proxyStatus = null; // 返回当前语言文案的函数，切换语言时重渲染
+  function setProxyStatus(fn) { proxyStatus = fn; $('proxyStatus').textContent = fn(); }
   function probeProxy() {
-    if (!HAS_BACKEND) { $('proxyStatus').textContent = '纯静态托管，未配置后端（使用规则引擎）。自托管运行 npm start 即可启用。'; return; }
+    if (!HAS_BACKEND) { setProxyStatus(function () { return L('纯静态托管，未配置后端（使用规则引擎）。自托管运行 npm start 即可启用。', 'Static hosting with no backend configured (using the rule engine). Run npm start when self-hosting to enable it.'); }); return; }
     fetch(API + 'health', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       if (j && LIVE) document.querySelectorAll('[data-live-voice]').forEach(function (a) { a.href = LIVE + '/'; a.hidden = false; });
       if (j && j.llmConfigured && j.budget && j.budget.exhausted) {
-        $('proxyStatus').textContent = '代理在线，但今日大模型体验额度已用完（使用规则引擎）';
+        setProxyStatus(function () { return L('代理在线，但今日大模型体验额度已用完（使用规则引擎）', 'Proxy online, but today\'s LLM trial quota is used up (using the rule engine)'); });
       } else if (j && j.llmConfigured) {
         state.proxyOk = true;
-        $('proxyStatus').textContent = '已检测到代理：' + j.model + ' @ ' + j.provider;
-        if (!localStorage.getItem('deepsuck.llm') && !FAST) { state.engine = 'proxy'; state.session.engineName = engineName(); renderPanel(); toast('检测到已配置的大模型代理，已切换到 ' + j.model); }
+        setProxyStatus(function () { return L('已检测到代理：', 'Proxy detected: ') + j.model + ' @ ' + j.provider; });
+        if (!localStorage.getItem('deepsuck.llm') && !FAST) { state.engine = 'proxy'; state.session.engineName = engineName(); renderPanel(); toast(L('检测到已配置的大模型代理，已切换到 ', 'Configured LLM proxy detected; switched to ') + j.model); }
       } else if (j) {
-        $('proxyStatus').textContent = '代理在线，但未配置 API Key（编辑 .env 中的 DASHSCOPE_API_KEY）';
+        setProxyStatus(function () { return L('代理在线，但未配置 API Key（编辑 .env 中的 DASHSCOPE_API_KEY）', 'Proxy online, but no API key configured (edit DASHSCOPE_API_KEY in .env)'); });
       } else throw new Error();
-    }).catch(function () { $('proxyStatus').textContent = '未检测到代理（纯静态托管时正常）。运行 npm start 可启用。'; });
+    }).catch(function () { setProxyStatus(function () { return L('未检测到代理（纯静态托管时正常）。运行 npm start 可启用。', 'No proxy detected (normal for static hosting). Run npm start to enable it.'); }); });
   }
 
   /* ---------- 绑定 ---------- */
@@ -416,6 +435,19 @@
   // 原生 <dialog>：showModal() 自带焦点陷阱、Esc 关闭与背景 inert；点遮罩也可关闭
   ['summaryModal', 'settingsModal'].forEach(function (id) {
     $(id).addEventListener('click', function (e) { if (e.target === e.currentTarget) closeDialog(id); });
+  });
+
+  // 切换语言：重渲染界面文案；已有对话气泡（演示语料）不变
+  document.addEventListener('deepsuck:languagechange', function () {
+    if (!state.session) return;
+    renderHeader(); renderOptions(); renderPanel();
+    document.querySelectorAll('#msgs .msg').forEach(function (el) {
+      var av = el.querySelector('.av'); if (av && el._avatar) av.textContent = tr(el._avatar);
+      var m = el.querySelector('.meta'); if (m && el._meta) m.innerHTML = el._meta();
+    });
+    $('liveDot').textContent = state.session.endedAt ? L('已结束', 'Ended') : L('进行中', 'In progress');
+    if (proxyStatus) $('proxyStatus').textContent = proxyStatus();
+    if ($('summaryModal').open) openSummary();
   });
 
   loadSettings();

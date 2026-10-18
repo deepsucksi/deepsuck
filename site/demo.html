@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>沙盒演示 · DeepSuck</title>
-<meta name="description" content="在浏览器里扮演骗子，看 AI 人设王阿姨、李大爷、小林如何拖住你并提取脱敏情报。7 个高发中文诈骗场景，无需 API Key，本地运行。">
+<title data-i18n="meta.demo.title">沙盒演示 · DeepSuck</title>
+<meta name="description" content="在浏览器里扮演骗子，看 AI 人设王阿姨、李大爷、小林如何拖住你并提取脱敏情报。7 个高发中文诈骗场景，无需 API Key，本地运行。" data-i18n-attr="content:meta.demo.desc">
 <link rel="canonical" href="https://deepsuck.si/demo.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="DeepSuck">
-<meta property="og:title" content="DeepSuck 沙盒：你扮演骗子，试试能骗到谁">
-<meta property="og:description" content="7 个中文诈骗场景 × 3 个“受害人”人设，浏览器本地运行，情报自动脱敏。">
+<meta property="og:title" content="DeepSuck 沙盒：你扮演骗子，试试能骗到谁" data-i18n-attr="content:meta.demo.og">
+<meta property="og:description" content="7 个中文诈骗场景 × 3 个“受害人”人设，浏览器本地运行，情报自动脱敏。" data-i18n-attr="content:meta.demo.ogdesc">
 <meta property="og:url" content="https://deepsuck.si/demo.html">
 <meta property="og:image" content="https://deepsuck.si/assets/og-demo.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="DeepSuck 沙盒：你扮演骗子，试试能骗到谁">
-<meta property="og:locale" content="zh_CN">
+<meta property="og:image:alt" content="DeepSuck 沙盒：你扮演骗子，试试能骗到谁" data-i18n-attr="content:meta.demo.og">
+<meta property="og:locale" content="zh_CN" data-i18n-attr="content:meta.locale">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="DeepSuck 沙盒：你扮演骗子，试试能骗到谁">
-<meta name="twitter:description" content="7 个中文诈骗场景 × 3 个“受害人”人设，浏览器本地运行，情报自动脱敏。">
+<meta name="twitter:title" content="DeepSuck 沙盒：你扮演骗子，试试能骗到谁" data-i18n-attr="content:meta.demo.og">
+<meta name="twitter:description" content="7 个中文诈骗场景 × 3 个“受害人”人设，浏览器本地运行，情报自动脱敏。" data-i18n-attr="content:meta.demo.ogdesc">
 <meta name="twitter:image" content="https://deepsuck.si/assets/og-demo.png">
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="assets/brand/favicon-32.png" type="image/png" sizes="32x32">
@@ -30,27 +30,29 @@
   <div class="wrap">
     <a class="brand" href="./" aria-label="DeepSuck"><span class="brand-symbol"><img src="assets/brand/on-hold-mono-96.png" alt="" width="96" height="96"></span><img class="brand-wordmark" src="assets/brand/wordmark.svg" alt="DeepSuck" width="146" height="40"></a>
     <nav class="nav">
-      <a class="hide-m" id="liveVoiceLink" data-live-voice href="#" hidden>语音演示</a>
-      <a class="hide-m" href="intel.html">情报库</a>
-      <a class="hide-m" href="./#ethics">使用底线</a>
+      <a class="hide-m" id="liveVoiceLink" data-live-voice href="#" hidden data-i18n="nav.voice">语音演示</a>
+      <a class="hide-m" href="intel.html" data-i18n="nav.intel">情报库</a>
+      <a class="hide-m" href="./#ethics" data-i18n="nav.ethics">使用底线</a>
       <a class="hide-m nav-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg class="github-mark" aria-hidden="true" focusable="false" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg><span>GitHub</span> ↗</a>
-      <button class="btn small" id="settingsBtn" type="button">引擎设置</button>
+      <button class="btn small ghost lang-toggle" type="button">EN</button>
+      <button class="btn small" id="settingsBtn" type="button" data-i18n="d.settings">引擎设置</button>
     </nav>
     <details class="menu">
-      <summary class="btn small">菜单</summary>
-      <nav class="menu-panel" aria-label="页面导航">
-        <a href="./">首页</a>
-        <a href="intel.html">情报库</a>
-        <a href="./#ethics">使用底线</a>
-        <a data-live-voice href="#" hidden>语音演示</a>
+      <summary class="btn small" data-i18n="nav.menu">菜单</summary>
+      <nav class="menu-panel" aria-label="页面导航" data-i18n-attr="aria-label:aria.pagenav">
+        <a href="./" data-i18n="nav.home">首页</a>
+        <a href="intel.html" data-i18n="nav.intel">情报库</a>
+        <a href="./#ethics" data-i18n="nav.ethics">使用底线</a>
+        <a data-live-voice href="#" hidden data-i18n="nav.voice">语音演示</a>
         <a class="mobile-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg class="github-mark" aria-hidden="true" focusable="false" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg><span>GitHub ↗</span></a>
+        <button class="lang-toggle" type="button">EN</button>
       </nav>
     </details>
   </div>
 </header>
 
 <main class="wrap">
-  <h1 class="sr-only">DeepSuck 沙盒演示：你扮演骗子，AI 扮演“潜在受害人”</h1>
+  <h1 class="sr-only" data-i18n="d.h1">DeepSuck 沙盒演示：你扮演骗子，AI 扮演“潜在受害人”</h1>
   <div class="demo">
     <div>
       <div class="panel chat">
@@ -60,57 +62,57 @@
             <span class="who" id="botName">王阿姨</span>
             <span class="note sc-label" id="scLabel">冒充客服 · 退款理赔</span>
             <span class="eng" id="engineLabel">引擎：规则引擎（本地）</span>
-            <span class="setup-toggle">场景与人设</span>
+            <span class="setup-toggle" data-i18n="d.setup">场景与人设</span>
           </summary>
           <div class="setup-body">
             <div>
-              <div class="lbl">诈骗场景</div>
+              <div class="lbl" data-i18n="d.lblsc">诈骗场景</div>
               <div class="opts" id="scenarioOpts"></div>
             </div>
             <div>
-              <div class="lbl">机器人人设</div>
+              <div class="lbl" data-i18n="d.lblpe">机器人人设</div>
               <div class="opts" id="personaOpts"></div>
             </div>
             <p class="note" id="botTag"></p>
           </div>
         </details>
         <div class="msgs" id="msgs" aria-live="polite"></div>
-        <div class="samples" id="samples" title="一键填入样例骗子台词"></div>
+        <div class="samples" id="samples" title="一键填入样例骗子台词" data-i18n-attr="title:d.samples.title"></div>
         <div class="composer">
-          <label class="sr-only" for="input">以骗子身份输入消息</label>
-          <textarea id="input" placeholder="以骗子身份输入消息…" maxlength="600" enterkeyhint="send"></textarea>
-          <button class="btn primary" id="sendBtn" type="button">发送</button>
+          <label class="sr-only" for="input" data-i18n="d.input">以骗子身份输入消息</label>
+          <textarea id="input" placeholder="以骗子身份输入消息…" maxlength="600" enterkeyhint="send" data-i18n-attr="placeholder:d.input.ph"></textarea>
+          <button class="btn primary" id="sendBtn" type="button" data-i18n="d.send">发送</button>
         </div>
-        <p class="chat-foot"><b>你扮演骗子</b>，机器人扮演“潜在受害人”。请勿输入真实个人信息；样例中的账号、电话、地址均为虚构。情报只在本页内存中处理并脱敏展示。<span id="sampleSrc" class="sample-src"></span></p>
+        <p class="chat-foot"><span data-i18n="d.foot"><b>你扮演骗子</b>，机器人扮演“潜在受害人”。请勿输入真实个人信息；样例中的账号、电话、地址均为虚构。情报只在本页内存中处理并脱敏展示。</span> <span id="sampleSrc" class="sample-src"></span></p>
       </div>
     </div>
 
     <aside class="side">
       <div class="panel">
-        <h2>周旋战况 <span id="liveDot" class="note">进行中</span></h2>
+        <h2><span data-i18n="d.status">周旋战况</span> <span id="liveDot" class="note">进行中</span></h2>
         <div class="stats">
-          <div class="stat"><div class="v" id="stWall">0:00</div><div class="k">已拖住时长（实时）</div></div>
-          <div class="stat"><div class="v" id="stEst">0:00</div><div class="k">估算骗子耗时</div></div>
-          <div class="stat"><div class="v" id="stMsgs">0</div><div class="k">消息数</div></div>
-          <div class="stat"><div class="v" id="stIntel">0</div><div class="k">情报条数</div></div>
+          <div class="stat"><div class="v" id="stWall">0:00</div><div class="k" data-i18n="d.st.wall">已拖住时长（实时）</div></div>
+          <div class="stat"><div class="v" id="stEst">0:00</div><div class="k" data-i18n="d.st.est">估算骗子耗时</div></div>
+          <div class="stat"><div class="v" id="stMsgs">0</div><div class="k" data-i18n="d.st.msgs">消息数</div></div>
+          <div class="stat"><div class="v" id="stIntel">0</div><div class="k" data-i18n="d.st.intel">情报条数</div></div>
         </div>
-        <div class="risk-l">风险评分 <b id="stRisk">0</b>/100</div>
+        <div class="risk-l"><span data-i18n="d.risk">风险评分</span> <b id="stRisk">0</b>/100</div>
         <div class="risk"><i id="riskBar"></i></div>
       </div>
       <div class="panel">
-        <h2>已提取情报（脱敏） <span class="note">仅展示打码结果</span></h2>
-        <div class="intel-list" id="intelList"><div class="empty">等待骗子露出马脚……</div></div>
-        <p class="bl-note">网址与钱包地址会自动比对公开黑名单：<a href="https://github.com/phishdestroy/destroylist" target="_blank" rel="noopener">destroylist</a> · <a href="https://github.com/Phishing-Database/Phishing.Database" target="_blank" rel="noopener">Phishing.Database</a> · <a href="https://github.com/scamsniffer/scam-database" target="_blank" rel="noopener">ScamSniffer</a> · OFAC SDN。比对在本地完成，仅供参考。</p>
+        <h2><span data-i18n="clue.intel">已提取情报（脱敏）</span> <span class="note" data-i18n="d.maskonly">仅展示打码结果</span></h2>
+        <div class="intel-list" id="intelList"><div class="empty" data-i18n="d.wait">等待骗子露出马脚……</div></div>
+        <p class="bl-note" data-i18n="d.blnote">网址与钱包地址会自动比对公开黑名单：<a href="https://github.com/phishdestroy/destroylist" target="_blank" rel="noopener">destroylist</a> · <a href="https://github.com/Phishing-Database/Phishing.Database" target="_blank" rel="noopener">Phishing.Database</a> · <a href="https://github.com/scamsniffer/scam-database" target="_blank" rel="noopener">ScamSniffer</a> · OFAC SDN。比对在本地完成，仅供参考。</p>
       </div>
       <div class="panel">
-        <h2>识别到的诈骗话术</h2>
-        <div class="tags" id="tacticList"><span class="empty">暂无</span></div>
+        <h2 data-i18n="clue.tactics">识别到的诈骗话术</h2>
+        <div class="tags" id="tacticList"><span class="empty" data-i18n="d.none">暂无</span></div>
       </div>
       <div class="panel">
         <div class="actions">
-          <button class="btn primary" id="endBtn" type="button">结束对话 · 生成情报看板</button>
-          <button class="btn small" id="exportBtn" type="button">导出脱敏 JSON</button>
-          <button class="btn small ghost" id="resetBtn" type="button">重新开始</button>
+          <button class="btn primary" id="endBtn" type="button" data-i18n="d.end">结束对话 · 生成情报看板</button>
+          <button class="btn small" id="exportBtn" type="button" data-i18n="d.export">导出脱敏 JSON</button>
+          <button class="btn small ghost" id="resetBtn" type="button" data-i18n="d.reset">重新开始</button>
         </div>
       </div>
     </aside>
@@ -121,42 +123,42 @@
 <dialog class="modal" id="summaryModal" aria-labelledby="sumTitle">
   <div class="sheet">
     <div class="sheet-head">
-      <h3 id="sumTitle" tabindex="-1" autofocus>情报看板</h3>
+      <h3 id="sumTitle" tabindex="-1" autofocus data-i18n="d.dash">情报看板</h3>
       <span class="note" id="sumSub"></span>
       <span style="margin-left:auto" class="actions">
-        <button class="btn small primary" id="sumSubmit" type="button">提交到情报库</button>
-        <button class="btn small" id="sumExport" type="button">导出脱敏 JSON</button>
-        <button class="btn small" id="sumNew" type="button">新会话</button>
-        <button class="btn small ghost" id="sumClose" type="button">关闭</button>
+        <button class="btn small primary" id="sumSubmit" type="button" data-i18n="d.submit">提交到情报库</button>
+        <button class="btn small" id="sumExport" type="button" data-i18n="d.export">导出脱敏 JSON</button>
+        <button class="btn small" id="sumNew" type="button" data-i18n="d.new">新会话</button>
+        <button class="btn small ghost" id="sumClose" type="button" data-i18n="d.close">关闭</button>
       </span>
     </div>
     <div class="sheet-body">
       <div class="submit-box" id="submitBox" hidden>
-        <h4>提交到公开情报库</h4>
-        <p class="note">已按<a href="intel.html#policy" target="_blank">发布策略</a>生成：电话 / 钱包地址 / 网址 / APP 完整，银行卡 / 姓名 / 个人账号已打码。<b>只提交你真实遇到的诈骗</b>——沙盒里的虚构样例台词请勿提交。</p>
-        <textarea id="submitText" readonly rows="7"></textarea>
+        <h4 data-i18n="d.submit.h">提交到公开情报库</h4>
+        <p class="note" data-i18n="d.submit.note">已按<a href="intel.html#policy" target="_blank">发布策略</a>生成：电话 / 钱包地址 / 网址 / APP 完整，银行卡 / 姓名 / 个人账号已打码。<b>只提交你真实遇到的诈骗</b>——沙盒里的虚构样例台词请勿提交。</p>
+        <textarea id="submitText" readonly rows="7" data-i18n-keep="intel-data"></textarea>
         <div class="actions">
-          <button class="btn small" id="submitCopy" type="button">复制</button>
-          <a class="btn small primary" id="submitOpen" href="#" target="_blank" rel="noopener">在 GitHub 打开情报提交模板</a>
-          <span class="note">需要 GitHub 账号；内容会预填到 Issue 表单中，提交前可再修改。</span>
+          <button class="btn small" id="submitCopy" type="button" data-i18n="d.copy">复制</button>
+          <a class="btn small primary" id="submitOpen" href="#" target="_blank" rel="noopener" data-i18n="d.submit.open">在 GitHub 打开情报提交模板</a>
+          <span class="note" data-i18n="d.submit.gh">需要 GitHub 账号；内容会预填到 Issue 表单中，提交前可再修改。</span>
         </div>
       </div>
       <div class="dash-stats" id="dashStats"></div>
       <div class="dash-grid">
         <div>
-          <h4 class="sub-h">情报卡片（已脱敏）</h4>
+          <h4 class="sub-h" data-i18n="d.cards">情报卡片（已脱敏）</h4>
           <div id="dashIntel"></div>
-          <h4 class="sub-h">上下文线索</h4>
+          <h4 class="sub-h" data-i18n="d.ctx">上下文线索</h4>
           <div class="tags" id="dashContext"></div>
         </div>
         <div>
-          <h4 class="sub-h">话术画像</h4>
+          <h4 class="sub-h" data-i18n="d.profile">话术画像</h4>
           <div id="dashTactics"></div>
-          <h4 class="sub-h">完整对话记录（已脱敏）</h4>
+          <h4 class="sub-h" data-i18n="d.transcript">完整对话记录（已脱敏）</h4>
           <div class="transcript" id="dashTranscript"></div>
         </div>
       </div>
-      <p class="note" style="margin-top:16px">本看板由沙盒演示生成，仅用于防诈研究与教育。真实遇到诈骗请拨打 110 或 96110。</p>
+      <p class="note" style="margin-top:16px" data-i18n="d.dash.note">本看板由沙盒演示生成，仅用于防诈研究与教育。真实遇到诈骗请拨打 110 或 96110。</p>
     </div>
   </div>
 </dialog>
@@ -164,21 +166,21 @@
 <!-- 引擎设置 -->
 <dialog class="modal" id="settingsModal" aria-labelledby="setTitle">
   <div class="sheet" style="max-width:640px">
-    <div class="sheet-head"><h3 id="setTitle" tabindex="-1" autofocus>引擎设置</h3><button class="btn small ghost" style="margin-left:auto" id="setClose" type="button">关闭</button></div>
+    <div class="sheet-head"><h3 id="setTitle" tabindex="-1" autofocus data-i18n="d.settings">引擎设置</h3><button class="btn small ghost" style="margin-left:auto" id="setClose" type="button" data-i18n="d.close">关闭</button></div>
     <div class="sheet-body form">
-      <label><span><input type="radio" name="engine" value="rule" checked> <b>规则引擎（默认，推荐）</b> —— 纯浏览器运行，无需 Key，零成本</span></label>
-      <label><span><input type="radio" name="engine" value="proxy"> <b>服务端代理 · 大模型</b> —— 官网接入在线服务 live.deepsuck.si（每日有体验额度，用完回退规则引擎）；自托管时走本项目自带的 server（npm start）。Key 只存在服务器 .env</span>
-        <span class="note" id="proxyStatus">检测中…</span></label>
-      <label><span><input type="radio" name="engine" value="direct"> <b>浏览器直连 · 大模型（高级，可选）</b> —— 仅适合本机自用</span></label>
+      <label><span><input type="radio" name="engine" value="rule" checked> <span data-i18n="d.eng.rule"><b>规则引擎（默认，推荐）</b> —— 纯浏览器运行，无需 Key，零成本</span></span></label>
+      <label><span><input type="radio" name="engine" value="proxy"> <span data-i18n="d.eng.proxy"><b>服务端代理 · 大模型</b> —— 官网接入在线服务 live.deepsuck.si（每日有体验额度，用完回退规则引擎）；自托管时走本项目自带的 server（npm start）。Key 只存在服务器 .env</span></span>
+        <span class="note" id="proxyStatus" data-i18n="d.checking">检测中…</span></label>
+      <label><span><input type="radio" name="engine" value="direct"> <span data-i18n="d.eng.direct"><b>浏览器直连 · 大模型（高级，可选）</b> —— 仅适合本机自用</span></span></label>
       <div id="directBox" class="form" style="padding-left:22px">
-        <label>Base URL（标准聊天接口）<input type="text" id="cfgBase" value="https://dashscope.aliyuncs.com/compatible-mode/v1"></label>
-        <label>模型<input type="text" id="cfgModel" value="qwen-plus"></label>
-        <label>API Key<input type="password" id="cfgKey" placeholder="sk-…（仅保存在本浏览器）" autocomplete="off"></label>
-        <label><span><input type="checkbox" id="cfgRemember"> 记住在本浏览器 localStorage（公共电脑请勿勾选）</span></label>
-        <div class="warn">直连模式下 Key 位于浏览器中，任何能访问此页面的人/插件都可能读取；部分服务商不允许跨域调用。更推荐使用“服务端代理”。发送给模型的对话会先在本地脱敏。</div>
+        <label><span data-i18n="d.base">Base URL（标准聊天接口）</span><input type="text" id="cfgBase" value="https://dashscope.aliyuncs.com/compatible-mode/v1"></label>
+        <label><span data-i18n="d.model">模型</span><input type="text" id="cfgModel" value="qwen-plus"></label>
+        <label>API Key<input type="password" id="cfgKey" placeholder="sk-…（仅保存在本浏览器）" autocomplete="off" data-i18n-attr="placeholder:d.key.ph"></label>
+        <label><span><input type="checkbox" id="cfgRemember"> <span data-i18n="d.remember">记住在本浏览器 localStorage（公共电脑请勿勾选）</span></span></label>
+        <div class="warn" data-i18n="d.warn">直连模式下 Key 位于浏览器中，任何能访问此页面的人/插件都可能读取；部分服务商不允许跨域调用。更推荐使用“服务端代理”。发送给模型的对话会先在本地脱敏。</div>
       </div>
-      <p class="note">大模型调用失败时会自动回退到规则引擎。情报提取与脱敏始终在本地完成，与所选引擎无关。</p>
-      <div><button class="btn primary" id="setSave" type="button">保存</button></div>
+      <p class="note" data-i18n="d.fallback">大模型调用失败时会自动回退到规则引擎。情报提取与脱敏始终在本地完成，与所选引擎无关。</p>
+      <div><button class="btn primary" id="setSave" type="button" data-i18n="d.save">保存</button></div>
     </div>
   </div>
 </dialog>
@@ -187,12 +189,13 @@
 
 <footer>
   <div class="wrap">
-    <span>DeepSuck · Apache-2.0 · 仅用于防诈研究与教育</span>
-    <span>遇到诈骗请拨打 110 / 96110</span>
-    <a href="./">返回首页</a>
+    <span data-i18n="d.footer">DeepSuck · Apache-2.0 · 仅用于防诈研究与教育</span>
+    <span data-i18n="foot.110">遇到诈骗请拨打 110 / 96110</span>
+    <a href="./" data-i18n="nav.home.back">返回首页</a>
   </div>
 </footer>
 
+<script src="assets/js/i18n.js"></script>
 <script src="assets/js/live-config.js"></script>
 <script src="assets/js/core-data.js"></script>
 <script src="assets/js/cardbin.js"></script>
