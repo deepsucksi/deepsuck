@@ -12,6 +12,8 @@
 - 台词可以写成 `{"when": "流水|冻结", "t": "……"}`：只在骗子本轮提到相关词时才会出现，避免答非所问。
 - 情报库数据在 `site/data/intel.json`，必须通过 `intel.js` 的校验（`npm test` 会检查）。真实情报请走 Issue 模板提交，由维护者审核收录。
 
+- 维护者日常流程（分支命名、PR 关联 issue、完成定义）见 [docs/CONTRIBUTING-dev.md](docs/CONTRIBUTING-dev.md)，关键架构决策见 [docs/adr/](docs/adr/)。
+
 ## 规则
 
 1. **不得提交真实个人信息**：样例台词、测试用例中的卡号、电话、地址、域名必须是虚构的（可用明显的测试号段/测试地址）。
