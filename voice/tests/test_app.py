@@ -15,6 +15,19 @@ def test_config_and_index():
     assert c.get("/static/logo.svg").status_code == 200
 
 
+def test_brand_assets_whitelist():
+    """R11 品牌文件：白名单内可取，类型正确；白名单外与路径穿越一律 404。"""
+    c = TestClient(A.create_app("rule"))
+    for name, (_, ctype) in A.BRAND_FILES.items():
+        r = c.get("/static/brand/" + name)
+        assert r.status_code == 200 and r.headers["content-type"].startswith(ctype), name
+    assert c.get("/static/brand/nope.png").status_code == 404
+    assert c.get("/static/brand/..%2F..%2F.env").status_code == 404
+    html = c.get("/").text
+    for ref in ("/static/brand/wordmark.svg", "/static/brand/symbol.png", "/static/brand/Manrope.ttf"):
+        assert ref in html
+
+
 def test_offer_without_key_is_503(monkeypatch):
     monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
     c = TestClient(A.create_app())

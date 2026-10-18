@@ -4,92 +4,140 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>语音演示 · DeepSuck</title>
+<meta name="theme-color" content="#ffffff">
 <link rel="icon" href="/static/logo.svg">
+<link rel="preload" href="/static/brand/Manrope.ttf" as="font" type="font/ttf" crossorigin>
 <style>
-/* 配色与字体与主站 site/assets/css/style.css 的 :root 保持一致（R11 视觉）（本页由语音服务单独托管，无法直接引用主站样式表，改动时请两边同步）。 */
+/* R11 视觉，与主站 site/assets/css/style.css + home.css 一致：白色顶栏（听筒标志 + 字标）、珊瑚色小标题、
+   深色控制台（#111313 / #1c2020 / #181c1b）、Manrope + IBM Plex Mono。本页由语音服务单独托管，
+   品牌文件经 /static/brand/ 从 site/assets 读取；改主站配色时请同步这里。 */
+@font-face{font-family:Manrope;src:url('/static/brand/Manrope.ttf') format('truetype');font-weight:200 800;font-display:swap}
+@font-face{font-family:'IBM Plex Mono';src:url('/static/brand/IBMPlexMono-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
 :root{
-  --bg:#ffffff;--surface:#ffffff;--sunk:#f2f4f5;--line:#e3e7e9;--line2:#c8cfd2;
-  --ink:#171c1f;--text:#30373b;--muted:#606b72;--dim:#606b72;--faint:#a9b2b7;
-  --accent:#b74224;--accent-soft:rgba(183,66,36,.08);--alert:#a3301c;--alert-soft:rgba(163,48,28,.07);
-  --ok:#3f6b4a;--radius:10px;--radius-s:6px;
+  --bg:#ffffff;--ink:#171c1f;--text:#30373b;--muted:#606b72;--line:#e3e7e9;--line2:#c8cfd2;
+  --accent:#b74224;--kicker:#a63e25;--signal:#ed7950;
+  --night:#111313;--panel:#1c2020;--panel2:#181c1b;--raise:#252b29;--edge:#ffffff14;--edge2:#ffffff26;
+  --d-ink:#f0f2ef;--d-text:#c9d3cc;--d-muted:#9da3a1;--d-dim:#84968a;--d-label:#d37c62;
+  --ok:#7fb08a;--alert:#ff8f73;--alert-soft:#ff8f7314;
   --font:Manrope,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace}
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.22,1,.36,1)}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
-a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}a:hover{text-decoration-color:var(--ink)}
+html,body{margin:0;overflow-x:clip;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:inherit}
 code{font-family:var(--mono);font-size:.92em}
 ::selection{background:#e9bda7;color:var(--ink)}
-header{display:flex;align-items:center;gap:10px;max-width:1120px;height:68px;margin:0 auto;padding:0 40px}
-header img{width:40px;height:40px;filter:brightness(0)}header b{font-size:19px;font-weight:740;color:var(--ink);letter-spacing:-.02em}
-header .back{font-size:14px;color:var(--muted);text-decoration:none;margin-left:20px}header .back:hover{color:var(--ink)}
-.status{margin-left:auto;font-size:13px;color:var(--muted);display:inline-flex;align-items:center}
-.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-right:8px}
-.dot.ok{background:var(--ok)}.dot.bad{background:var(--alert)}.dot.live{background:var(--accent);animation:p 1.4s ease-in-out infinite}
+.wrap{max-width:1328px;margin:0 auto;padding:0 56px}
+.skip-link{position:absolute;left:-9999px;top:8px;z-index:30;background:var(--ink);color:#fff;padding:8px 14px;border-radius:5px}.skip-link:focus{left:12px}
+/* 顶栏：与首页相同的标志与字标 */
+.topbar{position:sticky;top:0;z-index:20;background:#ffffffed;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid #15191908}
+.topbar .wrap{display:flex;align-items:center;gap:24px;height:84px}
+.brand{display:inline-flex;align-items:center;gap:5px;color:var(--ink);text-decoration:none;flex:none;font-size:0}
+.brand-symbol{width:53px;height:48px;display:block;position:relative;overflow:hidden}
+.brand-symbol img{position:absolute;width:64px;height:64px;max-width:none;left:-6px;top:-8px;filter:brightness(0)}
+.brand-wordmark{width:143px;height:39px;object-fit:contain;filter:brightness(0)}
+.nav{margin-left:auto;display:flex;align-items:center;gap:30px;font-size:13px}
+.nav a{color:var(--muted);text-decoration:none}.nav a:hover{color:var(--ink)}
+.nav .nav-source{display:inline-flex;align-items:center;gap:8px;border-bottom:1px solid var(--ink);padding:8px 0;color:var(--ink)}
+.nav-source svg{width:16px;height:16px}
+.status{display:inline-flex;align-items:center;min-width:0;font:12px var(--mono);color:var(--muted);white-space:nowrap}
+#st{overflow:hidden;text-overflow:ellipsis;max-width:380px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#a9b2b7;margin-right:8px;flex:none}
+.dot.ok{background:#3f6b4a}.dot.bad{background:#a3301c}.dot.live{background:var(--signal);animation:p 1.4s ease-in-out infinite}
 @keyframes p{50%{opacity:.3}}
-@media (prefers-reduced-motion:reduce){.dot.live{animation:none}}
-.intro{max-width:1120px;margin:32px auto 28px;padding:0 40px}
-.intro h1{margin:0 0 8px;font-size:30px;line-height:1.3;font-weight:600;color:var(--ink);letter-spacing:-.01em}
-.intro p{margin:0;color:var(--muted);font-size:15px;max-width:640px}
-main{display:grid;grid-template-columns:1.35fr 1fr;gap:24px;max-width:1120px;margin:0 auto 32px;padding:0 40px;align-items:start}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px}
-h2{font-size:13px;font-weight:600;margin:0 0 14px;color:var(--ink);letter-spacing:0}
-aside h2:not(:first-child){margin-top:24px}
-.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
-.controls label{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
-select,button{font:inherit;font-size:14px;line-height:1.2;border-radius:var(--radius-s);border:1px solid var(--line2);background:var(--surface);color:var(--ink);padding:9px 12px}
-select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button{cursor:pointer;border-radius:5px;padding:10px 20px;font-weight:500;transition:background .15s,border-color .15s}
-button.primary{background:var(--ink);border-color:var(--ink);color:#fff}button.primary:hover{background:#000}
-button.hang{background:transparent;border-color:var(--alert);color:var(--alert)}button.hang:hover{background:var(--alert-soft)}
+/* 标题区：与首页首屏同一套字号与小标题 */
+.intro{padding:56px 0 64px;background:linear-gradient(to bottom,#fff 0%,#fff 55%,#f3f4f3 100%)}
+.kicker{font-size:11px;font-weight:500;letter-spacing:1.5px;color:var(--kicker);margin:0 0 18px}
+.intro h1{font-size:56px;font-weight:650;line-height:1.2;letter-spacing:-2.4px;margin:0;color:var(--ink)}
+.intro p.lead{font-size:14px;line-height:1.85;color:var(--muted);margin:20px 0 0;max-width:660px}
+/* 深色控制台 */
+.console{background:var(--night);color:var(--d-text);padding:56px 0 64px}
+main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:5px;align-items:start}
+.card{background:var(--panel);padding:30px 32px;min-width:0}
+.card.call{background:var(--panel2)}
+h2{font-size:11px;font-weight:500;letter-spacing:1.2px;margin:0 0 18px;color:var(--d-label)}
+.board h2:not(:first-child){margin-top:30px}
+.controls{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;margin-bottom:12px}
+.controls label{display:inline-flex;align-items:center;gap:10px;font-size:12px;color:var(--d-muted)}
+select,button{font:inherit;font-size:13px;line-height:1.2;color:var(--d-ink)}
+select{appearance:none;-webkit-appearance:none;background:#111313 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239da3a1' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E") no-repeat right 10px center/16px;border:1px solid var(--edge2);border-radius:5px;padding:11px 34px 11px 12px;max-width:100%}
+select:hover{border-color:#ffffff50}
+select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+.topbar a:focus-visible{outline-color:var(--accent)}
+button{cursor:pointer;border-radius:7px;padding:13px 21px;font-weight:500;border:1px solid transparent;transition:background .2s,border-color .2s,color .2s}
+button.primary{background:var(--d-ink);border-color:var(--d-ink);color:#191b1b;box-shadow:inset 0 1px 0 #ffffff40}
+button.primary:hover{background:#fff}
+button.hang{background:transparent;border-color:var(--signal);color:#ffa780}button.hang:hover{background:#ed79501a}
 button:disabled{opacity:.4;cursor:not-allowed}
-#log{height:440px;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:16px;margin:0 -8px;background:var(--sunk);border-radius:var(--radius-s)}
-.msg{max-width:86%;padding:10px 14px;border-radius:14px;font-size:15px;line-height:1.65}
-.msg.scammer{align-self:flex-end;background:var(--ink);color:#f4f4f2;border-bottom-right-radius:4px}
-.msg.bot{align-self:flex-start;background:var(--surface);border:1px solid var(--line);color:var(--text);border-bottom-left-radius:4px}
-.msg.interim{align-self:flex-end;color:var(--dim);font-style:italic;background:none;border:1px dashed var(--line2)}
-.meta{font-size:12px;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
-.chip{display:inline-block;font-size:12px;line-height:1.5;padding:1px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);border:1px solid var(--line)}
-.msg.scammer .chip{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16);color:#d7dfd9}
-.chip.intent{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
-#tactics .chip,#intent .chip{margin:0 6px 6px 0}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-bottom:8px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius-s);overflow:hidden}
-.stat{background:var(--surface);padding:12px 6px;text-align:center}
-.stat b{display:block;font-size:22px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.3}.stat span{font-size:12px;color:var(--dim);line-height:1.4;display:block;margin-top:2px}
-.intel{display:flex;flex-direction:column;gap:8px}
-.item{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-s);padding:9px 12px;font-size:14px}
-.item.hit{border-color:var(--alert);background:var(--alert-soft)}
-.item code{color:var(--ink)}.bl{font-size:12px;color:var(--dim)}.bl.hit{color:var(--alert);font-weight:600}
-.empty{color:var(--dim);font-size:14px}
-#log>.empty{margin:auto;max-width:420px;text-align:center;line-height:1.8}
-.note{font-size:12.5px;color:var(--dim);max-width:1120px;margin:0 auto 48px;padding:0 40px;line-height:1.8}
 #err{color:var(--alert);font-size:13px;min-height:1.2em}
-.limits{color:var(--dim);font-size:12.5px;margin:0 0 12px}
+.limits{color:var(--d-dim);font:11.5px/1.7 var(--mono);margin:0 0 14px}
+#log{height:460px;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:20px;background:#111313;border:1px solid var(--edge);scrollbar-color:#ffffff30 transparent}
+.msg{max-width:86%;padding:11px 15px;border-radius:12px;font-size:15px;line-height:1.7}
+.msg.scammer{align-self:flex-end;background:#2a302e;color:#e3e8e4;border-bottom-right-radius:3px}
+.msg.bot{align-self:flex-start;background:transparent;border:1px solid var(--edge2);color:var(--d-ink);border-bottom-left-radius:3px}
+.msg.interim{align-self:flex-end;color:var(--d-dim);font-style:italic;background:none;border:1px dashed #ffffff30}
+.meta{font-size:12px;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
+.chip{display:inline-block;font-size:11.5px;line-height:1.6;padding:1px 9px;border-radius:999px;background:#ffffff0a;color:var(--d-text);border:1px solid var(--edge2)}
+.chip.intent{background:#ed79501f;border-color:#ed795040;color:#ffa780}
+#tactics .chip,#intent .chip{margin:0 6px 6px 0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--edge);border:1px solid var(--edge)}
+.stat{background:var(--panel2);padding:14px 8px 12px;text-align:center}
+.stat b{display:block;font:500 24px/1.3 var(--mono);color:var(--d-ink);font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--d-dim);line-height:1.4;display:block;margin-top:4px}
+.intel{display:flex;flex-direction:column;gap:6px}
+.item{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 10px;background:var(--panel2);border:1px solid var(--edge);border-left:2px solid #ffffff2a;padding:10px 12px;font-size:13px;color:var(--d-text)}
+.item.hit{border-color:#ff8f7355;border-left-color:var(--signal);background:var(--alert-soft)}
+.item code{color:var(--d-ink)}.bl{font-size:11.5px;color:var(--d-dim)}.bl.hit{color:var(--alert);font-weight:600}
+.empty{color:var(--d-dim);font-size:13px}
+#log>.empty{margin:auto;max-width:420px;text-align:center;line-height:1.9}
+/* 页脚说明：回到白底，与首页页脚一致 */
+.note{border-top:1px solid var(--line);padding:36px 0 56px;color:var(--muted);font-size:12.5px;line-height:1.85}
+.note p{margin:0;max-width:880px}
+.note .foot{display:flex;flex-wrap:wrap;gap:8px 28px;margin-top:16px;font-size:12px}
+.note .foot a{color:var(--muted);text-decoration:none}.note .foot a:hover{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.dot.live{animation:none}}
+@media(max-width:1100px){.wrap{padding:0 32px}.intro h1{font-size:46px;letter-spacing:-1.8px}}
 @media(max-width:860px){
-  header,.intro,main,.note{padding-left:20px;padding-right:20px}
-  header{height:56px}header .back{display:none}
-  .intro{margin:20px auto}.intro h1{font-size:24px}
-  main{grid-template-columns:1fr;gap:16px}
-  .card{padding:18px}
-  #log{height:min(56vh,440px)}
+  .wrap{padding:0 20px}
+  .topbar .wrap{height:64px;gap:12px}
+  .brand-symbol{width:42px;height:40px}.brand-symbol img{width:52px;height:52px;left:-5px;top:-6px}.brand-wordmark{width:117px;height:33px}.brand{gap:2px}
+  .nav{gap:14px;min-width:0}.nav .hide-m{display:none}#st{max-width:calc(100vw - 230px)}
+  .intro{padding:30px 0 34px}.intro h1{font-size:34px;letter-spacing:-1.2px}.intro p.lead{margin-top:14px}
+  .console{padding:20px 0 28px}
+  main{grid-template-columns:1fr;gap:5px}
+  .card{padding:22px 18px}
+  .controls label{flex:1 1 100%}.controls select{flex:1}
+  .controls button{flex:1 1 100%}
+  #log{height:min(56vh,440px);padding:14px}
   .stats{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
 <body>
-<header>
-  <img src="/static/logo.svg" alt="">
-  <b>DeepSuck</b>
-  <a class="back" href="https://deepsuck.si/">返回主站</a>
-  <span class="status"><span id="dot" class="dot"></span><span id="st">加载中…</span></span>
+<a class="skip-link" href="#main">跳到正文</a>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="https://deepsuck.si/" aria-label="DeepSuck 主站"><span class="brand-symbol"><img src="/static/brand/symbol.png" alt="" width="96" height="96"></span><img class="brand-wordmark" src="/static/brand/wordmark.svg" alt="DeepSuck" width="146" height="40"></a>
+    <nav class="nav" aria-label="主导航">
+      <span class="status" role="status"><span id="dot" class="dot"></span><span id="st">加载中…</span></span>
+      <a class="hide-m" href="https://deepsuck.si/demo.html">文字沙盒</a>
+      <a class="hide-m" href="https://deepsuck.si/">返回主站</a>
+      <a class="nav-source hide-m" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg aria-hidden="true" focusable="false" fill="currentColor" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg>GitHub</a>
+    </nav>
+  </div>
 </header>
-<div class="intro">
-  <h1>语音演示</h1>
-  <p>你扮演骗子，对着麦克风说话；机器人会先开口，用拖延和反复确认把你留在线上，右侧看板实时显示脱敏后的情报。</p>
-</div>
-<main>
-  <section class="card">
-    <h2>通话</h2>
+<section class="intro">
+  <div class="wrap">
+    <p class="kicker">语音演示 · 防御性研究</p>
+    <h1>扮演骗子，打给它试试</h1>
+    <p class="lead">你扮演骗子，对着麦克风说话；机器人会先开口，用拖延和反复确认把你留在线上，右侧看板实时显示脱敏后的情报。</p>
+  </div>
+</section>
+<div class="console">
+<main class="wrap" id="main">
+  <section class="card call" aria-labelledby="callTitle">
+    <h2 id="callTitle">通话</h2>
     <div class="controls">
       <label>人设 <select id="persona"></select></label>
       <label>场景 <select id="scenario"></select></label>
@@ -101,8 +149,8 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <div id="log"><div class="empty">点「开始通话」并允许麦克风。机器人会先开口，然后你可以试着用退款、冒充公检法、刷单等话术"诈骗"它。</div></div>
     <audio id="audio" autoplay></audio>
   </section>
-  <aside class="card">
-    <h2>实时看板</h2>
+  <aside class="card board" aria-labelledby="boardTitle">
+    <h2 id="boardTitle">实时看板</h2>
     <div class="stats">
       <div class="stat"><b id="sTurns">0</b><span>骗子发言</span></div>
       <div class="stat"><b id="sMin">0</b><span>估算拖住（分钟）</span></div>
@@ -117,7 +165,13 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <div id="intent" class="empty">—</div>
   </aside>
 </main>
-<p class="note">语音链路：浏览器麦克风 → SmallWebRTC → Paraformer 实时识别 → 情报抽取/话术识别 → qwen-plus → 输出守卫 → CosyVoice。需要 DASHSCOPE_API_KEY。音频不落盘；看板只显示脱敏值。仅供防诈研究与教育，请勿用于拨打任何真实电话。</p>
+</div>
+<footer class="note">
+  <div class="wrap">
+    <p>语音链路：浏览器麦克风 → SmallWebRTC → Paraformer 实时识别 → 情报抽取/话术识别 → qwen-plus → 输出守卫 → CosyVoice。需要 DASHSCOPE_API_KEY。音频不落盘；看板只显示脱敏值。仅供防诈研究与教育，请勿用于拨打任何真实电话。</p>
+    <div class="foot"><a href="https://deepsuck.si/">deepsuck.si</a><a href="https://deepsuck.si/intel.html">公开诈骗情报库</a><a href="https://github.com/deepsucksi/deepsuck">GitHub · Apache-2.0</a></div>
+  </div>
+</footer>
 <script src="/static/voice.js"></script>
 </body>
 </html>
