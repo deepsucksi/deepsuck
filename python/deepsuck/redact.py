@@ -1,8 +1,11 @@
 """脱敏模块（与 site/assets/js/redact.js 等价）：所有对外展示 / 导出的情报都必须经过这里。"""
 from __future__ import annotations
 
+import functools
 import re
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional
+
+from .core import compile_js, load
 
 
 def _digits(s) -> str:
@@ -150,13 +153,100 @@ def mask(type_: str, value) -> str:
     return fn(value) if fn else mask_handle(value)
 
 
-def redact_text(text: Optional[str], entities: Optional[Iterable[dict]]) -> str:
-    """把文本中的敏感片段替换成脱敏结果（entities 来自 extract()）。"""
+# ---- 验证码类短数字（#33）：规则见 core/extractors.json 的 redact.otp，与 redact.js 共用 ----
+@functools.lru_cache(maxsize=None)
+def _otp_rules():
+    o = (load("extractors").get("redact") or {}).get("otp")
+    if not o:
+        return None
+    d, sep = o["digit"], o["sep"]
+    return {
+        "o": o,
+        "kw": compile_js(o["keyword"], o.get("keywordFlags", "")),
+        "run": compile_js(d + "(?:" + sep + "{0," + str(o["maxSep"]) + "}" + d + ")*"),
+        "digit": compile_js(d),
+        "join": compile_js(o["join"]),
+        "breaks": compile_js(o["breaks"]),
+        "gapBlock": compile_js(o["gapBlock"]),
+        "edge": compile_js(o["edge"]),
+        "blockBefore": compile_js(o["blockBefore"]),
+        "unitAfter": compile_js(o["unitAfter"]),
+    }
+
+
+def find_otp_spans(text: Optional[str]) -> List[dict]:
+    """找出文本里按上下文判定为验证码的数字串：[{start, end, masked}]。
+
+    只在验证码 / 动态码 / 校验码 / 短信码 / 确认码 / OTP 等关键词附近、4–8 位时才算；
+    手机号、卡号（位数超出）、金额、尾号、订单号、与关键词无关的数字都不算。
+    """
+    R = _otp_rules()
     s = str(text or "")
-    if not entities:
+    if not R:
+        return []
+    o = R["o"]
+    kws = [(m.start(), m.end()) for m in R["kw"].finditer(s)]
+    if not kws:
+        return []
+    groups: List[dict] = []
+    for m in R["run"].finditer(s):
+        n = len(R["digit"].findall(m.group(0)))
+        g = groups[-1] if groups else None
+        # 两段都不超过 joinPartMax 位、中间只有「，」「、」时连成一串（「4 7 2，9 1 5」）
+        if (g and g["last"] <= o["joinPartMax"] and n <= o["joinPartMax"] and g["n"] + n <= o["maxLen"]
+                and R["join"].search(s[g["end"]:m.start()])):
+            g["end"], g["n"], g["last"] = m.end(), g["n"] + n, n
+        else:
+            groups.append({"start": m.start(), "end": m.end(), "n": n, "last": n})
+
+    def repeated(g) -> bool:
+        # 超过 maxLen 位时只接受空白隔开的两段、每段 minLen–maxLen 位（重复报码「472915 472915」）；
+        # 手机号（3-4-4）、卡号（4 段以上）不在此列，由实体规则负责
+        parts = re.split(r"\s+", s[g["start"]:g["end"]])
+        return len(parts) == 2 and all(o["minLen"] <= len(R["digit"].findall(p)) <= o["maxLen"] for p in parts)
+
+    out = []
+    for g in groups:
+        a, b = g["start"], g["end"]
+        if g["n"] < o["minLen"] or (g["n"] > o["maxLen"] and not repeated(g)):
+            continue
+        if (a > 0 and R["edge"].match(s[a - 1])) or (b < len(s) and R["edge"].match(s[b])):
+            continue
+        if R["blockBefore"].search(s[max(0, a - o["blockBeforeChars"]):a]) or R["unitAfter"].search(s[b:]):
+            continue
+        near = False
+        for k0, k1 in kws:
+            if k1 <= a:
+                if a - k1 > o["after"]:
+                    continue
+                gap = s[k1:a]
+            elif k0 >= b:
+                if k0 - b > o["before"]:
+                    continue
+                gap = s[b:k0]
+            else:
+                continue
+            if not R["gapBlock"].search(gap) and len(R["breaks"].findall(gap)) <= o["maxBreaks"]:
+                near = True
+                break
+        if near:
+            out.append({"start": a, "end": b, "masked": R["digit"].sub("*", s[a:b])})
+    return out
+
+
+def redact_text(text: Optional[str], entities: Optional[Iterable[dict]]) -> str:
+    """把文本中的敏感片段替换成脱敏结果（entities 来自 extract()）；
+    另外按上下文给验证码类短数字打码（与实体重叠的交给实体自己的规则）。"""
+    s = str(text or "")
+    ents = [e for e in (entities or []) if isinstance(e.get("start"), int)]
+    lst = [{"start": e["start"], "end": e["end"], "masked": e.get("masked") or mask(e["type"], e["value"])}
+           for e in ents if e.get("sensitive") is not False]
+    for p in find_otp_spans(s):
+        if not any(e["start"] < p["end"] and p["start"] < e["end"] for e in ents):
+            lst.append(p)
+    if not lst:
         return s
-    lst = [e for e in entities if isinstance(e.get("start"), int) and e.get("sensitive") is not False]
     lst.sort(key=lambda e: e["start"], reverse=True)
     for e in lst:
-        s = s[: e["start"]] + (e.get("masked") or mask(e["type"], e["value"])) + s[e["end"]:]
+        s = s[: e["start"]] + e["masked"] + s[e["end"]:]
     return s

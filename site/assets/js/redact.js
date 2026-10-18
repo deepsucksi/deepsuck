@@ -4,10 +4,16 @@
  * Apache-2.0
  */
 (function (root, factory) {
-  var mod = factory();
-  if (typeof module === 'object' && module.exports) module.exports = mod;
+  var isNode = typeof module === 'object' && module.exports;
+  // 验证码规则在共享核心 json（redact.otp）；浏览器里 core-data.js 须先于本文件加载，缺失时只按实体打码
+  var core = function () {
+    if (isNode) return require('../core/extractors.json');
+    return root.DeepSuck && root.DeepSuck.coreData && root.DeepSuck.coreData.extractors;
+  };
+  var mod = factory(core);
+  if (isNode) module.exports = mod;
   else { root.DeepSuck = root.DeepSuck || {}; root.DeepSuck.redact = mod; }
-})(typeof self !== 'undefined' ? self : this, function () {
+})(typeof self !== 'undefined' ? self : this, function (core) {
   'use strict';
 
   function digitsOnly(s) { return String(s || '').replace(/\D/g, ''); }
@@ -140,19 +146,101 @@
     return maskHandle(value);
   }
 
+  // ---- 验证码类短数字（#33）：规则见 core/extractors.json 的 redact.otp ----
+  var OTP = null;
+  function otpRules() {
+    if (OTP !== null) return OTP;
+    var C = core && core();
+    var o = C && C.redact && C.redact.otp;
+    if (!o) return (OTP = false);
+    var D = o.digit, S = o.sep;
+    OTP = {
+      o: o,
+      kw: new RegExp(o.keyword, 'g' + (o.keywordFlags || '')),
+      run: new RegExp(D + '(?:' + S + '{0,' + o.maxSep + '}' + D + ')*', 'g'),
+      digit: new RegExp(D, 'g'),
+      join: new RegExp(o.join),
+      breaks: new RegExp(o.breaks, 'g'),
+      gapBlock: new RegExp(o.gapBlock),
+      edge: new RegExp(o.edge),
+      blockBefore: new RegExp(o.blockBefore),
+      unitAfter: new RegExp(o.unitAfter)
+    };
+    return OTP;
+  }
+
+  function countOf(re, s) { re.lastIndex = 0; var m = s.match(re); return m ? m.length : 0; }
+
+  /**
+   * 找出文本里按上下文判定为验证码的数字串：[{start, end, masked}]（start/end 为 UTF-16 下标）。
+   * 只在验证码 / 动态码 / 校验码 / 短信码 / 确认码 / OTP 等关键词附近、4–8 位时才算；
+   * 手机号、卡号（位数超出）、金额、尾号、订单号、与关键词无关的数字都不算。
+   */
+  function findOtpSpans(text) {
+    var R = otpRules();
+    var s = String(text || '');
+    if (!R) return [];
+    var o = R.o, kws = [], m;
+    R.kw.lastIndex = 0;
+    while ((m = R.kw.exec(s))) { kws.push([m.index, m.index + m[0].length]); if (!m[0].length) R.kw.lastIndex++; }
+    if (!kws.length) return [];
+    var runs = [];
+    R.run.lastIndex = 0;
+    while ((m = R.run.exec(s))) runs.push({ start: m.index, end: m.index + m[0].length, n: countOf(R.digit, m[0]) });
+    // 两段都不超过 joinPartMax 位、中间只有「，」「、」时连成一串（「4 7 2，9 1 5」）
+    var groups = [];
+    runs.forEach(function (r) {
+      var g = groups[groups.length - 1];
+      if (g && g.last <= o.joinPartMax && r.n <= o.joinPartMax && g.n + r.n <= o.maxLen && R.join.test(s.slice(g.end, r.start))) {
+        g.end = r.end; g.n += r.n; g.last = r.n;
+      } else groups.push({ start: r.start, end: r.end, n: r.n, last: r.n });
+    });
+    // 超过 maxLen 位时只接受空白隔开的两段、每段 minLen–maxLen 位（重复报码「472915 472915」）；
+    // 手机号（3-4-4）、卡号（4 段以上）不在此列，由实体规则负责
+    function repeated(g) {
+      var parts = s.slice(g.start, g.end).split(/\s+/);
+      return parts.length === 2 && parts.every(function (p) { var n = countOf(R.digit, p); return n >= o.minLen && n <= o.maxLen; });
+    }
+    var out = [];
+    groups.forEach(function (g) {
+      if (g.n < o.minLen) return;
+      if (g.n > o.maxLen && !repeated(g)) return;
+      if ((g.start > 0 && R.edge.test(s.charAt(g.start - 1))) || (g.end < s.length && R.edge.test(s.charAt(g.end)))) return;
+      if (R.blockBefore.test(s.slice(Math.max(0, g.start - o.blockBeforeChars), g.start))) return;
+      if (R.unitAfter.test(s.slice(g.end))) return;
+      var near = kws.some(function (k) {
+        var gap;
+        if (k[1] <= g.start) { if (g.start - k[1] > o.after) return false; gap = s.slice(k[1], g.start); }
+        else if (k[0] >= g.end) { if (k[0] - g.end > o.before) return false; gap = s.slice(g.end, k[0]); }
+        else return false;
+        return !R.gapBlock.test(gap) && countOf(R.breaks, gap) <= o.maxBreaks;
+      });
+      if (!near) return;
+      R.digit.lastIndex = 0;
+      out.push({ start: g.start, end: g.end, masked: s.slice(g.start, g.end).replace(R.digit, '*') });
+    });
+    return out;
+  }
+
   /**
    * 将一段文本中的敏感片段替换成脱敏结果。
-   * entities: extractors.extract() 返回的数组（含 start/end/type/value）
+   * entities: extractors.extract() 返回的数组（含 start/end/type/value）；
+   * 另外按上下文给验证码类短数字打码（与实体重叠的交给实体自己的规则）。
    */
   function redactText(text, entities) {
     var s = String(text || '');
-    if (!entities || !entities.length) return s;
-    var list = entities
+    var list = (entities || [])
       .filter(function (e) { return typeof e.start === 'number' && e.sensitive !== false; })
-      .slice()
-      .sort(function (a, b) { return b.start - a.start; });
+      .map(function (e) { return { start: e.start, end: e.end, masked: e.masked || mask(e.type, e.value) }; });
+    var all = (entities || []).filter(function (e) { return typeof e.start === 'number'; });
+    findOtpSpans(s).forEach(function (p) {
+      var hit = all.some(function (e) { return e.start < p.end && p.start < e.end; });
+      if (!hit) list.push(p);
+    });
+    if (!list.length) return s;
+    list.sort(function (a, b) { return b.start - a.start; });
     list.forEach(function (e) {
-      s = s.slice(0, e.start) + (e.masked || mask(e.type, e.value)) + s.slice(e.end);
+      s = s.slice(0, e.start) + e.masked + s.slice(e.end);
     });
     return s;
   }
@@ -160,6 +248,7 @@
   return {
     mask: mask,
     redactText: redactText,
+    findOtpSpans: findOtpSpans,
     maskBankCard: maskBankCard,
     formatCardGroups: formatCardGroups,
     maskPhone: maskPhone,
