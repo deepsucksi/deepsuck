@@ -22,17 +22,17 @@ INTENT_HINTS: dict = load("personas")["intentHints"]
 _TRAITS_YAML = Path(__file__).resolve().parents[1] / "personas" / "voice_traits.yaml"
 
 
-def load_fillers(path: Path = _TRAITS_YAML) -> dict:
-    """{persona_id: [口头语, ...]}。优先复用 personas.voice_traits.fillers()；导入不了（部署里没有该包）就直接读 YAML；
-    都失败则返回 {}（口头语整体不播，通话不受影响）。"""
+def _load_traits(path: Path = _TRAITS_YAML) -> dict:
+    """{persona_id: {字段: ...}}。优先复用 personas.voice_traits.personas()；导入不了（部署里没有该包）就直接读 YAML；
+    都失败则返回 {}（口头语整体不播、开场用默认的“喂？哪位”，通话不受影响）。"""
     if path == _TRAITS_YAML:
         root = str(path.parents[1])
         if root not in sys.path:
             sys.path.append(root)
         try:
-            from personas.voice_traits import fillers
+            from personas.voice_traits import personas
 
-            return fillers()
+            return personas()
         except ImportError:
             pass
         except Exception as e:  # noqa: BLE001
@@ -42,10 +42,20 @@ def load_fillers(path: Path = _TRAITS_YAML) -> dict:
 
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-        return {pid: [str(x) for x in t.get("backchannel", [])] for pid, t in (data.get("personas") or {}).items()}
+        return dict(data.get("personas") or {})
     except Exception as e:  # noqa: BLE001
-        print(f"voice.persona: 读取口头语失败（{path}: {e}），本进程不播口头语", file=sys.stderr)
+        print(f"voice.persona: 读取语音人设失败（{path}: {e}），本进程不播口头语", file=sys.stderr)
         return {}
+
+
+def load_fillers(path: Path = _TRAITS_YAML) -> dict:
+    """{persona_id: [口头语, ...]}，即 voice_traits.yaml 每个人设的 backchannel。"""
+    return {pid: [str(x) for x in (t or {}).get("backchannel", [])] for pid, t in _load_traits(path).items()}
+
+
+def load_voice_openings(path: Path = _TRAITS_YAML) -> dict:
+    """{persona_id: [接电话那一声, ...]}，即 voice_traits.yaml 里写了 opening 的人设。"""
+    return {pid: [str(x) for x in t["opening"]] for pid, t in _load_traits(path).items() if (t or {}).get("opening")}
 
 
 FILLERS = load_fillers()
@@ -141,7 +151,8 @@ def gate_intent(intent: str, session) -> str:
 
 # 电话是机器人先开口：网页文字版的开场白（personas.json openings）是回骗子第一条消息的，按场景写，
 # 例如“客服？哪个订单”“是哪个平台开的”。语音里对方还没开口，开场只能是接电话的那一声。
-VOICE_OPENINGS = {"wang": ["喂？…哪位啊"], "li": ["喂，哪位？"], "lin": ["喂？你好，哪位呀"]}
+# 每个人设接电话的那一声同样只在 personas/voice_traits.yaml（字段 opening）里写，运行时读取；没写的人设用默认的“喂？哪位”。
+VOICE_OPENINGS = load_voice_openings()
 
 
 def voice_opening(session) -> dict:

@@ -40,14 +40,34 @@ jobs:
       - uses: actions/checkout@v4
       - name: bootstrap.sh syntax + shellcheck
         run: bash -n deploy/bootstrap.sh && shellcheck -S error deploy/bootstrap.sh && bash -n deploy/sip/entrypoint.sh && shellcheck -S warning deploy/sip/entrypoint.sh && bash deploy/tests/test_bootstrap.sh
-      - name: compose config + Caddyfile validate
+      - name: compose config
         run: |
           cp deploy/.env.example deploy/.env
           # LIVE_DOMAIN / ACME_EMAIL have no defaults: config must fail while they are empty
           if docker compose -f deploy/docker-compose.yml config -q 2>/dev/null; then echo "compose accepted empty LIVE_DOMAIN/ACME_EMAIL"; exit 1; fi
           sed -i 's/^LIVE_DOMAIN=$/LIVE_DOMAIN=live.example.com/; s/^ACME_EMAIL=$/ACME_EMAIL=ops@example.com/' deploy/.env
           docker compose -f deploy/docker-compose.yml --profile turn --profile sip config -q
-          docker run --rm -v "$PWD/deploy/caddy:/etc/caddy:ro" -e LIVE_DOMAIN=live.example.com -e ACME_EMAIL=ops@example.com caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+      # 线上 caddy-1 是 deploy/Dockerfile.caddy 的 caddy-l4 构建（443 由 layer4 分给 HTTPS 和本机 coturn），官方镜像不认 layer4，
+      # 所以用同一个 Dockerfile 构建后校验；xcaddy 编译层存在 GitHub Actions 缓存里，Dockerfile 不变时直接命中，
+      # 镜像以 deepsuck-caddy 载入本机，后面 build images 不再重复编译
+      # use: false：只给这一步用，后面的 docker compose 仍走默认构建器
+      - uses: docker/setup-buildx-action@v3
+        id: cache-builder
+        with: { use: false }
+      - name: build caddy-l4 image (cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.caddy
+          builder: ${{ steps.cache-builder.outputs.name }}
+          tags: deepsuck-caddy
+          load: true
+          cache-from: type=gha,scope=caddy-l4
+          cache-to: type=gha,scope=caddy-l4,mode=max
+      - name: Caddyfile validate (caddy-l4 build, placeholder env)
+        run: |
+          docker run --rm -v "$PWD/deploy/caddy:/etc/caddy:ro" -e LIVE_DOMAIN=live.example.com -e ACME_EMAIL=ops@example.com -e TURN_PORT=3478 \
+            deepsuck-caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - name: sip profile smoke (Asterisk refuses weak config; starts with only the AI extension, no AMI/HTTP)
         run: |
           img=$(docker compose -f deploy/docker-compose.yml --profile sip config --images | grep asterisk)
@@ -64,7 +84,8 @@ jobs:
           docker exec ds-sip asterisk -rx "module show like pjsip" | grep -c Running
           docker rm -f ds-sip
       - name: build images
-        run: docker compose -f deploy/docker-compose.yml build
+        # caddy 已在上面用缓存构建并载入为 deepsuck-caddy
+        run: docker compose -f deploy/docker-compose.yml build proxy voice
       - name: smoke (no key → rule-only health)
         run: |
           docker run -d --name ds-proxy --network host -e ALLOWED_ORIGINS=https://deepsuck.si deepsuck-proxy
