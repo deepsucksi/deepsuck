@@ -11,7 +11,7 @@
 | description | 开源中文 AI 反诈“拖住”机器人：陪诈骗分子聊天、浪费其时间并提取脱敏情报。Open-source Chinese anti-scam time-waster bot. |
 | homepage | https://deepsuck.si |
 | topics | `anti-fraud` `anti-scam` `chatbot` `chinese` `scambaiting` `fraud-prevention` `voice-ai`（原有 `qwen` 已去掉，见 #29） |
-| Discussions | 已开启；分类按第 1.4 节在网页上调整（#30） |
+| Discussions | 已开启；四个分类（公告、问答、想法、诈骗话术线索）已调整完成，欢迎帖已置顶（#30） |
 | Releases / tags | 没有（`package.json` 版本 0.4.0，`CHANGELOG.md` 只有「未发布」） |
 | README 徽章 | Pages 工作流、Tests 工作流、Apache-2.0、CC BY 4.0、stars |
 | 标签 | 已有 `good first issue`、`help wanted`、`area:*`、`type:*`、`priority:*` |
@@ -76,19 +76,19 @@ cd python && python -m pytest -q
 @维护者
 ```
 
-### 1.4 Discussions（已开启，分类已定）
+### 1.4 Discussions（已开启，分类已调整完成）
 
-负责人已定 4 个分类。GitHub API 不支持创建、改名或删除分类，需要维护者在仓库 Settings → Discussions 页面手动调整：
+负责人已定 4 个分类：公告、问答、想法、诈骗话术线索。GitHub API 不支持创建、改名或删除分类，已由维护者在仓库 Settings → Discussions 页面手动调整完成：
 
 | 分类 | 格式 | 用途 |
 |---|---|---|
 | 公告 | 公告（仅维护者发帖） | 版本发布、博客更新、讨论规则 |
 | 问答 | 问答（可标记答案） | 部署、自托管、使用问题 |
 | 想法 | 开放讨论 | 新场景、新人设、新功能提议，成熟后转 issue |
-| 诈骗话术线索 | 开放讨论 | 脱敏后的话术和套路，用 `.github/DISCUSSION_TEMPLATE/scam-script-leads.yml` 模板 |
+| 诈骗话术线索 | 开放讨论 | 脱敏后的话术和套路，用 `.github/DISCUSSION_TEMPLATE/诈骗话术线索.yml` 模板，[分类入口](https://github.com/deepsucksi/deepsuck/discussions/categories/%E8%AF%88%E9%AA%97%E8%AF%9D%E6%9C%AF%E7%BA%BF%E7%B4%A2) |
 
-- 「诈骗话术线索」模板按分类 slug `scam-script-leads` 命名。分类建好后用 GraphQL 查 `discussionCategories { name slug }` 核对 slug，不一致就把模板文件改成实际 slug。
-- 公告分类建好后置顶一条讨论规则（草稿见交接文件），要点：禁止发布真实个人信息，只提交脱敏后的话术和套路；遇到诈骗先拨 110 / 96110。
+- 「诈骗话术线索」模板文件名须与分类 slug 一致：已核对，slug 为诈骗话术线索（GraphQL `discussionCategories { name slug }`）。
+- 公告分类已置顶欢迎帖「讨论区规则：先读这一条」（https://github.com/deepsucksi/deepsuck/discussions/69），要点：禁止发布真实个人信息，只提交脱敏后的话术和套路；遇到诈骗先拨 110 / 96110。
 - 结构化情报提交与申诉仍然只走 Issue 模板（IssueOps 工作流依赖它），Discussions 里的线索只作讨论素材。
 
 ## 2. 发布节奏与 release notes
@@ -178,7 +178,7 @@ release notes 模板：
 已定（2026-10-19）：
 
 - topics（第 1.1 节）：已执行；`package.json` keywords 已随 #34 合入。
-- Discussions（第 1.4 节）：已开启，分类在网页上按表调整。
+- Discussions（第 1.4 节）：已开启，四个分类（公告、问答、想法、诈骗话术线索）已调整完成，欢迎帖 https://github.com/deepsucksi/deepsuck/discussions/69 已置顶。
 - 网站统计（第 5 节）：暂不上。
 - 投稿（第 3 节）：v0.4 全流程跑通后再议。
 
