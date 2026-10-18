@@ -32,7 +32,7 @@ const T = {
     htmlLang: 'en', hreflang: 'en', locale: 'en_US', base: '/blog/en/',
     blog: 'Blog', blogTitle: 'DeepSuck Blog', blogDesc: 'Notes from the DeepSuck open-source anti-scam project: progress, technical write-ups and scam-recognition guides.',
     empty: 'Articles coming soon', emptyNote: 'The first articles are in review. Subscribe to the RSS feed and they will show up in your reader once published.', subscribe: 'Subscribe via RSS', home: 'Home', intel: 'Intel library', demo: 'Try the sandbox', menu: 'Menu', skip: 'Skip to content', nav: 'Main navigation', pageNav: 'Page navigation',
-    other: '中文', otherName: '中文', readOther: '阅读中文版', back: 'Back to blog', draft: 'Draft · unpublished', rss: 'RSS feed',
+    other: '中文', otherName: '中文', readOther: 'Read in Chinese', back: 'Back to blog', draft: 'Draft · unpublished', rss: 'RSS feed',
     foot: 'DeepSuck · Code Apache-2.0 · For anti-fraud research and education only', foot110: 'Scam? Call 110 / 96110 (China)', published: 'Published', updated: 'Updated',
   },
 };
@@ -150,7 +150,7 @@ ${head}<link rel="icon" href="${r('/assets/brand/favicon-32.png')}" type="image/
       <a class="hide-m" href="${homeHref}">${t.home}</a>
       <a class="hide-m" href="${r('/intel.html')}">${t.intel}</a>
       <a class="hide-m" href="${r(t.base)}" aria-current="page">${t.blog}</a>
-      <a class="btn small ghost hide-xs" href="${otherHref}" hreflang="${T[otherLang].hreflang}" lang="${T[otherLang].htmlLang}" data-lang-switch="${otherLang}">${t.other}</a>
+      <a class="btn small ghost hide-xs lang-toggle" href="${otherHref}" hreflang="${T[otherLang].hreflang}" lang="${T[otherLang].htmlLang}" data-lang-switch="${otherLang}">${t.other}</a>
       <a class="hide-m nav-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">${GH_ICON}<span>GitHub</span> ↗</a>
       <a class="btn small primary" href="${r('/demo.html')}">${t.demo}</a>
     </nav>
@@ -162,7 +162,7 @@ ${head}<link rel="icon" href="${r('/assets/brand/favicon-32.png')}" type="image/
         <a href="${r(t.base)}" aria-current="page">${t.blog}</a>
         <a href="${r('/demo.html')}">${t.demo}</a>
         <a class="mobile-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">${GH_ICON}<span>GitHub ↗</span></a>
-        <a class="menu-lang" href="${otherHref}" hreflang="${T[otherLang].hreflang}" lang="${T[otherLang].htmlLang}" data-lang-switch="${otherLang}">${t.otherName}</a>
+        <a class="menu-lang lang-toggle" href="${otherHref}" hreflang="${T[otherLang].hreflang}" lang="${T[otherLang].htmlLang}" data-lang-switch="${otherLang}">${t.otherName}</a>
       </nav>
     </details>
   </div>
