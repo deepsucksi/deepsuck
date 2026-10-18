@@ -55,7 +55,8 @@ def test_env_examples_agree():
 
 def test_ab_metrics():
     sc = AB.scripts()
-    assert len(sc) == 10 and sum(len(s["lines"]) for s in sc) == 43
+    assert len(sc) == 10 and sum(len(s["lines"]) for s in sc) == 50
+    assert sum(len(s["lines"]) for s in AB.scripts(digit_probes=False)) == 43
     assert not any("{" in l for s in sc for l in s["lines"])
     assert AB.leaked("你在哪个平台呀", "") == ["平台"] and AB.leaked("哪个平台", "我在平台上") == []
     assert AB.style("嗯…请问您好！") == {"chars": 7, "ellipsis": True, "written": 2, "excl": 1}

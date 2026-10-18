@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- 语音（#73）：`voice/persona.py` 硬性规则 5 抽成 `RULE_DIGITS`，去掉具体号码例子（原“尾号8600是吧…”“幺三零…”），改为“只说对方报的那串号码的后四位，或者只说开头几位……问到你自己的卡号、尾号、手机号、验证码，就说找不到、记不清、要去翻一下，不报号码”。`voice/llm_ab.py` 新增数字泄露指标（`digit_leak_replies` / `digit_leak_calls` / `digit_leak_hits`：回复里出现提示词例子的数字串，含汉字写法，且对方没先说过），7 个场景末尾各加一句让人设报尾号的话（`--no-digit-probes` 关掉）。qwen3.7-flash 20 通：数字泄露 9/20 → 0/20，句子带「…」56.4% → 48.5%，第一句抢着反问 1/20 → 1/20，抢话 1/18 → 0/18。新增 `voice/tests/test_digit_leak.py`；docs/LLM_AB.md 补 #73 一节。
 - 文档（Refs #30）：Discussions 分类「诈骗话术线索」显示名改为英文 Scam Script Leads（描述仍为中文），slug 变为 `scam-script-leads`，因为中文 slug 下发帖表单模板不生效；模板 git mv 为 `.github/DISCUSSION_TEMPLATE/scam-script-leads.yml`（只改首行注释）；docs/GROWTH.md 同步路径、分类链接与 slug 说明，并写明分类名不要改回中文。
 - 文档（Refs #30）：Discussions 发帖模板按已核对的分类 slug 改名为 `.github/DISCUSSION_TEMPLATE/诈骗话术线索.yml`（内容不变，只改首行注释）；docs/GROWTH.md 改为新路径并附分类链接，slug 核对与分类调整标为已完成，记下置顶欢迎帖 #69。
 - 文档（#66）：博客「技术拆解：王阿姨的语音链路」中英文在延迟表格下加注记（中文「测于更换大模型之前，换模型后的数据待更新。」，英文 “Measured before the language model was switched; updated figures are pending.”），site/blog/ 重新生成。docs/CONTRIBUTING-dev.md 第 5 节 worktree 规则更正：VPS（`/opt/deepsuck-wt/<role>-<branch>`）与共享电脑（`/workspace/deepsuck-wt/<role>-<branch>`）都可开发，需要调用大模型的评测在共享电脑上跑；一个分支一个独立 worktree，不在 `/opt/deepsuck-dev`、`/workspace/deepsuck` 里 checkout 或提交，`/opt/deepsuck` 只用来部署；补共享电脑上的命令与推送认证说明。第 4 节写明五项必需检查：node、voice、python (3.9)、python (3.12)、deploy。
