@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DeepSuck 博客</title>
+<meta name="description" content="DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。">
+<link rel="canonical" href="https://deepsuck.si/blog/">
+<link rel="alternate" hreflang="zh-CN" href="https://deepsuck.si/blog/">
+<link rel="alternate" hreflang="en" href="https://deepsuck.si/blog/en/">
+<link rel="alternate" hreflang="x-default" href="https://deepsuck.si/blog/">
+<link rel="alternate" type="application/rss+xml" title="DeepSuck 博客" href="https://deepsuck.si/blog/feed.xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="DeepSuck">
+<meta property="og:title" content="DeepSuck 博客">
+<meta property="og:description" content="DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。">
+<meta property="og:url" content="https://deepsuck.si/blog/">
+<meta property="og:image" content="https://deepsuck.si/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="DeepSuck 博客">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="DeepSuck 博客">
+<meta name="twitter:description" content="DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。">
+<meta name="twitter:image" content="https://deepsuck.si/assets/og.png">
+<meta name="theme-color" content="#ffffff">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"DeepSuck 博客","description":"DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。","url":"https://deepsuck.si/blog/","inLanguage":"zh-CN","publisher":{"@type":"Organization","name":"DeepSuck","url":"https://deepsuck.si/"},"blogPost":[]}</script>
+<link rel="icon" href="../assets/brand/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="../assets/brand/favicon-180.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/blog.css">
+</head>
+<body class="blog">
+<a class="skip-link" href="#main">跳到正文</a>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../" aria-label="DeepSuck"><span class="brand-symbol"><img src="../assets/brand/on-hold-mono-96.png" alt="" width="96" height="96"></span><img class="brand-wordmark" src="../assets/brand/wordmark.svg" alt="DeepSuck" width="146" height="40"></a>
+    <nav class="nav" aria-label="主导航">
+      <a class="hide-m" href="../">首页</a>
+      <a class="hide-m" href="../intel.html">情报库</a>
+      <a class="hide-m" href="./" aria-current="page">博客</a>
+      <a class="btn small ghost hide-xs" href="en/" hreflang="en" lang="en" data-lang-switch="en">EN</a>
+      <a class="hide-m nav-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg class="github-mark" aria-hidden="true" focusable="false" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg><span>GitHub</span> ↗</a>
+      <a class="btn small primary" href="../demo.html">进入沙盒</a>
+    </nav>
+    <details class="menu">
+      <summary class="btn small">菜单</summary>
+      <nav class="menu-panel" aria-label="页面导航">
+        <a href="../">首页</a>
+        <a href="../intel.html">情报库</a>
+        <a href="./" aria-current="page">博客</a>
+        <a href="../demo.html">进入沙盒</a>
+        <a class="mobile-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg class="github-mark" aria-hidden="true" focusable="false" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg><span>GitHub ↗</span></a>
+        <a class="menu-lang" href="en/" hreflang="en" lang="en" data-lang-switch="en">English</a>
+      </nav>
+    </details>
+  </div>
+</header>
+
+<main id="main" class="wrap blog-page">
+<div class="blog-hero">
+  <h1>博客</h1>
+  <p class="lead">DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。</p>
+</div>
+<p class="blog-empty">文章整理中。</p>
+<p class="blog-feed"><a href="feed.xml">RSS 订阅</a></p>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>DeepSuck · 代码 Apache-2.0 · 仅用于防诈研究与教育</span>
+    <span>遇到诈骗请拨打 110 / 96110</span>
+    <a href="../">首页</a>
+    <a href="../intel.html">情报库</a>
+    <a href="./">博客</a>
+    <a href="feed.xml">RSS 订阅</a>
+    <a href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</footer>
+<script src="../assets/js/blog.js"></script>
+</body>
+</html>

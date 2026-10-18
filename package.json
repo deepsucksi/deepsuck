@@ -18,6 +18,9 @@
     "blocklists": "node scripts/fetch-blocklists.js",
     "screenshots": "node scripts/screenshots.js",
     "og": "node scripts/og.js",
+    "blog": "node scripts/build-blog.js",
+    "blog:check": "node scripts/build-blog.js --check",
+    "blog:preview": "node scripts/build-blog.js --drafts --out .blog-preview && echo \"预览：cd .blog-preview && python3 -m http.server 8081 → http://localhost:8081/blog/\"",
     "dev": "npx --yes concurrently@9 -n proxy,voice -c gray,yellow \"node server/index.js\" \"python3 -m voice.app\""
   },
   "keywords": [

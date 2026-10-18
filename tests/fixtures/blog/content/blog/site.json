@@ -1,0 +1,11 @@
+{
+  "comment": "博客与 sitemap 的站点配置。pages 是 sitemap 里的非博客页面；改了页面内容时手动更新 lastmod。博客页和文章的 lastmod 由 scripts/build-blog.js 按文章日期生成。",
+  "origin": "https://deepsuck.si",
+  "ogImage": "/assets/og.png",
+  "blogLastmod": "2026-10-19",
+  "pages": [
+    { "path": "/", "lastmod": "2026-10-19", "changefreq": "weekly", "priority": "1.0" },
+    { "path": "/demo.html", "lastmod": "2026-10-18", "changefreq": "monthly", "priority": "0.8" },
+    { "path": "/intel.html", "lastmod": "2026-10-18", "changefreq": "daily", "priority": "0.9" }
+  ]
+}

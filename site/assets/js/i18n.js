@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   var EN = {
-    'nav.how': 'How', 'nav.menu': 'Menu', 'hero.sample': 'From anti-scam PSAs<span class="hc-x"> · fictional numbers</span>', 'nav.gh': 'Star on GitHub', 'nav.sc': 'Scenarios', 'nav.ethics': 'Ethics', 'nav.oss': 'Open source', 'nav.demo': 'Try the sandbox', 'nav.intel': 'Intel library',
+    'nav.how': 'How', 'nav.menu': 'Menu', 'hero.sample': 'From anti-scam PSAs<span class="hc-x"> · fictional numbers</span>', 'nav.gh': 'Star on GitHub', 'nav.sc': 'Scenarios', 'nav.ethics': 'Ethics', 'nav.oss': 'Open source', 'nav.demo': 'Try the sandbox', 'nav.intel': 'Intel library', 'nav.blog': 'Blog',
     'hero.kicker': 'Open source · defensive research · Chinese scenarios first',
     'hero.title': 'Let scammers waste their time<br><em>on an AI instead</em>',
     'hero.lead': 'DeepSuck is an open-source anti-scam "time-waster" bot. Playing ordinary-sounding personas, it replies slowly, double-checks and sometimes mishears — while extracting the bank accounts, wallet addresses, phone numbers and URLs scammers reveal, masked, for prevention and early warning.',
@@ -56,6 +56,9 @@
   var nodes = document.querySelectorAll('[data-i18n]');
   var ZH = [];
   nodes.forEach(function (n, i) { ZH[i] = n.innerHTML; });
+  // 指向分语言页面的链接（如博客）：data-href-en 给出英文版地址，切换语言时一并改 href
+  var links = document.querySelectorAll('[data-href-en]');
+  links.forEach(function (a) { a.setAttribute('data-href-zh', a.getAttribute('href')); });
   function apply(lang) {
     // 首页动效（brand-motion.js）在切换前还原逐字拆分，切换后重建
     document.dispatchEvent(new CustomEvent('deepsuck:beforelanguagechange'));
@@ -64,6 +67,7 @@
       n.innerHTML = lang === 'en' && EN[k] ? EN[k] : ZH[i];
     });
     document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+    links.forEach(function (a) { a.setAttribute('href', a.getAttribute(lang === 'en' ? 'data-href-en' : 'data-href-zh')); });
     document.querySelectorAll('.lang-toggle').forEach(function (b) { b.textContent = lang === 'en' ? '中文' : 'EN'; });
     try { localStorage.setItem('deepsuck.lang', lang); } catch (e) {}
     document.dispatchEvent(new CustomEvent('deepsuck:languagechange', { detail: { lang: lang } }));
