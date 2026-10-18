@@ -207,6 +207,8 @@ DIGIT_LINES = [
     "电话139****2233是你们的吗？我已经知道了。", "我只有两千块，转一千块行不行？", "6222020200112233445，这个对吧，我已经知道了",
     "你说的是https://refund-tb.example/dl，我点不开。", "尾号3445", "我现在去银行，转5000元，你等我。好的。",
     "验证码我看不清，前两位是12吧，后面的我找找。", "那我转到13900112233这个号上？我先找找眼镜。",
+    # 逐字报号的中文数字（可夹空格）、平台名 / 情报字段词（含“微 信”）同等保护
+    "我念给你听，幺三九 幺幺 二二三三，你记一下", "卡号是六二二二 零二零二，后面我看不清", "房间号拐洞幺，进去以后呢", "加微 信 kefu，还是支付宝，你说哪个", "幺 三", "零 零 幺 幺",
 ]
 
 
@@ -252,3 +254,37 @@ def test_digit_strings_untouched_and_nothing_inserted_next_to_them(pid, hw):
             r = h.apply(src, "转到安全账户 6222020200112233445")
             check_digit_neighbors(src, r.text)
             assert "\n" not in [r.text[x - 1:x] for x, _ in _spans(r.text) if x > 0]
+
+
+@pytest.mark.parametrize("pid", ["wang", "li", "retiree", "shop_owner", "lin", "mom"])
+@pytest.mark.parametrize("hw", [False, True])
+def test_comma_after_name_value_kept_and_protected_words_not_typoed(pid, hw):
+    from personas.humanize.confusion import PROTECT_WORDS
+    lines = ["户名周杰，农业银行，卡号我抄好了", "收款人王建国，开户行建设银行", "姓名张三，电话你再说一遍", "户名：李某某，我记下了"]
+    vals = ["周杰，", "王建国，", "张三，", "李某某，"]
+    for s in range(60):
+        h = Humanizer(profile=pid, seed=s, handwriting=hw, weights={"asr": 3})
+        h.emoji_rate, h.split_rate = 0.9, 0.9
+        for src, v in zip(lines, vals):
+            out = h.apply(src).text
+            assert v in out, (pid, src, out)
+            for w in PROTECT_WORDS:
+                if w in src:
+                    assert w in out, (w, out)
+        t = h.apply("加微 信 kefu，房间号拐洞幺，会议号你再说一遍").text
+        for w in ("微 信", "房间号", "会议号", "拐洞幺"):
+            assert w in t, (w, t)
+
+
+@pytest.mark.parametrize("pid", ["wang", "li", "lin", "retiree"])
+@pytest.mark.parametrize("hw", [False, True])
+def test_whole_message_short_spoken_digits_kept(pid, hw):
+    for s in range(40):
+        h = Humanizer(profile=pid, seed=s, handwriting=hw, weights={"repeat": 3, "digress": 3})
+        h.emoji_rate, h.split_rate = 0.9, 0.9
+        for src in ("三三，", "九", "幺两"):
+            out = h.apply(src, "转到安全账户").text
+            d = src.replace("，", "")
+            assert out.startswith(d), (src, out)
+            nx = out[len(d):len(d) + 1]
+            assert nx in ("", "，"), (src, out)

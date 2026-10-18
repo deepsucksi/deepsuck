@@ -89,7 +89,9 @@ const DIGIT_LINES = ['好的，卡号尾号3454对吧？我记下了。', '你�
   '那个网址 refund-tb.example 我打不开啊，你再发一遍？', '地址 TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe 太长了，我抄不下来。',
   '电话139****2233是你们的吗？我已经知道了。', '我只有两千块，转一千块行不行？', '6222020200112233445，这个对吧，我已经知道了',
   '你说的是https://refund-tb.example/dl，我点不开。', '尾号3445', '我现在去银行，转5000元，你等我。好的。',
-  '验证码我看不清，前两位是12吧，后面的我找找。', '那我转到13900112233这个号上？我先找找眼镜。'];
+  '验证码我看不清，前两位是12吧，后面的我找找。', '那我转到13900112233这个号上？我先找找眼镜。',
+  // 逐字报号的中文数字（可夹空格）、平台名 / 情报字段词（含“微 信”）同等保护
+  '我念给你听，幺三九 幺幺 二二三三，你记一下', '卡号是六二二二 零二零二，后面我看不清', '房间号拐洞幺，进去以后呢', '加微 信 kefu，还是支付宝，你说哪个', '幺 三', '零 零 幺 幺'];
 function spans(a) {
   const m = HZ.protectedMask(a), out = [];
   for (let i = 0; i < a.length;) { if (m[i]) { let j = i; while (j < a.length && m[j]) j++; out.push([i, j]); i = j; } else i++; }
@@ -116,6 +118,40 @@ test('数字串（号码 / 卡号 / 金额 / 钱包 / 网址）内部与紧挨�
           });
         });
       }
+    }
+  }
+});
+
+test('语音模式：户名 / 收款人 / 姓名字段值后面的逗号不删（“户名周杰，农业银行”）；平台名与字段词不写错', () => {
+  const lines = ['户名周杰，农业银行，卡号我抄好了', '收款人王建国，开户行建设银行', '姓名张三，电话你再说一遍', '户名：李某某，我记下了'];
+  const vals = ['周杰，', '王建国，', '张三，', '李某某，'];
+  const words = HZ.PROTECT_WORDS;
+  for (const pid of ['wang', 'li', 'retiree', 'shop_owner', 'lin', 'mom']) {
+    for (const hw of [false, true]) {
+      for (let s = 0; s < 60; s++) {
+        const h = new HZ.Humanizer({ profile: pid, seed: s, handwriting: hw, weights: { asr: 3 } });
+        h.emojiRate = 0.9; h.splitRate = 0.9;
+        lines.forEach((src, i) => {
+          const out = h.apply(src).text;
+          assert.ok(out.indexOf(vals[i]) >= 0, pid + ' ' + src + ' => ' + out);
+          words.forEach((w) => { if (src.indexOf(w) >= 0) assert.ok(out.indexOf(w) >= 0, w + ': ' + out); });
+        });
+        const t = h.apply('加微 信 kefu，房间号拐洞幺，会议号你再说一遍').text;
+        for (const w of ['微 信', '房间号', '会议号', '拐洞幺']) assert.ok(t.indexOf(w) >= 0, w + ': ' + t);
+      }
+    }
+  }
+});
+
+test('整条消息只有一小段逐字报的数字（跨回合拆开报号）：后面拼上别的话也原样保留，紧挨处不插东西', () => {
+  for (const pid of ['wang', 'li', 'lin', 'retiree']) for (const hw of [false, true]) for (let s = 0; s < 40; s++) {
+    const h = new HZ.Humanizer({ profile: pid, seed: s, handwriting: hw, weights: { repeat: 3, digress: 3 } });
+    h.emojiRate = 0.9; h.splitRate = 0.9;
+    for (const src of ['三三，', '九', '幺两']) {
+      const out = h.apply(src, '转到安全账户').text, d = src.replace('，', '');
+      assert.equal(out.indexOf(d), 0, src + ' => ' + out);
+      const nx = Array.from(out)[Array.from(d).length];
+      assert.ok(nx === undefined || nx === '，', src + ' => ' + out);
     }
   }
 });

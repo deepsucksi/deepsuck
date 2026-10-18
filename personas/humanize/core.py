@@ -133,6 +133,8 @@ def protected_mask(text: str, keep: Sequence[str] = ()) -> List[bool]:
         elif ("A" <= c <= "Z") or ("a" <= c <= "z"):
             while j < n and text[j] in _ASCII_TAIL:
                 j += 1
+        elif c in C.SPOKEN_DIGITS and _spoken_run(text, i) >= 0:
+            j = _spoken_run(text, i)
         elif c in _CN_NUM:
             k = i
             while k < n and text[k] in _CN_NUM:
@@ -151,7 +153,80 @@ def protected_mask(text: str, keep: Sequence[str] = ()) -> List[bool]:
         for s in _find_all(text, w) if w else []:
             for x in range(s, s + len(w)):
                 m[x] = True
+    for w in C.PROTECT_WORDS:
+        for s, e in _find_spaced(text, w):
+            for x in range(s, e):
+                m[x] = True
     return m
+
+
+def _spoken_run(text: str, i: int) -> int:
+    """从 i 开始的逐字报号串（spokenDigits，字间可夹单个空格）：够格时返回串尾（不含），否则 -1。"""
+    n, k, cnt, last, spaced = len(text), i, 0, -1, False
+    while k < n:
+        if text[k] in C.SPOKEN_DIGITS:
+            cnt += 1
+            last = k
+            k += 1
+        elif text[k] == " " and cnt and k + 1 < n and text[k + 1] in C.SPOKEN_DIGITS:
+            spaced = True
+            k += 1
+        else:
+            break
+    # 3 个以上；或 2 个且字间有空格（“幺 三”）；或整条消息就是这串数字（跨回合拆开报号时的短段）
+    whole = not text[:i].strip() and not text[last + 1:].strip(" ，,。")
+    return last + 1 if cnt >= 3 or (cnt >= 2 and spaced) or (cnt >= 1 and whole) else -1
+
+
+def _whole_spoken(text: str) -> List[str]:
+    """整条消息（去掉首尾空白与逗号句号）就是一段逐字报号的数字时，返回这段数字，否则 []。"""
+    i = len(text) - len(text.lstrip())
+    if i >= len(text) or text[i] not in C.SPOKEN_DIGITS:
+        return []
+    j = _spoken_run(text, i)
+    return [text[i:j]] if j > 0 and not text[j:].strip(" ，,。") else []
+
+
+def _find_spaced(text: str, word: str) -> List[Tuple[int, int]]:
+    """word 在 text 里的出现（字与字之间允许夹一个空格，如“微 信”），返回 [start, end)。"""
+    out, n, L = [], len(text), len(word)
+    i = 0
+    while L and i < n:
+        if text[i] == word[0]:
+            k, q = i + 1, 1
+            while q < L and k < n:
+                if text[k] == word[q]:
+                    k += 1
+                    q += 1
+                elif text[k] == " " and k + 1 < n and text[k + 1] == word[q]:
+                    k += 1
+                else:
+                    break
+            if q == L:
+                out.append((i, k))
+                i = k
+                continue
+        i += 1
+    return out
+
+
+_NAME_VALUE_LEAD = "：: "
+
+
+def _name_value_sep(text: str) -> List[int]:
+    """“户名周杰，农业银行”里人名后面的那个分隔符位置：提示词后（可隔冒号 / 空格）1–4 个汉字，紧跟的标点或空格。"""
+    out = []
+    for w in C.NAME_CUES:
+        for s in _find_all(text, w):
+            k = s + len(w)
+            while k < len(text) and text[k] in _NAME_VALUE_LEAD:
+                k += 1
+            v = k
+            while v < len(text) and v - k < 4 and _is_han(text[v]):
+                v += 1
+            if v > k and v < len(text) and (text[v] in _PUNCT or text[v] == " "):
+                out.append(v)
+    return out
 
 
 def _halo(m: List[bool]) -> List[bool]:
@@ -167,6 +242,8 @@ def cue_frozen(text: str) -> List[bool]:
             e = s + len(w)
             if e < len(text):
                 m[e] = True
+    for v in _name_value_sep(text):  # 人名后面的逗号也不动（语音断句删掉它，“周杰农业银行”会被读成人名）
+        m[v] = True
     return m
 
 
@@ -226,6 +303,7 @@ class Humanizer:
         self.weights = {**prof.get("weights", {}), **(weights or {})}
         self.digressions = list(digressions or prof.get("digressions") or C.DIGRESSIONS)
         self.keep = tuple(keep) + tuple(prof.get("keep", ())) + tuple(C.NAME_CUES)  # 人名提示词本身不写错
+        self._apply_keep: Tuple[str, ...] = ()
         self.handwriting = bool(prof.get("handwriting", False) if handwriting is None else handwriting)
         if shape_typos is None:
             shape_typos = prof.get("shapeTypos", self.mode == "chat")
@@ -275,7 +353,7 @@ class Humanizer:
         return p > 0 and self.rng.random() < p
 
     def _core(self, text: str) -> List[bool]:
-        return protected_mask(text, self.keep)
+        return protected_mask(text, self.keep + self._apply_keep)
 
     def _prepend(self, piece: str, text: str, joint: str) -> Optional[str]:
         core = self._core(text)
@@ -538,7 +616,8 @@ class Humanizer:
         s = out[0]
         for i in range(1, len(out)):
             pick = self.rng.choice(seps)
-            if self._core(out[i - 1])[-1] or self._core(out[i])[0] or out[i - 1].endswith(tuple(C.NAME_CUES)):
+            if self._core(out[i - 1])[-1] or self._core(out[i])[0] or out[i - 1].endswith(tuple(C.NAME_CUES)) \
+                    or len(out[i - 1]) in _name_value_sep(out[i - 1] + "，"):
                 pick = clean[i - 1][1]
             s += pick + out[i]
         if text.rstrip().endswith(("？", "?")) and self.rng.random() < 0.5 and not self._core(s)[-1]:
@@ -679,6 +758,8 @@ class Humanizer:
         text = str(text or "")
         if self.intensity <= 0 or not text.strip():
             return Result(text, [], [text])
+        # 整条消息就是一小段逐字报的数字（跨回合拆开报号，如“幺 三”）：本条后续拼上别的话也照样保护
+        self._apply_keep = tuple(_whole_spoken(text))
         self._turn += 1
         applied: List[str] = []
         if "dialect" in self.ops:

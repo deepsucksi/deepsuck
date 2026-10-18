@@ -58,5 +58,11 @@ DELIBERATE = _C["deliberate"]
 # 提取器认作“后面跟人名”的提示词：紧跟其后的标点不改、不在那里断句或拆条
 NAME_CUES = _C["nameCues"]
 
+# 平台名与情报字段词（含字间夹单个空格的写法）：不写错，内部与紧邻处不改标点、不放表情、不拆条
+PROTECT_WORDS = _C["protectWords"]
+
+# 逐字报号用的中文数字：连续 3 个以上（可夹单个空格）按数字串保护
+SPOKEN_DIGITS = _C["spokenDigits"]
+
 BANNED_YOUTH_SLANG = _C["bannedStyle"]["youthSlang"]
 BANNED_ESSAY_STYLE = _C["bannedStyle"]["essayStyle"]

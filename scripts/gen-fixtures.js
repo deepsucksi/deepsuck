@@ -104,7 +104,8 @@ SESSIONS.push({ scenario: 'police', persona: 'li', seed: 7, lines: ['我是公�
 
 // ---- 真人化（humanize）：JS 与 Python personas/humanize 逐字一致（一个实例 = 一场对话，按顺序调用） ----
 const HZ_DIGIT_LINES = ['好的，卡号尾号3454对吧？我记下了。', '你说转5000块到6222020200112233445是吧，我找找笔。', '那个网址 refund-tb.example 我打不开啊，你再发一遍？',
-  '地址 TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe 太长了，我抄不下来。', '电话139****2233是你们的吗？我已经知道了。', '我只有两千块，转一千块行不行？', '{call}，我在派出所门口，马上去银行网点。'];
+  '地址 TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe 太长了，我抄不下来。', '电话139****2233是你们的吗？我已经知道了。', '我只有两千块，转一千块行不行？', '{call}，我在派出所门口，马上去银行网点。',
+  '我念给你听，幺三九 幺幺 二二三三，你记一下', '卡号是六二二二 零二零二，后面我看不清', '房间号拐洞幺，进去以后呢', '加微 信 kefu，还是支付宝，你说哪个', '幺 三', '零 零 幺 幺', '户名周杰，农业银行，卡号我抄好了'];
 function hzLines(pid) {
   const p = P.PERSONAS.find((x) => x.id === pid) || P.PERSONAS[0];
   const out = [];

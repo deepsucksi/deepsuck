@@ -1387,7 +1387,7 @@
   },
   "humanize": {
     "confusion": {
-      "comment": "真人化（humanize）用的混淆表与短语池；Python personas/humanize 与 JS site/assets/js/humanize.js 共用。只收对方仍能看懂、真人确实会打出来的错；网络梗式刻意错字见 deliberate。 nameCues：提取器认作“后面跟人名”的提示词，紧跟其后的标点不改、不在那里断句或拆条（否则“户名 开户行”会被当成户名）。",
+      "comment": "真人化（humanize）用的混淆表与短语池；Python personas/humanize 与 JS site/assets/js/humanize.js 共用。只收对方仍能看懂、真人确实会打出来的错；网络梗式刻意错字见 deliberate。 nameCues：提取器认作“后面跟人名”的提示词，紧跟其后的标点不改、不在那里断句或拆条（否则“户名 开户行”会被当成户名）。 protectWords：平台名与情报字段词（微信、卡号、房间号……），连同字间夹单个空格的写法（“微 信”）都不写错、内部和紧邻处不改标点、不放表情、不拆条。spokenDigits：逐字报号用的中文数字（幺、拐、洞等），连续 3 个以上（可夹单个空格，如“幺 六 五”）按数字串保护。",
       "homophoneWords": {
         "已经": [
           "以经",
@@ -2193,7 +2193,35 @@
         "开户名",
         "收款方",
         "姓名"
-      ]
+      ],
+      "protectWords": [
+        "微信",
+        "支付宝",
+        "QQ",
+        "钉钉",
+        "抖音",
+        "淘宝",
+        "京东",
+        "拼多多",
+        "账号",
+        "卡号",
+        "银行卡",
+        "银行",
+        "开户行",
+        "验证码",
+        "号码",
+        "手机号",
+        "电话",
+        "房间号",
+        "会议号",
+        "邀请码",
+        "工号",
+        "网址",
+        "链接",
+        "钱包",
+        "地址"
+      ],
+      "spokenDigits": "幺零〇一二两三四五六七八九拐洞"
     },
     "profiles": {
       "comment": "真人化预设。typoPer100：默认档每百字错字目标；handwriting=true 时改用 handwritingTypoPer100（手写输入档）并启用手写形近字表；shapeTypos：默认档是否夹少量形近字；punctStyle：comma 一逗到底 / none 全不打（空格断开），每个人设固定一种；split：一条拆成几条发的概率；emojiComma：用表情代替一个逗号的概率；selfRef：第三人称自称；ageLines / apologies / closings：报年龄、道歉、“你忙吧”式收尾（每场有次数上限）。错字率依据见 docs/REALISM.md「错字率校准」。",

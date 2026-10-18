@@ -77,6 +77,8 @@
         while (j < n && inSet(DIGITS, a[j])) j++;
       } else if (isLetter(c)) {
         while (j < n && inSet(ASCII_TAIL, a[j])) j++;
+      } else if (inSet(CF.spokenDigits, c) && spokenRun(a, i) >= 0) {
+        j = spokenRun(a, i);
       } else if (inSet(CN_NUM, c)) {
         k = i;
         while (k < n && inSet(CN_NUM, a[k])) k++;
@@ -90,7 +92,63 @@
       var L = clen(w);
       findAll(a, w).forEach(function (s) { for (var y = s; y < s + L; y++) m[y] = true; });
     });
+    CF.protectWords.forEach(function (w) {
+      findSpaced(a, w).forEach(function (se) { for (var y = se[0]; y < se[1]; y++) m[y] = true; });
+    });
     return m;
+  }
+  // 从 i 开始的逐字报号串（spokenDigits，字间可夹单个空格）：至少 3 个数字时返回串尾（不含），否则 -1
+  function spokenRun(a, i) {
+    var n = a.length, k = i, cnt = 0, last = -1, spaced = false;
+    while (k < n) {
+      if (inSet(CF.spokenDigits, a[k])) { cnt++; last = k; k++; }
+      else if (a[k] === ' ' && cnt && k + 1 < n && inSet(CF.spokenDigits, a[k + 1])) { spaced = true; k++; }
+      else break;
+    }
+    // 3 个以上；或 2 个且字间有空格（“幺 三”）；或整条消息就是这串数字（跨回合拆开报号时的短段）
+    var whole = !a.slice(0, i).join('').trim() && !a.slice(last + 1).join('').replace(/^[ ，,。]+|[ ，,。]+$/g, '');
+    return cnt >= 3 || (cnt >= 2 && spaced) || (cnt >= 1 && whole) ? last + 1 : -1;
+  }
+  // 整条消息（去掉首尾空白与逗号句号）就是一段逐字报号的数字时，返回 [这段数字]，否则 []
+  function wholeSpoken(text) {
+    var a = chars(text), i = 0;
+    while (i < a.length && /\s/.test(a[i])) i++;
+    if (i >= a.length || !inSet(CF.spokenDigits, a[i])) return [];
+    var j = spokenRun(a, i);
+    return j > 0 && !a.slice(j).join('').replace(/^[ ，,。]+|[ ，,。]+$/g, '') ? [a.slice(i, j).join('')] : [];
+  }
+  // word 在 a 里的出现（字与字之间允许夹一个空格，如“微 信”），返回 [[start, end)]
+  function findSpaced(a, word) {
+    var w = chars(word), out = [], n = a.length, L = w.length, i = 0;
+    while (L && i < n) {
+      if (a[i] === w[0]) {
+        var k = i + 1, q = 1;
+        while (q < L && k < n) {
+          if (a[k] === w[q]) { k++; q++; }
+          else if (a[k] === ' ' && k + 1 < n && a[k + 1] === w[q]) k++;
+          else break;
+        }
+        if (q === L) { out.push([i, k]); i = k; continue; }
+      }
+      i++;
+    }
+    return out;
+  }
+  var NAME_VALUE_LEAD = '：: ';
+  // “户名周杰，农业银行”里人名后面的那个分隔符位置：提示词后（可隔冒号 / 空格）1–4 个汉字，紧跟的标点或空格
+  function nameValueSep(a) {
+    var out = [];
+    CF.nameCues.forEach(function (w) {
+      var L = clen(w);
+      findAll(a, w).forEach(function (s) {
+        var k = s + L;
+        while (k < a.length && inSet(NAME_VALUE_LEAD, a[k])) k++;
+        var v = k;
+        while (v < a.length && v - k < 4 && isHan(a[v])) v++;
+        if (v > k && v < a.length && (inSet(PUNCT, a[v]) || a[v] === ' ')) out.push(v);
+      });
+    });
+    return out;
   }
   function halo(m) { return m.map(function (v, i) { return v || (i > 0 && m[i - 1]) || (i + 1 < m.length && m[i + 1]); }); }
   // 紧跟在 nameCues（户名、收款人……）后面的那个字符：不改标点、不在那里断句 / 拆条 / 放表情
@@ -100,6 +158,7 @@
       var L = clen(w);
       findAll(a, w).forEach(function (s) { if (s + L < a.length) m[s + L] = true; });
     });
+    nameValueSep(a).forEach(function (v) { m[v] = true; }); // 人名后面的逗号也不动
     return m;
   }
   function digitSafePositions(text, keep) { return halo(protectedMask(text, keep)).map(function (v) { return !v; }); }
@@ -189,7 +248,7 @@
     return Math.max(0, Math.min(1, BASE_RATES[op] * w * this.intensity * (scale === undefined ? 1 : scale)));
   };
   P._hit = function (p) { return p > 0 && this.rng.random() < p; };
-  P._core = function (text) { return protectedMask(text, this.keep); };
+  P._core = function (text) { return protectedMask(text, this.keep.concat(this._applyKeep || [])); };
   P._prepend = function (piece, text, joint) {
     var core = this._core(text);
     if (text && core[0]) return null;
@@ -407,7 +466,9 @@
     for (var i = 1; i < out.length; i++) {
       var pick = this.rng.choice(seps);
       var pc = this._core(out[i - 1]);
-      var endsCue = CF.nameCues.some(function (w) { return out[i - 1].slice(-w.length) === w; });
+      var prevA = chars(out[i - 1]);
+      var endsCue = CF.nameCues.some(function (w) { return out[i - 1].slice(-w.length) === w; }) ||
+        nameValueSep(prevA.concat(['，'])).indexOf(prevA.length) >= 0;
       if (pc[pc.length - 1] || this._core(out[i])[0] || endsCue) pick = clean[i - 1][1];
       s += pick + out[i];
     }
@@ -527,6 +588,8 @@
   P.apply = function (text, context, intent) {
     text = String(text === undefined || text === null ? '' : text);
     if (this.intensity <= 0 || !text.trim()) return { text: text, ops: [], parts: [text] };
+    // 整条消息就是一小段逐字报的数字（跨回合拆开报号，如“幺 三”）：本条后续拼上别的话也照样保护
+    this._applyKeep = wholeSpoken(text);
     this._turn++;
     var applied = [], r;
     if (this.ops.dialect) { r = this._dialect(text); text = r[0]; if (r[1]) applied.push('dialect'); }
@@ -548,6 +611,6 @@
     return new Humanizer(opts).apply(text, opts.context, opts.intent).text;
   }
 
-  return { Humanizer: Humanizer, humanize: humanize, resolve: resolve, PROFILES: PROFILES, OPS: OPS, BASE_RATES: BASE_RATES,
+  return { PROTECT_WORDS: CF.protectWords, SPOKEN_DIGITS: CF.spokenDigits, Humanizer: Humanizer, humanize: humanize, resolve: resolve, PROFILES: PROFILES, OPS: OPS, BASE_RATES: BASE_RATES,
     protectedMask: protectedMask, cueFrozen: cueFrozen, digitSafePositions: digitSafePositions, hanCount: hanCount, mulberry32: mulberry32, COOP_INTENTS: COOP_INTENTS };
 });
