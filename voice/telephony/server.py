@@ -83,9 +83,8 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
 
     session = Session(scenario=scenario, persona=persona, engine=f"phone-{engine}")
     recorder = None  # 电话线路没法勾选同意：不录音，只存脱敏文字
-    from .. import app as _A
-    trace = TR.CallTrace(channel="phone", consent=TR.SIP_CONSENT, persona=session.persona["id"],
-                         scenario=session.scenario["id"], model=_A.LLM_MODEL if engine == "llm" else "rule",
+    trace = TR.CallTrace(channel="phone", consent=TR.SIP_CONSENT, persona=session.persona["id"], scenario=session.scenario["id"],
+                         model=os.environ.get("DEEPSUCK_LLM_MODEL", "qwen-plus") if engine == "llm" else "rule",
                          engine=engine, caller=call.from_number)
     trace.session = session
     reason = {"v": ""}
