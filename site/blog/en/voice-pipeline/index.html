@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inside Auntie Wang's voice pipeline · DeepSuck</title>
+<meta name="description" content="A scammer says one sentence in the browser or over the phone. Auntie Wang has to answer within a second or two while quietly noting and masking any card number or URL. This post follows one turn through speech recognition, the language model, speech synthesis, fillers, barge-in and transport, plus the rules for extracting and masking intelligence.">
+<link rel="canonical" href="https://deepsuck.si/blog/en/voice-pipeline/">
+<link rel="alternate" hreflang="en" href="https://deepsuck.si/blog/en/voice-pipeline/">
+<link rel="alternate" hreflang="zh-CN" href="https://deepsuck.si/blog/voice-pipeline/">
+<link rel="alternate" hreflang="x-default" href="https://deepsuck.si/blog/voice-pipeline/">
+<link rel="alternate" type="application/rss+xml" title="DeepSuck Blog" href="https://deepsuck.si/blog/en/feed.xml">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="DeepSuck">
+<meta property="og:title" content="Inside Auntie Wang's voice pipeline · DeepSuck">
+<meta property="og:description" content="A scammer says one sentence in the browser or over the phone. Auntie Wang has to answer within a second or two while quietly noting and masking any card number or URL. This post follows one turn through speech recognition, the language model, speech synthesis, fillers, barge-in and transport, plus the rules for extracting and masking intelligence.">
+<meta property="og:url" content="https://deepsuck.si/blog/en/voice-pipeline/">
+<meta property="og:image" content="https://deepsuck.si/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Inside Auntie Wang's voice pipeline · DeepSuck">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="zh_CN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Inside Auntie Wang's voice pipeline · DeepSuck">
+<meta name="twitter:description" content="A scammer says one sentence in the browser or over the phone. Auntie Wang has to answer within a second or two while quietly noting and masking any card number or URL. This post follows one turn through speech recognition, the language model, speech synthesis, fillers, barge-in and transport, plus the rules for extracting and masking intelligence.">
+<meta name="twitter:image" content="https://deepsuck.si/assets/og.png">
+<meta name="theme-color" content="#ffffff">
+<meta property="article:published_time" content="2026-10-19">
+<meta property="article:modified_time" content="2026-10-19">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Inside Auntie Wang's voice pipeline","description":"A scammer says one sentence in the browser or over the phone. Auntie Wang has to answer within a second or two while quietly noting and masking any card number or URL. This post follows one turn through speech recognition, the language model, speech synthesis, fillers, barge-in and transport, plus the rules for extracting and masking intelligence.","inLanguage":"en","datePublished":"2026-10-19","dateModified":"2026-10-19","url":"https://deepsuck.si/blog/en/voice-pipeline/","mainEntityOfPage":{"@type":"WebPage","@id":"https://deepsuck.si/blog/en/voice-pipeline/"},"image":["https://deepsuck.si/assets/og.png"],"author":{"@type":"Organization","name":"DeepSuck contributors","url":"https://github.com/deepsucksi/deepsuck"},"publisher":{"@type":"Organization","name":"DeepSuck","url":"https://deepsuck.si/","logo":{"@type":"ImageObject","url":"https://deepsuck.si/assets/brand/favicon-180.png"}},"isPartOf":{"@type":"Blog","@id":"https://deepsuck.si/blog/en/","name":"DeepSuck Blog"},"keywords":["engineering","voice","intel"]}</script>
+<link rel="icon" href="../../../assets/brand/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../../assets/brand/favicon-180.png">
+<link rel="stylesheet" href="../../../assets/css/style.css">
+<link rel="stylesheet" href="../../../assets/css/blog.css">
+</head>
+<body class="blog">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../../../?lang=en" aria-label="DeepSuck"><span class="brand-symbol"><img src="../../../assets/brand/on-hold-mono-96.png" alt="" width="96" height="96"></span><img class="brand-wordmark" src="../../../assets/brand/wordmark.svg" alt="DeepSuck" width="146" height="40"></a>
+    <nav class="nav" aria-label="Main navigation">
+      <a class="hide-m" href="../../../?lang=en">Home</a>
+      <a class="hide-m" href="../../../intel.html">Intel library</a>
+      <a class="hide-m" href="../" aria-current="page">Blog</a>
+      <a class="btn small ghost hide-xs lang-toggle" href="../../voice-pipeline/" hreflang="zh-CN" lang="zh-CN" data-lang-switch="zh">中文</a>
+      <a class="hide-m nav-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg class="github-mark" aria-hidden="true" focusable="false" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg><span>GitHub</span> ↗</a>
+      <a class="btn small primary" href="../../../demo.html">Try the sandbox</a>
+    </nav>
+    <details class="menu">
+      <summary class="btn small">Menu</summary>
+      <nav class="menu-panel" aria-label="Page navigation">
+        <a href="../../../?lang=en">Home</a>
+        <a href="../../../intel.html">Intel library</a>
+        <a href="../" aria-current="page">Blog</a>
+        <a href="../../../demo.html">Try the sandbox</a>
+        <a class="mobile-source" href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener"><svg class="github-mark" aria-hidden="true" focusable="false" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg><span>GitHub ↗</span></a>
+        <a class="menu-lang lang-toggle" href="../../voice-pipeline/" hreflang="zh-CN" lang="zh-CN" data-lang-switch="zh">中文</a>
+      </nav>
+    </details>
+  </div>
+</header>
+
+<main id="main" class="wrap blog-page">
+<article class="post">
+  <header class="post-head">
+    <p class="post-kicker"><a href="../">Blog</a></p>
+    <h1>Inside Auntie Wang's voice pipeline</h1>
+    <p class="lead">A scammer says one sentence in the browser or over the phone. Auntie Wang has to answer within a second or two while quietly noting and masking any card number or URL. This post follows one turn through speech recognition, the language model, speech synthesis, fillers, barge-in and transport, plus the rules for extracting and masking intelligence.</p>
+    <p class="post-meta"><time datetime="2026-10-19">Published October 19, 2026</time></p>
+  </header>
+  <div class="prose">
+<p>Auntie Wang is one of DeepSuck&#39;s voice personas: warm, fond of double-checking, and unwilling to press any button before she understands why. The goal of the voice version is to make her sound like a real person on the other end of the line — a beat slow, but never so slow that the caller thinks the line has dropped.</p>
+<p>Every implementation detail here follows the repository, mainly <a href="https://github.com/deepsucksi/deepsuck/blob/main/voice/README.md">voice/README.md</a>, <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/ARCHITECTURE.md">docs/ARCHITECTURE.md</a>, <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/VOICE_LATENCY.md">docs/VOICE_LATENCY.md</a> and <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/INTEL.md">docs/INTEL.md</a>. Every number cites its source.</p>
+<h2>One turn, end to end</h2>
+<p>A single turn goes like this:</p>
+<ol>
+<li>The scammer&#39;s voice reaches the server over <strong>WebRTC</strong> (web) or a <strong>SIP telephony adapter</strong>;</li>
+<li><strong>Cloud streaming speech recognition</strong> produces partial results while listening and a final transcript once it decides the speaker is done;</li>
+<li>The <strong>intel processor</strong> extracts card numbers, phone numbers, URLs and so on from the transcript, masks them, and lets the rule engine pick this turn&#39;s strategy;</li>
+<li>A system prompt is assembled from persona, scenario and strategy and sent, together with the masked conversation, to the <strong>language model</strong>;</li>
+<li>The model&#39;s output passes an <strong>output guard</strong> and is streamed clause by clause into <strong>speech synthesis</strong>;</li>
+<li>The audio goes back the same way, while a data channel pushes the masked intelligence to a live dashboard in the browser.</li>
+</ol>
+<p>Web and phone share one pipeline (<code>build_pipeline</code> in <code>voice/app.py</code>) with two sets of latency parameters (<code>voice/tuning.py</code>). It is built on Pipecat, an open-source real-time voice pipeline framework, served by FastAPI and Uvicorn; recognition, the language model and synthesis are cloud APIs.</p>
+<h2>Speech recognition: when is the caller done?</h2>
+<p>Recognising words is the easy part. Deciding whether the caller has finished is hard: decide too early and one sentence becomes two turns; too late and Auntie Wang feels sluggish.</p>
+<p>Three layers stack up (see &quot;turn detection&quot; in VOICE_LATENCY.md):</p>
+<ul>
+<li><strong>Voice activity detection (VAD)</strong>: the open-source Silero VAD model decides whether anyone is speaking. On the web, speech must last 0.3 s at confidence 0.75 to count as started, and 0.2 s of silence counts as stopped; the phone profile is more conservative.</li>
+<li><strong>The recogniser&#39;s end-of-sentence silence</strong>: lowered from the service default of about 800 ms to 450 ms (web) and 500 ms (phone), which brings the final transcript about 0.3 s earlier.</li>
+<li><strong>Smart Turn (v3), an open-source turn-detection model</strong>, judges from the audio whether the utterance is complete. When it says &quot;incomplete&quot;, the fallback used to be a full 3-second wait.</li>
+</ul>
+<p>On top of that we added a digit-aware rule (<code>voice/turndigits.py</code>). Scammers often pause while reading out a card number; treated as ordinary speech, a 19-digit number gets split into three turns. The rule: if the transcript ends with an unfinished number (fewer than 16 digits after &quot;card number&quot;, fewer than 11 after &quot;phone number&quot;, and so on), wait at least 1800 ms after the caller stops; if the sentence already ends with final punctuation and no number is being read, wait at most 1200 ms instead of 3 s.</p>
+<p>In local tests, a 19-digit number read with two pauses went from 3 segments to 1, and an announcement like &quot;let me read you the card number&quot; went from 3200 ms to 1802 ms between stopping and end-of-turn (the before/after table in VOICE_LATENCY.md).</p>
+<h2>The language model only sees masked text</h2>
+<p>Only masked transcripts are sent to the model. Raw values such as card numbers stay in process memory for blocklist checks and are never written to disk or reported (voice/README.md, &quot;Privacy and safety&quot;).</p>
+<p><code>voice/persona.py</code> builds the system prompt from persona, scenario and the strategy chosen by the rule engine: repeat back and probe when new intel appears, stall when asked for a verification code, steer towards the receiving account when asked to transfer. One easily missed constraint: <strong>only follow up on what the caller has already said</strong>. If the scammer has not mentioned a platform yet, the prompt will not tell Auntie Wang to ask which platform — otherwise she would bring up something they never said and give herself away.</p>
+<h2>Output guard: no invented numbers</h2>
+<p>Before synthesis, each reply goes through a guard that strips stage directions in brackets and Markdown symbols and removes any run of five or more digits, so the model cannot invent a plausible verification code or card number. When a number has to be repeated, it is read digit by digit and the masking asterisks are never spoken.</p>
+<h2>Speech synthesis: speak while generating</h2>
+<p>The first version opened a new connection per sentence and waited for the full sentence before synthesising, so the first audio packet took a long time. Now (the &quot;changes&quot; table in VOICE_LATENCY.md):</p>
+<ul>
+<li>each call keeps one long-lived connection, opened at the start;</li>
+<li>a synthesis task is opened as soon as each model turn begins;</li>
+<li>as the model streams tokens, a clause splitter cuts at final punctuation immediately and at commas once 6 characters have accumulated, never inside unclosed brackets or quotes, so the output guard always sees complete fragments;</li>
+<li>on barge-in, if the service is still synthesising, the connection is cancelled and reopened immediately.</li>
+</ul>
+<p>After this round the median time to the first synthesised packet dropped from 2781 ms to 1385 ms (stage table under &quot;results&quot; in VOICE_LATENCY.md; n=6 before, n=9 after). The remaining ~1.2 s is mostly the synthesis service itself; direct measurements show fast and slow modes that do not correlate with model, voice or sample rate, so the client side has done what it can.</p>
+<h2>Fillers: acknowledge first</h2>
+<p>Even so, two to three seconds pass between the caller stopping and the real reply. A real person usually says &quot;mm&quot; in that gap.</p>
+<p>So each persona has <strong>short backchannels</strong> (<code>voice/backchannel.py</code>): ten pre-synthesised lines such as &quot;mm…&quot;, &quot;say that again?&quot; or &quot;hold on…&quot;, cached on disk with the 0.34–0.47 s of leading silence trimmed. One plays as soon as the turn ends, without waiting for the model. It is skipped when the caller said fewer than 4 meaningful characters, used a hurry-up phrase, asked a short question of 8 characters or less, or is in the middle of reading out digits.</p>
+<p>The system prompt also tells the model &quot;you have already acknowledged once this turn&quot;, so the real reply does not open with another filler word. In a local on/off comparison, replies starting with a filler word fell from 9/14 to 3/14 (backchannel comparison table in VOICE_LATENCY.md).</p>
+<h2>Barge-in: count characters, not words</h2>
+<p>When the caller talks over Auntie Wang, she should stop. Pipecat&#39;s default counts space-separated words, which does not work for Chinese. We count &quot;meaningful characters&quot; instead (<code>voice/interrupt.py</code>): punctuation and acknowledgements like &quot;mm&quot;, &quot;right&quot; or &quot;OK&quot; are dropped, while &quot;no&quot; or &quot;that&#39;s wrong&quot; count as objections. While she is speaking, 2 meaningful characters (3 on the phone) interrupt her; when she is silent, any text starts a new turn. Backchannels are ordinary output audio and are flushed with the output queue on interruption.</p>
+<h2>Transport: web, relay and phone</h2>
+<ul>
+<li><strong>Web</strong>: peer-to-peer WebRTC between browser and server, with aiortc on the server side. The server uses a fixed UDP port range and adds its public address as a candidate in the answer.</li>
+<li><strong>When UDP is blocked</strong>: corporate and campus networks or some proxies do not forward UDP. Deployments can enable a self-hosted coturn relay over TCP or TLS on port 443: Caddy, with the caddy-l4 plugin, separates TURN traffic from HTTPS by the first bytes of each connection, so no extra port is needed. Temporary credentials are fetched when &quot;start call&quot; is clicked, valid for 600 s by default and never stored. The page shows connecting / connected / failed, and after 20 s without a connection it suggests switching networks or turning off proxies.</li>
+<li><strong>Phone</strong>: an optional Asterisk PBX connects to the same pipeline through a WebSocket adapter; the transport resamples audio to 8 kHz. Telephony is off by default and only answers, never dials; the deploy script also installs fail2ban to block brute-force registrations.</li>
+</ul>
+<h2>Latency: measured numbers</h2>
+<p>All numbers below come from VOICE_LATENCY.md, measured on the same machine with the same six-sentence synthetic scammer recording. Every run makes real paid calls and samples are small, so P90 is indicative only.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Metric (client side, scammer stops → bot audible)</th>
+<th>P50</th>
+<th>P90</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Before, reply itself</td>
+<td>5842 ms</td>
+<td>6282 ms</td>
+</tr>
+<tr>
+<td>After, first audible sound (incl. filler)</td>
+<td>1653 ms</td>
+<td>2803 ms</td>
+</tr>
+<tr>
+<td>After, reply itself (fillers off, 3 sentences)</td>
+<td>4162 ms</td>
+<td>5827 ms</td>
+</tr>
+</tbody></table></div>
+<p>In one external probe of the live service, the first packet of the real reply arrived at 2469, 2627 and 2484 ms: about 650 ms recognition, 430–680 ms to the model&#39;s first token and 1050–1340 ms to the first synthesised packet — synthesis is still the largest share (&quot;TTS first-packet breakdown&quot; in VOICE_LATENCY.md).</p>
+<h2>Extracting intelligence</h2>
+<p>There is a single set of extraction rules in <code>site/assets/core/extractors.json</code>. The browser and Python implementations match byte for byte and check each other through shared test fixtures (INTEL.md, &quot;noise robustness and cross-turn stitching&quot;). The voice server reuses the Python implementation.</p>
+<p>It recognises bank cards, mobile and landline numbers, messaging and payment accounts, email addresses, URLs, crypto wallet addresses and payee names. Spoken transcripts are messy, so text is normalised first:</p>
+<ul>
+<li><strong>Disguised digits</strong>: full-width digits, circled numbers, Chinese numerals and spoken variants are converted back to Arabic digits;</li>
+<li><strong>Variant characters and typos</strong>: traditional and variant forms of key characters are unified, and common homophone typos normalised;</li>
+<li><strong>Joining fragments</strong>: digits separated by spaces, dashes or punctuation are joined only if the result looks like a valid phone number or bank card (check digit, issuer prefix);</li>
+<li><strong>Cross-turn stitching</strong>: when a card number is read over two or three sentences, fragments from up to 3 adjacent turns by the same speaker are joined with a confidence score. Corrections (&quot;no, wait…&quot;), numbers with units, and digits next to order numbers or verification codes are excluded.</li>
+</ul>
+<p>URLs and wallet addresses are checked against public blocklists and labelled &quot;listed&quot; or &quot;not listed&quot;. A hit is only a hint; not being listed does not mean safe.</p>
+<h2>Masking rules</h2>
+<p>Everything displayed, exported, stored or sent to the model is masked first. INTEL.md has the full table (&quot;masking rules by type&quot;); the essentials:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Rule</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bank card</td>
+<td>16–19 digits keep first 6 and last 4; 8–15 keep last 4; shorter fully masked</td>
+<td><code>622202*********3445</code></td>
+</tr>
+<tr>
+<td>Mobile number</td>
+<td>keep first 3 and last 4</td>
+<td><code>139****2233</code></td>
+</tr>
+<tr>
+<td>ID number</td>
+<td>keep first 6 and last 4, exactly 8 asterisks between</td>
+<td><code>110101********123X</code></td>
+</tr>
+<tr>
+<td>Name</td>
+<td>family name only</td>
+<td><code data-i18n-keep="intel-data" lang="zh-CN">王**</code></td>
+</tr>
+<tr>
+<td>Messaging / payment account</td>
+<td>keep 2 characters at each end</td>
+<td><code>ke******26</code></td>
+</tr>
+<tr>
+<td>URL</td>
+<td>keep scheme and TLD, 2 characters at each end of the domain, hide the path</td>
+<td><code>https://pa***re.top/***</code></td>
+</tr>
+<tr>
+<td>Crypto wallet</td>
+<td>keep first 4 (6 for some formats) and last 4</td>
+<td><code>TXyz...5678</code></td>
+</tr>
+</tbody></table></div>
+<p>Masking is deterministic — the same input always yields the same output — so masked values can be used for deduplication. Only recognised fragments are replaced, so the docs recommend a second regex pass before storage, for example removing any run of 7+ digits; the intel library validator also rejects masked entries containing 7+ consecutive digits.</p>
+<p>On retention: for web calls the visitor chooses whether to save. If they agree, each turn&#39;s masked text and latencies are logged and two audio tracks are recorded; if not, only content-free counters are kept. Phone calls store masked text only, no audio, and the caller number is masked. Traces are kept for 30 days by default, and recording stops automatically when disk space runs low (voice/README.md, &quot;call tracing and feedback&quot;).</p>
+<h2>Does it hold them?</h2>
+<p>In offline evaluation, a language model plays the scammer against three personas in 7 scenarios with 6 random seeds, 126 sessions per tier. In the default tier, the suspicious hang-up rate is 13.5% (95% interval 8.6–20.5%), the average stall is 23.6 turns (cap 25), extraction rate is 99.8% (430/431) and the leak rate is 0 (main table in section 1 of <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/EVAL.md">docs/EVAL.md</a>, result file <code>eval/results-llm-scammer.json</code>). This is a simulated opponent, not real scammers, and the document notes that recent persona changes still need re-testing.</p>
+<h2>Still open</h2>
+<ul>
+<li>The barge-in threshold was tuned on synthetic audio, not calibrated on real calls;</li>
+<li>End-to-end tests have only run on Linux with a desktop browser and a fake microphone; real microphones, echo cancellation and mobile are untested;</li>
+<li>Long sentences with comma pauses are occasionally still split into two turns.</li>
+</ul>
+<p>Code, parameters and reproduction commands are all in the repository. Issues and pull requests are welcome.</p>
+<h2>Acknowledgements</h2>
+<p>DeepSuck is built on the open-source projects below. Thanks to their authors and maintainers. The list follows the dependencies and deployment config in the repository (<code>voice/requirements.txt</code>, <code>deploy/</code>, <code>scripts/</code>, <code>site/assets/core/blocklists.json</code>).</p>
+<p>Voice pipeline:</p>
+<ul>
+<li><a href="https://github.com/pipecat-ai/pipecat">Pipecat</a>: real-time voice pipeline framework</li>
+<li><a href="https://github.com/snakers4/silero-vad">Silero VAD</a>: voice activity detection</li>
+<li><a href="https://github.com/pipecat-ai/smart-turn">Smart Turn</a>: turn-detection model</li>
+<li><a href="https://github.com/aiortc/aiortc">aiortc</a>: WebRTC for Python</li>
+<li><a href="https://github.com/fastapi/fastapi">FastAPI</a>, <a href="https://github.com/encode/uvicorn">Uvicorn</a>, <a href="https://github.com/python-websockets/websockets">websockets</a>: server and WebSocket</li>
+</ul>
+<p>Deployment and telephony:</p>
+<ul>
+<li><a href="https://github.com/coturn/coturn">coturn</a>: TURN relay</li>
+<li><a href="https://github.com/asterisk/asterisk">Asterisk</a>: telephone exchange</li>
+<li><a href="https://github.com/caddyserver/caddy">Caddy</a> and <a href="https://github.com/mholt/caddy-l4">caddy-l4</a>: HTTPS and port-443 multiplexing</li>
+<li><a href="https://github.com/fail2ban/fail2ban">fail2ban</a>: blocking brute-force registrations</li>
+</ul>
+<p>Website and data:</p>
+<ul>
+<li><a href="https://github.com/markedjs/marked">marked</a>: Markdown conversion for this blog</li>
+<li><a href="https://github.com/phishdestroy/destroylist">destroylist</a>, <a href="https://github.com/Phishing-Database/Phishing.Database">Phishing.Database</a>: public phishing-domain blocklists</li>
+</ul>
+  </div>
+  <footer class="post-foot">
+    <a href="../">← Back to blog</a>
+    <a href="../../voice-pipeline/" hreflang="zh-CN" lang="zh-CN" data-lang-switch="zh">Read in Chinese</a>
+  </footer>
+</article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>DeepSuck · Code Apache-2.0 · For anti-fraud research and education only</span>
+    <span>Scam? Call 110 / 96110 (China)</span>
+    <a href="../../../?lang=en">Home</a>
+    <a href="../../../intel.html">Intel library</a>
+    <a href="../">Blog</a>
+    <a href="../feed.xml">RSS feed</a>
+    <a href="https://github.com/deepsucksi/deepsuck" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</footer>
+<script src="../../../assets/js/blog.js"></script>
+</body>
+</html>

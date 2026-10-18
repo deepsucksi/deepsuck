@@ -181,8 +181,8 @@ test('首页有克制的博客入口，语言切换跳到对应语言', () => {
   }
 });
 
-test('文章源文件：不点名商业公司或产品，不用 emoji，人设不写年龄道具', () => {
-  const BANNED = /openai|deepseek|apate|chatgpt|anthropic|claude|gpt|qwen|通义|千问|dashscope|百炼|阿里|paraformer|cosyvoice|pipecat|silero|淘宝|微信|支付宝|\bQQ\b|腾讯|telegram|whatsapp|chrome|google|baidu|百度|bing|老花镜|耳背|孙子/i;
+test('文章源文件：不点名商业公司或产品（开源项目可写原名并列入致谢），不用 emoji，人设口径为现行四位、不写年龄道具', () => {
+  const BANNED = /openai|deepseek|apate|chatgpt|anthropic|claude|gpt|qwen|通义|千问|dashscope|百炼|阿里|paraformer|cosyvoice|淘宝|微信|支付宝|\bQQ\b|腾讯|telegram|whatsapp|chrome|google|baidu|百度|bing|李大爷|周伯|老花镜|耳背|孙子/i;
   const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}]/u;
   for (const p of all.all) {
     const src = fs.readFileSync(path.join(ROOT, p.file), 'utf8');

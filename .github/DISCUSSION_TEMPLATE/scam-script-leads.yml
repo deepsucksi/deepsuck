@@ -1,0 +1,70 @@
+# 「诈骗话术线索」分类的发帖模板。文件名必须和分类的 slug 一致（假定为 scam-script-leads；分类建好后核对，见 docs/GROWTH.md 第 1.4 节）。
+title: "[话术线索] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        这里收集**脱敏后**的诈骗话术和套路，用来改进识别规则、人设和防骗科普。
+
+        **禁止发布真实个人信息。** 包括你自己、家人、对方或任何第三方的姓名、手机号、银行卡号、身份证号、住址、聊天头像、截图里的个人资料。卡号、电话、账号、网址只写打码后的形式（例如 `622202*********3445`、`139****2233`），或者直接写「对方报了一个银行卡号」。只提交话术和套路，不要贴原始录音、未打码截图或完整聊天记录。
+
+        线索只用于讨论和研究，不能据此认定任何人。如果已经被骗或正在被骗，请先拨打 110 或 96110。结构化的情报提交（收款账户、钱包地址、网址）请用 Issue 里的情报模板。
+  - type: dropdown
+    id: scam-type
+    attributes:
+      label: 诈骗类型
+      options:
+        - 冒充客服
+        - 冒充公检法
+        - 冒充领导、熟人
+        - 网络交友诱导投资
+        - 刷单返利
+        - 虚假投资理财
+        - 虚假贷款与征信
+        - 其他或不确定
+    validations:
+      required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: 对方怎么联系上的
+      options:
+        - 电话
+        - 短信
+        - 社交软件私聊
+        - 群聊
+        - 网页或应用
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: script
+    attributes:
+      label: 话术和套路（已脱敏）
+      description: 按顺序写对方怎么开场、怎么取得信任、怎么施压、最后要什么。用自己的话概括即可，不要贴未打码的原文。
+      placeholder: |
+        开场：自称某平台客服，说商品有质量问题要赔付。
+        取信：报出了订单的大致信息和一个工号。
+        施压：说不处理会每月自动扣费。
+        索要：让下载会议软件、共享屏幕，再要验证码。
+    validations:
+      required: true
+  - type: textarea
+    id: signals
+    attributes:
+      label: 你注意到的识别信号
+      description: 哪一句或哪一步让你觉得不对劲。可选。
+  - type: input
+    id: when
+    attributes:
+      label: 大致时间
+      description: 写到年月即可，例如 2026-10。可选。
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 发帖前确认
+      options:
+        - label: 帖子里没有任何人的真实姓名、电话、卡号、证件号、住址或未打码截图
+          required: true
+        - label: 我理解线索只用于讨论和研究，不能据此认定任何人
+          required: true

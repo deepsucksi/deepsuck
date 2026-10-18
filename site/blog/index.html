@@ -26,7 +26,7 @@
 <meta name="twitter:description" content="DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。">
 <meta name="twitter:image" content="https://deepsuck.si/assets/og.png">
 <meta name="theme-color" content="#ffffff">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"DeepSuck 博客","description":"DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。","url":"https://deepsuck.si/blog/","inLanguage":"zh-CN","publisher":{"@type":"Organization","name":"DeepSuck","url":"https://deepsuck.si/"},"blogPost":[]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"DeepSuck 博客","description":"DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。","url":"https://deepsuck.si/blog/","inLanguage":"zh-CN","publisher":{"@type":"Organization","name":"DeepSuck","url":"https://deepsuck.si/"},"blogPost":[{"@type":"BlogPosting","headline":"为什么用 AI 拖住骗子","url":"https://deepsuck.si/blog/why-we-stall-scammers/","datePublished":"2026-10-19"},{"@type":"BlogPosting","headline":"技术拆解：王阿姨的语音链路","url":"https://deepsuck.si/blog/voice-pipeline/","datePublished":"2026-10-19"},{"@type":"BlogPosting","headline":"七类常见诈骗话术的识别信号","url":"https://deepsuck.si/blog/spot-scam-scripts/","datePublished":"2026-10-19"}]}</script>
 <link rel="icon" href="../assets/brand/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="../assets/brand/favicon-180.png">
 <link rel="stylesheet" href="../assets/css/style.css">
@@ -64,11 +64,30 @@
   <h1>博客</h1>
   <p class="lead">DeepSuck 开源反诈项目的笔记：项目进展、技术拆解与诈骗识别。</p>
 </div>
-<section class="blog-empty" aria-labelledby="blog-empty-title">
-  <h2 id="blog-empty-title">文章即将发布</h2>
-  <p>第一批文章正在审校。订阅 RSS，文章发布后会出现在你的阅读器里。</p>
-  <p class="blog-empty-actions"><a class="btn small" href="feed.xml" type="application/rss+xml">订阅 RSS</a></p>
-</section>
+<ol class="post-list" reversed>
+    <li class="post-item">
+      <time datetime="2026-10-19">2026-10-19</time>
+      <div>
+        <h2><a href="why-we-stall-scammers/">为什么用 AI 拖住骗子</a></h2>
+        <p>DeepSuck 想做的事很简单：让骗子把时间花在一个不会上当的对象身上，同时留下可以用来预警的线索。这篇文章讲清楚我们为什么这样做，以及哪些事我们坚决不做。</p>
+      </div>
+    </li>
+    <li class="post-item">
+      <time datetime="2026-10-19">2026-10-19</time>
+      <div>
+        <h2><a href="voice-pipeline/">技术拆解：王阿姨的语音链路</a></h2>
+        <p>骗子在浏览器或电话里说一句话，王阿姨要在一两秒内应声，还要把对方报出的卡号、网址悄悄记下并打码。这篇文章按一轮对话的顺序，拆开语音识别、大模型、语音合成、填充音、打断和传输各环节，以及情报提取与脱敏的规则。</p>
+      </div>
+    </li>
+    <li class="post-item">
+      <time datetime="2026-10-19">2026-10-19</time>
+      <div>
+        <h2><a href="spot-scam-scripts/">七类常见诈骗话术的识别信号</a></h2>
+        <p>诈骗话术千变万化，但走的路数大致相同：先给一个由头，再建立信任、施压，最后索要钱款或信息。这篇文章按七类常见诈骗整理识别信号和应对办法，只讲怎么认出来，不复述可以照搬的台词。</p>
+      </div>
+    </li>
+  </ol>
+<p class="blog-feed"><a href="feed.xml">RSS 订阅</a></p>
 </main>
 
 <footer>
