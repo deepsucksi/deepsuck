@@ -142,6 +142,7 @@
       var o = { type: lt, value: publishValue(i.type, i.raw), policy: policyOf(lt), seen: i.count || 1 };
       if (CHAIN[i.type]) o.chain = CHAIN[i.type];
       if (i.meta && i.meta.bank) o.bank = i.meta.bank;
+      if (i.meta && i.meta.issuer) o.cardType = i.meta.issuer.cardTypeName;
       if (i.meta && i.meta.kind) o.kind = i.meta.kind;
       return o;
     }).filter(Boolean);

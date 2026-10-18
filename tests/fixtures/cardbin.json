@@ -1,0 +1,117 @@
+{
+ "comment": "由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。",
+ "cases": [
+  {
+   "input": "6222020200112233445",
+   "expected": {
+    "bin": "622202",
+    "bankCode": "ICBC",
+    "bank": "中国工商银行",
+    "cardType": "DC",
+    "cardTypeName": "借记卡",
+    "length": 19,
+    "lengthOk": true
+   }
+  },
+  {
+   "input": "6217001234567890123",
+   "expected": {
+    "bin": "621700",
+    "bankCode": "CCB",
+    "bank": "中国建设银行",
+    "cardType": "DC",
+    "cardTypeName": "借记卡",
+    "length": 19,
+    "lengthOk": true
+   }
+  },
+  {
+   "input": "6225881234567891",
+   "expected": {
+    "bin": "622588",
+    "bankCode": "CMB",
+    "bank": "招商银行",
+    "cardType": "DC",
+    "cardTypeName": "借记卡",
+    "length": 16,
+    "lengthOk": true
+   }
+  },
+  {
+   "input": "6228480012345678901",
+   "expected": {
+    "bin": "622848",
+    "bankCode": "ABC",
+    "bank": "中国农业银行",
+    "cardType": "DC",
+    "cardTypeName": "借记卡",
+    "length": 19,
+    "lengthOk": true
+   }
+  },
+  {
+   "input": "622305123456789012",
+   "expected": {
+    "bin": "622305",
+    "bankCode": "ICBC",
+    "bank": "中国工商银行",
+    "cardType": "DC",
+    "cardTypeName": "借记卡",
+    "length": 18,
+    "lengthOk": true
+   }
+  },
+  {
+   "input": "6223051234567890",
+   "expected": {
+    "bin": "622305",
+    "bankCode": "NJCB",
+    "bank": "南京银行",
+    "cardType": "DC",
+    "cardTypeName": "借记卡",
+    "length": 16,
+    "lengthOk": true
+   }
+  },
+  {
+   "input": "6230 5200 1234 5678 901",
+   "expected": {
+    "bin": "623052",
+    "bankCode": "ABC",
+    "bank": "中国农业银行",
+    "cardType": "DC",
+    "cardTypeName": "借记卡",
+    "length": 19,
+    "lengthOk": true
+   }
+  },
+  {
+   "input": "1234567890123456",
+   "expected": null
+  },
+  {
+   "input": "62220212",
+   "expected": null
+  },
+  {
+   "input": "",
+   "expected": null
+  },
+  {
+   "input": "4033611234567890",
+   "expected": {
+    "bin": "403361",
+    "bankCode": "ABC",
+    "bank": "中国农业银行",
+    "cardType": "CC",
+    "cardTypeName": "信用卡",
+    "length": 16,
+    "lengthOk": true
+   }
+  },
+  {
+   "input": "6222021234",
+   "expected": null
+  }
+ ]
+}

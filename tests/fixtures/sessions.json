@@ -115,7 +115,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "建设银行"
+      "bank": "建设银行",
+      "issuer": {
+       "bank": "中国建设银行",
+       "bankCode": "CCB",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -267,7 +274,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "建设银行"
+      "bank": "建设银行",
+      "issuer": {
+       "bank": "中国建设银行",
+       "bankCode": "CCB",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -419,7 +433,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "建设银行"
+      "bank": "建设银行",
+      "issuer": {
+       "bank": "中国建设银行",
+       "bankCode": "CCB",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -568,7 +589,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "工商银行"
+      "bank": "工商银行",
+      "issuer": {
+       "bank": "中国工商银行",
+       "bankCode": "ICBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 3
@@ -717,7 +745,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "工商银行"
+      "bank": "工商银行",
+      "issuer": {
+       "bank": "中国工商银行",
+       "bankCode": "ICBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 3
@@ -866,7 +901,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "工商银行"
+      "bank": "工商银行",
+      "issuer": {
+       "bank": "中国工商银行",
+       "bankCode": "ICBC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 3
@@ -1446,7 +1488,14 @@
       "digits": 19,
       "luhn": true,
       "unionpay": true,
-      "bank": "农业银行"
+      "bank": "农业银行",
+      "issuer": {
+       "bank": "平安银行",
+       "bankCode": "SPABANK",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 5
@@ -1591,7 +1640,14 @@
       "digits": 19,
       "luhn": true,
       "unionpay": true,
-      "bank": "农业银行"
+      "bank": "农业银行",
+      "issuer": {
+       "bank": "平安银行",
+       "bankCode": "SPABANK",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 5
@@ -1736,7 +1792,14 @@
       "digits": 19,
       "luhn": true,
       "unionpay": true,
-      "bank": "农业银行"
+      "bank": "农业银行",
+      "issuer": {
+       "bank": "平安银行",
+       "bankCode": "SPABANK",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 5
@@ -1873,7 +1936,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "农业银行"
+      "bank": "农业银行",
+      "issuer": {
+       "bank": "中国农业银行",
+       "bankCode": "ABC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -2020,7 +2090,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "农业银行"
+      "bank": "农业银行",
+      "issuer": {
+       "bank": "中国农业银行",
+       "bankCode": "ABC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -2167,7 +2244,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "农业银行"
+      "bank": "农业银行",
+      "issuer": {
+       "bank": "中国农业银行",
+       "bankCode": "ABC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -2300,7 +2384,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "招商银行"
+      "bank": "招商银行",
+      "issuer": {
+       "bank": "招商银行",
+       "bankCode": "CMB",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": false
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -2433,7 +2524,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "招商银行"
+      "bank": "招商银行",
+      "issuer": {
+       "bank": "招商银行",
+       "bankCode": "CMB",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": false
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -2566,7 +2664,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "招商银行"
+      "bank": "招商银行",
+      "issuer": {
+       "bank": "招商银行",
+       "bankCode": "CMB",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": false
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -2704,7 +2809,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "中国银行"
+      "bank": "中国银行",
+      "issuer": {
+       "bank": "中国银行",
+       "bankCode": "BOC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -2840,7 +2952,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "中国银行"
+      "bank": "中国银行",
+      "issuer": {
+       "bank": "中国银行",
+       "bankCode": "BOC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 4
@@ -2976,7 +3095,14 @@
       "digits": 19,
       "luhn": false,
       "unionpay": true,
-      "bank": "中国银行"
+      "bank": "中国银行",
+      "issuer": {
+       "bank": "中国银行",
+       "bankCode": "BOC",
+       "cardType": "DC",
+       "cardTypeName": "借记卡",
+       "lengthOk": true
+      }
      },
      "count": 1,
      "firstSeenTurn": 4

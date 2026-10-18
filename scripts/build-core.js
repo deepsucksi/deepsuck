@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const CORE = path.join(__dirname, '..', 'site', 'assets', 'core');
 const OUT = path.join(__dirname, '..', 'site', 'assets', 'js', 'core-data.js');
-const NAMES = ['extractors', 'tactics', 'scenarios', 'personas', 'blocklists'];
+const NAMES = ['extractors', 'tactics', 'scenarios', 'personas', 'blocklists', 'cardbin'];
 
 function render() {
   const data = {};

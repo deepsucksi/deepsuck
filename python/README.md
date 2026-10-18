@@ -11,6 +11,8 @@ DeepSuck 浏览器端规则引擎的 Python 等价实现，**直接读取** `sit
 | `deepsuck.redact` | `redact.js` | 脱敏 |
 | `deepsuck.tactics` | `tactics.js` | 话术分类 + 风险分 |
 | `deepsuck.engine` | `engine.js` | 规则人设引擎 `Session`（拖延意图 + 台词） |
+| `deepsuck.cardbin` | `cardbin.js` | 银行卡 BIN 本地查询（发卡行 + 卡种；数据 hexindai/bcbc，MIT） |
+| `deepsuck.stix` | — | 情报库 / 沙盒提交 → STIX 2.1 Bundle（可选依赖 `stix2`） |
 
 ```bash
 cd python

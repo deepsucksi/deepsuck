@@ -253,7 +253,8 @@
 
     $('dashIntel').innerHTML = r.intel.length ? r.intel.map(function (i) {
       var m = [];
-      if (i.meta.bank) m.push('开户行：' + i.meta.bank);
+      if (i.meta.bank) m.push('开户行：' + i.meta.bank + (i.meta.bankFrom === 'bin' ? '（BIN 推断）' : ''));
+      if (i.meta.issuer) m.push(i.meta.issuer.cardTypeName + (i.meta.issuer.lengthOk ? '' : ' · 卡号长度与 BIN 不符'));
       if (i.meta.digits) m.push(i.meta.digits + ' 位' + (i.meta.luhn ? ' · Luhn 校验通过' : ' · Luhn 未通过'));
       if (i.meta.chain) m.push('链：' + i.meta.chain);
       if (i.meta.kind) m.push({ mobile: '手机', hotline: '400/800 热线', landline: '座机' }[i.meta.kind]);

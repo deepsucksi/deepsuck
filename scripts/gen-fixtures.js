@@ -17,6 +17,7 @@ const S = require('../site/assets/js/scenarios.js');
 const P = require('../site/assets/js/personas.js');
 const { mulberry32 } = require('./lib/rng.js');
 const BL = require('../site/assets/js/blocklist.js');
+const CB = require('../site/assets/js/cardbin.js');
 
 const DIR = path.join(__dirname, '..', 'tests', 'fixtures');
 const HEADER = '由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。';
@@ -111,6 +112,13 @@ function build() {
     hosts: HOSTS.map((v) => { const h = BL.hostOf(v); return { input: v, host: h, candidates: h ? BL.candidates(h) : null }; }),
     wallets: ['0xAbCdEf0123456789aBcDeF0123456789AbCdEf01', 'TQ7xM6hYpCzD8vNp1qJ3kR5sW9uL2aBcDe', 'BC1QAR0SRRR7XFKVY5L643LYDNW9RE59GTZZWF5MDQ', '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa']
       .map((a) => ({ input: a, key: BL.walletKey(a) }))
+  };
+  // 银行卡 BIN：虚构卡号（只取前缀判断发卡行），含长度不吻合、过短、未知前缀
+  out.cardbin = {
+    comment: HEADER,
+    cases: ['6222020200112233445', '6217001234567890123', '6225881234567891', '6228480012345678901', '622305123456789012', '6223051234567890',
+      '6230 5200 1234 5678 901', '1234567890123456', '62220212', '', '4033611234567890', '6222021234']
+      .map((input) => ({ input, expected: CB.lookup(input) }))
   };
   return out;
 }

@@ -67,3 +67,38 @@ DeepSuck 会**公开发布**它收集到的诈骗情报，让任何人都能检�
 - **钱包运行时拉取**：只在提取到对应链的地址时才下载整表（ScamSniffer 约 120 KB），本地比对；GPL 数据不进入本仓库与站点产物。
 - **报告不泄露原值**：报告中只记录 `status / how / sources / updated`，不写入被比对的网址或地址原文。
 - Python：`python -m deepsuck.blocklist <网址或地址>`，默认查询 `https://deepsuck.si/data/blocklist/`，也可 `--base site/data/blocklist` 指向本地构建产物；钱包列表缓存在 `~/.cache/deepsuck`。
+
+## STIX 2.1 导出（v0.5）
+
+公开情报库同时发布 STIX 2.1 Bundle：[`site/data/intel.stix.json`](../site/data/intel.stix.json)，可直接导入 OpenCTI、MISP 或 TAXII 服务。
+
+```bash
+cd python
+pip install stix2            # 可选：OASIS 官方库，用于解析/校验/序列化；不装也能导出，结果逐字节一致
+python -m deepsuck.stix ../site/data/intel.json -o ../site/data/intel.stix.json   # 改了 intel.json 后重新生成（pytest 会检查是否同步）
+python -m deepsuck.stix 沙盒提交.json                                              # deepsuck.intel-submission/v1 → stdout
+```
+
+| 情报库类型 | STIX 对象 | pattern |
+|---|---|---|
+| `phone` | Indicator | `[phone-number:value = '…']` |
+| `crypto_wallet` | Indicator | `[cryptocurrency-wallet:value = '…']` |
+| `url` | Indicator | `[url:value = '…']`（纯域名为 `[domain-name:value = '…']`） |
+| `app` | Indicator | `[software:name = '…']` |
+| `script` | Note（指向场景） | — |
+| 场景 `scenario` | Attack Pattern，Indicator 以 `indicates` 关系指向它 | — |
+| `bank_card` / `account` / `name` / `id_card` | **不导出** | 打码值无法用于匹配，且可能属于被冒用的普通人 |
+
+- 只导出 `status: active` 的条目；`disputed` / `removed` 不导出；
+- `phone-number`、`cryptocurrency-wallet` 沿用 OpenCTI 的可观测类型命名；场景、来源、举报次数、链、示例标记以 `x_deepsuck_*` 顶层属性给出，并用 `extension-definition`（`toplevel-property-extension`）声明；
+- 标记为 TLP:WHITE（即 TLP 2.0 的 TLP:CLEAR）；ID 由条目 ID 确定性生成（UUIDv4 形式），同一输入总是得到同一输出，便于增量导入；
+- 已用 OASIS [cti-stix-validator](https://github.com/oasis-open/cti-stix-validator)（schema 取自 [cti-stix2-json-schemas](https://github.com/oasis-open/cti-stix2-json-schemas)）校验：`Valid`，0 警告。
+
+## 银行卡 BIN 查询（v0.5）
+
+提取到银行卡号时，在本地按卡号前缀（BIN，最长匹配 + 卡号长度校验）判断**发卡行与卡种**，写入 `meta.issuer`；上下文没提到开户行时，`meta.bank` 用 BIN 推断值（`meta.bankFrom: "bin"`）。查询不联网、卡号不外传；`meta.issuer` 不包含 BIN 数字本身（避免比打码值多暴露两位）。
+
+- 数据：[hexindai/bcbc](https://github.com/hexindai/bcbc) 的 `data/bin.csv` + `data/name.csv`（MIT，Copyright (c) 2018 - 2020 Runrioter），1697 个 BIN 前缀、275 家发卡机构，固定在 commit `de63182`；许可证随数据附在 [`site/assets/core/cardbin.LICENSE.txt`](../site/assets/core/cardbin.LICENSE.txt)；
+- 更新：`node scripts/fetch-cardbin.js [--ref <commit>]` 重新生成 `site/assets/core/cardbin.json`，再运行 `npm run build:core && npm run fixtures`；
+- JS：`DeepSuck.cardbin.lookup(卡号)`；Python：`deepsuck.cardbin.lookup(卡号)`，命令行 `python -m deepsuck.cardbin <卡号>`（只输出发卡行信息，不回显卡号）；
+- BIN 表并非官方注册表，可能过时或不全，结果仅供参考；收款卡常属于被冒用、被诱骗出租的普通人，发卡行信息不能用于对持卡人的任何认定。

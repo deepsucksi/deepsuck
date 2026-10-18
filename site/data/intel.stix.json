@@ -1,0 +1,894 @@
+{
+ "id": "bundle--15d1a7ef-7c92-4b2d-8b1d-dcbad1950871",
+ "objects": [
+  {
+   "contact_information": "https://github.com/deepsucksi/deepsuck",
+   "created": "2026-10-01T00:00:00.000Z",
+   "description": "开源 AI 反诈“拖住”机器人项目的公开诈骗情报库（https://deepsuck.si）。情报仅供参考，不能作为认定依据。",
+   "id": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "identity_class": "organization",
+   "modified": "2026-10-01T00:00:00.000Z",
+   "name": "DeepSuck",
+   "spec_version": "2.1",
+   "type": "identity"
+  },
+  {
+   "created": "2017-01-20T00:00:00.000Z",
+   "definition": {
+    "tlp": "white"
+   },
+   "definition_type": "tlp",
+   "id": "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9",
+   "name": "TLP:WHITE",
+   "spec_version": "2.1",
+   "type": "marking-definition"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "x_deepsuck_scenario 场景 id；x_deepsuck_source 来源（example/sandbox/community/honeypot/public-report）；x_deepsuck_reports 举报次数；x_deepsuck_chain 钱包所在链；x_deepsuck_example 示例数据标记。",
+   "extension_properties": [
+    "x_deepsuck_scenario",
+    "x_deepsuck_source",
+    "x_deepsuck_reports",
+    "x_deepsuck_chain",
+    "x_deepsuck_example"
+   ],
+   "extension_types": [
+    "toplevel-property-extension"
+   ],
+   "id": "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56",
+   "modified": "2026-10-01T00:00:00.000Z",
+   "name": "DeepSuck intel properties",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "schema": "https://github.com/deepsucksi/deepsuck/blob/main/docs/INTEL.md",
+   "spec_version": "2.1",
+   "type": "extension-definition",
+   "version": "1.0.0"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "自称公安/检察院，称受害人\"涉嫌洗钱\"，以资金清查为名要求保密、转账至所谓\"安全账户\"。",
+   "external_references": [
+    {
+     "external_id": "police",
+     "source_name": "deepsuck-scenario"
+    }
+   ],
+   "id": "attack-pattern--074748d5-a5b5-40ab-af8b-48ab064e2d33",
+   "modified": "2026-10-01T00:00:00.000Z",
+   "name": "冒充公检法 · 安全账户",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "spec_version": "2.1",
+   "type": "attack-pattern"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "自称电商/快递客服，以\"商品质量问题双倍理赔\"\"会员自动扣费\"为由，诱导下载APP、共享屏幕、索要验证码并转账。",
+   "external_references": [
+    {
+     "external_id": "refund",
+     "source_name": "deepsuck-scenario"
+    }
+   ],
+   "id": "attack-pattern--3fa10056-1e94-4f54-9871-76116c438ccf",
+   "modified": "2026-10-01T00:00:00.000Z",
+   "name": "冒充客服 · 退款理赔",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "spec_version": "2.1",
+   "type": "attack-pattern"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "冒充正规金融平台\"无抵押秒批\"\"征信修复\"，以\"银行卡号填错被冻结\"\"需要刷流水证明还款能力\"\"先交保证金/会员费\"为由要求转账。",
+   "external_references": [
+    {
+     "external_id": "loan",
+     "source_name": "deepsuck-scenario"
+    }
+   ],
+   "id": "attack-pattern--52cb6622-8bbe-4097-8d22-34cb292441b1",
+   "modified": "2026-10-01T00:00:00.000Z",
+   "name": "虚假贷款 · 征信修复",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "spec_version": "2.1",
+   "type": "attack-pattern"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "先培养感情（\"缘分\"\"我们的未来\"），再推荐\"内部渠道\"\"导师带单\"的高收益投资平台，诱导充值 USDT。",
+   "external_references": [
+    {
+     "external_id": "pig",
+     "source_name": "deepsuck-scenario"
+    }
+   ],
+   "id": "attack-pattern--10b704bd-8a93-4bad-a6ab-963f16868e22",
+   "modified": "2026-10-01T00:00:00.000Z",
+   "name": "杀猪盘 · 投资/感情",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "spec_version": "2.1",
+   "type": "attack-pattern"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "以\"点赞关注日结\"\"兼职刷单返佣\"为饵，先返小额佣金建立信任，再以\"连单\"\"卡单\"\"任务未完成需继续垫付\"为由骗取大额垫付款。",
+   "external_references": [
+    {
+     "external_id": "task",
+     "source_name": "deepsuck-scenario"
+    }
+   ],
+   "id": "attack-pattern--a3c8339a-6f98-4e92-b810-51b77b73e31b",
+   "modified": "2026-10-01T00:00:00.000Z",
+   "name": "刷单返利 · 做任务赚佣金",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "spec_version": "2.1",
+   "type": "attack-pattern"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "冒充网贷平台/银保监客服，称对方\"大学期间开通过校园贷，不注销影响征信\"，诱导在多个平台借款后转入\"指定账户\"以\"清空额度\"。",
+   "external_references": [
+    {
+     "external_id": "campus",
+     "source_name": "deepsuck-scenario"
+    }
+   ],
+   "id": "attack-pattern--1e01b822-a59f-4dfc-84d8-d4e789ac9ac0",
+   "modified": "2026-10-01T00:00:00.000Z",
+   "name": "注销校园贷 · 清空网贷额度",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "spec_version": "2.1",
+   "type": "attack-pattern"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "盗用或仿冒领导、亲戚、老同学的头像昵称，以\"换了新号\"\"在开会不方便接电话\"\"帮我先垫付给客户\"为由要求转账，并阻止电话核实。",
+   "external_references": [
+    {
+     "external_id": "boss",
+     "source_name": "deepsuck-scenario"
+    }
+   ],
+   "id": "attack-pattern--7390f45f-1729-49d5-bd7b-8595f7587ceb",
+   "modified": "2026-10-01T00:00:00.000Z",
+   "name": "冒充领导/熟人 · 借钱转账",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "spec_version": "2.1",
+   "type": "attack-pattern"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】自称\"市公安局经侦支队\"，称名下银行卡涉嫌洗钱。号码为不可分配的虚构号段。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0001",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--9136d0c8-52e7-45d3-a00f-d406f49d6d85",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "authority",
+    "threat",
+    "secrecy",
+    "example"
+   ],
+   "modified": "2026-10-12T00:00:00.000Z",
+   "name": "诈骗电话：10000000001",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[phone-number:value = '10000000001']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-01T00:00:00Z",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 3,
+   "x_deepsuck_scenario": "police",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-01T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--51ff5ff2-84ab-493f-808d-36533581faf2",
+   "modified": "2026-10-12T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--9136d0c8-52e7-45d3-a00f-d406f49d6d85",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--074748d5-a5b5-40ab-af8b-48ab064e2d33",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-03T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】自称电商平台客服，\"商品质量问题双倍理赔\"。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0002",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--9786c205-6292-4298-8d31-844bc9f0d5d2",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "cs_impersonation",
+    "app_download",
+    "example"
+   ],
+   "modified": "2026-10-03T00:00:00.000Z",
+   "name": "诈骗电话：10000000002",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[phone-number:value = '10000000002']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-03T00:00:00Z",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 1,
+   "x_deepsuck_scenario": "refund",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-03T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--84eea2be-fb1f-4c91-9ff6-43c9cc2c232d",
+   "modified": "2026-10-03T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--9786c205-6292-4298-8d31-844bc9f0d5d2",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--3fa10056-1e94-4f54-9871-76116c438ccf",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-05T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】自称\"金融服务中心\"，推销无抵押低息贷款，随后索要解冻金。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0003",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--35cbd671-5374-49e8-b93f-f6c40724f56b",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "loan_fraud",
+    "threat",
+    "example"
+   ],
+   "modified": "2026-10-05T00:00:00.000Z",
+   "name": "诈骗电话：10000000003",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[phone-number:value = '10000000003']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-05T00:00:00Z",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 2,
+   "x_deepsuck_scenario": "loan",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-05T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--ebbdb43b-0f01-476d-bc67-7ad1d3feab66",
+   "modified": "2026-10-05T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--35cbd671-5374-49e8-b93f-f6c40724f56b",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--52cb6622-8bbe-4097-8d22-34cb292441b1",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-09-28T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】杀猪盘\"导师带单\"要求充值 USDT（TRC20）。地址为故意构造的无效地址。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0004",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--f000171c-3026-40ff-9b79-64d4dd48ed18",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "high_return",
+    "crypto",
+    "romance",
+    "example"
+   ],
+   "modified": "2026-10-10T00:00:00.000Z",
+   "name": "加密钱包地址：TDemoExampleAddrDoNotUse0000000001",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[cryptocurrency-wallet:value = 'TDemoExampleAddrDoNotUse0000000001']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-09-28T00:00:00Z",
+   "x_deepsuck_chain": "TRON",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 4,
+   "x_deepsuck_scenario": "pig",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-09-28T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--24d17963-0633-4229-98e1-90701f92f138",
+   "modified": "2026-10-10T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--f000171c-3026-40ff-9b79-64d4dd48ed18",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--10b704bd-8a93-4bad-a6ab-963f16868e22",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-02T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】ERC20 充值地址示例，仅用于演示。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0005",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--137015fe-e657-4cb9-bbcc-9f9bc32fa8ca",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "crypto",
+    "urgency",
+    "example"
+   ],
+   "modified": "2026-10-02T00:00:00.000Z",
+   "name": "加密钱包地址：0xdeadbeef00000000000000000000000000000001",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[cryptocurrency-wallet:value = '0xdeadbeef00000000000000000000000000000001']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-02T00:00:00Z",
+   "x_deepsuck_chain": "Ethereum/EVM",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 1,
+   "x_deepsuck_scenario": "pig",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-02T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--31e5db34-ea5c-4847-a05d-ba3dd56e88b2",
+   "modified": "2026-10-02T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--137015fe-e657-4cb9-bbcc-9f9bc32fa8ca",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--10b704bd-8a93-4bad-a6ab-963f16868e22",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-04T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】仿冒\"理赔 APP\"下载页。.example 为 RFC 2606 保留域名，不存在真实网站。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0006",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--21b00e81-29a1-45ec-9864-d8150e6fbb2b",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "app_download",
+    "cs_impersonation",
+    "example"
+   ],
+   "modified": "2026-10-04T00:00:00.000Z",
+   "name": "诈骗网址/域名：https://refund-kefu.example/dl",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[url:value = 'https://refund-kefu.example/dl']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-04T00:00:00Z",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 2,
+   "x_deepsuck_scenario": "refund",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-04T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--da1d2ced-8443-41b3-b97b-ea70574cb999",
+   "modified": "2026-10-04T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--21b00e81-29a1-45ec-9864-d8150e6fbb2b",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--3fa10056-1e94-4f54-9871-76116c438ccf",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-06T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】仿冒\"通缉令查询\"页面，诱导输入身份证号与银行卡。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0007",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--46b46584-0723-4e34-81e1-1e90e0b44242",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "authority",
+    "info_harvest",
+    "example"
+   ],
+   "modified": "2026-10-06T00:00:00.000Z",
+   "name": "诈骗网址/域名：http://gaj-case-query.example/case",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[url:value = 'http://gaj-case-query.example/case']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-06T00:00:00Z",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 1,
+   "x_deepsuck_scenario": "police",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-06T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--7c255111-0219-41fc-b486-b3c190adaf1a",
+   "modified": "2026-10-06T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--46b46584-0723-4e34-81e1-1e90e0b44242",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--074748d5-a5b5-40ab-af8b-48ab064e2d33",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-08T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】刷单\"任务平台\"下载地址。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0008",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--5d4853e0-6078-4228-ab6e-f58999255312",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "task_rebate",
+    "app_download",
+    "example"
+   ],
+   "modified": "2026-10-08T00:00:00.000Z",
+   "name": "诈骗网址/域名：https://task-fanli.example/app",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[url:value = 'https://task-fanli.example/app']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-08T00:00:00Z",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 2,
+   "x_deepsuck_scenario": "task",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-08T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--c095c0fb-dc4b-4538-ad9e-c718e985a0bd",
+   "modified": "2026-10-08T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--5d4853e0-6078-4228-ab6e-f58999255312",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--a3c8339a-6f98-4e92-b810-51b77b73e31b",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-04T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】虚构的仿冒理赔 APP 名称。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0009",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--613f204a-3f66-4198-a0f2-58ff5799d03a",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "app_download",
+    "cs_impersonation",
+    "example"
+   ],
+   "modified": "2026-10-04T00:00:00.000Z",
+   "name": "APP/平台名称：示例·安心退",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[software:name = '示例·安心退']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-04T00:00:00Z",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 2,
+   "x_deepsuck_scenario": "refund",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-04T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--d9dc9f7e-5bd1-4b0a-aa7d-375e6997b2c7",
+   "modified": "2026-10-04T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--613f204a-3f66-4198-a0f2-58ff5799d03a",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--3fa10056-1e94-4f54-9871-76116c438ccf",
+   "type": "relationship"
+  },
+  {
+   "confidence": 0,
+   "created": "2026-10-08T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "description": "【示例数据】虚构的刷单任务平台名称。",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0010",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "indicator--b17153cd-b5c4-4f07-a4e3-b4130b480c68",
+   "indicator_types": [
+    "malicious-activity"
+   ],
+   "labels": [
+    "task_rebate",
+    "example"
+   ],
+   "modified": "2026-10-08T00:00:00.000Z",
+   "name": "APP/平台名称：示例·星辰任务",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "pattern": "[software:name = '示例·星辰任务']",
+   "pattern_type": "stix",
+   "pattern_version": "2.1",
+   "spec_version": "2.1",
+   "type": "indicator",
+   "valid_from": "2026-10-08T00:00:00Z",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 1,
+   "x_deepsuck_scenario": "task",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "created": "2026-10-08T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "id": "relationship--7ade9126-663d-42a5-bec8-a8566707e4c7",
+   "modified": "2026-10-08T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "relationship_type": "indicates",
+   "source_ref": "indicator--b17153cd-b5c4-4f07-a4e3-b4130b480c68",
+   "spec_version": "2.1",
+   "target_ref": "attack-pattern--a3c8339a-6f98-4e92-b810-51b77b73e31b",
+   "type": "relationship"
+  },
+  {
+   "abstract": "诈骗话术/手法",
+   "confidence": 0,
+   "content": "\"你名下银行卡涉嫌洗钱，案件保密，不要告诉家人；配合资金清查把钱转到安全账户\"\n\n【示例数据】冒充公检法典型话术链：恐吓 → 隔离 → 转账。公检法不会电话办案，更没有\"安全账户\"。",
+   "created": "2026-09-20T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0015",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "note--3340cd00-c6a4-4204-b842-2561fc75d509",
+   "labels": [
+    "authority",
+    "secrecy",
+    "safe_account",
+    "threat",
+    "example"
+   ],
+   "modified": "2026-09-20T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "object_refs": [
+    "attack-pattern--074748d5-a5b5-40ab-af8b-48ab064e2d33"
+   ],
+   "spec_version": "2.1",
+   "type": "note",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 12,
+   "x_deepsuck_scenario": "police",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "abstract": "诈骗话术/手法",
+   "confidence": 0,
+   "content": "\"新手任务返 5 元 → 福利单垫付返 30% → 触发三连单必须做完才能提现 → 操作超时冻结需交解冻费\"\n\n【示例数据】刷单返利\"先给甜头再套牢\"的标准流程。所有刷单都是诈骗。",
+   "created": "2026-09-22T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0016",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "note--0199610e-90e5-44c1-8c0a-06002ff7c3ae",
+   "labels": [
+    "task_rebate",
+    "transfer",
+    "urgency",
+    "example"
+   ],
+   "modified": "2026-09-22T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "object_refs": [
+    "attack-pattern--a3c8339a-6f98-4e92-b810-51b77b73e31b"
+   ],
+   "spec_version": "2.1",
+   "type": "note",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 9,
+   "x_deepsuck_scenario": "task",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "abstract": "诈骗话术/手法",
+   "confidence": 0,
+   "content": "\"在校期间开通过校园贷，不注销影响征信 → 把借呗/微粒贷额度借出来转到核查账户 → 共享屏幕、报验证码\"\n\n【示例数据】\"注销校园贷\"话术。正规平台注销账户无需转账、无需借款。",
+   "created": "2026-09-25T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0017",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "note--061fded5-3a4a-4776-9fe0-560bd220492a",
+   "labels": [
+    "campus_loan",
+    "safe_account",
+    "app_download",
+    "otp",
+    "example"
+   ],
+   "modified": "2026-09-25T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "object_refs": [
+    "attack-pattern--1e01b822-a59f-4dfc-84d8-d4e789ac9ac0"
+   ],
+   "spec_version": "2.1",
+   "type": "note",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 7,
+   "x_deepsuck_scenario": "campus",
+   "x_deepsuck_source": "example"
+  },
+  {
+   "abstract": "诈骗话术/手法",
+   "confidence": 0,
+   "content": "\"我是你领导，这是新号，在开会不方便接电话，帮我先给合作方垫一笔保证金\"\n\n【示例数据】冒充领导/熟人话术：阻止电话核实是关键特征。涉及转账务必电话或当面确认。",
+   "created": "2026-09-26T00:00:00.000Z",
+   "created_by_ref": "identity--f860f52b-2390-4031-8669-ca412def97ef",
+   "extensions": {
+    "extension-definition--0de959db-dcf1-4212-97cb-6705cca63b56": {
+     "extension_type": "toplevel-property-extension"
+    }
+   },
+   "external_references": [
+    {
+     "external_id": "EX-0018",
+     "source_name": "deepsuck"
+    }
+   ],
+   "id": "note--3ea04980-8cff-4031-b337-4121f16f9741",
+   "labels": [
+    "acquaintance",
+    "secrecy",
+    "transfer",
+    "urgency",
+    "example"
+   ],
+   "modified": "2026-09-26T00:00:00.000Z",
+   "object_marking_refs": [
+    "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+   ],
+   "object_refs": [
+    "attack-pattern--7390f45f-1729-49d5-bd7b-8595f7587ceb"
+   ],
+   "spec_version": "2.1",
+   "type": "note",
+   "x_deepsuck_example": true,
+   "x_deepsuck_reports": 6,
+   "x_deepsuck_scenario": "boss",
+   "x_deepsuck_source": "example"
+  }
+ ],
+ "type": "bundle"
+}

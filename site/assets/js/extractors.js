@@ -9,10 +9,11 @@
   var R = isNode ? require('./redact.js') : root.DeepSuck.redact;
   var N = isNode ? require('./normalize.js') : root.DeepSuck.normalize;
   var C = isNode ? require('../core/extractors.json') : root.DeepSuck.coreData.extractors;
-  var mod = factory(R, N, C);
+  var B = isNode ? require('./cardbin.js') : root.DeepSuck.cardbin;
+  var mod = factory(R, N, C, B);
   if (isNode) module.exports = mod;
   else { root.DeepSuck = root.DeepSuck || {}; root.DeepSuck.extractors = mod; }
-})(typeof self !== 'undefined' ? self : this, function (R, N, C) {
+})(typeof self !== 'undefined' ? self : this, function (R, N, C, B) {
   'use strict';
 
   // 规则数据（标签、银行、渠道、正则）统一维护在 site/assets/core/extractors.json，JS 与未来的 Python 实现共用
@@ -124,7 +125,14 @@
       var ctx = s.slice(Math.max(0, start - 24), Math.min(s.length, start + raw.length + 24));
       var bank = null;
       for (var i = 0; i < BANKS.length; i++) { if (ctx.indexOf(BANKS[i]) >= 0) { bank = BANKS[i]; break; } }
-      return { digits: d.length, luhn: luhn(d), unionpay: /^62/.test(d), bank: bank };
+      var meta = { digits: d.length, luhn: luhn(d), unionpay: /^62/.test(d), bank: bank };
+      // 本地 BIN 表（hexindai/bcbc，MIT）：只记录发卡行与卡种，不记录 BIN 数字本身（避免比打码值多暴露两位）
+      var bin = B ? B.lookup(d) : null;
+      if (bin) {
+        meta.issuer = { bank: bin.bank, bankCode: bin.bankCode, cardType: bin.cardType, cardTypeName: bin.cardTypeName, lengthOk: bin.lengthOk };
+        if (!bank) { meta.bank = bin.bank; meta.bankFrom = 'bin'; }
+      }
+      return meta;
     } });
     scan(RE.hotline, 'phone', { meta: function () { return { kind: 'hotline' }; } });
     scan(RE.landline, 'phone', { meta: function () { return { kind: 'landline' }; } });

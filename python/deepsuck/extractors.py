@@ -10,6 +10,7 @@ from typing import Callable, List, Optional
 from .core import compile_js, load
 from .normalize import normalize
 from . import redact as R
+from .cardbin import lookup as cardbin_lookup
 
 _C = load("extractors")
 LABELS: dict = _C["labels"]
@@ -121,7 +122,16 @@ def extract(text: Optional[str]) -> List[dict]:
             return False
         ctx = s[max(0, start - 24):min(len(s), start + len(raw) + 24)]
         bank = next((b for b in BANKS if b in ctx), None)
-        return {"digits": len(d), "luhn": luhn(d), "unionpay": d.startswith("62"), "bank": bank}
+        md = {"digits": len(d), "luhn": luhn(d), "unionpay": d.startswith("62"), "bank": bank}
+        # 本地 BIN 表（hexindai/bcbc，MIT）：只记录发卡行与卡种，不记录 BIN 数字本身
+        b = cardbin_lookup(d)
+        if b:
+            md["issuer"] = {"bank": b["bank"], "bankCode": b["bankCode"], "cardType": b["cardType"],
+                            "cardTypeName": b["cardTypeName"], "lengthOk": b["lengthOk"]}
+            if not bank:
+                md["bank"] = b["bank"]
+                md["bankFrom"] = "bin"
+        return md
 
     scan(RE["urlFull"], "url", clean=_trim_url)
     scan(RE["alipay"], "alipay", group=1)

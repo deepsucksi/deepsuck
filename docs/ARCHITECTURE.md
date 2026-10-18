@@ -9,9 +9,9 @@ deepsuck/
 │   ├── demo.html             # 沙盒演示 + 情报看板 + 情报库提交
 │   ├── intel.html            # 公开诈骗情报库（检索 / 筛选 / JSON·CSV 导出）
 │   ├── 404.html · robots.txt · sitemap.xml
-│   ├── data/intel.json       # 情报库数据（当前为示例数据）+ intel.schema.json
+│   ├── data/intel.json       # 情报库数据（当前为示例数据）+ intel.schema.json + intel.stix.json（STIX 2.1）
 │   └── assets/
-│       ├── core/*.json       # 规则与台词的单一事实来源：extractors / tactics / personas / scenarios
+│       ├── core/*.json       # 规则与台词的单一事实来源：extractors / tactics / personas / scenarios / blocklists / cardbin（BIN 表，MIT）
 │       ├── og*.png           # Open Graph 图（由 scripts/og.js 渲染）
 │       └── js/
 │           ├── core-data.js  # 由 scripts/build-core.js 从 core/*.json 生成（浏览器同步加载）
@@ -23,15 +23,16 @@ deepsuck/
 │           ├── engine.js     # 会话状态机 / 规则引擎 / 报告 / 情报库提交
 │           ├── intel.js      # 情报库发布策略、校验、CSV、提交格式
 │           ├── blocklist.js  # 域名/钱包黑名单比对
+│           ├── cardbin.js    # 银行卡 BIN 本地查询（发卡行 + 卡种）
 │           ├── llm.js        # 可选：OpenAI 兼容大模型
 │           ├── live-config.js# 公开实时服务地址（为空 = 纯静态）
 │           └── demo.js / intel-page.js / hero-chat.js / i18n.js  # 页面脚本
 ├── server/                   # 可选：零依赖 Node 后端（静态托管 + /api/chat 代理 + 限流/预算护栏）
-├── python/deepsuck/          # Python 核心移植 + 黑名单客户端 + 骗子模拟器（零依赖）
+├── python/deepsuck/          # Python 核心移植 + 黑名单客户端 + 骗子模拟器 + STIX 2.1 导出（零依赖，stix2 可选）
 ├── voice/                    # 语音演示：Pipecat + DashScope（Paraformer / qwen-plus / CosyVoice）+ SmallWebRTC
 ├── deploy/                   # 公开部署包：Docker Compose、Caddyfile、bootstrap.sh、.env.example
 ├── eval/                     # 骗子剧本、TeleAntiFraud 评测脚本、评测结果 JSON
-├── scripts/                  # build-core · gen-fixtures · fetch-blocklists · screenshots · og
+├── scripts/                  # build-core · gen-fixtures · fetch-blocklists · fetch-cardbin · screenshots · og
 ├── tests/                    # node:test 单元测试 + fixtures/（JS 生成、Python 复用的黄金用例）
 ├── screenshots/              # README 截图（npm run screenshots 生成）
 ├── docs/                     # QUICKSTART · ARCHITECTURE · DEPLOY · PHONE · INTEL · EVAL · ETHICS

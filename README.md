@@ -75,7 +75,8 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 - [ ] 语音打磨：真实麦克风/回声场景调参、老人人设的打断策略、Qwen-Omni Realtime 低延迟模式
 - [ ] 电话：iPhone 无应答转移 → 实名副卡 → EC20/EG25 4G 模组（[docs/PHONE.md](docs/PHONE.md)）
 - [ ] 短信诱骗通道：旧安卓机 + SmsForwarder
-- [ ] 情报增强：银行卡 BIN 与号码归属地；STIX 2.1 导出
+- [x] 情报增强：银行卡 BIN 本地查询（[hexindai/bcbc](https://github.com/hexindai/bcbc)，MIT）；STIX 2.1 导出（`python -m deepsuck.stix`，[`data/intel.stix.json`](site/data/intel.stix.json)）
+- [ ] 号码归属地
 - [ ] 评测扩展与大模型人设加固（提示词注入检测、本地模型）
 
 已完成的版本见 [CHANGELOG.md](CHANGELOG.md)。
