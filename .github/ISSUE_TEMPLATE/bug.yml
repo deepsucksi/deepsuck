@@ -1,0 +1,68 @@
+name: 缺陷报告 / Bug report
+description: 功能不符合预期、报错、提取或脱敏结果错误。Something is broken or behaves unexpectedly.
+title: "[Bug] "
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请勿在这里粘贴真实的卡号、手机号、姓名、地址或任何密钥；需要举例时请用虚构值或打码。
+        安全漏洞请不要公开提交，改用仓库 Security 页的私密报告（见 SECURITY.md）。
+
+        Thanks! Do not paste real card numbers, phone numbers, names, addresses or any secrets. Report security issues privately (see SECURITY.md).
+  - type: dropdown
+    id: area
+    attributes:
+      label: 模块 / Area
+      options:
+        - 网站与沙盒 / site
+        - 语音与电话 / voice
+        - 情报提取与脱敏 / intel
+        - 人设与语料 / corpus
+        - 部署与 CI / infra
+        - 文档 / docs
+        - 不确定 / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么 / What happened
+      description: 实际结果与期望结果。Actual vs. expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 / Steps to reproduce
+      placeholder: |
+        1. 打开 …
+        2. 输入（虚构）…
+        3. 看到 …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本或提交 / Version or commit
+      description: 例如 v0.4.0、提交号，或线上页面地址。e.g. v0.4.0, a commit SHA, or the page URL.
+  - type: textarea
+    id: env
+    attributes:
+      label: 环境 / Environment
+      description: 浏览器与系统、Node / Python 版本、是否自部署。Browser/OS, Node/Python version, self-hosted or not.
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志或截图 / Logs or screenshots
+      description: 请先删去密钥和个人信息。Remove secrets and personal data first.
+      render: text
+  - type: checkboxes
+    id: check
+    attributes:
+      label: 自查 / Checklist
+      options:
+        - label: 已搜索过现有 issue，没有重复 / I searched existing issues
+          required: true
+        - label: 内容不含真实个人信息和密钥 / No real personal data or secrets
+          required: true

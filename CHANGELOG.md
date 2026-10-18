@@ -1,5 +1,7 @@
 # 更新记录
 
+格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。新条目写在「未发布」下；发版时改为 `## [X.Y.Z] - YYYY-MM-DD`，并作为 GitHub Release 的说明（流程见 [docs/CONTRIBUTING-dev.md](docs/CONTRIBUTING-dev.md#7-版本与发布)）。
+
 ## 未发布
 
 - 脱敏（#33；JS `redact.js` / Python `redact.py` 一致，规则在 `extractors.json` 的 `redact.otp`）：共享 `redactText` / `redact_text` 按上下文给验证码类短数字打码——“验证码、动态码、动态密码、校验码、短信码、确认码、安全码、OTP”前后几个字以内（可跨一两个短句）的 4–8 位数字逐个换成 `*`，数字间允许空格、“…”“⋯”“...”、连字符和中文数字逐位读出（“验证码是 4 7 2 9 1 5”→“验证码是 * * * * * *”）；手机号、卡号仍走各自实体规则，金额、“尾号1234”、订单号 / 工号、带单位的数字和与关键词无关的数字不打码。没有实体时 `redactText(text, [])` 也会打码（以前原样返回），通话追踪、语音记录、网页大模型上下文都经过这一道。新增 `findOtpSpans` / `find_otp_spans`；`tests/fixtures/redact.json` 新增 `otp`（32 条正负例，gen-fixtures 生成时校验预期）；新增 `tests/redact_otp.test.js`、`python/tests/test_redact_otp.py`。其余 fixtures、模拟器结果不变。
