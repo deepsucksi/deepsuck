@@ -4,7 +4,7 @@ from pathlib import Path
 
 STATIC = Path(__file__).resolve().parents[1] / "static"
 BANNED = re.compile(r"paraformer|cosyvoice|qwen|dashscope|百炼|阿里|aliyun|smallwebrtc|pipecat|aiortc|deepseek|通义", re.I)
-SENTENCE = "勾选同意时保存录音和脱敏文字 30 天用于改进，不勾选则不保存；仅供防诈研究与教育。"
+SENTENCE = "勾选同意时保存录音和脱敏文字 30 天用于改进，不勾选则不保存；仅供防诈研究与教育，请勿用于联系任何真实的人。"
 
 
 def test_no_vendor_or_stack_names_on_page():
