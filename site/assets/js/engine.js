@@ -297,8 +297,10 @@
       vars.intel = this.lastNew.map(function (i) { return self.speakIntel(i); }).join('，');
       var missing = this.missingGoals();
       var g0 = missing[0];
-      vars.ask = (g0 && !this.asked[g0] && this.persona.asks[g0]) || this.persona.asks.none;
-      if (g0) this.asked[g0] = true;
+      // confirmAskSkip：复述完情报不紧接着要这些（如李大爷复述后马上要电话，会被当成反套话），留给之后的 elicit_*
+      var skip = (this.persona.confirmAskSkip || []).indexOf(g0) >= 0;
+      vars.ask = (g0 && !skip && !this.asked[g0] && this.persona.asks[g0]) || this.persona.asks.none;
+      if (g0 && !skip) this.asked[g0] = true;
     }
     var text = this.fill(this.pick(intent, analysis.redacted), vars);
     return this.recordBot(text, intent);

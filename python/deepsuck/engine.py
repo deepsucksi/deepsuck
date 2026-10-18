@@ -331,8 +331,10 @@ class Session:
             missing = self.missing_goals()
             asks = self.persona["asks"]
             g0 = missing[0] if missing else None
-            vars["ask"] = (asks.get(g0) if g0 and not self.asked.get(g0) else None) or asks["none"]
-            if g0:
+            # confirmAskSkip：复述完情报不紧接着要这些（如李大爷复述后马上要电话，会被当成反套话），留给之后的 elicit_*
+            skip = g0 in (self.persona.get("confirmAskSkip") or [])
+            vars["ask"] = (asks.get(g0) if g0 and not skip and not self.asked.get(g0) else None) or asks["none"]
+            if g0 and not skip:
                 self.asked[g0] = True
         text = self.fill(self.pick(intent, analysis["redacted"]), vars)
         return self.record_bot(text, intent)

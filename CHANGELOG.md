@@ -4,6 +4,13 @@
 
 - 评测：按 644f2ee（扩人设模板池）重跑模拟器（30 个种子），重新生成 `eval/results-sim-corpus.json`、`results-sim.json`、`results-sim-hard.json`；语料台词下规则引擎拖延 15.9 → 17.0 轮、完全重复率 3.9% → 0.0%、起疑挂断 28% → 0%，提取率 100%、泄露率 0 不变；docs/EVAL.md 第 1 节给出 14b7037 → 644f2ee 对比，并注明骗子由规则脚本扮演、结果偏乐观，需用大模型扮演骗子复验。
 
+### 演示页大模型回复不念打码值、引号配对
+
+- 根因：线上演示页探测到在线服务（live.deepsuck.si）后会自动从规则引擎切到大模型；发给模型的对话是脱敏后的（网址、卡号带 *），提示词还要求“复述时保持打码形式”，模型就照抄了打码网址；`sanitizeReply` 又无条件去掉句首的“，句首是引用时留下单边的”。规则引擎本身没有这个问题（复述走 `speakIntel`，基于内存里的原值）。
+- `site/assets/js/llm.js`（浏览器与 server 共用）：发给模型前把打码值换成〔你发的那个网址〕〔尾号 3445 那个号〕〔姓李的那个人〕之类的代称，提示词改为“用自然说法、不照抄〔〕、不写星号、复述只说关键短语”；模型输出里残留的打码值（照抄或被脱敏的）换成自然说法；只在整句被一对引号包住时去掉引号，单边引号删除，超过 8 个字的半句引用去掉引号。脱敏规则（site/assets/core）没有改。
+- 李大爷复述情报后不再紧接着要电话（`personas.json` 新字段 `confirmAskSkip`，JS / Python 一致）；删去小林“反诈课 PPT”句。
+- 回归测试：`tests/demo_replies.test.js`（复现场景样例 1–3 走规则引擎和假模型的大模型路径、全场景 × 全人设扫描）、`python/tests/test_demo_replies.py`。
+
 ### 老人聊天风格的真人化、四处露馅修补
 
 - `personas.humanize`（Python）与新增的 `site/assets/js/humanize.js`（JS，逐字一致，`tests/fixtures/humanize.json` 对拍）：按人设配置每百字错字密度（`typoPer100`；手写档 `handwritingTypoPer100`，`handwriting=True` 才生效），错字集中在常用词和地名，同一场同词同错；一句拆几条发、表情代逗号、每个人设固定标点风格（无标点 / 只用逗号）；第三人称自称、报年龄、道歉、“你忙吧”收尾。数字串（号码、卡号、金额、钱包地址、网址）内部和两侧不放错字、表情、标点，也不拆条；户名 / 收款人等字段名后不改。配置全部在 `personas.json` 的 `humanize` 字段（唯一数据源），`core-data.js` 与 fixtures 已重新生成。
