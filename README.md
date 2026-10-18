@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/deepsucksi/deepsuck/actions/workflows/pages.yml"><img alt="Pages" src="https://github.com/deepsucksi/deepsuck/actions/workflows/pages.yml/badge.svg"></a>
+  <a href="https://github.com/deepsucksi/deepsuck/actions/workflows/test.yml"><img alt="Tests" src="https://github.com/deepsucksi/deepsuck/actions/workflows/test.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-171c1f"></a>
   <a href="DATA_LICENSE"><img alt="Data: CC BY 4.0" src="https://img.shields.io/badge/data-CC%20BY%204.0-171c1f"></a>
   <a href="https://github.com/deepsucksi/deepsuck/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/deepsucksi/deepsuck?color=b74224"></a>
