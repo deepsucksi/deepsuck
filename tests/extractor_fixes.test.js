@@ -66,3 +66,10 @@ test('EX-0013 备注不是姓名', () => {
   assert.ok(!hasType('【示例数据】收款户名只保留姓氏。', 'name'));
   assert.ok(!hasType('收款人是我的朋友', 'name'));
 });
+
+test('省略号当数字分隔（断续报号、ASR 转写）', () => {
+  assert.ok(hasType('卡号6222…0212…3456…7890…123', 'bank_card'));
+  assert.ok(hasType('手机号138…0013…8000', 'phone'));
+  assert.ok(hasType('卡号六二二二…零二一二…三四五六…七八九零…一二三', 'bank_card'));
+  assert.ok(!X.extract('给你转了200…等等').some((e) => e.sensitive));
+});
