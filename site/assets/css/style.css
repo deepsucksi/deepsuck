@@ -331,3 +331,10 @@ section.end{padding:72px 0 96px}
 .menu-panel button{border-top:1px solid var(--line);border-radius:0 0 var(--radius-s) var(--radius-s);margin-top:4px;color:var(--muted)}
 .menu-panel [hidden]{display:none}
 @media (max-width:980px){.menu{display:block}.topbar .wrap{gap:12px}.nav{gap:14px}}
+
+/* 404 */
+.notfound{padding-top:140px;padding-bottom:160px}
+.notfound>*{max-width:720px}
+.notfound h1{font-size:44px;line-height:1.2;margin:0 0 24px}
+.notfound .lead{color:var(--muted);font-size:var(--fs-l);line-height:1.9;margin:0 0 40px}
+@media (max-width:640px){.notfound{padding-top:72px;padding-bottom:96px}.notfound h1{font-size:32px}}

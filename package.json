@@ -15,7 +15,8 @@
     "fixtures": "node scripts/gen-fixtures.js",
     "test:py": "cd python && python -m pytest -q",
     "blocklists": "node scripts/fetch-blocklists.js",
-    "screenshots": "node scripts/screenshots.js"
+    "screenshots": "node scripts/screenshots.js",
+    "og": "node scripts/og.js"
   },
   "keywords": [
     "anti-scam",
