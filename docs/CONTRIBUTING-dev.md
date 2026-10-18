@@ -51,8 +51,8 @@ issue → 分支 <area>/<issue>-<slug>（独立 worktree）→ Conventional Comm
 - `main` 受保护：**禁止直接推送、强推和删除**，所有改动都走 PR；只允许 squash 合并，历史保持线性。
 - PR 标题同样遵守 Conventional Commits，squash 后的提交标题就是 PR 标题；描述按模板填写，必须写 `Closes #N`（或 `Refs #N`）。
 - 必须通过的检查：CI `test` 工作流的必需检查全绿（见 `.github/workflows/test.yml`），且分支与 `main` 同步。落后时执行 `gh pr update-branch <PR号>`（或在分支上 `git fetch && git rebase origin/main` 后 `git push --force-with-lease`，只限自己的分支）。
-- 开启自动合并：`gh pr merge <PR号> --squash --auto`。CI 通过后 GitHub 自动 squash 合并并删除分支。不要等 CI 时手动合并，不要用 `--admin`。
-- **管理员绕过仅限紧急情况**（线上事故、CI 本身坏了且阻塞修复）：由负责人执行，事后在相关 issue 里写明原因，并补一个正常 PR 修复根因。
+- 开启自动合并：`gh pr merge <PR号> --squash --auto`。CI 通过后 GitHub 自动 squash 合并并删除分支。不要手动绕过 CI 合并。
+- **管理员绕过仅限紧急情况**（线上事故、CI 本身坏了且阻塞修复）：只能通过 PR 绕过（`gh pr merge <PR号> --squash --admin`），任何人（包括管理员和部署密钥）都不能直接推送 `main`。由负责人决定并执行，事后在相关 issue 里写明原因，并补一个正常 PR 修复根因。代理日常一律不用 `--admin`。
 
 ```bash
 R=deepsucksi/deepsuck
