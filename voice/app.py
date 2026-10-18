@@ -43,6 +43,7 @@ from deepsuck.personas import PERSONAS, SCENARIOS  # noqa: E402
 
 from . import guard as G  # noqa: E402
 from . import records as REC  # noqa: E402
+from . import trace as TR  # noqa: E402
 from .disclosure import disclosure_text  # noqa: E402
 from .dashscope_ws import PERSONA_VOICES, persona_voice  # noqa: E402
 from .persona import system_prompt, voice_opening  # noqa: E402
@@ -113,16 +114,20 @@ def public_config(engine: str, limits: Optional[G.Limits] = None, budget: Option
         "personas": [{"id": p["id"], "name": p["name"], "tagline": p["tagline"],
                       "voice": _public_voice(p["id"])} for p in PERSONAS],
         "scenarios": [{"id": s["id"], "title": s["title"]} for s in SCENARIOS],
+        # 通话追踪（同意制，见 voice/trace.py）：页面据此显示同意复选框和说明
+        "trace": {"enabled": TR.enabled(), "days": TR.days(), "audio": TR.audio_enabled()},
     }
 
 
 def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", fillers=None,
                    blocklist=None, stt=None, tts=None, llm=None, meter=None, profile: str = "web",
-                   vad_analyzer=None, recorder=None):
+                   vad_analyzer=None, recorder=None, audiobuf=None):
     """组装管线；stt/tts/llm/vad_analyzer 可注入（测试用）。返回 (pipeline, intel_processor, context)。
 
     profile 选延迟/打断参数（voice/tuning.py）："web" 浏览器，"phone" 电话线路。
     recorder 为 voice.records.AudioRecorder 时（KEEP_AUDIO=1）在输入后、输出前各插一个录音点。
+    audiobuf 为 Pipecat AudioBufferProcessor 时（通话追踪录音，见 voice/trace.py）放在 transport.output() 之后：
+    那里能同时看到对方的输入音频（一路透传下来）和实际播出的人设音频（按播放节奏），两轨天然对齐。
     """
     from pipecat.pipeline.pipeline import Pipeline
 
@@ -168,7 +173,7 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         turns = UserTurnProcessor(user_turn_strategies=strategies)
         procs = [transport.input(), VADProcessor(vad_analyzer=vad_analyzer), stt, turns, intel, filler, tts,
                  transport.output()]
-        return Pipeline(_with_taps(procs, recorder)), intel, None
+        return Pipeline(_with_audiobuf(_with_taps(procs, recorder), audiobuf, procs[-1])), intel, None
 
     from pipecat.processors.aggregators.llm_context import LLMContext
     from pipecat.processors.aggregators.llm_response_universal import (
@@ -190,7 +195,15 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
     intel.meter = meter
     tap = BotTextTap(intel)
     procs = [transport.input(), stt, intel, agg.user(), llm, filler, tap, tts, transport.output(), agg.assistant()]
-    return Pipeline(_with_taps(procs, recorder)), intel, context
+    return Pipeline(_with_audiobuf(_with_taps(procs, recorder), audiobuf, procs[-2])), intel, context
+
+
+def _with_audiobuf(procs: list, audiobuf, out) -> list:
+    """把录音缓冲插在 transport.output()（out）之后。"""
+    if audiobuf is None:
+        return procs
+    i = next(k for k, p in enumerate(procs) if p is out)
+    return procs[:i + 1] + [audiobuf] + procs[i + 1:]
 
 
 def _with_taps(procs: list, recorder) -> list:
@@ -207,7 +220,8 @@ def _with_taps(procs: list, recorder) -> list:
 
 async def run_bot(connection, persona: str, scenario: str, engine: str, *, limits: Optional[G.Limits] = None,
                   budget: Optional[G.VoiceBudget] = None, ticket: Optional[G.Ticket] = None,
-                  on_done=None, connect_timeout: Optional[float] = None) -> None:
+                  on_done=None, connect_timeout: Optional[float] = None, consent: bool = False,
+                  trace_id: Optional[str] = None) -> None:
     """一次通话：SmallWebRTC 连接 → 管线 → 开场白；看门狗按时长/轮数/静默/预算挂断。"""
     from pipecat.frames.frames import EndFrame, TTSSpeakFrame
     from pipecat.pipeline.runner import PipelineRunner
@@ -224,20 +238,26 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
     budget = budget or G.VoiceBudget()
     if connect_timeout is None:
         connect_timeout = G._env_f("VOICE_CONNECT_TIMEOUT", 30)
-    st = {"t0": time.time(), "connected": None, "heard": time.time()}
+    st = {"t0": time.time(), "connected": None, "heard": time.time(), "reason": ""}
     wd: Optional[asyncio.Task] = None
     bg_fill: Optional[asyncio.Task] = None
-    session = recorder = None
+    session = recorder = trace = lat = None
     call_id = ""
     try:
         session = Session(scenario=scenario, persona=persona, engine=f"voice-{engine}")
-        call_id = uuid.uuid4().hex[:12]
-        recorder = REC.recorder_for(call_id)  # KEEP_AUDIO=1 才录音
+        # 通话追踪：勾选同意才存内容（文字 + 两轨录音）；不勾选只计数。编号与 /api/offer 返回给页面的一致
+        trace = TR.CallTrace(channel="web", consent=consent, persona=session.persona["id"],
+                             scenario=session.scenario["id"], model=LLM_MODEL if engine == "llm" else "rule",
+                             engine=engine, trace_id=trace_id)
+        call_id = trace.id
+        trace.session = session
+        recorder = REC.recorder_for(call_id) if trace.store else None  # KEEP_AUDIO=1 且同意才录 WAV（旧开关）
         transport = SmallWebRTCTransport(webrtc_connection=connection, params=TransportParams(
             audio_in_enabled=True, audio_out_enabled=True, audio_in_sample_rate=IN_RATE, audio_out_sample_rate=OUT_RATE,
             audio_out_mixer=make_mixer(session.persona["id"])))
 
         async def notify(msg: dict) -> None:
+            trace.observe(msg)
             try:
                 connection.send_app_message({"type": "deepsuck", "data": msg})
             except Exception as e:
@@ -250,7 +270,9 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
         if fillers_missing(pid, pvoice, OUT_RATE, fillers):
             bg_fill = asyncio.create_task(synth_fillers(pid, pvoice, OUT_RATE, meter=ticket, out=fillers))
         pipeline, intel, context = build_pipeline(transport, session, notify, engine=engine, fillers=fillers,
-                                                  blocklist=Client(), meter=ticket, recorder=recorder)
+                                                  blocklist=Client(), meter=ticket, recorder=recorder,
+                                                  audiobuf=trace.audio_processor())
+        trace.prompt_sha = lambda: intel.prompt_sha
         intel.on_heard = lambda: st.__setitem__("heard", time.time())
         from .latency import LatencyObserver
         from .tuning import get_profile
@@ -276,6 +298,7 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
 
         @transport.event_handler("on_client_disconnected")
         async def _gone(_t, _c):
+            st["reason"] = st["reason"] or "client_hangup"
             session.end()
             await lat.flush()
             from .latency import summarize
@@ -290,6 +313,7 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
                 if st["connected"] is None:
                     if now - st["t0"] > connect_timeout:  # ICE 没连上（多半是 UDP 端口没放行）
                         logger.warning("WebRTC 连接超时，释放名额（检查防火墙 UDP 端口 / VOICE_PUBLIC_IP）")
+                        st["reason"] = "connect_timeout"
                         await task.cancel()
                         return
                     continue
@@ -298,6 +322,7 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
                                    budget=budget, now=now)
                 if why:
                     logger.info(f"guard: ending call ({why})")
+                    st["reason"] = st["reason"] or why
                     intel.closing = True  # 不再处理新转写，避免继续花钱
                     await notify({"type": "limit", "reason": why, "text": G.END_NOTE[why]})
                     await notify({"type": "bot", "text": G.END_TEXT[why], "intent": "hangup"})
@@ -309,6 +334,7 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
         wd = asyncio.create_task(watchdog())
         await PipelineRunner(handle_sigint=False).run(task)
     except Exception as e:
+        st["reason"] = st["reason"] or "error"
         logger.exception(f"run_bot failed: {e}")
     finally:
         for t in (wd, bg_fill):
@@ -318,7 +344,16 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
             recorder.close()
         if session is not None:
             session.end()
-            REC.save_transcript(session, call_id, "web")
+            if trace is not None and trace.store:  # 不勾选同意就什么都不存
+                REC.save_transcript(session, call_id, "web")
+        if trace is not None:
+            try:
+                from .latency import summarize
+                trace.end(st["reason"] or "pipeline_end", stats=session.stats() if session else None,
+                          latency=summarize(lat.turns) if lat is not None else None,
+                          usage=ticket.usage if ticket is not None else None)
+            except Exception as e:
+                logger.warning(f"通话追踪收尾失败: {e}")
         if ticket is not None:
             ticket.close()
         if on_done is not None:
@@ -368,12 +403,16 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
         # 通话留存：启动时清一次过期文件，之后每小时一次
         logger.info(f"通话留存策略: {REC.describe()}")
         app.state.cleanup_task = asyncio.create_task(REC.cleanup_loop())
+        # 通话追踪：启动时清一次超过 TRACE_DAYS 的记录，之后每天一次
+        logger.info(f"通话追踪: {TR.describe()}")
+        app.state.trace_cleanup_task = asyncio.create_task(TR.cleanup_loop())
 
     @app.on_event("shutdown")
     async def _retention_stop():
-        t = getattr(app.state, "cleanup_task", None)
-        if t is not None:
-            t.cancel()
+        for name in ("cleanup_task", "trace_cleanup_task"):
+            t = getattr(app.state, name, None)
+            if t is not None:
+                t.cancel()
 
     @app.on_event("startup")
     async def _prewarm():
@@ -424,6 +463,7 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
             raise HTTPException(403, "origin not allowed")
         body: Dict[str, Any] = await request.json()
         persona, scenario = str(body.get("persona") or "wang"), str(body.get("scenario") or "refund")
+        consent = body.get("consent") is True  # 只认 JSON true；缺省/字符串都当不同意
         if not isinstance(body.get("sdp"), str) or len(body["sdp"]) > 20000 or body.get("type") != "offer":
             raise HTTPException(400, "bad offer")
         pc_id = body.get("pc_id")
@@ -442,6 +482,7 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
                 raise HTTPException(429, G.END_NOTE["budget"] + "，明天再来（网页文字版沙盒不受影响）")
         req = SmallWebRTCRequest(sdp=body["sdp"], type=body["type"], pc_id=pc_id)
         started = {"v": False}
+        trace_id = TR.new_id() if not renegotiate else None
 
         async def on_conn(conn):
             started["v"] = True
@@ -451,7 +492,7 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
                 known_pcs.pop(_pc, None)
 
             background.add_task(run_bot, conn, persona, scenario, engine, limits=limits, budget=budget,
-                                ticket=ticket, on_done=done)
+                                ticket=ticket, on_done=done, consent=consent, trace_id=trace_id)
 
         try:
             ans = await handler.handle_web_request(req, on_conn)
@@ -468,7 +509,61 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
                 known_pcs[ans["pc_id"]] = sid
             if public_ip and ans.get("sdp"):
                 ans["sdp"] = add_public_ip_candidates(ans["sdp"], public_ip)
+            if trace_id and started["v"] and consent and TR.enabled():
+                ans["trace_id"] = trace_id  # 只有同意存储时才把编号给页面（用于反馈和复制）
         return ans
+
+    @app.post("/api/feedback/{trace_id}")
+    async def feedback(trace_id: str, request: Request):
+        """“这通有问题”：可选一句说明、可选第几轮，写进同一份通话追踪。只接受已同意存储的网页通话。"""
+        if origins and request.headers.get("origin", "").rstrip("/") not in origins:
+            raise HTTPException(403, "origin not allowed")
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        if not isinstance(body, dict):
+            body = {}
+        res = await asyncio.to_thread(TR.feedback, trace_id, str(body.get("note") or ""), body.get("turn"))
+        if res is None:
+            raise HTTPException(404, "not found")
+        if not res.get("ok"):
+            raise HTTPException(429, "too many reports for this call")
+        return {"ok": True}
+
+    # ---- 通话追踪读取端（不对公众：Caddy 对 /api/traces* 直接 404；这里再要求 TRACE_ADMIN_TOKEN） ----
+    def _admin(request: Request) -> None:
+        want = os.environ.get("TRACE_ADMIN_TOKEN", "")
+        if not want or request.headers.get("x-forwarded-for"):  # 没配 token，或经反向代理进来的：一律当不存在
+            raise HTTPException(404, "not found")
+        auth = request.headers.get("authorization", "")
+        got = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+        if not got or not hmac.compare_digest(got.encode(), want.encode()):
+            raise HTTPException(403, "forbidden")
+
+    @app.get("/api/traces")
+    async def traces(request: Request, since: Optional[str] = None, limit: int = 50):
+        _admin(request)
+        return {"traces": await asyncio.to_thread(TR.list_traces, since, limit)}
+
+    @app.get("/api/traces/{trace_id}")
+    async def trace_get(trace_id: str, request: Request):
+        _admin(request)
+        t = await asyncio.to_thread(TR.load, trace_id)
+        if t is None:
+            raise HTTPException(404, "not found")
+        t["audio"] = {k: {"bytes": v["bytes"], "url": f"/api/traces/{trace_id}/audio/{k}"} for k, v in t["audio"].items()}
+        return t
+
+    @app.get("/api/traces/{trace_id}/audio/{track}")
+    async def trace_audio(trace_id: str, track: str, request: Request):
+        _admin(request)
+        if not TR.valid_id(trace_id) or track not in TR.TRACKS:
+            raise HTTPException(404, "not found")
+        p = TR.trace_dir() / f"{trace_id}-{track}.ogg"
+        if not p.is_file():
+            raise HTTPException(404, "not found")
+        return FileResponse(p, media_type="audio/ogg")
 
     @app.patch("/api/offer")
     async def ice(request: Request):

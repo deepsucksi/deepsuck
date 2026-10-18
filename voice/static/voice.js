@@ -2,7 +2,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  let pc = null, dc = null, pcId = null, mic = null, interimEl = null, iceServers = [];
+  let pc = null, dc = null, pcId = null, mic = null, interimEl = null, iceServers = [], traceId = null, traceOn = true;
 
   function setStatus(cls, text) { $("dot").className = "dot " + cls; $("st").textContent = text; }
   function err(t) { $("err").textContent = t || ""; }
@@ -11,6 +11,8 @@
     try {
       const c = await (await fetch("/api/config", { cache: "no-store" })).json();
       iceServers = c.iceServers || [];
+      traceOn = !c.trace || c.trace.enabled !== false;
+      if (!traceOn) { $("consentRow").hidden = true; $("keepNote").hidden = true; }
       if (c.limits) $("limits").textContent = `公开体验限制：每局最长 ${c.limits.maxMinutes} 分钟 / ${c.limits.maxTurns} 轮，同时最多 ${c.limits.maxSessions} 路通话` +
         (c.budget && c.budget.capCny ? `；今日额度已用 ${c.budget.usedPct}%` : "") + "。";
       if (c.budget && c.budget.exhausted) { setStatus("bad", "今日语音体验额度已用完"); $("call").disabled = true; return; }
@@ -77,6 +79,7 @@
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `HTTP ${r.status}`);
     const ans = await r.json();
     pcId = ans.pc_id;
+    if (ans.trace_id) showTrace(ans.trace_id);
     await pc.setRemoteDescription({ sdp: ans.sdp, type: ans.type });
   }
 
@@ -99,7 +102,8 @@
         else if (m.type === "signalling" && m.message && m.message.type === "renegotiate") negotiate({}).catch(() => {});
       };
       $("log").innerHTML = "";
-      await negotiate({ persona: $("persona").value, scenario: $("scenario").value });
+      hideTrace();
+      await negotiate({ persona: $("persona").value, scenario: $("scenario").value, consent: consentOn() });
       $("hang").hidden = false;
     } catch (e) {
       err("无法开始通话：" + e.message); stop();
@@ -114,6 +118,40 @@
     $("hang").hidden = true; $("call").disabled = false;
     if ($("dot").classList.contains("live")) setStatus("ok", "已挂断");
   }
+
+  // ---- 通话追踪：同意、编号、反馈 ----
+  function consentOn() { return traceOn && $("consent").checked; }
+  function showTrace(id) {
+    traceId = id; $("traceId").textContent = id; $("trace").hidden = false;
+    $("fb").hidden = true; $("fbDone").hidden = true; $("fbOpen").hidden = false;
+  }
+  function hideTrace() { traceId = null; $("trace").hidden = true; $("fb").hidden = true; $("fbDone").hidden = true; }
+  $("consent").onchange = () => { if (!$("consent").checked && !pc) hideTrace(); };
+  $("consentMore").onclick = () => {
+    const box = $("consentInfo"), open = box.hidden;
+    box.hidden = !open; $("consentMore").setAttribute("aria-expanded", String(open));
+  };
+  $("traceCopy").onclick = async () => {
+    if (!traceId) return;
+    try { await navigator.clipboard.writeText(traceId); $("traceCopy").textContent = "已复制"; }
+    catch { const r = document.createRange(); r.selectNodeContents($("traceId")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+    setTimeout(() => { $("traceCopy").textContent = "复制"; }, 1500);
+  };
+  $("fbOpen").onclick = () => { $("fb").hidden = false; $("fbDone").hidden = true; $("fbNote").focus(); };
+  $("fbCancel").onclick = () => { $("fb").hidden = true; };
+  $("fb").onsubmit = async (e) => {
+    e.preventDefault();
+    if (!traceId) return;
+    const turn = $("fbTurn").value.trim();
+    try {
+      const r = await fetch(`/api/feedback/${encodeURIComponent(traceId)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: $("fbNote").value.trim(), turn: turn === "" ? null : Number(turn) }),
+      });
+      $("fbDone").textContent = r.ok ? `已记录，谢谢。通话编号 ${traceId}` : "提交失败，请稍后再试。";
+    } catch { $("fbDone").textContent = "提交失败，请稍后再试。"; }
+    $("fb").hidden = true; $("fbDone").hidden = false; $("fbNote").value = ""; $("fbTurn").value = "";
+  };
 
   $("call").onclick = start;
   $("hang").onclick = stop;

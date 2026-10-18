@@ -38,7 +38,11 @@ services:
   voice:
     <<: *common
     env_file: .env
-    build: { context: .., dockerfile: deploy/Dockerfile.voice }
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.voice
+      # 代码版本：可选 GIT_SHA=$(git rev-parse --short HEAD) docker compose build；不传时镜像里读 .gitmeta（HEAD + refs）
+      args: { GIT_SHA: "${GIT_SHA:-}" }
     image: deepsuck-voice
     environment:
       VOICE_HOST: 127.0.0.1
@@ -58,8 +62,17 @@ services:
       VOICE_TRANSCRIPT_DAYS: ${VOICE_TRANSCRIPT_DAYS:-30}
       KEEP_AUDIO: ${KEEP_AUDIO:-0}
       KEEP_AUDIO_DAYS: ${KEEP_AUDIO_DAYS:-7}
+      # 通话追踪（voice/trace.py，页面勾选同意才存录音和脱敏文字）：独立命名卷 voice-traces，30 天自动删，
+      # 超过 TRACE_MAX_MB 或磁盘剩余低于 TRACE_MIN_FREE_MB 停录音（文字照存）。读取接口要 TRACE_ADMIN_TOKEN（.env），
+      # Caddy 对公网的 /api/traces* 一律 404
+      VOICE_TRACE: ${VOICE_TRACE:-1}
+      TRACE_DIR: /traces
+      TRACE_DAYS: ${TRACE_DAYS:-30}
+      TRACE_AUDIO: ${TRACE_AUDIO:-1}
+      TRACE_MAX_MB: ${TRACE_MAX_MB:-1024}
+      TRACE_MIN_FREE_MB: ${TRACE_MIN_FREE_MB:-1024}
     # DATA_DIR=/data 固定指向命名卷 voice-data（留存文件在 /data/voice/{transcripts,audio}/），重建容器不丢
-    volumes: [ "voice-data:/data", "voice-cache:/cache" ]
+    volumes: [ "voice-data:/data", "voice-cache:/cache", "voice-traces:/traces" ]
     mem_limit: ${VOICE_MEM_LIMIT:-700m}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:7860/api/voice/health',timeout=4)"]
@@ -139,5 +152,6 @@ volumes:
   proxy-data: {}
   voice-data: {}
   voice-cache: {}
+  voice-traces: {}
   caddy-data: {}
   caddy-config: {}

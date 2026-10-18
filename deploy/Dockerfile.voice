@@ -17,6 +17,11 @@ COPY site/assets/core/ site/assets/core/
 COPY site/assets/logo.svg site/assets/logo.svg
 COPY site/assets/brand/wordmark.svg site/assets/brand/on-hold-mono-96.png site/assets/brand/
 COPY site/assets/fonts/Manrope.ttf site/assets/fonts/IBMPlexMono-Regular.ttf site/assets/fonts/
-RUN useradd -r -u 1000 app && mkdir -p /data /cache && chown app:app /data /cache
+RUN useradd -r -u 1000 app && mkdir -p /data /cache /traces && chown app:app /data /cache /traces && chmod 700 /traces
+# 代码版本（写进通话追踪）：构建参数 GIT_SHA 优先；没传时用 .dockerignore 放行的 .git/HEAD 与 refs（不含对象库）
+ARG GIT_SHA=
+ENV GIT_SHA=${GIT_SHA}
+COPY .git/HEA[D] .git/packed-ref[s] /app/.gitmeta/
+COPY .git/refs/head[s] /app/.gitmeta/refs/heads/
 USER app
 CMD ["python", "-m", "voice.app"]

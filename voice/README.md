@@ -129,3 +129,28 @@ python -m pytest voice/tests -q    # 全部用假 WebSocket，不联网、不需
 
 - **断续停顿**：回复里的「…」不再读成逗号，而是当停顿。流式 TTS 遇到以「…」结尾的分句，就把这一句单独合成，结束后插 300 到 900 毫秒的随机静音，再接下一句。每个回合的第一句走原来的路径，所以首包延迟不变。`DEEPSUCK_PAUSE_MS=300-900` 调范围，`DEEPSUCK_PAUSES=0` 关闭（省略号退回读成逗号）。CosyVoice 的 SSML `<break>` 要求整段文字一次发完，没法边生成边合成，所以没有用它。
 - **环境底噪**：`voice/ambience.py` 按人设给发出去的音频混一层低音量循环底噪：王阿姨是厨房，李大爷是隔壁屋电视，小林是街道。网页通话和 SIP 电话都会混。底噪只加在发给对方的音频上，不进 ASR，也不影响打断。`DEEPSUCK_AMBIENCE=0` 关闭，填 `kitchen`、`street` 或 `tv` 可以强制用某一段；`DEEPSUCK_AMBIENCE_VOLUME` 调音量，默认 0.2，大约比说话低 28 dB。素材出处和授权见 `voice/assets/ambience/SOURCES.md`。
+
+## 通话追踪与问题反馈
+
+网页「开始通话」旁的复选框（默认勾选）决定这通电话存不存内容，随 `/api/offer` 的 `consent` 传给服务端（只认 JSON `true`）。代码在 `voice/trace.py`。
+
+- 勾选：每通一个 8 位通话编号（base32），页面显示、可复制。每轮写一行 JSONL：时间、ASR 文本、意图、人设回复、本轮情报（脱敏）、各段延迟（`latency.py`）、模型名、提示词哈希和模板版本、代码版本（`GIT_SHA` 或镜像里的 `.gitmeta`）、人设和场景、consent；结束写一行汇总（挂断原因、统计、延迟分位）。录音两轨（对方、人设），由 Pipecat `AudioBufferProcessor` 分轨回调，后台线程边收边编码成 16k 单声道 ogg/opus（约 2 KB/秒/轨）。「这通有问题」按钮 POST `/api/feedback/<编号>`，写进同一份记录。
+- 不勾选：什么内容都不存，只在 `stats.json` 里加无内容的计数。
+- 电话线路（SIP）：没法勾选，只存脱敏文字、不录音，主叫号码按 `mask_phone` 打码，consent 记为 `sip-text-only`。
+- 文字落盘前都过一遍共享的 `redact_text(text, extract_sensitive(text))`。
+
+读取（不对公众）：`GET /api/traces?since=&limit=`、`GET /api/traces/<编号>`、`GET /api/traces/<编号>/audio/<scammer|persona>`，需 `Authorization: Bearer $TRACE_ADMIN_TOKEN`（常量时间比较）；没配 token 或请求带 `X-Forwarded-For`（经 Caddy 进来）时一律 404；Caddy 对 `/api/traces*` 直接 404。服务器上直接用命令行：
+
+    docker exec deepsuck-voice-1 python -m voice.trace_cli --list
+    docker exec deepsuck-voice-1 python -m voice.trace_cli <编号> --audio
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `VOICE_TRACE` | `1` | `0` 关闭追踪（页面不显示同意选项） |
+| `TRACE_DIR` | `DATA_DIR/voice/traces` | compose 里固定为命名卷 `voice-traces:/traces` |
+| `TRACE_DAYS` | `30` | 保留天数；启动时和之后每天清理一次 |
+| `TRACE_AUDIO` | `1` | `0` 只存文字不录音 |
+| `TRACE_MAX_MB` | `1024` | 目录总量上限，超过停录音（文字照存），打 warning |
+| `TRACE_MIN_FREE_MB` | `1024` | 磁盘剩余低于此值停录音 |
+| `TRACE_ADMIN_TOKEN` | 空 | 读取接口口令；留空则接口 404。生成：`openssl rand -hex 24` |
+| `GIT_SHA` | 空 | 构建参数，可选；不传时读镜像里的 `.gitmeta` |

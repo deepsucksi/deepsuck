@@ -98,7 +98,8 @@ async def make_scammer_wav(path: str, gap_s: float = 9.0, lead_s: float = 7.0, v
 
 
 async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenario: str, origin: Optional[str],
-              out_wav: Optional[str] = None, quiet: bool = False, insecure: bool = False) -> dict:
+              out_wav: Optional[str] = None, quiet: bool = False, insecure: bool = False,
+              consent: bool = False) -> dict:
     import aiohttp
     import numpy as np
     from aiortc import MediaStreamTrack, RTCConfiguration, RTCPeerConnection, RTCSessionDescription
@@ -199,9 +200,14 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
         headers["Origin"] = origin
     async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False) if insecure else None) as s:
         async with s.post(url.rstrip("/") + "/api/offer", headers=headers, json={
-                "sdp": pc.localDescription.sdp, "type": "offer", "persona": persona, "scenario": scenario}) as r:
+                "sdp": pc.localDescription.sdp, "type": "offer", "persona": persona, "scenario": scenario,
+                "consent": bool(consent)}) as r:
             body = await r.json(content_type=None)
             stats["offer_status"] = r.status
+            if r.status == 200 and isinstance(body, dict) and body.get("trace_id"):
+                stats["trace_id"] = body["trace_id"]
+                if not quiet:
+                    print(f"[{time.time() - t_start:5.1f}s] trace    通话编号 {body['trace_id']}")
             if r.status != 200:
                 stats["error"] = body
                 await pc.close()
@@ -257,12 +263,15 @@ def main(argv=None) -> int:
     ap.add_argument("--insecure", action="store_true", help="不校验 HTTPS 证书（本地 Caddy 自签名测试用）")
     ap.add_argument("--make-wav", help="先用 CosyVoice 合成固定骗子台词到这个路径（计费，约 150 字）")
     ap.add_argument("--json-out", help="把逐轮延迟与汇总写到 JSON 文件")
+    ap.add_argument("--consent", action="store_true",
+                    help="同意保存录音和脱敏文字（通话追踪，30 天删除）；服务端返回的通话编号打印在 trace_id")
     a = ap.parse_args(argv)
     if a.make_wav:
         print(json.dumps({"segments": asyncio.run(make_scammer_wav(a.make_wav))}))
         if not a.wav:
             return 0
-    st = asyncio.run(run(a.url, a.wav, a.seconds, a.persona, a.scenario, a.origin, a.out_wav, insecure=a.insecure))
+    st = asyncio.run(run(a.url, a.wav, a.seconds, a.persona, a.scenario, a.origin, a.out_wav, insecure=a.insecure,
+                         consent=a.consent))
     summary = {k: v for k, v in st.items() if k not in ("events", "state", "fillers")}
     summary["turns"] = sum(1 for e in st.get("events", []) if e.get("type") == "scammer")
     summary["intel"] = [i.get("masked") for i in (st.get("state") or {}).get("intel", [])]

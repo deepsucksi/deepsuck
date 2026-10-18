@@ -95,5 +95,7 @@ def _tmp_data_dir(tmp_path, monkeypatch):
     # 文字记录 / 录音 / 预算账本都写到临时目录，绝不碰真实数据目录
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     for k in ("KEEP_AUDIO", "KEEP_AUDIO_DAYS", "VOICE_TRANSCRIPTS", "VOICE_TRANSCRIPT_DAYS",
-              "VOICE_AI_DISCLOSURE", "VOICE_AI_DISCLOSURE_TEXT", "VOICE_TELEPHONY_DISCLOSURE"):
+              "VOICE_AI_DISCLOSURE", "VOICE_AI_DISCLOSURE_TEXT", "VOICE_TELEPHONY_DISCLOSURE",
+              "TRACE_DIR", "TRACE_DAYS", "TRACE_MAX_MB", "TRACE_MIN_FREE_MB", "TRACE_AUDIO", "VOICE_TRACE",
+              "TRACE_ADMIN_TOKEN"):
         monkeypatch.delenv(k, raising=False)

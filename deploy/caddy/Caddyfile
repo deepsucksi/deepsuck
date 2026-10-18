@@ -35,6 +35,10 @@
 	handle /telephony/asterisk-ws* {
 		respond 404
 	}
+	# 通话追踪读取端只给服务器本机用（127.0.0.1:7860 + TRACE_ADMIN_TOKEN），公网一律 404
+	handle /api/traces* {
+		respond 404
+	}
 	# 其余（含 VOICE_TELEPHONY=1 时的 WS /telephony/*）都交给语音服务
 	handle {
 		reverse_proxy 127.0.0.1:7860

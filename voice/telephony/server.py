@@ -8,7 +8,8 @@
   VOICE_TELEPHONY_ADAPTERS=ws-raw,pipecat-ws,asterisk-ws   允许的适配器（默认只开 ws-raw）
   VOICE_TELEPHONY_PERSONA=wang / VOICE_TELEPHONY_SCENARIO=refund
   VOICE_AI_DISCLOSURE=1 / VOICE_AI_DISCLOSURE_TEXT=...   开场 AI 告知语（默认不播；与网页入口共用，见 voice/disclosure.py）
-  KEEP_AUDIO / KEEP_AUDIO_DAYS / VOICE_TRANSCRIPTS ...    通话留存（默认只留脱敏文字记录，见 voice/records.py）
+  VOICE_TRANSCRIPTS / VOICE_TRANSCRIPT_DAYS ...           通话留存：电话只留脱敏文字记录和通话追踪（consent="sip-text-only"，
+                                                          主叫打码），从不录音（KEEP_AUDIO 对电话无效），见 voice/trace.py
 
 与浏览器入口共用并发名额、每日预算和时长/轮数/静默护栏；每个主叫号码按“每 IP”规则限频。
 只接听、不外呼：本模块没有任何发起呼叫的代码。
@@ -30,6 +31,7 @@ from loguru import logger
 from ..disclosure import disclosure_text
 from ..persona import voice_opening
 from .. import records as REC
+from .. import trace as TR
 from .base import CallInfo, TelephonyAdapter, get_adapter, list_adapters
 
 IN_RATE, OUT_RATE = 16000, 24000
@@ -80,7 +82,13 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
     from .. import guard as G
 
     session = Session(scenario=scenario, persona=persona, engine=f"phone-{engine}")
-    recorder = REC.recorder_for(call.call_id)  # KEEP_AUDIO=1 才录音
+    recorder = None  # 电话线路没法勾选同意：不录音，只存脱敏文字
+    from .. import app as _A
+    trace = TR.CallTrace(channel="phone", consent=TR.SIP_CONSENT, persona=session.persona["id"],
+                         scenario=session.scenario["id"], model=_A.LLM_MODEL if engine == "llm" else "rule",
+                         engine=engine, caller=call.from_number)
+    trace.session = session
+    reason = {"v": ""}
     bg_fill: Optional[asyncio.Task] = None
     from ..ambience import make_mixer
 
@@ -88,8 +96,8 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
                                          if limits.max_minutes > 0 else None,
                                          audio_out_mixer=make_mixer(session.persona["id"]))
 
-    async def notify(msg: dict) -> None:  # 电话没有看板；情报留在 session 里，通话结束记日志
-        return None
+    async def notify(msg: dict) -> None:  # 电话没有看板；只喂给通话追踪
+        trace.observe(msg)
 
     if build is None:
         from .. import app as A
@@ -104,21 +112,17 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
         if fillers_missing(pid, pvoice, OUT_RATE, fillers):
             bg_fill = asyncio.create_task(synth_fillers(pid, pvoice, OUT_RATE, meter=ticket, out=fillers))
         pipeline, intel, context = A.build_pipeline(transport, session, notify, engine=engine, fillers=fillers,
-                                                    blocklist=Client(), meter=ticket, profile="phone",
-                                                    recorder=recorder)
+                                                    blocklist=Client(), meter=ticket, profile="phone")
     else:
         pipeline, intel, context = build(transport, session, notify)
-        if recorder is not None:
-            logger.warning("自定义管线不支持录音，本通话不保存音频")
-            recorder.close()
-            recorder = None
     st = {"connected": None, "heard": time.time()}
     if intel is not None:
         intel.on_heard = lambda: st.__setitem__("heard", time.time())
+        trace.prompt_sha = lambda: getattr(intel, "prompt_sha", "")
     from ..latency import LatencyObserver, summarize
     from ..tuning import get_profile
 
-    lat = LatencyObserver(vad_stop_secs=get_profile("phone").vad_stop_secs)
+    lat = LatencyObserver(vad_stop_secs=get_profile("phone").vad_stop_secs, notify=notify)
     task = PipelineTask(pipeline, params=PipelineParams(audio_in_sample_rate=IN_RATE, audio_out_sample_rate=OUT_RATE,
                                                         enable_metrics=True, enable_usage_metrics=True),
                         observers=[lat])
@@ -134,6 +138,7 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
 
     @transport.event_handler("on_client_disconnected")
     async def _gone(_t, _c):
+        reason["v"] = reason["v"] or "caller_hangup"
         await task.cancel()
 
     async def watchdog():
@@ -146,6 +151,7 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
                                budget=budget, now=time.time())
             if why:
                 logger.info(f"telephony guard: ending call {call.call_id} ({why})")
+                reason["v"] = reason["v"] or why
                 if intel is not None:
                     intel.closing = True
                 await task.queue_frames([TTSSpeakFrame(G.END_TEXT[why]), EndFrame()])
@@ -161,11 +167,11 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
         if bg_fill is not None and not bg_fill.done():
             bg_fill.cancel()
         session.end()
-        if recorder is not None:
-            recorder.close()
         REC.save_transcript(session, call.call_id, "phone")
         await lat.flush()
-        logger.info(f"phone call ended: provider={call.provider} from={mask_number(call.from_number)} "
+        trace.end(reason["v"] or "pipeline_end", stats=session.stats(), latency=summarize(lat.turns),
+                  usage=ticket.usage if ticket else None)
+        logger.info(f"phone call ended: trace={trace.id} provider={call.provider} from={mask_number(call.from_number)} "
                     f"stats={session.stats()} usage={ticket.usage if ticket else None} "
                     f"latency={summarize(lat.turns)}")
 
