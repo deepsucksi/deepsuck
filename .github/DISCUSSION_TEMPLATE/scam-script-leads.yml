@@ -1,4 +1,4 @@
-# 「诈骗话术线索」分类的发帖模板。文件名须与分类 slug 一致：诈骗话术线索（已用 GraphQL 核对）。
+# 「Scam Script Leads（诈骗话术线索）」分类的发帖模板。文件名须与分类 slug 一致：scam-script-leads（已用 GraphQL 核对）。分类显示名须保持英文：中文显示名会生成中文 slug，中文 slug 下发帖表单模板不生效。
 title: "[话术线索] "
 body:
   - type: markdown
