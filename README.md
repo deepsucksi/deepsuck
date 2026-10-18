@@ -64,7 +64,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 | [DEPLOY](docs/DEPLOY.md) | 公开部署（Docker Compose + Caddy），费用护栏与成本估算 |
 | [VOICE_LATENCY](docs/VOICE_LATENCY.md) | 语音延迟：填充音、打断、流式合成，可调参数与实测数据 |
 | [voice/telephony](voice/telephony/README.md) | 电话接入适配层（`ws-raw`、`pipecat-ws`；默认关闭，只接不拨）与阿里云呼入设计稿 |
-| [PHONE](docs/PHONE.md) | 个人可开通的 SIP / 云号码与呼叫转移方案（接入方案对比整理中） |
+| [PHONE](docs/PHONE.md) | 个人可开通的 SIP / 云号码与呼叫转移方案对比、月费估算 |
 | [INTEL](docs/INTEL.md) · [EVAL](docs/EVAL.md) · [ETHICS](docs/ETHICS.md) | 情报库策略 · 评测 · 伦理与使用规范 |
 | [CHANGELOG](CHANGELOG.md) | 版本记录 |
 
@@ -75,7 +75,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 ## 路线图
 
 - [ ] 语音打磨：真实麦克风/回声场景调参、老人人设的打断策略、Qwen-Omni Realtime 低延迟模式
-- [ ] 电话：接入适配层已有（`voice/telephony/`，默认关闭，只接听、不外呼，可本地联调）；本轮不购买号码，阿里云呼入仅有设计稿，SIP Trunk 需企业资质；个人可行方案对比整理中（[docs/PHONE.md](docs/PHONE.md)），现状与已定政策见 [QUICKSTART 第 6 节](docs/QUICKSTART.md#6-电话接入适配层已有默认关闭只接不拨)
+- [ ] 电话：接入适配层已有（`voice/telephony/`，默认关闭，只接听、不外呼，可本地联调）；本轮不购买号码，阿里云呼入仅有设计稿，SIP Trunk 需企业资质；个人可行方案对比见 [docs/PHONE.md](docs/PHONE.md)，现状与已定政策见 [QUICKSTART 第 6 节](docs/QUICKSTART.md#6-电话接入适配层已有默认关闭只接不拨)
 - [ ] 短信诱骗通道：旧安卓机 + SmsForwarder
 - [x] 情报增强：银行卡 BIN 本地查询（[hexindai/bcbc](https://github.com/hexindai/bcbc)，MIT）；STIX 2.1 导出（`python -m deepsuck.stix`，[`data/intel.stix.json`](site/data/intel.stix.json)）
 - [x] 情报收录自动化：issue 表单 → 脱敏 / 去重 / 黑名单比对 → 待审核 PR（[docs/INTEL.md](docs/INTEL.md)）；公开订阅源 [`intel.rss`](site/data/intel.rss) / [`intel.csv`](site/data/intel.csv)
