@@ -79,6 +79,7 @@ curl -s http://127.0.0.1:7860/api/voice/health
 - 入口**默认关闭**：不设置 `VOICE_TELEPHONY=1` 和 `VOICE_TELEPHONY_TOKEN` 时，路由根本不注册。
 - 代码**只接听、不外呼**，仓库里没有任何发起呼叫的代码。电话入口和浏览器入口共用并发名额、每日预算，以及时长、轮数、静默护栏。
 - `deploy/` 已带电话入口开关，默认关闭（`VOICE_TELEPHONY=0`）。
+- 自建 SIP 软电话**已实现**：Asterisk 22（chan_websocket）连本机 voice 的 `asterisk-ws` 适配器，`WITH_SIP=1 bash bootstrap.sh` 一键启用（之后更新带 `--profile sip`），只有分机 9000 接 AI，不接外线、不外呼，同时 1 路。用 Linphone、Zoiper 等软电话注册即可通话。需放行 UDP 25060，变量表见 [PHONE.md 6.4 节](PHONE.md#64-自建-sip-软电话docker-compose---profile-sip第-10-节)，部署后按 [10.9 节](PHONE.md#109-部署后自检)自检。不带 `WITH_SIP=1` 时现有部署不受影响。
 - 阿里云语音服务「智能语音交互呼入」适配器**只有设计稿**，尚未实现。阿里云 SIP Trunk（语音中继）是邀约制，需要企业实名与资质、固定公网 IP，个人一般开不了。
 
 **本地联调**：启用方法、`ws-raw` 协议、`pipecat-ws` 的凭据变量和测试命令，统一以 [voice/telephony/README.md](../voice/telephony/README.md) 为准，这里不重复，避免两处不一致。单元测试走本地回环 WebSocket，不连服务商，也不拨打电话。
@@ -108,8 +109,10 @@ curl -s http://127.0.0.1:7860/api/voice/health
 | `VAD_STOP_SECS` | 0.2 | 0.3 | 判定停说所需静音时长 |
 | `VAD_MIN_VOLUME` | 0.6 | 0.5 | 最小音量 |
 | `INTERRUPT_MIN_CHARS` | 2 | 3 | 机器人说话时打断所需有效字数 |
-| `FILLER_DELAY_MS` | 650 | 650 | 停说后多久仍无首 token 就播填充音；0 关闭 |
+| `FILLER_DELAY_MS` | 650 | 650 | 仅 `DEEPSUCK_BACKCHANNEL=0` 时生效：停说后多久仍无首 token 就播填充音；0 关闭 |
 | `TTS_CLAUSE_MIN_CHARS` | 6 | 6 | 逗号处切分前至少攒的字数 |
+
+默认开启短口头语（`DEEPSUCK_BACKCHANNEL=1`）：回合一结束就播当前人设预合成的口头语，不等大模型；设为 `0` 回到旧的按延迟触发填充音，`FILLER_DELAY_MS` 才生效。口头语音频缓存在 `$DATA_DIR/voice/fillers/`（可用 `DEEPSUCK_FILLER_CACHE_DIR` 指定），首次启动会合成一批，产生少量费用。
 
 另有 `DEEPSUCK_TTS_STREAM=0`，可回退到旧的每句一连接合成。例如 `DEEPSUCK_LAT_ASR_MAX_SILENCE_MS=500` 就是把网页断句静音调到 500ms。
 
