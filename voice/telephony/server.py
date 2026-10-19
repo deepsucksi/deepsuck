@@ -178,7 +178,8 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
         if bg_fill is not None and not bg_fill.done():
             bg_fill.cancel()
         session.end()
-        REC.save_transcript(session, call.call_id, "phone")
+        if trace.store:  # #127：和网页同一处判断；电话 consent 固定为 "sip-text-only"，不是同意，不写文字记录
+            REC.save_transcript(session, call.call_id, "phone", consent=trace.consent)
         await lat.flush()
         trace.end(reason["v"] or "pipeline_end", stats=session.stats(), latency=summarize(lat.turns),
                   usage=ticket.usage if ticket else None, cost_cny=ticket.spent if ticket else None)

@@ -396,8 +396,8 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
             recorder.close()
         if session is not None:
             session.end()
-            if trace is not None and trace.store and trace.consent is True:  # 旧的整通文字存档仍只在同意时写
-                REC.save_transcript(session, call_id, "web")
+            if trace is not None and trace.store:  # 旧的整通文字存档只在同意时写（判断在 REC.transcript_allowed）
+                REC.save_transcript(session, call_id, "web", consent=trace.consent)
         if trace is not None:
             try:
                 from .latency import summarize
