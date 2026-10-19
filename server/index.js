@@ -34,8 +34,10 @@ var CFG = {
   host: process.env.HOST || '127.0.0.1',
   port: parseInt(process.env.PORT || '8787', 10),
   apiKey: process.env.LLM_API_KEY || process.env.DASHSCOPE_API_KEY || '',
-  baseUrl: process.env.LLM_BASE_URL || llm.DEFAULTS.baseUrl,
-  model: process.env.LLM_MODEL || llm.DEFAULTS.model,
+  // 服务端代理的默认值（未设 LLM_BASE_URL / LLM_MODEL 时）：百炼兼容模式 + qwen-plus，与改前一致。
+  // 浏览器端 llm.js 的 DEFAULTS 已留空（#108），这里单独保留，代理行为不变。配置见 docs/QUICKSTART.md。
+  baseUrl: process.env.LLM_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  model: process.env.LLM_MODEL || 'qwen-plus',
   temperature: process.env.LLM_TEMPERATURE ? parseFloat(process.env.LLM_TEMPERATURE) : llm.DEFAULTS.temperature,
   maxTokens: parseInt(process.env.LLM_MAX_TOKENS || '120', 10),
   // ---- 费用护栏（公开部署时务必保留默认值或调得更严） ----

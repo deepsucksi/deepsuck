@@ -173,8 +173,9 @@
         <span class="note" id="proxyStatus" data-i18n="d.checking">检测中…</span></label>
       <label><span><input type="radio" name="engine" value="direct"> <span data-i18n="d.eng.direct"><b>浏览器直连 · 大模型（高级，可选）</b> —— 仅适合本机自用</span></span></label>
       <div id="directBox" class="form" style="padding-left:22px">
-        <label><span data-i18n="d.base">Base URL（标准聊天接口）</span><input type="text" id="cfgBase" value="https://dashscope.aliyuncs.com/compatible-mode/v1"></label>
-        <label><span data-i18n="d.model">模型</span><input type="text" id="cfgModel" value="qwen-plus"></label>
+        <p class="note" data-i18n="d.direct.help">填写你所用服务的标准聊天接口地址和模型名，怎么填见 <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/QUICKSTART.md" target="_blank" rel="noopener">自托管文档（QUICKSTART）</a>。</p>
+        <label><span data-i18n="d.base">Base URL（标准聊天接口）</span><input type="text" id="cfgBase" value="" placeholder="https://你的接口地址/v1" autocomplete="off" spellcheck="false" data-i18n-attr="placeholder:d.base.ph"></label>
+        <label><span data-i18n="d.model">模型</span><input type="text" id="cfgModel" value="" placeholder="模型名" autocomplete="off" spellcheck="false" data-i18n-attr="placeholder:d.model.ph"></label>
         <label>API Key<input type="password" id="cfgKey" placeholder="sk-…（仅保存在本浏览器）" autocomplete="off" data-i18n-attr="placeholder:d.key.ph"></label>
         <label><span><input type="checkbox" id="cfgRemember"> <span data-i18n="d.remember">记住在本浏览器 localStorage（公共电脑请勿勾选）</span></span></label>
         <div class="warn" data-i18n="d.warn">直连模式下 Key 位于浏览器中，任何能访问此页面的人/插件都可能读取；部分服务商不允许跨域调用。更推荐使用“服务端代理”。发送给模型的对话会先在本地脱敏。</div>
