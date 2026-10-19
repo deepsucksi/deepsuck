@@ -218,6 +218,30 @@ def seg_redact(segs, idxs, pre: Optional[Callable[[str], str]] = None) -> List[s
     return [fixed[i - lo] for i in idxs]
 
 
+def dialog_fix(dlg, idxs) -> List[str]:
+    """#120：两边说话人的分段 dlg=[(role, text)] 里取第 idxs 段，连同前后几段按 deepsuck.redact.redact_dialog_segments
+    补打码（验证码跨说话方、卡号片段、人设侧连续 3 位以上数字兜底）。role 为 "scammer" 的是骗子侧，其余都是人设侧。"""
+    from deepsuck.redact import otp_seg_window, redact_dialog_segments
+
+    if not idxs:
+        return []
+    w = 4 * max(1, otp_seg_window())
+    lo, hi = max(0, min(idxs) - w), min(len(dlg), max(idxs) + w + 1)
+    part = dlg[lo:hi]
+    fixed = redact_dialog_segments([t for _, t in part], [r for r, _ in part])
+    return [fixed[i - lo] for i in idxs]
+
+
+def star_merge(a: str, b: str) -> str:
+    """a、b 是同一段文字的两种打码结果（只把数字换成 *、长度不变）：取并集。对不上时保守地返回 b 与 a 中打码更多的。"""
+    a, b = a or "", b or ""
+    if len(a) != len(b):
+        return b if b.count("*") > a.count("*") else a
+    if any(x != y and x != "*" and y != "*" for x, y in zip(a, b)):
+        return b if b.count("*") > a.count("*") else a
+    return "".join("*" if "*" in (x, y) else x for x, y in zip(a, b))
+
+
 def key_hash(key: str) -> str:
     return hashlib.sha256(("deepsuck-feedback:" + str(key or "")).encode("utf-8")).hexdigest()[:32]
 
@@ -535,6 +559,8 @@ class CallTrace:
         # 本通各说话方已脱敏的逐段文字（#92：验证码被 ASR 切成几段时，落盘前和相邻几段连起来再判断一次）
         self._asr_hist: List[str] = []
         self._reply_hist: List[str] = []
+        # #120：两边说话人按时间排的分段 [(role, 已逐段脱敏的文字)]，写 turn 行时连起来补打码
+        self._dlg: List[tuple] = []
         self._ended = False
         self.t0 = clock()
         count("calls", env=env)
@@ -602,7 +628,11 @@ class CallTrace:
 
     def _new(self) -> dict:
         return {"t": iso(self.clock()), "asr": [], "asr_idx": [], "turn_nos": [], "intents": [], "reply": [],
-                "reply_idx": [], "intel": [], "tactics": [], "interrupted": False}
+                "reply_idx": [], "dlg_asr": [], "dlg_reply": [], "intel": [], "tactics": [], "interrupted": False}
+
+    def _dlg_add(self, role: str, text: str) -> int:
+        self._dlg.append((role, text))
+        return len(self._dlg) - 1
 
     def _observe(self, m: dict) -> None:
         typ = m.get("type")
@@ -615,6 +645,7 @@ class CallTrace:
             c["asr"].append(redact(m.get("text")))
             self._asr_hist.append(c["asr"][-1])
             c["asr_idx"].append(len(self._asr_hist) - 1)
+            c["dlg_asr"].append(self._dlg_add("scammer", c["asr"][-1]))
             if isinstance(m.get("turn"), int):
                 c["turn_nos"].append(m["turn"])
             if m.get("intent"):
@@ -624,18 +655,22 @@ class CallTrace:
         elif typ == "bot":
             intent = m.get("intent")
             if intent in ("opening", "disclosure", "hangup"):
-                self.event("bot", kind=intent, text=redact(m.get("text")))
+                t = redact(m.get("text"))
+                self._dlg_add("bot", t)
+                self.event("bot", kind=intent, text=dialog_fix([("bot", t)], [0])[0])
                 return
             if self._cur is None:
                 self._cur = self._new()
             self._cur["reply"].append(redact(m.get("text")))
             self._reply_hist.append(self._cur["reply"][-1])
             self._cur["reply_idx"].append(len(self._reply_hist) - 1)
+            self._cur["dlg_reply"].append(self._dlg_add("bot", self._cur["reply"][-1]))
             if intent and not self._cur["intents"]:
                 self._cur["intents"].append(intent)
         elif typ == "filler":
             if self._cur is not None:
                 self._cur["filler"] = redact(m.get("text"))
+                self._cur["dlg_filler"] = self._dlg_add("filler", self._cur["filler"])
         elif typ == "latency":
             row = {k: v for k, v in m.items() if k not in ("type", "turn")}
             if self._cur is not None and "latency" not in self._cur:
@@ -691,6 +726,9 @@ class CallTrace:
                          **({"tail": True} if tail else {})})
         self._kind_mark = snap
 
+    def _dlg_parts(self, idxs) -> List[str]:
+        return dialog_fix(self._dlg, idxs)
+
     def _final_asr(self, c: dict) -> str:
         msgs = [m for m in getattr(self.session, "messages", []) if m.get("role") == "scammer"]
         if self.session is not None and c["turn_nos"] and all(0 < n <= len(msgs) for n in c["turn_nos"]):
@@ -699,11 +737,24 @@ class CallTrace:
             parts = seg_redact(self._asr_hist, c["asr_idx"])
         else:
             parts = c["asr"]
+        if c.get("dlg_asr") and len(c["dlg_asr"]) == len(parts):
+            parts = [star_merge(a, b) for a, b in zip(parts, self._dlg_parts(c["dlg_asr"]))]
         return " ".join(x for x in parts if x)
 
     def _final_reply(self, c: dict) -> str:
         parts = seg_redact(self._reply_hist, c["reply_idx"]) if c.get("reply_idx") else c["reply"]
+        if c.get("dlg_reply") and len(c["dlg_reply"]) == len(parts):
+            parts = [star_merge(a, b) for a, b in zip(parts, self._dlg_parts(c["dlg_reply"]))]
+        else:   # 人设侧至少过一遍兜底（#120）
+            parts = [dialog_fix([("bot", x)], [0])[0] for x in parts]
         return " ".join(parts)
+
+    def _final_filler(self, c: dict) -> Optional[str]:
+        if not c.get("filler"):
+            return None
+        if c.get("dlg_filler") is not None:
+            return star_merge(c["filler"], self._dlg_parts([c["dlg_filler"]])[0])
+        return dialog_fix([("bot", c["filler"])], [0])[0]
 
     def _drain(self, all_: bool = False) -> None:
         cur = getattr(self.session, "turn", 0) if self.session is not None else None
@@ -733,7 +784,7 @@ class CallTrace:
                      "asr": self._final_asr(c),
                      "intent": c["intents"][-1] if c["intents"] else None,
                      **({"intents": c["intents"]} if len(set(c["intents"])) > 1 else {}),
-                     "reply": self._final_reply(c), **({"filler": c["filler"]} if c.get("filler") else {}),
+                     "reply": self._final_reply(c), **({"filler": self._final_filler(c)} if c.get("filler") else {}),
                      "intel": c["intel"], "tactics": c["tactics"], "latency": c.get("latency"),
                      "prompt": c.get("prompt") or self.prompt_sha(),
                      "promptVersion": prompt_version(), "code": code_version(), "persona": self.persona,

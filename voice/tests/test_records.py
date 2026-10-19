@@ -70,7 +70,10 @@ def test_transcript_is_redacted_by_shared_module(tmp_path):
     # 与共享脱敏模块的结果一致（voice/ 不另写规则）
     from deepsuck import extract_sensitive, redact_text
     text = f"好的，卡号是{CARD}对吧"
-    assert d["transcript"][1]["text"] == redact_text(text, extract_sensitive(text))
+    # #120：人设侧再过连续数字兜底，卡号打码值里留下的前 6 后 4 位也换成 *
+    from deepsuck.redact import redact_persona
+    assert d["transcript"][1]["text"] == redact_persona(redact_text(text, extract_sensitive(text)))
+    assert d["transcript"][1]["text"] == "好的，卡号是" + "*" * 19 + "对吧"
     assert oct(os.stat(p).st_mode & 0o777) == "0o600"
 
 

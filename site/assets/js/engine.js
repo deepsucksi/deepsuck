@@ -260,6 +260,14 @@
         analysis.redacted = fixed[fixed.length - 1];
       }
     }
+    // #120：两边说话人连起来再看一次（人设问验证码、对方下一句报数字；卡号前缀和尾号分在两句），只回写对方的话
+    if (D.redact.redactDialogSegments) {
+      var lo = Math.max(0, this.messages.length - (2 * D.redact.otpSegWindow() + 1));
+      var win = this.messages.slice(lo);
+      var both = D.redact.redactDialogSegments(win.map(function (m) { return m.text; }), win.map(function (m) { return m.role; }));
+      win.forEach(function (m, k) { if (m.role === 'scammer') m.text = both[k]; });
+      analysis.redacted = both[both.length - 1];
+    }
     return analysis;
   };
 

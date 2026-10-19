@@ -577,9 +577,9 @@
     }
   },
   "redact": {
-    "comment": "redact_text / redactText 的额外规则（JS 与 Python 共用，#33）。otp：验证码类短数字不是情报实体，只在关键词附近按上下文打码——把数字逐个换成 *，分隔符保留。跨 ASR 分段见 otp.segComment（#92）。",
+    "comment": "redact_text / redactText 的额外规则（JS 与 Python 共用，#33）。otp：验证码类短数字不是情报实体，只在关键词附近按上下文打码——把数字逐个换成 *，分隔符保留。跨 ASR 分段见 otp.segComment（#92）。 卡号片段见 card，人设侧文字兜底见 persona，两边说话人合在一起的判断见 dialogComment（#120）。",
     "otp": {
-      "comment": "关键词（keyword，i）前 after 个字以内或后 before 个字以内出现的数字串：digit 为阿拉伯 / 全角 / 中文逐位数字，数字间至多 maxSep 个 sep（空格、…、⋯、...、·、-）；两段都不超过 joinPartMax 位时可用 join（，、,）连成一串。合计 minLen–maxLen 位才打码。关键词与数字之间不能夹阿拉伯数字，至多跨 maxBreaks 个句末标点。紧挨字母 / 数字 / * 的不算（订单号、已打码值的一部分），前面 blockBefore（尾号、金额、工号等）或后面 unitAfter（元、分钟、位等）的不算；与情报实体重叠的交给实体自己的打码规则。",
+      "comment": "关键词（keyword，i）前 after 个字以内或后 before 个字以内出现的数字串：digit 为阿拉伯 / 全角 / 中文逐位数字，数字间至多 maxSep 个 sep（空格、…、⋯、...、·、-）；两段都不超过 joinPartMax 位时可用 join（，、,）连成一串。合计 minLen–maxLen 位才打码（minLen 3：半截验证码「472」也算，#120）。关键词与数字之间不能夹阿拉伯数字，至多跨 maxBreaks 个句末标点。紧挨字母 / 数字 / * 的不算（订单号、已打码值的一部分），前面 blockBefore（尾号、金额、工号等）或后面 unitAfter（元、分钟、位、开头等）的不算；与情报实体重叠的交给实体自己的打码规则。",
       "keyword": "短信验证码|验证码|动态码|动态密码|校验码|短信码|确认码|安全码|(?<![A-Za-z])otp(?![A-Za-z])",
       "keywordFlags": "i",
       "digit": "[0-9０-９零〇一二三四五六七八九幺两]",
@@ -587,7 +587,7 @@
       "maxSep": 4,
       "join": "^[\\s…⋯.．·・]*[，,、][\\s…⋯.．·・]*$",
       "joinPartMax": 4,
-      "minLen": 4,
+      "minLen": 3,
       "maxLen": 8,
       "after": 16,
       "before": 8,
@@ -597,11 +597,34 @@
       "edge": "[0-9A-Za-z０-９*＊]",
       "blockBefore": "(?:尾号|尾数|末尾|末[四4]位|后[四4]位|后几位|卡号|账号|手机号?|电话|工号|编号|单号|订单号?|金额|余额|额度|价格|费用|手续费|[¥￥$]|RMB|USDT)[\\s:：是为了的]{0,3}$",
       "blockBeforeChars": 8,
-      "unitAfter": "^\\s*(?:元|块|万|千|百|十|拾|亿|%|％|年|月|日|号|点|分|秒|个|次|位|天|周|小时|岁|毛|角|米|斤|美元|美金|刀|USDT|[uU](?![A-Za-z]))",
+      "unitAfter": "^\\s*(?:元|块|万|千|百|十|拾|亿|%|％|年|月|日|号|点|分|秒|个|次|位|天|周|小时|岁|毛|角|米|斤|美元|美金|刀|USDT|开头|打头|结尾|[uU](?![A-Za-z]))",
       "segComment": "#92 跨 ASR 分段：同一通电话同一说话方的连续分段（如「验证码是 38」「27 15」），每段与前后各 segWindow 段用 segJoiner 拼接后按上面同一套规则再找一遍，命中的数字映射回各段打码（只把数字换成 *，长度不变，对已脱敏文本再跑也安全）。拼接处两侧的数字串之间只有 segJoin（空白、句读、嗯 / 啊 / 那个之类的语气词）时可连成一串，合计不超过 maxLen 位；不受 joinPartMax 限制。",
       "segWindow": 2,
       "segJoiner": " ",
       "segJoin": "^(?:[\\s…⋯.．·・，,、。！？!?；;：:～~]|嗯|啊|呃|额|哦|噢|唉|那个|就是)*$"
-    }
+    },
+    "card": {
+      "comment": "#120 卡号片段：银行卡号没说全时（「6222开头」「尾号0123」），前缀 / 尾号数字按银行卡规则打码（不足 8 位全部换成 *）。前缀：后面紧跟 prefixAfter 的 minLen–maxLen 位数字串，附近 window 字以内有 keyword，或数字本身像银行卡 BIN（strongBin，至少 strongMinLen 位，中文数字先换成阿拉伯数字再比）。尾号：前面紧挨 tailBefore 的 minLen–tailMaxLen 位数字串，附近有 keyword 或同一窗口里有卡号前缀；tailBefore 之前 tailBlockChars 字以内有 tailBlock（手机、电话、订单等）的不算。前缀数字换成阿拉伯数字后整串匹配 notCard 的（手机号前缀「138开头」、400 / 800 热线）即使在卡号语境里也不算卡号。跨段与 redact.otp 一样按 segWindow 拼接判断。",
+      "keyword": "银行卡|卡号|储蓄卡|信用卡|借记卡|银联卡|工资卡|社保卡|这张卡|那张卡|卡里|卡上|开户行",
+      "window": 24,
+      "prefixAfter": "^[\\s…⋯.．·・]{0,2}(?:开头|打头)",
+      "strongBin": "^62[0-9]{2}",
+      "strongMinLen": 4,
+      "notCard": "^(?:1[3-9][0-9]|[48]00)$",
+      "tailBefore": "(?:尾号|尾数|末尾|末[四4]位|后[四4]位|后几位|最后几位)[\\s:：是为的]{0,3}$",
+      "tailBeforeChars": 10,
+      "tailBlock": "(?:手机|电话|号码|座机|订单|快递|身份证|工号|车牌)",
+      "tailBlockChars": 8,
+      "minLen": 3,
+      "maxLen": 8,
+      "tailMaxLen": 4
+    },
+    "persona": {
+      "comment": "#120 人设侧（reply / filler / bot 行等机器人说的话）存储兜底：除 otp、card 规则外，连续 minRun 位及以上的逐位数字（阿拉伯 / 全角 / 中文「幺三八」，数字间至多 maxSep 个 sep）一律把数字换成 *。人设本不该说出具体数字串，存储侧宁可多打；代价是人设说的「1000 块」「2026 年」也会打码，「五百块」「三点半」「十八号」这类带位值或不足 3 位的不受影响。骗子侧不走这条，电话号码等仍按情报实体规则公开。",
+      "minRun": 3,
+      "sep": "[\\s…⋯·・\\-－—_]",
+      "maxSep": 1
+    },
+    "dialogComment": "#120 两边说话人：同一通电话按时间排的分段带说话方（scammer / 其他都算人设侧）。先按同一说话方跑 otp 跨段，再把两边合在一起跑一遍 otp 跨段（骗子问验证码、人设下一句报数字，或反过来）和 card 跨段，最后人设侧再过 persona 兜底。只把数字换成 *，长度不变，可重复执行。"
   }
 }

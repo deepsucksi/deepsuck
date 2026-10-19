@@ -73,8 +73,23 @@ def test_recent_files_skipped_and_missing_dir(tmp_path):
     assert BF.run(tmp_path / "nope")["dir_exists"] is False
 
 
-def test_persona_and_scammer_not_joined():
-    rows = [{"type": "start", "consent": True}, {"type": "turn", "asr": "38 27", "reply": "验证码是"},
-            {"type": "turn", "asr": "15", "reply": "好"}]
+def test_persona_and_scammer_joined_for_otp():
+    """#120：跨段窗口覆盖两边说话人——骗子问验证码、人设下一句报数字；人设侧连续 3 位以上数字兜底。"""
+    rows = [{"type": "start", "consent": True}, {"type": "turn", "asr": "把验证码念一下", "reply": "嗯…四七"},
+            {"type": "turn", "asr": "还有呢", "reply": "二九"},
+            {"type": "turn", "asr": "先转 300 元", "filler": "嗯…验证码是472？", "reply": "好，下午三点"}]
+    new, n, f = BF.redact_rows(rows)
+    assert [r.get("reply") for r in new[1:]] == ["嗯…**", "**", "好，下午三点"]
+    assert new[3]["filler"] == "嗯…验证码是***？" and new[3]["asr"] == "先转 300 元"
+    assert n == 3 and f == 3
+    assert BF.redact_rows(new)[1] == 0
+
+
+def test_bot_rows_and_card_fragments():
+    rows = [{"type": "bot", "kind": "opening", "text": "喂，你好"},
+            {"type": "turn", "asr": "卡号 6222 开头", "reply": "6222开头…尾号0123对吧"},
+            {"type": "turn", "asr": "我是 138 开头的号码", "reply": "138开头…后面是零零幺三"}]
     new, n, _ = BF.redact_rows(rows)
-    assert n == 0 and new == rows
+    assert new[1]["asr"] == "卡号 **** 开头" and new[1]["reply"] == "****开头…尾号****对吧"
+    assert new[2]["asr"] == "我是 138 开头的号码" and new[2]["reply"] == "***开头…后面是****"
+    assert new[0] == rows[0] and n == 2

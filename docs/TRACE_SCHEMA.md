@@ -155,6 +155,7 @@
    姓氏表、称呼表复用 `extractors.json` 的 `nameRules`，打码用共享的 `mask_name`（`张*`）。「王经理」「李总」这类称呼不打码。
 3. 跨分段验证码（#92）：同一说话方（对方：`asr`；人设：`reply`、`filler`）的相邻分段连起来再判断一次（共享 `deepsuck.redact.redact_otp_segments`，前后各 2 段），「验证码是 38」「27 15」两段都打码。历史文件用 `docker exec deepsuck-voice-1 python -m voice.redact_backfill --dry-run`（只统计）/ 不带 `--dry-run`（改写）重跑：只改 start 行 `consent` 为 `true` 的通话，只把命中的数字换成 `*`，保留修改时间，输出只有计数。
    线上由 `deepsuck-redact.timer` 每天 20:30（+08:00）自动跑一次兜底（`deploy/redact-backfill.sh`，不留备份，`journalctl -t deepsuck-redact`：改动 0 条 INFO，>0 条 WARN，失败 ERROR；见 docs/DEPLOY.md 第 8 节）。
+4. 两边说话人、卡号片段、人设侧兜底（#120）：落盘时两边的分段按时间连起来再判断一次（共享 `deepsuck.redact.redact_dialog_segments`）：骗子问验证码、人设下一句报数字也打码；卡号语境下的「6222开头」「尾号0123」全部换成 `*`；人设侧（`reply`、`filler`、`bot` 行 `text`）连续 3 位及以上逐位数字一律换成 `*`（含「138开头」「零零幺三」）。对方说的电话号码等情报仍按实体规则公开。开场白 / 告别语 `bot` 行即时写入，只过人设兜底，跨说话方的补打码由每日回填完成。
 
 **残留风险（跨分段验证码）**：脱敏是逐段实时做的。验证码的前半段（如「验证码是 38」）单独看不够长、判断不了时，这一段已经按原样实时发给大模型（作为对方的话）和看板；等后面的分段到了，`Session.ingest` 只能回头修正会话里的文字，trace / 文字记录落盘前再按相邻分段补打码，**已经发出去的部分收不回，只能事后修正存储**。trace 每轮晚 3 段落盘，看得到后面 2 段；关键词在更后面才出现、或规则以后再收紧时，已落盘的记录靠上面的每日重跑事后修正。打码规则本身的局限（关键词附近不带单位的普通数字会被多打、分段报的手机号不按验证码处理）见 docs/INTEL.md「脱敏接口」。
 

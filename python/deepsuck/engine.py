@@ -276,6 +276,13 @@ class Session:
             for i, t in zip(idx, fixed):
                 self.messages[i]["text"] = t
             analysis["redacted"] = fixed[-1]
+        # #120：两边说话人连起来再看一次（人设问验证码、对方下一句报数字；卡号前缀和尾号分在两句），只回写对方的话
+        win = self.messages[max(0, len(self.messages) - (2 * R.otp_seg_window() + 1)):]
+        both = R.redact_dialog_segments([m["text"] for m in win], [m.get("role") for m in win])
+        for m, t in zip(win, both):
+            if m.get("role") == "scammer":
+                m["text"] = t
+        analysis["redacted"] = both[-1]
         return analysis
 
     def choose_intent(self, a: dict) -> str:
