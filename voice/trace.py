@@ -167,6 +167,23 @@ def redact(text) -> str:
     return _mask_self_names(redact_text(t, extract_sensitive(t)))
 
 
+def seg_redact(segs, idxs, pre: Optional[Callable[[str], str]] = None) -> List[str]:
+    """同一说话方按时间排的分段 segs 里取第 idxs 段，先与前后相邻分段连起来补打码验证码（#92，共享核心
+    deepsuck.redact.redact_otp_segments）。只取 idxs 前后各 2×segWindow 段参与计算，结果与对整通计算一致。
+    pre：对参与计算的每段先做的脱敏（会话里的文本再过一遍 redact）。"""
+    from deepsuck.redact import otp_seg_window, redact_otp_segments
+
+    if not idxs:
+        return []
+    w = 2 * otp_seg_window()
+    lo, hi = max(0, min(idxs) - w), min(len(segs), max(idxs) + w + 1)
+    part = [("" if t is None else str(t)) for t in segs[lo:hi]]
+    if pre is not None:
+        part = [pre(t) for t in part]
+    fixed = redact_otp_segments(part)
+    return [fixed[i - lo] for i in idxs]
+
+
 def key_hash(key: str) -> str:
     return hashlib.sha256(("deepsuck-feedback:" + str(key or "")).encode("utf-8")).hexdigest()[:32]
 
@@ -465,6 +482,9 @@ class CallTrace:
         self.reason = ""
         self.audio: Optional[AudioSink] = None
         self._cur: Optional[dict] = None
+        # 本通各说话方已脱敏的逐段文字（#92：验证码被 ASR 切成几段时，落盘前和相邻几段连起来再判断一次）
+        self._asr_hist: List[str] = []
+        self._reply_hist: List[str] = []
         self._ended = False
         self.t0 = clock()
         count("calls", env=env)
@@ -529,8 +549,8 @@ class CallTrace:
             logger.warning(f"通话追踪记录失败: {e}")
 
     def _new(self) -> dict:
-        return {"t": iso(self.clock()), "asr": [], "turn_nos": [], "intents": [], "reply": [], "intel": [],
-                "tactics": [], "interrupted": False}
+        return {"t": iso(self.clock()), "asr": [], "asr_idx": [], "turn_nos": [], "intents": [], "reply": [],
+                "reply_idx": [], "intel": [], "tactics": [], "interrupted": False}
 
     def _observe(self, m: dict) -> None:
         typ = m.get("type")
@@ -541,6 +561,8 @@ class CallTrace:
                 self._cur = self._new()
             c = self._cur
             c["asr"].append(redact(m.get("text")))
+            self._asr_hist.append(c["asr"][-1])
+            c["asr_idx"].append(len(self._asr_hist) - 1)
             if isinstance(m.get("turn"), int):
                 c["turn_nos"].append(m["turn"])
             if m.get("intent"):
@@ -555,6 +577,8 @@ class CallTrace:
             if self._cur is None:
                 self._cur = self._new()
             self._cur["reply"].append(redact(m.get("text")))
+            self._reply_hist.append(self._cur["reply"][-1])
+            self._cur["reply_idx"].append(len(self._reply_hist) - 1)
             if intent and not self._cur["intents"]:
                 self._cur["intents"].append(intent)
         elif typ == "filler":
@@ -594,14 +618,25 @@ class CallTrace:
     def _final_asr(self, c: dict) -> str:
         msgs = [m for m in getattr(self.session, "messages", []) if m.get("role") == "scammer"]
         if self.session is not None and c["turn_nos"] and all(0 < n <= len(msgs) for n in c["turn_nos"]):
-            return " ".join(x for x in (redact(msgs[n - 1].get("text")) for n in c["turn_nos"]) if x)
-        return " ".join(x for x in c["asr"] if x)
+            parts = seg_redact([m.get("text") for m in msgs], [n - 1 for n in c["turn_nos"]], pre=redact)
+        elif c.get("asr_idx"):
+            parts = seg_redact(self._asr_hist, c["asr_idx"])
+        else:
+            parts = c["asr"]
+        return " ".join(x for x in parts if x)
+
+    def _final_reply(self, c: dict) -> str:
+        parts = seg_redact(self._reply_hist, c["reply_idx"]) if c.get("reply_idx") else c["reply"]
+        return " ".join(parts)
 
     def _drain(self, all_: bool = False) -> None:
         cur = getattr(self.session, "turn", 0) if self.session is not None else None
         while self._pending:
             c = self._pending[0]
             if not all_ and cur is not None and c["turn_nos"] and max(c["turn_nos"]) > cur - HOLD:
+                return
+            # 没有会话时按本通已记下的对方分段压住 HOLD 段（#92：跨分段验证码要等后面几段到了再判断）
+            if not all_ and cur is None and c.get("asr_idx") and max(c["asr_idx"]) >= len(self._asr_hist) - HOLD:
                 return
             self._pending.pop(0)
             self._write_turn(c)
@@ -621,7 +656,7 @@ class CallTrace:
                      "asr": self._final_asr(c),
                      "intent": c["intents"][-1] if c["intents"] else None,
                      **({"intents": c["intents"]} if len(set(c["intents"])) > 1 else {}),
-                     "reply": " ".join(c["reply"]), **({"filler": c["filler"]} if c.get("filler") else {}),
+                     "reply": self._final_reply(c), **({"filler": c["filler"]} if c.get("filler") else {}),
                      "intel": c["intel"], "tactics": c["tactics"], "latency": c.get("latency"),
                      "prompt": c.get("prompt") or self.prompt_sha(),
                      "promptVersion": prompt_version(), "code": code_version(), "persona": self.persona,

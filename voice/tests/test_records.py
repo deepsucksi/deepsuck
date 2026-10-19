@@ -206,3 +206,17 @@ def test_transcript_write_calls_redact_text_even_for_unredacted_messages(tmp_pat
     p = REC.save_transcript(s, "raw", "phone", env={"DATA_DIR": str(tmp_path)})
     d = json.loads(p.read_text(encoding="utf-8"))
     assert d["transcript"][0]["text"] == "电话139****2233，卡号622202******2233"
+
+
+def test_transcript_masks_otp_split_across_segments(tmp_path):
+    """#92：同一说话方相邻分段连起来判断验证码；不跨说话方。"""
+    from deepsuck.engine import Session
+    s = Session("refund", "lin")
+    s.ingest("验证码是 38")
+    s.record_bot("你慢点", "generic")
+    s.ingest("27 15")
+    s.ingest("那你先转 3000 元")
+    p = REC.save_transcript(s, "otp", "web", env={"DATA_DIR": str(tmp_path)})
+    d = json.loads(p.read_text(encoding="utf-8"))
+    scam = [m["text"] for m in d["transcript"] if m["role"] == "scammer"]
+    assert scam == ["验证码是 **", "** **", "那你先转 3000 元"]

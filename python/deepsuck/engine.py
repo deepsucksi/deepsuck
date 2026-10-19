@@ -268,6 +268,14 @@ class Session:
         }
         self.messages.append({"role": "scammer", "text": redacted, "t": self.now(),
                               "tactics": [t["id"] for t in tactics], "intel": analysis["newIntel"]})
+        # #92：验证码被 ASR 切成几段（「验证码是 38」「27 15」）时，和前几段对方的话连起来再判断一次，
+        # 本段与前几段（已脱敏文本）里命中的数字一起补打码
+        idx = [i for i, m in enumerate(self.messages) if m.get("role") == "scammer"][-(R.otp_seg_window() + 1):]
+        if len(idx) > 1:
+            fixed = R.redact_otp_segments([self.messages[i]["text"] for i in idx])
+            for i, t in zip(idx, fixed):
+                self.messages[i]["text"] = t
+            analysis["redacted"] = fixed[-1]
         return analysis
 
     def choose_intent(self, a: dict) -> str:
