@@ -1,6 +1,7 @@
 """语音端人设：系统提示词、拖延填充音台词、输出守卫（数据全部来自 site/assets/core/*.json）。"""
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import sys
@@ -57,6 +58,59 @@ _AGE = re.compile(r"^\s*\d+\s*岁\s*")
 _SHOTS_MAX = 5
 
 
+# #95：每通第一句的说法示例。#64 的规则举了“嗯，衣服的事啊。”“哦…卡的事啊。”“嗯，交朋友啊。”，模型几乎每通照搬成
+# 「哦…X的事啊。」（qwen3.7-flash 20 通里 19 通），听多了一耳朵就是机器。这里给一组句式各不相同的应声（陈述句、不带问号、
+# 不带话题词），每通按对方第一句话挑几条放进第一轮规则和例句，规则里再明确不许套固定句式。
+# 各人设的补充按 personas.json 的人设身份写，不编小道具。
+FIRST_TURN_OPENERS = [
+    "哦…是我。", "嗯，你说。", "嗯…我听着呢。", "哦，这样…你接着说。", "喂，在呢。", "嗯，是我…你讲。",
+    "哦…你等一下，好了。", "嗯…你慢点说。", "啊，我在听。", "行，你往下说。", "嗯，你说的那个…我想想。",
+    "喂，听得到，你说吧。",
+]
+# 接对方一个词的应声（词后面不加问号，接半句陈述）；例子里的词只示范格式，规则里要求换成对方刚说的词。
+# 这些示例和下面的补充示范都不带任何场景词、话题词（#4：提示词里不出现对方还没说的事），测试里有检查。
+FIRST_TURN_ECHOES = ["嗯，衣服…我想想。", "哦，卡…你接着说。", "嗯…上周，行，你说。", "老家…嗯，我听着。",
+                     "名字…哦，你往下说。", "嗯，社区那边，你说。"]
+FIRST_TURN_OPENERS_BY_PERSONA = {
+    "wang": ["嗯，你慢慢说，我听着。", "嗯，你慢点说…我在呢。"],
+    "chen": ["等下啊…宝宝在旁边，你说。", "嗯，你说，我这边有点乱。"],
+    "lin": ["嗯，我听得到，你说。", "嗯，你说，我刚下班。"],
+    "zheng": ["你说嘛，我在店里。", "行，你讲。"],
+}
+_OPENERS_SHOWN = 4
+
+
+def first_turn_openers(persona_id: str, key: str = "") -> list[str]:
+    """按 key（调用方传“本通随机值|对方第一句话”）挑第一句示例：本人设的零到一条 + 接词两条 + 通用的几条，顺序打乱。同一句话挑出来的固定（便于复现），换个说法就换一组。"""
+    import random
+    rnd = random.Random(int(hashlib.sha1(f"{persona_id}|{key}".encode("utf-8")).hexdigest()[:12], 16))
+    own = FIRST_TURN_OPENERS_BY_PERSONA.get(persona_id, [])
+    k = min(rnd.randint(0, 1), len(own))  # 本人设的说法隔一通才放一条，免得模型老挑它
+    out = rnd.sample(own, k) + rnd.sample(FIRST_TURN_ECHOES, 2) + rnd.sample(FIRST_TURN_OPENERS, _OPENERS_SHOWN - 2 - k)
+    rnd.shuffle(out)
+    return out
+
+
+# 第一轮例句不够时补的通用示范（话题和测试脚本、各场景都不重合，只示范“接词 + 半句陈述，问题放第二句”）
+FIRST_TURN_DEMOS = [
+    ("您订的报纸要续订了。", "报纸…我想想。哪家报纸"),
+    ("您的会员要到期了，要续一下。", "嗯，会员…你接着说。啥会员"),
+    ("我是你以前的同学，还记得我吗。", "同学…你慢点说。哪个班的"),
+    ("您的积分快过期了。", "积分…行，你说。哪来的积分"),
+]
+_SHOT_TAILS = ("我想想。", "你接着说。", "行，你说。", "嗯，我听着。", "你慢点说。")
+
+
+def first_turn_shot(reply: str, i: int = 0) -> str:
+    """例句第一句是反问（“退…退款？哪件啊”）时改成接词陈述（“退…退款…我想想。哪件啊”），尾巴轮换，句式不重复。"""
+    m = _SENT.search(reply.strip())
+    if not m or not _Q.search(m.group(0)):
+        return reply
+    head = re.sub(r"[？?…]+$", "", m.group(0).strip())
+    rest = reply.strip()[m.end():].lstrip("…").strip()
+    return f"{head}…{_SHOT_TAILS[i % len(_SHOT_TAILS)]}{rest}"
+
+
 _EXAMPLE = re.compile(r"[，,；;]?\s*(?:比如|例如)((?:[“\"][^”\"]*[”\"][、，,和或]?)+)")
 
 
@@ -73,14 +127,15 @@ def _unheard(text: str, scenes, topics) -> bool:
     return topics is not None and bool(topics_in(text) - set(topics))
 
 
-def voice_style(p: dict, scenes, topics=None, first_turn: bool = False) -> list[str]:
+def voice_style(p: dict, scenes, topics=None, first_turn: bool = False, opener_key: str = "") -> list[str]:
     """语料组给的语音专用风格规则和少样本例句（personas.json 的 voiceStyle / voiceShots，可选字段）。
 
     scenes：对方原话里已经认出的场景（heard_scenes，按出现先后；也接受单个场景 id，离线工具用）。
     #4：例句只从这些场景里挑，而且例句里不能带出别的场景；风格规则里举的例子（“比如‘退…退款？’”）
     带出对方还没说的场景或话题时，只去掉这个例子，规则本身保留。台词文字一律不改。
     topics 不为 None 时（通话中），例句只留“对方台词里的话题都已经在本通电话里出现过”的那几条，
-    免得例句里的链接、加微信、转账把模型往对方还没提的方向带。"""
+    免得例句里的链接、加微信、转账把模型往对方还没提的方向带。
+    first_turn 时再加几条第一句的说法示例（first_turn_openers，按 opener_key 挑）。"""
     sc = _scene_list(scenes)
     out: list[str] = []
     style = []
@@ -98,11 +153,18 @@ def voice_style(p: dict, scenes, topics=None, first_turn: bool = False) -> list[
     pick = [x for x in pick if not (scenes_in(x["scammer"] + x["reply"]) - set(sc))]
     if topics is not None:
         pick = [x for x in pick if topics_in(x["scammer"] + x["reply"]) <= set(topics)]
-    if first_turn:  # 第一轮只给“第一句不是问句”的例句，免得照着例句一开口就反问
-        pick = [x for x in pick if not first_sentence_is_question(x["reply"])]
+    if first_turn:  # 第一轮：开口就反问的例句改成“接词 + 半句陈述，问题放第二句”的示范（#64 / #95）
+        pick = [dict(x, reply=first_turn_shot(x["reply"], i)) for i, x in enumerate(pick[:_SHOTS_MAX])]
+        if sc and len(pick) < 2:  # 还没认出场景时不放例句（#4），补充示范也不放
+            k = int(hashlib.sha1(opener_key.encode("utf-8")).hexdigest()[:8], 16)
+            demos = [FIRST_TURN_DEMOS[(k + j) % len(FIRST_TURN_DEMOS)] for j in range(2 - len(pick))]
+            pick += [{"scammer": a, "reply": r} for a, r in demos]
     if pick:
         out.append("说话口气参考（只学节奏和用词，不要照抄，不要把这些内容当成本次通话发生过的事）：")
         out += [f"对方：{x['scammer']}\n你：{x['reply']}" for x in pick[:_SHOTS_MAX]]
+    if first_turn:  # #95：第一句的几种说法，每通挑的不一样
+        out.append("第一句的说法（每通换着说，下面只是几种，不要照抄，也不要套同一个句式）：")
+        out += [f"- {x}" for x in first_turn_openers(p.get("id", ""), opener_key)]
     return out
 
 
@@ -205,11 +267,22 @@ RULE_DIGITS = ("5. 号码只复述对方自己报过的一部分：只说对方�
 NO_LEAK_RULE = ("你不知道对方打电话来干什么，只接对方已经说过的话；对方没提到的事一概不先提，也不要猜对方的目的；"
                 "对方说在哪儿看到你、怎么认识你，也不要追问是从哪儿、在哪儿看到的。")
 # #64：每通电话人设的第一条回复不抢着反问（qwen3.7-flash 18 通里 17 通第一句就是问句，林姐还顺嘴问出了对方没提的事）
-FIRST_TURN_RULE = ("这是对方开口说的第一段话。你这一条的第一句只是应一声、接住对方的话，是陈述句，句尾用句号，"
-                   "不带问号，也不用“啊？”收尾，格式像“哦…是我。”或“嗯，……的事啊。”（省略号换成对方刚才亲口说的一个词）；"
-                   "第一句里不要把对方的词重复一遍再问。"
-                   "第二句可以不说；要问（包括上面建议策略里的追问）都放到第二句，只问对方刚才那段话里亲口说过的词，"
-                   "不问对方是从哪儿、怎么找到你的。")
+# #95：原来的格式示例“嗯，衣服的事啊。”“哦…卡的事啊。”被模型当成模板，几乎每通都是「哦…X的事啊。」；改成只提要求、
+# 不给固定格式，示例放到 voice_style 的第一句说法里（每通挑几条不同句式）。
+FIRST_TURN_HEAD = ("这是对方开口说的第一段话。你这一条的第一句只是应一声、接住对方的话，是陈述句，句尾用句号，"
+                   "不带问号，也不用“啊？”收尾，格式像{examples}（接词的把例子里的词换成对方刚说的）；")
+FIRST_TURN_RULE = ("第一句提到对方的词时，词后面接“…”再说半句，不加问号，也不要把对方的词重复一遍再问（不要“衣服？”“卡？”这种）；每通第一句换着说，"
+                   "不要套“哦…某某的事啊。”这种固定句式。"
+                   "第二句可以不说；要问（包括上面建议策略里的追问）都放到第二句，第一句说完先用句号断开再问，只问对方刚才那段话里亲口说过的词，"
+                   "不问对方是从哪儿、在什么网上、怎么找到你的。")
+
+
+def first_turn_rule(openers) -> str:
+    """第一轮规则：开头的格式示例用本通挑出来的几种说法（每通不同），后面是固定的 FIRST_TURN_RULE。"""
+    ex = "".join(f"“{x}”" for x in openers) or "“嗯，你说。”"
+    return FIRST_TURN_HEAD.format(examples=ex) + FIRST_TURN_RULE
+
+
 _Q = re.compile(r"[？?]")
 _SENT = re.compile(r"[^。？！?!；;\n]+[。？！?!；;]*")
 
@@ -220,12 +293,14 @@ def first_sentence_is_question(text: str) -> bool:
 
 
 def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
-                  said_first: str = "", topics=None, first_turn: bool = False, scenes=None) -> str:
+                  said_first: str = "", topics=None, first_turn: bool = False, scenes=None,
+                  opener_key: str = "") -> str:
     """语音人设提示词。#4：场景名、描述、后台选的场景都不进提示词；称呼和例句只按对方原话里已经认出的场景挑。
     scenes：heard_scenes(session)（通话中必须传，开场前是空表）；None 表示离线工具，按 scenario_id 当作对方已经说出的场景。
     missing：对方已经提到、但还没说清楚的情报（调用方按话题过滤，见 IntelProcessor.update_prompt）。
     topics：对方已经提到的话题（session_topics）；None 表示不过滤例句（离线工具用）。
-    first_turn：对方刚说完第一段话（本通电话人设的第一条回复），加 FIRST_TURN_RULE。"""
+    first_turn：对方刚说完第一段话（本通电话人设的第一条回复），加 FIRST_TURN_RULE 和第一句说法示例。
+    opener_key：挑第一句说法示例用的键（调用方传对方第一句话），同一通电话里固定。"""
     p = PERSONA_BY_ID.get(resolve_persona_id(persona_id)) or PERSONAS[0]
     if scenes is None:
         scenes = [(SCENARIO_BY_ID.get(scenario_id) or SCENARIOS[0])["id"]]
@@ -247,8 +322,8 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
         "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
         RULE_DIGITS,
         STYLE_RULE,
-    ] + voice_style(p, scenes, topics, first_turn) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
-          "也不要重复这句。"] if said_first else []) + ([FIRST_TURN_RULE] if first_turn else []))
+    ] + voice_style(p, scenes, topics, first_turn, opener_key) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
+          "也不要重复这句。"] if said_first else []) + ([first_turn_rule(first_turn_openers(p["id"], opener_key))] if first_turn else []))
 
 
 _LONG_DIGITS = re.compile(r"(?<![0-9*])[0-9]{5,}(?![0-9*])")
