@@ -12,7 +12,7 @@ import time
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
-from .core import utf16_len
+from .core import load, utf16_len
 from . import extractors as X
 from . import redact as R
 from . import tactics as T
@@ -34,6 +34,28 @@ def goal_of(type_: str) -> Optional[str]:
     if type_ == "name":
         return "name"
     return None
+
+
+# #114：从骗子原话里认场景（site/assets/core/scenarios.json 的 heardCues，与 JS engine.js、voice/persona.py 同一词表）。
+# 规则回复里的称呼 {call} 只按骗子已经说出口的场景取，不按后台选的场景取。
+_HEARD = load("scenarios").get("heardCues") or {}
+SCENE_CUES = {k: re.compile(v) for k, v in (_HEARD.get("scenes") or {}).items()}
+SCENE_IMPLIES = {k: list(v) for k, v in (_HEARD.get("implies") or {}).items()}
+
+
+def scenes_in(text: str) -> set:
+    t = str(text or "")
+    return {k for k, r in SCENE_CUES.items() if r.search(t)}
+
+
+def heard_scenes(texts) -> list:
+    """骗子说过的话里认出的场景，按第一次出现的先后；认出前一个场景时，implies 里的也算说过。"""
+    out: list = []
+    for t in texts:
+        t = str(t or "")
+        for k in sorted(scenes_in(t), key=lambda k: SCENE_CUES[k].search(t).start()):
+            out += [x for x in [k] + SCENE_IMPLIES.get(k, []) if x not in out]
+    return out
 
 
 _DIGIT_TYPES = ("bank_card", "phone", "alipay", "qq")
@@ -163,8 +185,21 @@ class Session:
         del hist[:-len(lst)]
         return it if isinstance(it, str) else it["t"]
 
+    def heard_scenes(self) -> list:
+        return heard_scenes(m.get("text", "") for m in self.messages if m.get("role") == "scammer")
+
+    def salutation(self) -> str:
+        """称呼：按骗子已经说出口的场景取（第一个有称呼的）；称呼本身会带出骗子没说的场景（例如“客服”“警官”）就不用。
+        骗子还没说出场景时为空（模板里的 {call} 都在句首或问句后，空着读起来通顺）。"""
+        heard = self.heard_scenes()
+        for x in heard:
+            c = self.persona["call"].get(x, "")
+            if c and not (scenes_in(c) - set(heard)):
+                return c
+        return ""
+
     def fill(self, tpl: str, vars: Optional[dict] = None) -> str:
-        call = self.persona["call"].get(self.scenario["id"], "")
+        call = self.salutation()
         vars = vars or {}
 
         def rep(m):
