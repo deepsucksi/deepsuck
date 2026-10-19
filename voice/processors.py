@@ -372,6 +372,8 @@ async def synth_fillers(persona_id: str, voice, sample_rate: int, synth=None, ca
         extra = {"model": voice.model}
         if voice.instruction:
             extra["instruction"] = voice.instruction
+        if voice.rate != 1.0:
+            extra["rate"] = voice.rate
         voice_name, voice = voice.voice, voice.cache_tag
     else:
         voice_name = voice

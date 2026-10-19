@@ -179,10 +179,10 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
     if tts is None:
         vs = persona_voice(pid, TTS_MODEL)
         if os.environ.get("DEEPSUCK_TTS_STREAM", "1") == "0":  # 回退：每句一连接的旧实现
-            tts = CosyVoiceTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction,
+            tts = CosyVoiceTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction, rate=vs.rate,
                                       text_filters=[GuardTextFilter()], meter=meter)
         else:
-            tts = CosyVoiceStreamTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction,
+            tts = CosyVoiceStreamTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction, rate=vs.rate,
                                             text_filters=[GuardTextFilter()],
                                             meter=meter, clause_min_chars=prof.tts_clause_min_chars)
     fillers = {} if fillers is None else fillers
