@@ -52,6 +52,9 @@ def test_kziza65l_model_input_and_speech_have_no_name():
         _clean(t)
         assert "那个名字" in t, t
     assert to_model[1] == "户名那个名字你记下了吗？"
+    # 与共享核心的拆字规则（#142：“弓长张，三丰”→“弓长张，**”）叠加：不双重打码、不出现“那个号”这类怪句
+    assert to_model[0] == "收款户名那个名字，那个名字。", to_model[0]
+    assert "那个号" not in to_model[0]
     # 会话记录（系统提示词里的 heard、看板、通话记录都从这里取）和推给面板的文字也不含原名
     for m in s.messages:
         if m.get("role") == "scammer":
@@ -125,3 +128,8 @@ def test_name_patterns_variants():
     r2.add("name", "陈立")  # 名只有 1 个字：只认全名和拆字
     assert unmask(r2.apply("耳东陈，立刻转")) == "那个名字，立刻转"
     assert unmask(r2.apply("户名耳东陈立")) == "户名那个名字"
+    # 核心已打码的拆字后的名（#142）连星号一起换
+    r3 = CallRedactor()
+    r3.add("name", "张三丰")
+    for t in ("弓长张，**", "弓长张**", "弓长张 **"):
+        assert unmask(r3.apply("户名" + t + "。")) == "户名那个名字。", t

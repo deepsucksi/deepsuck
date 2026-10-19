@@ -38,8 +38,10 @@ def name_patterns(name: str) -> List[str]:
     for cz in CHAIZI.get(sur, ()):
         # “弓长张三丰”“弓长张，三丰”“弓长的张”“弓长张”（只报姓也打，免得模型复述拆字）。
         # 名只有 1 个字时不跨标点连（“耳东陈，立刻转”的“立”不是名），只认紧挨着的“耳东陈立”。
+        # 共享核心（#142）已把拆字后的名打成星号时（“弓长张，**”），连星号一起换掉，免得剩下“，**”被念成“那个号”。
         sep = r"[，,、\s]{0,2}" if len(given) >= 2 else ""
-        pats.append(re.escape(cz) + r"(?:的)?" + re.escape(sur) + (r"?(?:" + sep + g + r")?" if g else "?"))
+        tail = r"(?:" + sep + g + r"|[，,、\s]{0,2}[*＊]{1,4})?" if g else r"(?:[，,、\s]{0,2}[*＊]{1,4})?"
+        pats.append(re.escape(cz) + r"(?:的)?" + re.escape(sur) + "?" + tail)
     pats.append(re.escape(name))
     if len(given) >= 2:
         pats.append(g)
