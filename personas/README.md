@@ -5,9 +5,9 @@
 | 编号 | id | 名字 · 身份 | 头像 | 真人化预设 | 建议底噪 |
 |---|---|---|---|---|---|
 | 01 | `wang` | 王阿姨 · 退休老人 | `round6/retired` | retiree | kitchen（已批准） |
-| 02 | `chen` | 小陈妈妈 · 宝妈 | `round6/parent` | mom | living_room（待试听） |
+| 02 | `chen` | 小陈妈妈 · 宝妈 | `round6/parent` | mom | living_room |
 | 03 | `lin` | 小林 · 刚毕业学生 | `round6/graduate` | graduate | street |
-| 04 | `zheng` | 郑老板 · 个体小老板 | `round6/owner` | shop_owner | shop（待试听） |
+| 04 | `zheng` | 郑老板 · 个体小老板 | `round6/owner` | shop_owner | shop |
 
 别名由顶层 `aliases` 映射：`li`（李大爷，已下线）→ `wang`，`xiaochen`、`mom` → `chen`，`shop_owner` → `zheng`；旧链接 `?persona=li` 仍能进到对应人设。别名只用于解析外部传入的人设 id，humanize 的基础预设名（retiree / mom / graduate / shop_owner）不走这里。
 
