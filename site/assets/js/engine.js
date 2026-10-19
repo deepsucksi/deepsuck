@@ -309,7 +309,8 @@
       .replace(DIGIT_COUNT, DE.count)
       .replace(DIGIT_RUN, tok('O'))
       .replace(SPLIT_BEFORE_NAME, '') // #157：上游已换成“那个名字”时去掉残留的拆字说法
-      .replace(NAME_MASK, function (m, xing, sur) { return sur.length === 1 && DE.notSurname.indexOf(sur) >= 0 ? m : tok('N'); })
+      // #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「我只有****块钱」的「有」不是姓），不在表里的再看 notSurname
+      .replace(NAME_MASK, function (m, xing, sur, off, str) { return D.extractors.maskedLeadNotSurname(m, sur, off, str, DE.notSurname) ? m : tok('N'); })
       .replace(OTHER_MASK, function (m) { return tok(m.indexOf('@') >= 0 ? 'E' : /[A-Za-z]{2,}\.|\.[A-Za-z]{2,}/.test(m) ? 'U' : 'H'); });
     if (s.indexOf('\uE000') < 0) return putBack(s);
     s = s.replace(MERGE_OT, function (m) { return tok(m.indexOf('\uE000T') >= 0 ? 'T' : 'O'); })
