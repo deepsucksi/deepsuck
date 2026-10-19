@@ -480,7 +480,10 @@
       stop: new RegExp(ex.wordStop || '(?!)'),
       particle: new RegExp('^(?:' + (ex.particle || '(?!)') + ')$'),
       sep: new RegExp('^(?:' + (ex.sep || '') + ')$'),
-      gap: new RegExp(ex.anchorGap)
+      gap: new RegExp(ex.anchorGap),
+      asr: Object.keys(ex.asrSplit || {}).map(function (k) {
+        return { re: new RegExp('(?<![\\u4e00-\\u9fa5])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\u4e00-\\u9fa5])', 'g'), sur: ex.asrSplit[k] };
+      })
     };
     return EXPLAIN;
   }
@@ -543,6 +546,11 @@
       R.re.lastIndex = 0;
       while ((sm = R.re.exec(s))) anchors.push({ end: sm.index + sm[0].length, sur: sm[1].slice(-1) });
     }
+    (E.asr || []).forEach(function (a) { // #163：ASR 同音写法（龚厂长）也算锚点
+      var m;
+      a.re.lastIndex = 0;
+      while ((m = a.re.exec(s))) anchors.push({ end: m.index + m[0].length, sur: a.sur });
+    });
     var surAll = {};
     (ents || []).forEach(function (e) {
       if (typeof e.start !== 'number' || e.type !== 'name' || !e.value) return;

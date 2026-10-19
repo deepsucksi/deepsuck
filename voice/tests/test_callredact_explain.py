@@ -51,7 +51,7 @@ def _call_name(case):
 
 
 def test_fixture_counts():
-    assert len(CASES) == 37 and len(MASK) == 22 and len(KEEP) == 13 and len(XFAIL) == 2
+    assert len(CASES) == 39 and len(MASK) == 24 and len(KEEP) == 15 and len(XFAIL) == 0  # #163：2 条 xfail 修好并回 MASK，另加 2 条 asrSplit 边界反例
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["text"] for c in CASES])

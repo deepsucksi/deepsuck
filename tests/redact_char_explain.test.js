@@ -84,11 +84,12 @@ test('#185 拆字探针原句与 ASR「龚厂长」：解释段不露单字「�
   }
 });
 
-test('#185 已知缺陷（xfail）：ASR「龚厂长」+ 单段解释仍露「伟」，修复归语音（#163）', () => {
-  const xf = FX.filter((c) => c.xfail);
-  assert.ok(xf.length >= 2);
-  for (const c of xf) {
-    assert.ok(c.leak && red(c.text).includes(c.leak), '已经修好，请去掉 xfail：' + c.text);
-    assert.strictEqual(c.expect, 'mask');
+test('#163 ASR「龚厂长」+ 单段解释也打码（原 xfail，nameRules.explain.asrSplit）', () => {
+  assert.strictEqual(FX.filter((c) => c.xfail).length, 0);
+  for (const t of ['收款人叫张伟明，龚厂长，伟大的伟。', '好的，龚厂长，伟大的伟']) {
+    const out = red(t);
+    ['伟大', '伟。', '**的'].forEach((leak) => assert.ok(!out.includes(leak), t + ' -> ' + out));
+    assert.ok(out.includes('龚厂长'), t + ' -> ' + out); // 同音写法本身不打码
   }
+  for (const t of ['龚厂长说明天的会别迟到', '龚厂长，明天的会别迟到']) assert.strictEqual(red(t), t);
 });

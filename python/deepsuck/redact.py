@@ -506,6 +506,8 @@ def _explain_rules():
         "particle": compile_js("^(?:" + (ex.get("particle") or "(?!)") + ")$"),
         "sep": compile_js("^(?:" + (ex.get("sep") or "") + ")$"),
         "gap": compile_js(ex["anchorGap"]),
+        "asr": [(compile_js("(?<![\u4e00-\u9fa5])" + re.escape(k) + "(?![\u4e00-\u9fa5])"), v)
+                for k, v in (ex.get("asrSplit") or {}).items()],
     }
 
 
@@ -573,6 +575,8 @@ def explain_units(s: str, ents: Optional[Iterable[dict]] = None) -> List[dict]:
     R = _split_rules()
     if R:
         anchors += [(sm.end(), sm.group(1)[-1]) for sm in R["re"].finditer(s)]
+    for rx, sur in E.get("asr") or []:  # #163：ASR 同音写法（龚厂长）也算锚点
+        anchors += [(m.end(), sur) for m in rx.finditer(s)]
     sur_all = set()
     for e in ents or []:
         if not isinstance(e.get("start"), int) or e.get("type") != "name" or not e.get("value"):
