@@ -133,6 +133,8 @@ def _depends(group, segs, expect):
         return DEP_216 if segs == ["我在*上班"] else DEP_214
     if group.startswith("号码+户名") and segs[0].startswith("卡号是***"):
         return DEP_214
+    if group == "两段星号":  # 念法本 PR 就对（test_two_star_pairs_not_bold），heard_refs 记 number 要 #214
+        return DEP_214
     return None
 
 
