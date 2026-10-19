@@ -1,5 +1,6 @@
-"""通话追踪：同意才存文字和录音；不同意什么都不存（只计数）；SIP 不录音且主叫打码；脱敏；token 保护；
-30 天清理；磁盘上限停录；反馈写进同一份记录。全部离线。"""
+"""通话追踪：脱敏文字每通都存，录音只在同意时存；SIP 不录音且主叫打码；脱敏；token 保护；
+30 天清理（录音目录/天数可单独配）；磁盘上限停录；“这通有问题”只认当前通话、写进同一份记录；
+每轮 schema 字段（docs/TRACE_SCHEMA.md）；trace_cli 列出有问题的通话、按天汇总用量。全部离线。"""
 import asyncio
 import json
 import os
@@ -64,20 +65,32 @@ def test_consent_writes_redacted_turns_and_end(tmp_path):
     assert oct(os.stat(t.path).st_mode & 0o777) == "0o600"
 
 
-def test_no_consent_stores_nothing_but_counts(tmp_path):
+def test_no_consent_stores_redacted_text_but_no_audio(tmp_path):
     env = _env(tmp_path)
     t = TR.CallTrace(channel="web", consent=False, persona="wang", scenario="refund", model="qwen-plus", env=env)
-    assert not t.store and t.audio_processor() is None
+    assert t.store and t.audio_processor() is None and t.audio is None
     _talk(t)
     t.end("client_hangup")
     files = sorted(p.name for p in (tmp_path / "traces").iterdir())
-    assert files == ["stats.json"]
+    assert files == sorted(["stats.json", f"{t.id}.jsonl"])  # 没有 .ogg
+    rows = _lines(t.path)
+    assert rows[0]["consent"] is False and rows[-1]["type"] == "end" and rows[-1]["consent"] is False
+    assert rows[-1]["audio"] is False and sum(1 for r in rows if r["type"] == "turn") == 2
+    raw = t.path.read_text(encoding="utf-8")
+    assert CARD not in raw and PHONE not in raw
     stats = json.loads((tmp_path / "traces" / "stats.json").read_text())
     day = next(iter(stats.values()))
     assert day["calls"] == 1 and day["noConsent"] == 1 and "consent" not in day
     assert set(json.dumps(stats)) .isdisjoint(set("客服")) and t.id not in json.dumps(stats)
-    # 字符串 "true" 不算同意
-    assert not TR.CallTrace(channel="web", consent="true", persona="wang", scenario="refund", model="m", env=env).store
+    # 字符串 "true" 不算同意：照样只存文字、不录音
+    t2 = TR.CallTrace(channel="web", consent="true", persona="wang", scenario="refund", model="m", env=env)
+    assert t2.consent is False and t2.audio_processor() is None
+    # VOICE_TRACE=0：什么都不存
+    t3 = TR.CallTrace(channel="web", consent=True, persona="wang", scenario="refund", model="m",
+                      env=_env(tmp_path, VOICE_TRACE=0))
+    _talk(t3)
+    t3.end("x")
+    assert not t3.store and not t3.path.exists()
 
 
 def test_sip_text_only_masks_caller_and_never_records(tmp_path):
@@ -188,22 +201,46 @@ def test_cleanup_30_days(tmp_path):
 
 def test_feedback_and_list_load(tmp_path):
     env = _env(tmp_path)
-    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="pig", model="m", env=env)
+    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="pig", model="m", env=env,
+                     feedback_key="k-this-page")
     _talk(t)
     t.end("client_hangup")
-    assert TR.feedback(t.id, f"第二轮不对，我电话{PHONE}", 2, env=env) == {"ok": True}
-    assert TR.feedback(t.id, "", "abc", env=env) == {"ok": True}
+    assert "k-this-page" not in t.path.read_text(encoding="utf-8")  # 口令只存哈希
+    assert TR.feedback(t.id, f"第二轮不对，我电话{PHONE}", 2, env=env, key="k-this-page") == {"ok": True}
+    assert TR.feedback(t.id, "", "abc", env=env, key="k-this-page") == {"ok": True}
     assert TR.feedback("ZZZZZZZZ", "x", env=env) is None and TR.feedback("../x", "x", env=env) is None
     rows = [r for r in _lines(t.path) if r["type"] == "feedback"]
     assert rows[0]["turn"] == 2 and PHONE not in rows[0]["note"] and rows[1]["turn"] is None
+    assert rows[0]["flagged"] is True and rows[0]["call_id"] == t.id and rows[0]["schema_version"] == TR.SCHEMA_VERSION
     for _ in range(30):
-        TR.feedback(t.id, "x", env=env)
+        TR.feedback(t.id, "x", env=env, key="k-this-page")
     assert sum(1 for r in _lines(t.path) if r["type"] == "feedback") == TR.MAX_FEEDBACK
+    assert TR.feedback(t.id, "x", env=env, key="k-this-page") == {"ok": False, "error": "too many"}
     lst = TR.list_traces(env=env)
     assert lst[0]["id"] == t.id and lst[0]["turns"] == 2 and lst[0]["feedback"] == TR.MAX_FEEDBACK
+    assert lst[0]["flagged"] is True
     from voice import trace_cli
     out = trace_cli.render(TR.load(t.id, env=env), audio=True)
-    assert "意图=confirm_intel" in out and "首声=500ms" in out and "反馈（第 2 轮）" in out and "录音: 无" in out
+    assert "意图=confirm_intel" in out and "首声=500ms" in out and "这通有问题（第 2 轮）" in out and "录音: 无" in out
+
+
+def test_feedback_only_for_current_call(tmp_path):
+    """只认当前通话：要带本页的口令；不同意录音的通话也能标记；超过 TRACE_FEEDBACK_HOURS 不收。"""
+    env = _env(tmp_path)
+    t = TR.CallTrace(channel="web", consent=False, persona="lin", scenario="pig", model="m", env=env,
+                     feedback_key="right")
+    t.end("client_hangup")
+    assert TR.feedback(t.id, "x", env=env) == {"ok": False, "error": "forbidden"}
+    assert TR.feedback(t.id, "x", env=env, key="wrong") == {"ok": False, "error": "forbidden"}
+    assert TR.feedback(t.id, "答非所问", env=env, key="right") == {"ok": True}
+    late = time.time() + 7 * 3600
+    assert TR.feedback(t.id, "x", env=env, key="right", now=late) == {"ok": False, "error": "expired"}
+    assert TR.feedback(t.id, "x", env=_env(tmp_path, TRACE_FEEDBACK_HOURS=24), key="right", now=late) == {"ok": True}
+    # 别的通话的口令不能用在这一通
+    other = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="pig", model="m", env=env,
+                         feedback_key="other")
+    assert TR.feedback(t.id, "x", env=env, key="other")["error"] == "forbidden"
+    assert TR.feedback(other.id, "x", env=env, key="other") == {"ok": True}
 
 
 def test_mask_caller():
@@ -245,13 +282,29 @@ def test_trace_api_requires_token(monkeypatch, tmp_path):
 def test_feedback_endpoint(monkeypatch, tmp_path):
     app = _app(monkeypatch, tmp_path)
     c = TestClient(app)
-    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="pig", model="m")
+    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="pig", model="m", feedback_key="kk")
     t.end("client_hangup")
-    assert c.post(f"/api/feedback/{t.id}", json={"note": "第3轮答非所问", "turn": 3}).json() == {"ok": True}
+    assert c.post(f"/api/feedback/{t.id}", json={"key": "kk", "note": "第3轮答非所问", "turn": 3}).json() == {"ok": True}
+    assert c.post(f"/api/feedback/{t.id}", json={"note": "没带口令"}).status_code == 403
+    assert c.post(f"/api/feedback/{t.id}", json={"key": 123}).status_code == 403
     assert c.post("/api/feedback/AAAAAAAA", json={}).status_code == 404
-    off = TR.CallTrace(channel="web", consent=False, persona="lin", scenario="pig", model="m")
-    assert c.post(f"/api/feedback/{off.id}", json={"note": "x"}).status_code == 404
-    assert c.get("/api/config").json()["trace"]["days"] == 30
+    off = TR.CallTrace(channel="web", consent=False, persona="lin", scenario="pig", model="m", feedback_key="k2")
+    assert c.post(f"/api/feedback/{off.id}", json={"key": "k2", "note": "x"}).status_code == 200
+    sip = TR.CallTrace(channel="phone", consent=None, persona="lin", scenario="pig", model="m")
+    assert c.post(f"/api/feedback/{sip.id}", json={"key": "x"}).status_code == 404
+    cfg = c.get("/api/config").json()["trace"]
+    assert cfg["days"] == 30 and cfg["audioDays"] == 30
+    rows = [r for r in _lines(TR.trace_dir() / f"{t.id}.jsonl") if r["type"] == "feedback"]
+    assert len(rows) == 1 and rows[0]["note"] == "第3轮答非所问" and rows[0]["turn"] == 3
+
+
+def test_feedback_endpoint_rate_limited(monkeypatch, tmp_path):
+    c = TestClient(_app(monkeypatch, tmp_path))
+    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="pig", model="m", feedback_key="kk")
+    codes = [c.post(f"/api/feedback/{t.id}", json={"key": "kk"}).status_code for _ in range(8)]
+    assert codes[:5] == [200] * 5 and codes[5] == 429  # 每通最多 5 条
+    assert codes[6:] == [429, 429]                       # 同一 IP 每分钟 6 次
+    assert c.post("/api/feedback/AAAAAAAA", json={}).status_code == 429
 
 
 def test_offer_passes_consent_and_returns_trace_id(monkeypatch, tmp_path):
@@ -280,8 +333,12 @@ def test_offer_passes_consent_and_returns_trace_id(monkeypatch, tmp_path):
     r = c.post("/api/offer", json={"sdp": "v=0", "type": "offer", "consent": True})
     tid = r.json()["trace_id"]
     assert TR.valid_id(tid) and seen[-1]["consent"] is True and seen[-1]["trace_id"] == tid
+    key = r.json()["feedback_key"]
+    assert len(key) >= 20 and seen[-1]["feedback_key"] == key
     r = c.post("/api/offer", json={"sdp": "v=0", "type": "offer"})
-    assert "trace_id" not in r.json() and seen[-1]["consent"] is False
+    # 不同意录音也有编号（页面显示、报问题时引用），口令每通不同
+    assert TR.valid_id(r.json()["trace_id"]) and r.json()["trace_id"] != tid and seen[-1]["consent"] is False
+    assert r.json()["feedback_key"] != key
 
 
 def test_pipeline_places_audiobuf_after_output():

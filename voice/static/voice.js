@@ -2,7 +2,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  let pc = null, dc = null, pcId = null, mic = null, interimEl = null, iceServers = [], traceId = null, traceOn = true;
+  let pc = null, dc = null, pcId = null, mic = null, interimEl = null, iceServers = [], traceId = null, traceKey = "", traceOn = true;
   // 连接状态（GitHub #3）：connecting → connected / failed。超时没接通就给出原因和建议，并上报（同意时写进同一编号）
   const CONNECT_TIMEOUT_MS = 20000;
   let turnOn = false, relayOffered = false, connTimer = null, connState = "idle", tStart = 0, reported = false;
@@ -16,7 +16,7 @@
       iceServers = c.iceServers || [];
       turnOn = !!c.turn;
       traceOn = !c.trace || c.trace.enabled !== false;
-      if (!traceOn) { $("consentRow").hidden = true; $("keepNote").textContent = "本演示不保存通话内容；仅供防诈研究与教育，请勿用于联系任何真实的人。"; }
+      applyTraceCopy(c.trace);
       if (c.limits) $("limits").textContent = `公开体验限制：每局最长 ${c.limits.maxMinutes} 分钟 / ${c.limits.maxTurns} 轮，同时最多 ${c.limits.maxSessions} 路通话` +
         (c.budget && c.budget.capCny ? `；今日额度已用 ${c.budget.usedPct}%` : "") + "。";
       if (c.budget && c.budget.exhausted) { setStatus("bad", "今日语音体验额度已用完"); $("call").disabled = true; return; }
@@ -121,7 +121,7 @@
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `HTTP ${r.status}`);
     const ans = await r.json();
     pcId = ans.pc_id;
-    if (ans.trace_id) showTrace(ans.trace_id);
+    if (ans.trace_id) showTrace(ans.trace_id, ans.feedback_key);
     await pc.setRemoteDescription({ sdp: ans.sdp, type: ans.type });
   }
 
@@ -261,13 +261,32 @@
   }
 
   // ---- 通话追踪：同意、编号、反馈 ----
-  function consentOn() { return traceOn && $("consent").checked; }
-  function showTrace(id) {
-    traceId = id; $("traceId").textContent = id; $("trace").hidden = false;
-    $("fb").hidden = true; $("fbDone").hidden = true; $("fbOpen").hidden = false;
+  // 文字记录每通都存，录音要勾选；保留天数取服务端配置（页面里写的是默认 30 天）
+  const NOTE_TAIL = "仅供防诈研究与教育，请勿用于联系任何真实的人。";
+  function applyTraceCopy(t) {
+    if (!traceOn) {
+      $("consentRow").hidden = true;
+      $("keepNote").textContent = "本演示不保存通话内容；" + NOTE_TAIL;
+      return;
+    }
+    const days = (t && t.days) || 30, audioDays = (t && t.audioDays) || days, audioOn = !t || t.audio !== false;
+    if (!audioOn) {
+      $("consentRow").hidden = true;
+      $("keepNote").textContent = `每通保存去掉敏感信息的文字记录 ${days} 天用于排查问题，不保存录音；` + NOTE_TAIL;
+      return;
+    }
+    if (days === 30 && audioDays === 30) return; // 与页面默认文案一致
+    $("consentText").textContent = `允许保存本次通话录音，用于改进 DeepSuck（${audioDays} 天后删除）`;
+    $("infoDays").textContent = days === audioDays ? `保存多久：${days} 天后自动删除。`
+      : `保存多久：文字记录 ${days} 天、录音 ${audioDays} 天后自动删除。`;
+    $("keepNote").textContent = `每通保存去掉敏感信息的文字记录 ${days} 天用于排查问题，勾选同意时另存录音；` + NOTE_TAIL;
   }
-  function hideTrace() { traceId = null; $("trace").hidden = true; $("fb").hidden = true; $("fbDone").hidden = true; }
-  $("consent").onchange = () => { if (!$("consent").checked && !pc) hideTrace(); };
+  function consentOn() { return traceOn && $("consent").checked; }
+  function showTrace(id, key) {
+    traceId = id; traceKey = key || ""; $("traceId").textContent = id; $("trace").hidden = false;
+    $("fb").hidden = true; $("fbDone").hidden = true; $("fbOpen").hidden = !traceKey; $("fbOpen").textContent = "这通有问题";
+  }
+  function hideTrace() { traceId = null; traceKey = ""; $("trace").hidden = true; $("fb").hidden = true; $("fbDone").hidden = true; }
   $("consentMore").onclick = () => {
     const box = $("consentInfo"), open = box.hidden;
     box.hidden = !open; $("consentMore").setAttribute("aria-expanded", String(open));
@@ -280,22 +299,31 @@
   };
   $("fbOpen").onclick = () => { $("fb").hidden = false; $("fbDone").hidden = true; $("fbNote").focus(); };
   $("fbCancel").onclick = () => { $("fb").hidden = true; };
+  // “这通有问题”：只认本页拿到的这通（带 feedback_key）；服务端限频，提交后在原位给出结果
+  const FB_MSG = { 429: "提交太频繁，请稍后再试。", 403: "只能标记本页刚打的这通电话。",
+    404: "只能标记本页刚打的这通电话。", 410: "这通电话结束太久，已不能标记。" };
   $("fb").onsubmit = async (e) => {
     e.preventDefault();
-    if (!traceId) return;
-    const turn = $("fbTurn").value.trim();
+    if (!traceId || !traceKey) return;
+    const turn = $("fbTurn").value.trim(), btn = $("fb").querySelector("button[type=submit]");
+    btn.disabled = true;
+    let ok = false;
     try {
       const r = await fetch(`/api/feedback/${encodeURIComponent(traceId)}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note: $("fbNote").value.trim(), turn: turn === "" ? null : Number(turn) }),
+        body: JSON.stringify({ key: traceKey, note: $("fbNote").value.trim(), turn: turn === "" ? null : Number(turn) }),
       });
-      $("fbDone").textContent = r.ok ? `已记录，谢谢。通话编号 ${traceId}` : "提交失败，请稍后再试。";
+      ok = r.ok;
+      $("fbDone").textContent = r.ok ? `已标记这通有问题，谢谢。排查时会按通话编号 ${traceId} 查看。`
+        : (FB_MSG[r.status] || "提交失败，请稍后再试。");
     } catch { $("fbDone").textContent = "提交失败，请稍后再试。"; }
-    $("fb").hidden = true; $("fbDone").hidden = false; $("fbNote").value = ""; $("fbTurn").value = "";
+    btn.disabled = false;
+    $("fb").hidden = true; $("fbDone").hidden = false;
+    if (ok) { $("fbNote").value = ""; $("fbTurn").value = ""; $("fbOpen").textContent = "补充说明"; }
   };
 
   $("call").onclick = start;
   $("hang").onclick = () => stop();
-  window.__deepsuckVoice = { onData, showNetHelp, setConn }; // 便于本地截图/调试
+  window.__deepsuckVoice = { onData, showNetHelp, setConn, showTrace }; // 便于本地截图/调试
   loadConfig();
 })();

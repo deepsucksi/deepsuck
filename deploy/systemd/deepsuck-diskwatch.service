@@ -1,0 +1,11 @@
+[Unit]
+Description=DeepSuck disk usage + trace/data volume size check, read-only (GitHub #18)
+Documentation=https://github.com/deepsucksi/deepsuck/blob/main/docs/DEPLOY.md
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/deepsuck-maint
+ExecStart=@DIR@/deploy/diskwatch.sh run
+Nice=10
+IOSchedulingClass=idle

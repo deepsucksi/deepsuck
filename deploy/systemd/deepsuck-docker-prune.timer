@@ -1,0 +1,10 @@
+[Unit]
+Description=DeepSuck weekly docker prune, Sunday 04:30 +08:00 (GitHub #18)
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00 Asia/Shanghai
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

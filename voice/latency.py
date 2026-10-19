@@ -17,6 +17,11 @@ first_audible = min(filler, bot_start, tts_first) - speech_end：对方说完到
 filler：本回合播了口头语/填充音为 1，否则 0。
 rule 模式没有大模型，llm_* / agg 为空。
 
+通话追踪（voice/trace.py）另收两种通知，不进 turns 统计：
+  {"type": "llm_done", "full_ms"}：大模型整句耗时 = LLMFullResponseEndFrame - LLMFullResponseStartFrame；
+  {"type": "interrupt"}：人设在说话（BotStartedSpeakingFrame 之后、BotStoppedSpeakingFrame 之前）时对方开口
+  （UserStartedSpeakingFrame）。
+
 上报时机：回复首包（tts_first）一到就结算并通知客户端（此时各字段都已确定）；没有回复首包的回合
 在下一个用户回合开始或 flush() 时兜底结算。
 
@@ -33,6 +38,8 @@ from typing import Awaitable, Callable, Dict, List, Optional
 from loguru import logger
 from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
+    BotStoppedSpeakingFrame,
+    LLMFullResponseEndFrame,
     LLMFullResponseStartFrame,
     LLMTextFrame,
     OutputAudioRawFrame,
@@ -82,6 +89,8 @@ class LatencyObserver(BaseObserver):
         self._last_stop: Optional[float] = None
         self._seen: set = set()          # 最近见过的 Frame.id
         self._seen_order: deque = deque()
+        self._bot_speaking = False
+        self._llm_t0: Optional[float] = None
 
     @staticmethod
     def _first(ev, kind, after):
@@ -123,11 +132,25 @@ class LatencyObserver(BaseObserver):
         if len(self._seen_order) > _SEEN_MAX:
             self._seen.discard(self._seen_order.popleft())
         t = self.clock()
+        if isinstance(f, BotStartedSpeakingFrame):
+            self._bot_speaking = True
+        elif isinstance(f, BotStoppedSpeakingFrame):
+            self._bot_speaking = False
+            return
+        elif isinstance(f, LLMFullResponseStartFrame):
+            self._llm_t0 = t
+        elif isinstance(f, LLMFullResponseEndFrame):
+            t0, self._llm_t0 = self._llm_t0, None
+            if t0 is not None and self.notify is not None:
+                await self.notify({"type": "llm_done", "full_ms": _ms(t0, t)})
+            return
         if isinstance(f, VADUserStoppedSpeakingFrame):
             self._last_stop = t - (getattr(f, "stop_secs", None) or self.vad_stop_secs)
         elif isinstance(f, UserStartedSpeakingFrame):
             # 广播帧上下游各一份：已在回合内则忽略
             if not self._in_turn:
+                if self._bot_speaking and self.notify is not None:
+                    await self.notify({"type": "interrupt"})
                 self._in_turn = True
                 await self._finish()
                 self._cur = {"start": t, "ev": []}
@@ -158,6 +181,7 @@ class LatencyObserver(BaseObserver):
 
 _SEEN_MAX = 4096
 _TRACKED = (VADUserStoppedSpeakingFrame, TranscriptionFrame, UserStartedSpeakingFrame, UserStoppedSpeakingFrame,
-            LLMFullResponseStartFrame, LLMTextFrame, TTSStartedFrame, OutputAudioRawFrame, BotStartedSpeakingFrame)
+            LLMFullResponseStartFrame, LLMTextFrame, TTSStartedFrame, OutputAudioRawFrame, BotStartedSpeakingFrame,
+            BotStoppedSpeakingFrame, LLMFullResponseEndFrame)
 _STAGES = ((TranscriptionFrame, "asr"), (LLMFullResponseStartFrame, "llm_start"), (LLMTextFrame, "llm_first"),
            (TTSStartedFrame, "tts_start"), (TTSAudioRawFrame, "tts_first"), (BotStartedSpeakingFrame, "bot"))

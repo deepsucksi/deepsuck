@@ -55,6 +55,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 | `guard.py` | 费用护栏：每日预算（预占 + 实时记账 + 持久化）、并发/每 IP 限制、时长/轮数/静默看门狗 |
 | `netpatch.py` | UDP 端口段限制、公网 IP 候选（服务器部署用） |
 | `probe.py` | `python -m voice.probe`：aiortc 端到端探针（部署后验证 UDP/ICE；`--json-out` 输出逐句端到端延迟） |
+| `cost.py` | `python -m voice.cost --day YYYY-MM-DD`：按天汇总调用成本（计数 × 单价重算），见下文「每日成本汇总」；VPS 上每天 20:40 由 `deepsuck-cost.timer` 写 `/var/log/deepsuck/cost-latest.json`（docs/DEPLOY.md 第 8 节） |
 | `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用 qwen-plus → CosyVoice → Paraformer 的冒烟测试 |
 | `telephony/` | 电话接入抽象层（默认关闭）：`TelephonyAdapter` 基类 + 注册表，`ws-raw` 通用 SIP/WebSocket 适配器、`pipecat-ws`（Twilio/Telnyx/Plivo/Exotel）；阿里云呼入适配器设计稿。见 [telephony/README.md](telephony/README.md) |
 
@@ -100,6 +101,32 @@ WebRTC 网络（`netpatch.py`）：`VOICE_UDP_PORTS=40000-40199` 把 aioice 的 
 ```bash
 python -m voice.probe --url http://127.0.0.1:7860 --wav scammer16k.wav --seconds 30
 ```
+
+## 每日成本汇总（#20）
+
+`python -m voice.cost` 只用标准库，按 +08:00 日期把一天的调用折成原价金额，给每天 21:00 的日报用。服务器上在容器里跑：
+
+```bash
+cd deploy && docker compose exec -T voice python -m voice.cost --day 2026-10-19        # 文本
+cd deploy && docker compose exec -T voice python -m voice.cost --day 2026-10-19 --json # 给脚本用
+```
+
+| 数据 | 默认位置（参数 / 环境变量可改） | 说明 |
+| --- | --- | --- |
+| 通话追踪 | `TRACE_DIR`（`--traces`） | 每通 end 行的 `usage`，按 end 时间分桶；`kind`、ASR/TTS 模型和音色有就用 |
+| 逐通用量 | `DATA_DIR/voice/voice-usage.jsonl`（`--usage`、`VOICE_USAGE_FILE`） | 不同意存储的通话也有一行（不含内容）；与 trace 同一 `call_id` 只算一次 |
+| 当日账本 | `DATA_DIR/voice-budget.json`（`--data`） | 只当全量计数参考：比逐通记录多出的部分单列「账本差额」，不用 `spent_cny` |
+| 文字代理 | `PROXY_DATA_DIR` 或 `DATA_DIR` 下 `chat-budget.json`（`--chat-budget`） | 当天的 `inTokens`/`outTokens`，按 `LLM_MODEL` 单价 |
+| 评测花费 | `/workspace/deepsuck-costs/eval-spend.csv`（`--eval-spend`、`COST_EVAL_SPEND`） | 表头 `date,role,pr,cny,note`，按 `date` 求和 |
+| 优惠券基准 | `DATA_DIR/cost-baseline.json`（`--baseline`、`COST_BASELINE`） | 手填，格式见 [`deploy/cost-baseline.example.json`](../deploy/cost-baseline.example.json)，不进仓库 |
+
+文件不存在就跳过，输出末尾列出跳过了哪些。规则：
+
+- 金额一律「计数 × 单价」重算。LLM 按每通的模型查 `guard.py` 单价表（覆盖方式同护栏）；ASR `PRICE_ASR_PER_SEC`；TTS 按模型（v3-flash 1 元、v3.5-flash 0.8 元 / 万字符，设计音色按 ID 前缀推断，未知按 1 元），`PRICE_TTS_PER_10K_CHARS` 设了就全部覆盖。
+- TTS 按百炼规则汉字算 2 个字符：记录有 `tts_billed_chars`（旧名 `tts_billable_chars`）就用它，否则 `tts_chars × 2` 并标「估算」。
+- ASR 另给扣 Paraformer 每月 10 小时免费额度后的金额（`COST_ASR_FREE_SEC_PER_MONTH`，默认 36000；本月已用量只从逐通记录累计）。
+- 优惠券：估算余额 = 基准余额 − 基准日之后（不含当天）每天扣免费额度后的合计；本月累计占 `monthly_budget` 达 `COST_ALERT_PCT`（默认 50）% 时输出「⚠ 提醒」，JSON 里 `baseline.alert=true`。
+- 只是估算：活动折扣、代金券、缓存命中都不算，以百炼控制台账单为准。
 
 ## 延迟
 
@@ -152,25 +179,32 @@ python -m pytest voice/tests -q    # 全部用假 WebSocket，不联网、不需
 
 ## 通话追踪与问题反馈
 
-网页「开始通话」旁的复选框（默认勾选）决定这通电话存不存内容，随 `/api/offer` 的 `consent` 传给服务端（只认 JSON `true`）。代码在 `voice/trace.py`。
+代码在 `voice/trace.py`，字段表（schema v2，与 #18 磁盘监控、#20 成本监控共用）在 [docs/TRACE_SCHEMA.md](../docs/TRACE_SCHEMA.md)。
 
-- 勾选：每通一个 8 位通话编号（base32），页面显示、可复制。每轮写一行 JSONL：时间、ASR 文本、意图、人设回复、本轮情报（脱敏）、各段延迟（`latency.py`）、模型名、提示词哈希和模板版本、代码版本（`GIT_SHA` 或镜像里的 `.gitmeta`）、人设和场景、consent；结束写一行汇总（挂断原因、统计、延迟分位）。录音两轨（对方、人设），由 Pipecat `AudioBufferProcessor` 分轨回调，后台线程边收边编码成 16k 单声道 ogg/opus（约 2 KB/秒/轨）。「这通有问题」按钮 POST `/api/feedback/<编号>`，写进同一份记录。
-- 不勾选：什么内容都不存，只在 `stats.json` 里加无内容的计数。
-- 电话线路（SIP）：没法勾选，只存脱敏文字、不录音，主叫号码按 `mask_phone` 打码，consent 记为 `sip-text-only`。
-- 文字落盘前都过一遍共享的 `redact_text(text, extract_sensitive(text))`。
+- 每通一个 8 位通话编号（base32），页面显示、可复制，每行 trace 都带 `call_id`。
+- 文字每通都存：每轮一行 JSONL（ASR 文本、人设回复、意图、情报、延迟拆解、模型名、大模型输入/输出 token、首字/整句延迟、ASR 音频秒数、TTS 字数和音色、是否被打断、提示词和代码版本）；结束写一行汇总（起止时间、时长、退出原因、是否同意录音、用量合计、估算花费）。
+- 录音：网页「开始通话」旁的复选框（默认勾选）随 `/api/offer` 的 `consent` 传给服务端（只认 JSON `true`），勾选才录两轨（对方、人设），由 Pipecat `AudioBufferProcessor` 分轨回调，后台线程边收边编码成 16k 单声道 ogg/opus（约 2 KB/秒/轨）。
+- 「这通有问题」：页面带 `/api/offer` 发的一次性 `feedback_key` POST `/api/feedback/<编号>`（同一 IP 每分钟 6 次、每通 5 条、通话开始 6 小时内），写成 `feedback` 行（`flagged: true`）。
+- 电话线路（SIP）：只存脱敏文字、不录音，主叫号码按 `mask_phone` 打码，consent 记为 `sip-text-only`。
+- 文字落盘前都过一遍共享的 `redact_text(text, extract_sensitive(text))`，再补自报姓名规则（「我叫张伟」→「我叫张*」）。
 
 读取（不对公众）：`GET /api/traces?since=&limit=`、`GET /api/traces/<编号>`、`GET /api/traces/<编号>/audio/<scammer|persona>`，需 `Authorization: Bearer $TRACE_ADMIN_TOKEN`（常量时间比较）；没配 token 或请求带 `X-Forwarded-For`（经 Caddy 进来）时一律 404；Caddy 对 `/api/traces*` 直接 404。服务器上直接用命令行：
 
     docker exec deepsuck-voice-1 python -m voice.trace_cli --list
     docker exec deepsuck-voice-1 python -m voice.trace_cli <编号> --audio
+    docker exec deepsuck-voice-1 python -m voice.trace_cli --flagged          # 被标记有问题的通话
+    docker exec deepsuck-voice-1 python -m voice.trace_cli --usage --days 7   # 按天用量汇总（JSON）
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `VOICE_TRACE` | `1` | `0` 关闭追踪（页面不显示同意选项） |
 | `TRACE_DIR` | `DATA_DIR/voice/traces` | compose 里固定为命名卷 `voice-traces:/traces` |
-| `TRACE_DAYS` | `30` | 保留天数；启动时和之后每天清理一次 |
+| `TRACE_DAYS` | `30` | 文字保留天数；启动时和之后每天清理一次 |
 | `TRACE_AUDIO` | `1` | `0` 只存文字不录音 |
-| `TRACE_MAX_MB` | `1024` | 目录总量上限，超过停录音（文字照存），打 warning |
+| `TRACE_AUDIO_DIR` | 同 `TRACE_DIR` | 录音目录（容器里须在挂载的卷内） |
+| `TRACE_AUDIO_DAYS` | 同 `TRACE_DAYS` | 录音保留天数 |
+| `TRACE_FEEDBACK_HOURS` | `6` | 通话开始后多少小时内能提交「这通有问题」 |
+| `TRACE_MAX_MB` | `1024` | 录音和文字目录总量上限，超过停录音（文字照存），打 warning |
 | `TRACE_MIN_FREE_MB` | `1024` | 磁盘剩余低于此值停录音 |
 | `TRACE_ADMIN_TOKEN` | 空 | 读取接口口令；留空则接口 404。生成：`openssl rand -hex 24` |
 | `GIT_SHA` | 空 | 构建参数，可选；不传时读镜像里的 `.gitmeta` |
@@ -184,7 +218,7 @@ UDP 被封的网络（公司/校园网、不转发 UDP 的代理或 VPN）里，
 - 凭据：页面在点「开始通话」后 `POST /api/ice` 现取，coturn REST 临时凭据，有效期 `TURN_TTL`（默认 600 秒），不落盘、不进 `/api/config`。
 - 页面状态：正在连接… → 已接通 · 通话中；20 秒没接通或 ICE 失败显示「连接失败」和建议（换网络、关代理/VPN、换浏览器），有通话编号时一并显示。
 - 上报：失败或接通时 `POST /api/client-report`（阶段、原因、候选类型计数、选中路径、耗时、浏览器名；不含 IP、SDP）。
-  一律只计数（`stats.json`）；勾选同意并拿到编号的通话，再写进同一编号的追踪，`python -m voice.trace_cli <编号>` 可见「前端上报失败 / 前端已接通」。
+  一律只计数（`stats.json`）；拿到编号的网页通话，再写进同一编号的追踪，`python -m voice.trace_cli <编号>` 可见「前端上报失败 / 前端已接通」。
 - 实测中继：`python -m voice.probe ... --relay tcp`（或 `tls`），只收集 relay 候选，退出码 6 表示没拿到中继。
 
 | 变量 | 默认 | 说明 |

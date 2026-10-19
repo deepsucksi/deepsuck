@@ -1,0 +1,10 @@
+[Unit]
+Description=DeepSuck disk check every 15 minutes (GitHub #18)
+
+[Timer]
+OnBootSec=5min
+OnCalendar=*:0/15
+Persistent=true
+
+[Install]
+WantedBy=timers.target
