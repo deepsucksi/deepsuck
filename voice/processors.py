@@ -42,6 +42,7 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
+from .callredact import CallRedactor
 from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_scenes, session_topics, speakable, system_prompt,
                       unmask)
 
@@ -55,11 +56,16 @@ async def _noop(_msg: dict) -> None:
 
 
 class GuardTextFilter(BaseTextFilter):
+    """送 TTS 前的输出守卫。redactor：本通电话的 CallRedactor（#140），模型复述了已提取的姓名/号码也先打码。"""
+
+    def __init__(self, redactor: Optional[CallRedactor] = None):
+        self.redactor = redactor
+
     async def update_settings(self, settings):  # 无可调参数
         return None
 
     async def filter(self, text: str) -> str:
-        return speakable(text)
+        return speakable(self.redactor.apply(text) if self.redactor is not None else text)
 
     async def handle_interruption(self):
         return None
@@ -220,9 +226,12 @@ class IntelProcessor(FrameProcessor):
 
     def __init__(self, session, *, context=None, notify: Optional[Notify] = None, mode: str = "llm",
                  fillers: Optional[Dict[str, bytes]] = None, filler_rate: int = 16000,
-                 filler_prob: float = 0.6, blocklist=None, rng=None, backchannel=None, **kwargs):
+                 filler_prob: float = 0.6, blocklist=None, rng=None, backchannel=None,
+                 redactor: Optional[CallRedactor] = None, **kwargs):
         super().__init__(**kwargs)
         self.session = session
+        # #140：本通电话已提取的姓名、号码（原值只在内存），后面每段文本进模型、记会话前按各种说法再打码
+        self.redactor = redactor if redactor is not None else CallRedactor()
         self.backchannel = backchannel  # voice.backchannel.Backchannel：转写到了就决定本回合说不说口头语
         self.said_first = ""            # 本回合打算先说的口头语，写进系统提示词，免得正式回复开头再"嗯"
         self.context = context
@@ -248,6 +257,29 @@ class IntelProcessor(FrameProcessor):
     def snapshot(self) -> dict:
         return {"type": "state", "intel": self.session.intel_list(), "tactics": self.session.tactic_list(),
                 "stats": self.session.stats(), "intent": self.intent}
+
+    def call_redact(self, a: dict) -> dict:
+        """#140：按通话打码。先把本段新提取的情报记进集合，再把本段文本、会话里对方说过的话、模型上下文里的用户消息
+        中已提取姓名/号码的各种说法（全名、去姓的名、拆字说法、号码换写法）打码。逐句规则漏掉的在这里补上。"""
+        before = len(self.redactor)
+        grew = self.redactor.learn(self.session) > before
+        if not len(self.redactor):
+            return a
+        a["redacted"] = self.redactor.apply(a.get("redacted", ""))
+        for m in getattr(self.session, "messages", []) or []:
+            if m.get("role") == "scammer" and isinstance(m.get("text"), str):
+                m["text"] = self.redactor.apply(m["text"])
+        if grew and self.context is not None:  # 新记下的名字可能在之前几段里已经说过（先报名、后报户名）
+            msgs = list(self.context.get_messages())
+            changed = False
+            for m in msgs:
+                if m.get("role") == "user" and isinstance(m.get("content"), str):
+                    c = unmask(self.redactor.apply(m["content"]))
+                    if c != m["content"]:
+                        m["content"], changed = c, True
+            if changed:
+                self.context.set_messages(msgs)
+        return a
 
     def update_prompt(self) -> str:
         topics = session_topics(self.session)
@@ -288,7 +320,7 @@ class IntelProcessor(FrameProcessor):
         text = (frame.text or "").strip()
         if not text:
             return
-        a = self.session.ingest(text)
+        a = self.call_redact(self.session.ingest(text))
         if self.backchannel is not None:
             self.said_first = self.backchannel.note(a["redacted"]) or ""
         if self.mode == "rule":
@@ -347,7 +379,7 @@ class BotTextTap(FrameProcessor):
         elif isinstance(frame, LLMTextFrame):
             self._buf.append(frame.text)
         elif isinstance(frame, LLMFullResponseEndFrame) and self._buf:
-            text = guard_output("".join(self._buf))
+            text = guard_output(self.intel.redactor.apply("".join(self._buf)))
             self._buf = []
             if text:
                 msg = self.intel.session.record_bot(text, self.intel.intent)
