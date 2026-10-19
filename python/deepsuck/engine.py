@@ -16,7 +16,7 @@ from .core import load, utf16_len
 from . import extractors as X
 from . import redact as R
 from . import tactics as T
-from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, DIGIT_ECHO, REPLY_POLISH, resolve_persona_id
+from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, DIGIT_ECHO, REPLY_POLISH, TAIL_DEDUPE, resolve_persona_id
 
 REPORT_SCHEMA = "deepsuck.intel-report/v0.1"
 VERSION = "0.4.0"
@@ -124,6 +124,28 @@ def polish_reply(text: str) -> str:
 
 def _fnv(text: str) -> int:
     """FNV-1a 32 位，按 UTF-16 码元算（JS 端 charCodeAt 同一结果），用来确定性地挑句子。"""
+# ---- 跨轮去重（#153，配置在 personas.json 的 tailDedupe；JS 在 engine.js 的 dedupeTail，用例 tests/fixtures/tail_dedupe.json）----
+_TD = TAIL_DEDUPE
+_TD_IGNORE = re.compile("[" + re.escape(_TD["ignore"]) + "]+")
+_TD_SENT = re.compile(r"[^。？！?!；;\n]+[。？！?!；;]*|[。？！?!；;]+")
+_TD_END = re.compile(r"[。？！?!；;…\s]*$")
+
+
+def _td_norm(s: str) -> str:
+    return _TD_IGNORE.sub("", str(s or ""))
+
+
+def _td_split(text: str) -> list:
+    out: list = []
+    for x in _TD_SENT.findall(str(text or "")):
+        if out and not _td_norm(x):
+            out[-1] += x  # 只剩标点的碎片并回上一句
+        elif _td_norm(x) or not out:
+            out.append(x)
+    return out
+
+
+def _td_hash(text: str) -> int:
     h = 0x811C9DC5
     b = text.encode("utf-16-le")
     for i in range(0, len(b), 2):
@@ -155,6 +177,43 @@ def _thin_ellipsis(s: str) -> str:
             return "，"
         out.append(_RP_ELL.sub(sub, sent))
     return "".join(out)
+def tail_sentence(text: str) -> str:
+    """一条回复的尾句（最后一个有字的句子，带句末标点）；没有字时返回空串。"""
+    parts = [x for x in _td_split(text) if _td_norm(x)]
+    return parts[-1].strip() if parts else ""
+
+
+def dedupe_tail(text: str, recent_tails: list) -> str:
+    """跨轮去重（纯函数，不存状态）：recent_tails 是最近几轮人设回复的尾句（调用方维护，取最后 window 条），
+    当前回复的尾句和其中任何一条去掉标点后相同，就改写到不同为止：
+    不止一句时去掉重复的尾句；只有一句时去掉最后一个分句、再不行去掉句尾语气词，最后才在句首加 lead 里的一个说法。"""
+    s = str(text or "")
+    seen = {_td_norm(x) for x in list(recent_tails or [])[-int(_TD["window"]):]} - {""}
+    if not seen:
+        return s
+    for _ in range(8):
+        parts = [x for x in _td_split(s) if _td_norm(x) or x.strip()]
+        if not parts:
+            return s
+        tail = parts[-1]
+        if _td_norm(tail) not in seen:
+            return s
+        if len([x for x in parts if _td_norm(x)]) > 1:
+            s = "".join(parts[:-1]).rstrip()
+            continue
+        m = _TD_END.search(tail)
+        body, end = tail[:m.start()], tail[m.start():]
+        lead_ws = body[:len(body) - len(body.lstrip())]
+        cut = max(body.rfind("，"), body.rfind(","), body.rfind("、"))
+        if cut > 0 and _td_norm(body[:cut]):
+            s = "".join(parts[:-1]) + body[:cut] + (end or "")
+            continue
+        if len(_td_norm(body)) > 1 and body.rstrip()[-1:] in _TD["particles"]:
+            s = "".join(parts[:-1]) + body.rstrip()[:-1] + end
+            continue
+        lead = _TD["lead"][_td_hash(_td_norm(text)) % len(_TD["lead"])]
+        return "".join(parts[:-1]) + lead_ws + lead + body.lstrip() + end
+    return s
 
 
 def vague_digits(text: str) -> str:

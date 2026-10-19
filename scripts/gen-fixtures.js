@@ -44,6 +44,26 @@ const SPLIT_NAME_CASES = [
   ['弓长岭', 'keep']
 ];
 
+// 跨轮去重（#153）：[当前回复, 最近几轮尾句]，期望值由 JS dedupeTail 生成，Python dedupe_tail 逐项比对
+const TAIL_DEDUPE_CASES = [
+  ['我想想。你发来吧。', ['你发来吧。']],
+  ['我想想。你发来吧。', ['你发来吧']],
+  ['嗯，你发来吧。', ['你发来吧。']],
+  ['你发来吧，我看看。', ['你发来吧，我看看']],
+  ['好的吧', ['好的吧。']],
+  ['你发来', ['你发来。']],
+  ['你说哪个？', ['衣服的事。', '你说哪个？']],
+  ['嗯…我听着呢', ['嗯，我听着呢。']],
+  ['等一下。你再说一遍。', ['你再说一遍', '等一下']],
+  ['你再说一遍。', ['你再说一遍。', 'a', 'b', 'c']],
+  ['你再说一遍。', ['a', 'b', '你再说一遍？']],
+  ['', ['你说']],
+  ['你说。', []],
+  ['哦…行。你发来吧…', ['你发来吧…']],
+  ['那个名字我没记全，你再说一遍', ['那个名字我没记全，你再说一遍。']],
+  ['好的。好的。', ['好的。']]
+];
+
 // 验证码按上下文打码（#33）：[文本, 'mask' 应打码 | 'keep' 原样（卡号 / 手机号仍由实体规则打码）]，号码均为虚构
 const OTP_CASES = [
   ['您的验证码是472915，5分钟内有效，请勿告诉他人', 'mask'],
@@ -361,6 +381,7 @@ function build() {
       .map((input) => ({ input, expected: CB.lookup(input) }))
   };
   out.humanize = buildHumanize();
+  out.tail_dedupe = { comment: HEADER, window: P.TAIL_DEDUPE.window, cases: TAIL_DEDUPE_CASES.map(([text, recent]) => ({ text, recent, expected: E.dedupeTail(text, recent), tail: E.tailSentence(text) })) };
   return out;
 }
 

@@ -186,6 +186,12 @@
     return state.queue;
   }
 
+  // #153：网页端自己维护会话历史：取最近三条人设回复的尾句交给 dedupeTail（纯函数，不存状态）
+  function recentTails(s) {
+    return s.messages.filter(function (m) { return m.role === 'bot'; }).slice(-3)
+      .map(function (m) { return D.engine.tailSentence(m.text); });
+  }
+
   function produceReply(s, a) {
     if (state.engine === 'rule') return Promise.resolve(s.ruleReply(a));
     var hint = s.chooseIntent(a);
@@ -197,6 +203,7 @@
       ? D.llm.viaProxy(payload, API + 'chat')
       : D.llm.chatCompletions(state.direct, D.llm.buildMessages(payload));
     return call.then(function (reply) {
+      reply = D.engine.dedupeTail(reply, recentTails(s)); // #153：最近三轮说过的尾句不原样再说
       var m = s.recordBot(reply, hint); m.engine = '大模型'; return m;
     }).catch(function (e) {
       console.warn(e);

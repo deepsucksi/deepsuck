@@ -129,6 +129,55 @@
   var DIGIT_TYPES = ['bank_card', 'phone', 'alipay', 'qq'];
   /** 把尾号报错一位（让对方纠正）：末两位不同则对调，否则末位 +1 */
   // 人设回复发出前的过滤（#121 数字、#130 打码片段与叠词；与 python/deepsuck/engine.py 的 vague_digits 逐字一致）
+  /* ---------- 跨轮去重（#153，配置 personas.json 的 tailDedupe；与 Python deepsuck.engine.dedupe_tail 逐字一致）---------- */
+  var TD = D.personas.TAIL_DEDUPE;
+  var TD_IGNORE = new RegExp('[' + TD.ignore.replace(/[\\\]\[^-]/g, '\\$&') + ']+', 'g');
+  var TD_SENT = /[^。？！?!；;\n]+[。？！?!；;]*|[。？！?!；;]+/g;
+  var TD_END = /[。？！?!；;…\s]*$/;
+  function tdNorm(s) { return String(s || '').replace(TD_IGNORE, ''); }
+  function tdSplit(text) {
+    var out = [];
+    (String(text || '').match(TD_SENT) || []).forEach(function (x) {
+      if (out.length && !tdNorm(x)) out[out.length - 1] += x;
+      else if (tdNorm(x) || !out.length) out.push(x);
+    });
+    return out;
+  }
+  function tdHash(t) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h >>> 0;
+  }
+  /** 一条回复的尾句（最后一个有字的句子，带句末标点）；没有字时返回空串 */
+  function tailSentence(text) {
+    var parts = tdSplit(text).filter(function (x) { return tdNorm(x); });
+    return parts.length ? parts[parts.length - 1].trim() : '';
+  }
+  /** 跨轮去重（纯函数）：recentTails 是最近几轮人设回复的尾句（调用方维护），当前尾句去掉标点后与其中之一相同就改写 */
+  function dedupeTail(text, recentTails) {
+    var s = String(text || '');
+    var seen = {};
+    (recentTails || []).slice(-TD.window).forEach(function (x) { var n = tdNorm(x); if (n) seen[n] = 1; });
+    if (!Object.keys(seen).length) return s;
+    for (var k = 0; k < 8; k++) {
+      var parts = tdSplit(s).filter(function (x) { return tdNorm(x) || x.trim(); });
+      if (!parts.length) return s;
+      var tail = parts[parts.length - 1];
+      if (!seen[tdNorm(tail)]) return s;
+      var head = parts.slice(0, -1).join('');
+      if (parts.filter(function (x) { return tdNorm(x); }).length > 1) { s = head.replace(/\s+$/, ''); continue; }
+      var m = tail.match(TD_END), body = tail.slice(0, m.index), end = tail.slice(m.index);
+      var leadWs = body.slice(0, body.length - body.replace(/^\s+/, '').length);
+      var cut = Math.max(body.lastIndexOf('，'), body.lastIndexOf(','), body.lastIndexOf('、'));
+      if (cut > 0 && tdNorm(body.slice(0, cut))) { s = head + body.slice(0, cut) + (end || ''); continue; }
+      var bt = body.replace(/\s+$/, '');
+      if (Array.from(tdNorm(body)).length > 1 && bt && TD.particles.indexOf(bt.slice(-1)) >= 0) { s = head + bt.slice(0, -1) + end; continue; }
+      var lead = TD.lead[tdHash(tdNorm(text)) % TD.lead.length];
+      return head + leadWs + lead + body.replace(/^\s+/, '') + end;
+    }
+    return s;
+  }
+
   var DE = D.personas.DIGIT_ECHO;
   function reEsc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
   var DD = '[' + DE.digits + ']';
@@ -580,5 +629,5 @@
     });
   };
 
-  return { Session: Session, goalOf: goalOf, scenesIn: scenesIn, heardScenes: heardScenes, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION, vagueDigits: vagueDigits };
+  return { Session: Session, goalOf: goalOf, scenesIn: scenesIn, heardScenes: heardScenes, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION, vagueDigits: vagueDigits, dedupeTail: dedupeTail, tailSentence: tailSentence };
 });

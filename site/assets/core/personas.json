@@ -2566,6 +2566,16 @@
     "quickQuestionMax": 6,
     "ellipsisKeepPct": 80
   },
+  "tailDedupe": {
+    "comment": "人设回复跨轮去重（#153）：最近 window 轮里出现过的尾句（最后一句）不许原样再说。纯函数 Python deepsuck.engine.dedupe_tail(text, recent_tails) / JS engine.dedupeTail(text, recentTails)，不存状态，调用方自己维护最近几轮的尾句（tail_sentence / tailSentence 取尾句）。比较前去掉 ignore 里的标点和空白。改写顺序：回复不止一句时去掉重复的尾句（新尾句再重复就接着去）；只有一句时去掉最后一个分句；没有分句就去掉句尾语气词（particles）；都不行时句首加 lead 里的一个说法（按原句哈希挑）。lead 是新加的连接说法，需负责人审。",
+    "window": 3,
+    "ignore": "…。？！?!；;，,、.·~～—-“”\"'‘’（）() 　\n",
+    "particles": "啊呀吧呢嘛哈啦哦么",
+    "lead": [
+      "我是说，",
+      "还是那句，"
+    ]
+  },
   "digitEcho": {
     "comment": "人设回复发出前的数字过滤（issue #121）：错别字扰动之后、语音合成之前，连续 minRun 位及以上的数字（阿拉伯数字、全角数字、中文数字 零〇一幺二两三四五六七八九，混写也算，中间夹空格、顿号、短横也算连续）换成含糊说法。后面跟“开头”的换成 lead（{d} 是第一位，只留这一个数字）；前面是尾号、后几位、后面是之类的连同前缀换成 tail；后面跟金额单位（moneyUnits）的连同单位换成 money；其余换成 other。打码星号（masks）夹在数字里也算同一串，整串一起换。python/deepsuck/engine.py 的 vague_digits 与 site/assets/js/engine.js 的 vagueDigits 共用这里。 #130：同一段过滤还处理打码片段和叠词——打码姓名（“张**”“王*明”“欧阳**”，前面的“姓”一并换掉）换成 name（与语音端 #137 unmask 同一规则：compoundSurnames 复姓、notSurname 里的字不当姓；“王*明”式中间打码吃掉后面一个字，但 nameTailStop 里的虚词不吃，“李*是吧”不会吃掉“是”），其余带 * 的片段换成 mask（号）、maskUrl、maskEmail；替换后相邻、重复的“没听清”类说法合并成一处，句子里已经有 heardAlready 这类意思时不再叠一个分句，句末多出来的直接去掉、句中的换成 short（不带“没听清”）；每类说法有几种，按原句字符码之和轮换（两端一致、同一句结果固定）。原文里已经写出来的 tail / other 说法也按同样规则去重。",
     "minRun": 3,
