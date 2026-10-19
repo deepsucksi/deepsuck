@@ -1,8 +1,36 @@
-time,tag,script,model,requests,prompt_tokens,completion_tokens,cost_cny,note
-2026-10-19T14:10:00+08:00,qwen38-baseline-2026-10-19,DashScope 兼容接口冒烟（max_tokens=5）,qwen3.8-flash,2,56,10,0.000072,确认 qwen3.8-flash 可用 ok
-2026-10-19T14:13:14+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,735560,17679,0.636181,seeds=2 maxTurns=25 personas=wang scenarios=all ok
-2026-10-19T14:14:40+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm,qwen3.8-flash,120,29539,3981,0.034380,judgeN=60 mode=item seed=1 ok
-2026-10-19T14:17:03+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,702795,17067,0.608317,seeds=2 maxTurns=25 personas=chen scenarios=all ok
-2026-10-19T14:19:23+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm,qwen3.8-flash,120,29438,3958,0.034237,judgeN=60 mode=item seed=2 ok
-2026-10-19T14:20:56+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,699091,16806,0.604649,seeds=2 maxTurns=25 personas=lin scenarios=all ok
-2026-10-19T14:24:37+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,362,692134,17003,0.599615,seeds=2 maxTurns=25 personas=zheng scenarios=all ok
+time,tag,script,model,requests,prompt_tokens,completion_tokens,cached_tokens,cost_cny,note
+2026-10-19T14:10:00+08:00,qwen38-baseline-2026-10-19,DashScope 兼容接口冒烟（max_tokens=5）,qwen3.8-flash,2,56,10,,0.000072,确认 qwen3.8-flash 可用 ok
+2026-10-19T14:13:14+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,735560,17679,,0.636181,seeds=2 maxTurns=25 personas=wang scenarios=all ok
+2026-10-19T14:14:40+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm,qwen3.8-flash,120,29539,3981,,0.034380,judgeN=60 mode=item seed=1 ok
+2026-10-19T14:17:03+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,702795,17067,,0.608317,seeds=2 maxTurns=25 personas=chen scenarios=all ok
+2026-10-19T14:19:23+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm,qwen3.8-flash,120,29438,3958,,0.034237,judgeN=60 mode=item seed=2 ok
+2026-10-19T14:20:56+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,699091,16806,,0.604649,seeds=2 maxTurns=25 personas=lin scenarios=all ok
+2026-10-19T14:24:37+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,362,692134,17003,,0.599615,seeds=2 maxTurns=25 personas=zheng scenarios=all ok
+2026-10-19T15:27:22+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,26,62213,1036,46848,0.019774,profile=hard responder=persona seeds=1 maxTurns=25 personas=wang scenarios=police cacheHit=75.3% ok
+2026-10-19T15:27:44+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,10,15690,535,9216,0.007545,"profile=hard responder=bad seeds=1 maxTurns=25 personas=wang scenarios=police,pig cacheHit=58.7% ok"
+2026-10-19T15:28:09+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,14,16429,583,9216,0.008266,"profile=default responder=bad seeds=1 maxTurns=25 personas=wang scenarios=police,pig cacheHit=56.1% ok"
+2026-10-19T15:29:50+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,104,255126,4358,189696,0.083080,"profile=hard responder=persona seeds=1 maxTurns=25 personas=wang,lin scenarios=police,pig cacheHit=74.4% ok"
+2026-10-19T15:30:51+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,33,65225,2178,45824,0.025984,"profile=hard responder=persona seeds=1 maxTurns=25 personas=wang,lin scenarios=police,pig cacheHit=70.3% ok"
+2026-10-19T15:31:52+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,64,157061,3882,116992,0.054236,"profile=hard responder=persona seeds=1 maxTurns=25 personas=wang,lin scenarios=police,pig cacheHit=74.5% ok"
+2026-10-19T15:32:03+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,9,16359,620,9216,0.008310,"profile=hard responder=bad seeds=1 maxTurns=25 personas=wang scenarios=police,pig cacheHit=56.3% ok"
+2026-10-19T15:32:18+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,12,22324,718,12288,0.011196,"profile=hard responder=stall seeds=1 maxTurns=25 personas=wang scenarios=police,pig cacheHit=55.0% ok"
+2026-10-19T15:37:57+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py replay,qwen3.8-flash,546,830614,17349,516096,0.350066,"calls=14 groups=good,persona,stall,bad profiles=default,hard cacheHit=62.1%"
+2026-10-19T15:39:29+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,55,98679,3596,57088,0.048691,profile=hard responder=bad seeds=2 maxTurns=25 personas=wang scenarios=all cacheHit=57.9% ok
+2026-10-19T15:40:45+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,120,248240,6964,168448,0.099481,profile=hard responder=stall seeds=2 maxTurns=25 personas=wang scenarios=all cacheHit=67.9% ok
+2026-10-19T15:42:20+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,125,182933,5284,117248,0.078540,profile=default responder=bad seeds=2 maxTurns=25 personas=wang scenarios=all cacheHit=64.1% ok
+2026-10-19T15:44:40+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,241,363381,9339,237056,0.149981,profile=default responder=stall seeds=2 maxTurns=25 personas=wang scenarios=all cacheHit=65.2% ok
+2026-10-19T15:45:52+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,131,293635,8739,209152,0.112097,profile=hard responder=persona seeds=2 maxTurns=25 personas=wang scenarios=all cacheHit=71.2% ok
+2026-10-19T15:47:14+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,178,409532,11164,304896,0.144341,profile=hard responder=persona seeds=2 maxTurns=25 personas=chen scenarios=all cacheHit=74.4% ok
+2026-10-19T15:48:31+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,155,353100,9123,258304,0.126299,profile=hard responder=persona seeds=2 maxTurns=25 personas=lin scenarios=all cacheHit=73.2% ok
+2026-10-19T15:49:35+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,151,336324,9693,238848,0.128037,profile=hard responder=persona seeds=2 maxTurns=25 personas=zheng scenarios=all cacheHit=71.0% ok
+2026-10-19T15:53:23+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,728956,16824,516608,0.266964,profile=default responder=persona seeds=2 maxTurns=25 personas=wang scenarios=all cacheHit=70.9% ok
+2026-10-19T16:01:20+08:00,qwen38-baseline-2026-10-19,严格评委提示词 token 探测（同步，2+2 次）,qwen3.8-flash,4,4338,122,1024,0.003083,judge-strict-v2 前缀是否过 1024 token 缓存门槛 ok
+2026-10-19T16:10:16+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py judge (sync),qwen3.8-flash,166,39867,5392,0,0.046452,profile=default items=240 cacheHit=0.0% stopped:interrupted（已完成部分已入本地缓存，重跑不重复计费）
+2026-10-19T16:11:36+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py judge (sync),qwen3.8-flash,74,17868,2411,0,0.020804,profile=default items=240 cacheHit=0.0%
+2026-10-19T16:13:01+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py judge (sync),qwen3.8-flash,240,282855,7405,243712,0.075679,profile=strict items=240 cacheHit=86.2%
+2026-10-19T16:14:03+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py pair-judge (sync),qwen3.8-flash,172,40792,5569,0,0.047670,"profile=default models=qwen3.7-flash,qwen3.8-flash items=172 cacheHit=0.0%"
+2026-10-19T16:15:05+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py pair-judge (sync),qwen3.8-flash,172,202128,5368,176128,0.052906,"profile=strict models=qwen3.7-flash,qwen3.8-flash items=172 cacheHit=87.1%"
+2026-10-19T16:16:27+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,29566,3957,0,0.034337,judgeN=60 mode=item profile=default api=sync seed=1000 ok
+2026-10-19T16:17:15+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,142126,3758,122880,0.037831,judgeN=60 mode=item profile=strict api=sync seed=1000 ok
+2026-10-19T16:18:01+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,29431,3962,0,0.034242,judgeN=60 mode=item profile=default api=sync seed=1001 ok
+2026-10-19T16:18:42+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,141991,3787,122880,0.037802,judgeN=60 mode=item profile=strict api=sync seed=1001 ok
