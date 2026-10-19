@@ -5,6 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check for merge conflict markers
+        run: bash scripts/check-conflict-markers.sh
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       # EN 无中文测试（tests/i18n_en.test.js）要用无头 Chrome；不写入 package.json，项目仍零依赖
