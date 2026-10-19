@@ -344,16 +344,19 @@ def main(argv=None) -> int:
     sc.add_argument("--key", type=Path, required=True)
     sc.add_argument("--json", type=Path, default=None)
     sc.add_argument("--judge", choices=("none", "llm"), default="none",
-                    help="自动评委代理指标；默认 none，llm = 百炼 qwen-plus（需要 DASHSCOPE_API_KEY，会产生费用）")
+                    help="自动评委代理指标；默认 none，llm = 百炼 qwen3.8-flash（需要 DASHSCOPE_API_KEY，会产生费用）")
     sc.add_argument("--forms-dir", type=Path, default=None, help="form-A/B.csv 所在目录，默认与 key.json 相同")
     sc.add_argument("--judge-n", type=int, default=60, help="评委评前多少个句对（每对 A、B 各一题），默认 60")
     sc.add_argument("--judge-mode", choices=("item", "batch"), default="item",
                     help="item（默认）= 逐题独立判，一题一次请求；batch = 每次请求放同一份表的若干题（旧做法）")
     sc.add_argument("--judge-batch", type=int, default=10, help="批量模式下每次请求放几道题（同一份表），默认 10")
     sc.add_argument("--judge-seed", type=int, default=1)
-    sc.add_argument("--judge-model", default="qwen-plus")
+    sc.add_argument("--judge-model", default="qwen3.8-flash")
     sc.add_argument("--max-cost", type=float, default=1.0, help="费用上限（元），不能超过 1 元")
     sc.add_argument("--dry-run", action="store_true", help="只估算 token 与费用，不调用")
+    sc.add_argument("--budget-tag", default=None, help="费用台账标签：同标签累计不超过 --total-budget，每次运行逐笔记入 eval-spend.csv")
+    sc.add_argument("--total-budget", type=float, default=10.0, help="同一 --budget-tag 的总预算（元），硬上限 10 元")
+    sc.add_argument("--ledger", type=Path, default=None, help="费用台账 CSV，默认仓库根目录 eval-spend.csv")
     sc.add_argument("--refresh-cache", action="store_true", help="忽略缓存重新调用（会再次计费）")
     a = ap.parse_args(argv)
     if a.cmd == "make":
@@ -371,16 +374,34 @@ def main(argv=None) -> int:
     if a.judge == "llm":
         J = load_judge()  # 只在显式打开时加载
         forms_dir = a.forms_dir or a.key.parent
+        L = J.load_ledger()
+        ledger = a.ledger or L.LEDGER
+        try:
+            max_cost = L.cap(a.max_cost, a.budget_tag, a.total_budget, ledger)
+        except L.LedgerBudgetError as e:
+            print(f"拒绝运行：{e}", file=sys.stderr)
+            return 2
+        held = {}
+
+        def book(status: str) -> None:
+            u = held.get("u")
+            if a.budget_tag and not a.dry_run and u and u.get("requests"):
+                L.append(a.budget_tag, "eval/realism_blind.py score --judge llm", a.judge_model, u,
+                         f"judgeN={a.judge_n} mode={a.judge_mode} seed={a.judge_seed} {status}", ledger)
         try:
             out = J.run_judge(key, read_forms(forms_dir), J.default_client_factory(), n_pairs=a.judge_n,
-                              batch_size=a.judge_batch, mode=a.judge_mode, seed=a.judge_seed, model=a.judge_model, max_cost=a.max_cost,
-                              cache_dir=J.CACHE_DIR, dry_run=a.dry_run, refresh=a.refresh_cache, log=lambda m: print(m, file=sys.stderr))
+                              batch_size=a.judge_batch, mode=a.judge_mode, seed=a.judge_seed, model=a.judge_model, max_cost=max_cost,
+                              cache_dir=J.CACHE_DIR, dry_run=a.dry_run, refresh=a.refresh_cache, log=lambda m: print(m, file=sys.stderr),
+                              usage_hook=lambda u: held.__setitem__("u", u))
         except J.BudgetError as e:
+            book("stopped:budget")
             print(f"拒绝运行：{e}", file=sys.stderr)
             return 2
         except RuntimeError as e:
+            book("stopped:error")
             print(f"大模型评委未运行：{e}", file=sys.stderr)
             return 3
+        book("ok")
         judge = {"note": "代理指标：大模型评委的判断，不能代替人工盲测，可能有评委偏差",
                  "model": out["model"], "mode": out["mode"], "date": out["date"], "seed": out["seed"], "estimate": out["estimate"],
                  "dry_run": out["dry_run"]}
