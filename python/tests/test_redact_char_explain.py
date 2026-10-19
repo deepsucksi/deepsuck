@@ -21,7 +21,10 @@ def test_char_explain_parity(case):
     assert find_name_spans(case["text"], ents) == case["spans"]
     out = redact_text(case["text"], ents)
     assert out == case["redacted"]
-    assert (out != case["text"]) == (case["expect"] == "mask")
+    if case.get("xfail"):
+        assert case["leak"] in out, "已知缺陷已修好，请去掉 xfail：" + case["text"]
+    else:
+        assert (out != case["text"]) == (case["expect"] == "mask")
 
 
 def test_fixture_has_both_kinds():
@@ -78,3 +81,21 @@ def test_joiner_when_explain_abuts_masked_name():
     out = red(t)
     assert out == "户名写耳东陈***" + load("extractors")["nameRules"]["explain"]["joiner"] + "******，****"
     assert vague_digits(out) == "户名写那个名字"
+
+
+@pytest.mark.parametrize("t", ["收款人叫张伟明，弓长张，伟大的伟，明天的明。", "收款人叫张伟明，弓长张，伟大的伟。",
+                               "收款人叫张伟明，龚厂长，伟大的伟，明天的明。", "好的，龚厂长，伟大的伟，明天的明，我记下了"])
+def test_probe_and_asr_gongchangzhang_no_single_char(t):
+    """#185 拆字探针原句与 ASR「龚厂长」：解释段不露单字「伟」「明」。"""
+    out = red(t)
+    for leak in ("伟", "明", "**的"):
+        assert leak not in out, (t, out)
+
+
+XFAIL = [c for c in CASES if c.get("xfail")]
+
+
+@pytest.mark.parametrize("case", XFAIL, ids=[c["text"] for c in XFAIL])
+@pytest.mark.xfail(strict=True, reason="#185 已知缺陷：ASR 拆字变体「龚厂长」+ 单段解释仍露「伟」，修复归语音（#163）")
+def test_known_gap_asr_split_variant(case):
+    assert case["leak"] not in red(case["text"])

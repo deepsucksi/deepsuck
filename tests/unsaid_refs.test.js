@@ -54,7 +54,7 @@ test('dropUnheard 去掉没报过的说法后标点通顺', () => {
 });
 
 test('#172：charExplain 打码结果一律念“那个名字”，不念“那个号”', () => {
-  const cases = RX.charExplain.filter((c) => c.expect === 'mask').map((c) => c.redacted).concat(['伟是****', '伟字是****', '就是****', '伟，****']);
+  const cases = RX.charExplain.filter((c) => c.expect === 'mask' && !c.xfail).map((c) => c.redacted).concat(['伟是****', '伟字是****', '就是****', '伟，****']);
   for (const t of cases) {
     for (const out of [L.speakMasked(t, false), L.sanitizeReply(t)]) {
       assert.ok(out.includes('那个名字') && !out.includes('那个号') && !/[*＊]/.test(out), t + ' → ' + out);

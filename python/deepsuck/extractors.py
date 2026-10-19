@@ -45,6 +45,25 @@ _NOT_NAMES = re.compile(_C["nameRules"]["notNames"])
 _NAME_BOUNDARY = re.compile(_C["nameRules"]["boundary"])
 _SURNAMES = _C["nameRules"]["surnames"]
 _TITLES = tuple(_C["nameRules"]["titleSuffix"])
+# #185 应答字、虚词共用字表（core/name_stopchars.json）：取到的名字以这些字开头时不算（「户名对得上就行」）
+# surname=false 的字一律不当名字开头；surname=true 的字可能是真姓，只有后面紧跟的文字匹配 after 时才放行，拿不准就照常当姓名
+NAME_STOPCHARS = {r["char"]: (compile_js("^(?:" + r["after"] + ")") if r.get("surname") else None)
+                  for r in load("name_stopchars")["chars"]}
+NAME_STOPWORDS = tuple(r["word"] for r in load("name_stopchars").get("words", []))
+
+
+def _stop_name(n: str, m=None, start: Optional[int] = None) -> bool:
+    """名字以字表里的字（或多字词）开头、而且按上下文不是名字时返回 True。"""
+    if n.startswith(NAME_STOPWORDS):
+        return True
+    c = n[:1]
+    if c not in NAME_STOPCHARS:
+        return False
+    after = NAME_STOPCHARS[c]
+    if after is None:
+        return True
+    rest = m.string[start + 1:] if m is not None and start is not None else n[1:]
+    return bool(after.match(rest))
 
 
 _NAME_DIGITS = "零一二三四五六七八九"
@@ -53,7 +72,7 @@ _NAME_DIGITS = "零一二三四五六七八九"
 def _clean_name(n: str, m=None, start: Optional[int] = None):
     # ASR 数字规整（ITN）会把“张三”转成“张3”：单个阿拉伯数字还原为汉字（等长，脱敏区间不变）
     n = re.sub(r"[0-9]", lambda m: _NAME_DIGITS[int(m.group(0))], n)
-    if _NOT_NAMES.search(n):
+    if _NOT_NAMES.search(n) or _stop_name(n, m, start):
         return None
     c = re.search(r"[开卡银账的是事在和与就吧了啊呢哦，电手微那呃嗯合你我找他她这打转加对说哈]|然后", n)
     if c and c.start() >= 2:

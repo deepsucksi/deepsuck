@@ -728,6 +728,8 @@ class Session:
         if re.search(r"[0-9]", t):
             t = ""  # #121：号码一个数字都不复述（尾号也不说），带 {t}/{x} 的说法退回“你说的那个…”
         s = raw[:1] if typ == "name" and raw[:1] and masked.startswith(raw[:1]) else ""
+        if s in ("姓", "叫"):
+            s = ""  # #185「收款人姓和」整段记成户名「姓和」时不念「姓姓」
         if (("{t}" in f or "{x}" in f) and not t) or ("{x}" in f and not t.isdigit()) or ("{s}" in f and not s):
             f = SPEAK_INTEL["default"][0]
         return (f.replace("{t}", t).replace("{x}", _wrong_digit(t) if t.isdigit() else t)

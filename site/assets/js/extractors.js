@@ -9,11 +9,12 @@
   var R = isNode ? require('./redact.js') : root.DeepSuck.redact;
   var N = isNode ? require('./normalize.js') : root.DeepSuck.normalize;
   var C = isNode ? require('../core/extractors.json') : root.DeepSuck.coreData.extractors;
+  var STOP = isNode ? require('../core/name_stopchars.json') : root.DeepSuck.coreData.name_stopchars;
   var B = isNode ? require('./cardbin.js') : root.DeepSuck.cardbin;
-  var mod = factory(R, N, C, B);
+  var mod = factory(R, N, C, B, STOP);
   if (isNode) module.exports = mod;
   else { root.DeepSuck = root.DeepSuck || {}; root.DeepSuck.extractors = mod; }
-})(typeof self !== 'undefined' ? self : this, function (R, N, C, B) {
+})(typeof self !== 'undefined' ? self : this, function (R, N, C, B, STOP) {
   'use strict';
 
   // 规则数据（标签、银行、渠道、正则）统一维护在 site/assets/core/extractors.json，JS 与未来的 Python 实现共用
@@ -45,12 +46,26 @@
 
   var NR = C.nameRules;
   var NOT_NAMES = new RegExp(NR.notNames);
+  // #185 应答字、虚词共用字表（core/name_stopchars.json）：取到的名字以这些字开头时不算（「户名对得上就行」）
+  // surname=false 的字一律不当名字开头；surname=true 的字可能是真姓，只有后面紧跟的文字匹配 after 时才放行，拿不准就照常当姓名
+  var NAME_STOPCHARS = {};
+  STOP.chars.forEach(function (r) { NAME_STOPCHARS[r.char] = r.surname ? new RegExp('^(?:' + r.after + ')') : null; });
+  var NAME_STOPWORDS = (STOP.words || []).map(function (r) { return r.word; });
+  function stopName(n, m, start) {
+    if (NAME_STOPWORDS.some(function (w) { return n.indexOf(w) === 0; })) return true;
+    var c = n.charAt(0);
+    if (!Object.prototype.hasOwnProperty.call(NAME_STOPCHARS, c)) return false;
+    var after = NAME_STOPCHARS[c];
+    if (!after) return true;
+    var rest = m && start != null ? m.input.slice(start + 1) : n.slice(1);
+    return after.test(rest);
+  }
   var NAME_BOUNDARY = new RegExp(NR.boundary);
   // ASR 数字规整（ITN）会把“张三”转成“张3”：单个阿拉伯数字还原为汉字（等长，脱敏区间不变）
   var NAME_DIGITS = '零一二三四五六七八九';
   function cleanName(n, m, start) {
     n = n.replace(/[0-9]/g, function (d) { return NAME_DIGITS.charAt(+d); });
-    if (NOT_NAMES.test(n)) return null;
+    if (NOT_NAMES.test(n) || stopName(n, m, start)) return null;
     var cut = n.search(/[开卡银账的是事在和与就吧了啊呢哦，电手微那呃嗯合你我找他她这打转加对说哈]|然后/);
     if (cut >= 2) n = n.slice(0, cut);
     // “户名周杰农业银行”（户名后的逗号被去掉）：第 3、4 个字起是银行名 / 开户行时截断
