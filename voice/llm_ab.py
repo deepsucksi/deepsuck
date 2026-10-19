@@ -139,6 +139,43 @@ def first_question(text: str) -> bool:
     return bool(ss and QUESTION.search(ss[0]))
 
 
+# #95 第一句模板：每通第一条回复的第一句。#64 规则举的格式“嗯，衣服的事啊。”“哦…卡的事啊。”“嗯，交朋友啊。”被模型照搬，
+# 几乎每通都是「语气词 + 复述对方的词（+的事）+ 啊」。OPENING_TEMPLATE 认这一整套（含“哦…交朋友啊。”“嗯，电商啊。”），
+# OPENING_TEMPLATE_STRICT 只认带“的事”的「哦…X的事啊」。
+OPENING_TEMPLATE = re.compile(r"^[哦嗯噢啊哎喔][…，,、.\s]*[^，,。？?！!…\s]{1,10}?(?:的事(?:情|儿)?)?[啊呀吧哈](?=[。…\.，,]|$)")
+OPENING_TEMPLATE_STRICT = re.compile(r"^[哦嗯噢啊哎喔][…，,、.\s]*[^，,。？?！!…]{1,10}的事(?:情|儿)?[啊呀吧哈]?(?=[。…\.，,]|$)")
+_LEAD = re.compile(r"^[哦嗯噢啊哎喔呃诶唉][…，,、.\s]*")
+_PUNCT = re.compile(r"[…，,、。？?！!；;.\s]+")
+
+
+def first_sentence(text: str) -> str:
+    ss = sentences(text)
+    return ss[0] if ss else ""
+
+
+def opening_template(text: str, strict: bool = False) -> bool:
+    """第一句是不是「哦…X的事啊。」这一套（语气词 + 复述对方的词 + 啊）；strict 只认带“的事”的。"""
+    return bool((OPENING_TEMPLATE_STRICT if strict else OPENING_TEMPLATE).match(first_sentence(text)))
+
+
+def opening_skeleton(text: str, heard: str = "") -> str:
+    """第一句的句式骨架：「语气词 + 复述 + 啊」一律记成“哦X啊”；其他句子开头语气词统一成“哦”、去掉标点。
+    最常见骨架占的通数 / 通数 = 第一句模板重复率。"""
+    s = first_sentence(text)
+    if OPENING_TEMPLATE.match(s):
+        return "哦X啊"  # 「哦…X的事啊」「嗯，交朋友啊」都算同一个骨架
+    lead = "哦" if _LEAD.match(s) else ""
+    body = _PUNCT.sub("", _LEAD.sub("", s))
+    if heard:  # 复述对方的词（2 字以上、对方原话里有的）记成 X：“嗯，衣服…我想想”“哦，卡…我想想”算同一个骨架
+        for n in range(min(len(body), 8), 1, -1):
+            for i in range(len(body) - n + 1):
+                w = body[i:i + n]
+                if "X" not in w and w in heard:
+                    body = body.replace(w, "X")
+        body = re.sub(r"X+", "X", body)
+    return lead + body
+
+
 def percentile(xs: List[float], q: float) -> Optional[float]:
     xs = sorted(x for x in xs if x is not None)
     if not xs:
@@ -161,6 +198,11 @@ def summarize(rows: List[dict], model: str, turns_per_call: int = 10) -> dict:
     sents = [x for r in ok for x in sentences(r["reply"])]
     firsts = [r for r in ok if r.get("turn") == 0]
     dl = [r for r in ok if r.get("digit_leaked")]
+    skel: Dict[str, int] = {}
+    for r in firsts:
+        k = opening_skeleton(r["reply"], r.get("scammer", ""))
+        skel[k] = skel.get(k, 0) + 1
+    top = max(skel.items(), key=lambda kv: kv[1]) if skel else ("", 0)
     return {
         "model": model, "n": len(ok), "errors": len(rows) - len(ok),
         "leak_replies": sum(1 for r in leak_rows if r["leaked"]), "leak_n": len(leak_rows),
@@ -169,6 +211,11 @@ def summarize(rows: List[dict], model: str, turns_per_call: int = 10) -> dict:
         "sent_ellipsis_pct": round(100 * sum(bool(ELLIPSIS.search(x)) for x in sents) / (len(sents) or 1), 1),
         "sentences": len(sents),
         "first_question": sum(first_question(r["reply"]) for r in firsts), "calls": len(firsts),
+        # #95 第一句模板重复率：「哦…X的事啊」句式几通；最常见的第一句骨架占几通（重复率 = first_skeleton_top / calls）
+        "first_template": sum(opening_template(r["reply"]) for r in firsts),
+        "first_template_pct": round(100 * sum(opening_template(r["reply"]) for r in firsts) / (len(firsts) or 1), 1),
+        "first_template_strict": sum(opening_template(r["reply"], strict=True) for r in firsts),
+        "first_skeleton_top": top[1], "first_skeleton_top_text": top[0], "first_skeletons": len(skel),
         "ellipsis_pct": round(100 * sum(r["style"]["ellipsis"] for r in ok) / n, 1),
         "avg_chars": round(sum(r["style"]["chars"] for r in ok) / n, 1),
         "written_hits": sum(r["style"]["written"] for r in ok),

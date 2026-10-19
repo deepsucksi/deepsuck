@@ -251,8 +251,9 @@ class IntelProcessor(FrameProcessor):
         # 只提对方已经提到、但还没拿到的情报；对方没提过的（例如杀猪盘里还没说平台）不进提示词
         missing = [GOAL_LABEL.get(g, g) for g in self.session.missing_goals() if GOAL_TOPIC.get(g) in topics]
         first = sum(1 for m in getattr(self.session, "messages", []) if m.get("role") == "scammer") <= 1
+        heard = next((m.get("text", "") for m in getattr(self.session, "messages", []) if m.get("role") == "scammer"), "")
         sp = system_prompt(self.session.persona["id"], self.session.scenario["id"], self.intent, missing,
-                           said_first=self.said_first, topics=topics, first_turn=first)
+                           said_first=self.said_first, topics=topics, first_turn=first, opener_key=heard)
         self.prompt_sha = hashlib.sha1(sp.encode("utf-8")).hexdigest()[:8]
         if self.context is not None:
             msgs = list(self.context.get_messages())
