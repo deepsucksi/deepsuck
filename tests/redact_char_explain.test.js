@@ -92,3 +92,25 @@ test('#185 已知缺陷（xfail）：ASR「龚厂长」+ 单段解释仍露「�
     assert.strictEqual(c.expect, 'mask');
   }
 });
+
+test('#206 夹具 splitExplainTail：两端逐项一致', () => {
+  const TAIL = require('./fixtures/redact.json').splitExplainTail;
+  assert.ok(TAIL.filter((c) => c.expect === 'mask').length >= 8 && TAIL.filter((c) => c.expect === 'keep').length >= 3);
+  for (const c of TAIL) {
+    const ents = X.extractSensitive(c.text);
+    assert.deepStrictEqual(R.findNameSpans(c.text, ents), c.spans, c.text);
+    const out = R.redactText(c.text, ents);
+    assert.strictEqual(out, c.redacted, c.text);
+    assert.strictEqual(out !== c.text, c.expect === 'mask', c.text);
+    if (c.expect === 'mask') ['伟', '明', '**的'].forEach((leak) => assert.ok(!out.includes(leak), c.text + ' -> ' + out));
+  }
+});
+
+test('#206 P0 探针：「收款人是弓长张，伟大的伟对吧」及变体不露「伟」「明」', () => {
+  for (const t of ['收款人是弓长张，伟大的伟对吧', '收款人是弓长张，伟大的伟', '户名是弓长张，伟大的伟，明天的明',
+    '收款人是弓长张，伟大的伟，对吧', '收款人弓长张，伟大的伟对吗', '收款人是龚厂长，伟大的伟对吧']) {
+    const out = red(t);
+    ['伟', '明', '**的'].forEach((leak) => assert.ok(!out.includes(leak), t + ' -> ' + out));
+  }
+  assert.strictEqual(red('收款人是弓长张，伟大的伟对吧'), '收款人是弓长张，****对吧');
+});
