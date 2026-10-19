@@ -40,9 +40,15 @@ def test_otp_examples():
 
 @pytest.mark.parametrize("t", ["472 915", "验证码已发送至尾号1234的手机", "验证码10分钟内有效", "验证码收到了，转了5000元",
                                "金额是5000，验证码还没来", "验证码？订单号A47291", "我家门牌号 2046，下午三点到",
-                               "验证码是多少？我念一下：一二三", "验证码是4位的，卡号后四位是8888"])
+                               "验证码是4位的，卡号后四位是8888"])
 def test_otp_negatives(t):
     assert red(t) == t
+
+
+def test_otp_half_three_digits():
+    """#120：半截 3 位也算验证码。"""
+    assert red("验证码是多少？我念一下：一二三") == "验证码是多少？我念一下：***"
+    assert red("嗯…验证码是472？") == "嗯…验证码是***？"
 
 
 def test_entities_keep_their_own_masks():
