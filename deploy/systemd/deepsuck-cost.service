@@ -1,0 +1,10 @@
+[Unit]
+Description=DeepSuck daily cost summary -> /var/log/deepsuck/cost-latest.json (GitHub #20)
+Documentation=https://github.com/deepsucksi/deepsuck/blob/main/voice/README.md
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/deepsuck-maint
+ExecStart=@DIR@/deploy/cost-report.sh
+Nice=10
