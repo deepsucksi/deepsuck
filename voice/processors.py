@@ -50,6 +50,10 @@ from .persona import (FILLERS, GOAL_TOPIC, drop_unsaid, gate_intent, guard_outpu
 
 Notify = Callable[[dict], Awaitable[None]]
 
+_STAR_ONLY = re.compile(r"^[\s*＊。，,、.…!！?？]*[*＊][\s*＊。，,、.…!！?？]*$")
+_NUM_CTX = re.compile(r"[0-9０-９]|码|号|卡|位|开头|账户|账号")
+
+
 GOAL_LABEL = {"bank": "收款银行卡号", "wallet": "加密钱包地址", "phone": "联系电话", "url": "网址/下载链接", "name": "收款人姓名"}
 
 
@@ -375,7 +379,19 @@ class IntelProcessor(FrameProcessor):
     def heard_refs(self) -> set:
         """#173：对方到现在报过的代称种类（"name" / "number" / "url" / "wallet"…）：对方的话里出现过的打码值（共享核心
         deepsuck.refs.heard_refs，与网页 llm.js 同一套）加上已提取的情报。从 session 算，和上下文截断无关。"""
-        out = heard_refs(m.get("text", "") for m in getattr(self.session, "messages", []) or [] if m.get("role") == "scammer")
+        texts = [m.get("text", "") for m in getattr(self.session, "messages", []) or [] if m.get("role") == "scammer"]
+        # #186 之后号码片段会单独成一段纯星号（「卡号是********。」「******。」）；共享核心按 #172 把没有号码提示的纯星号段
+        # 读成名字。紧跟在号码段后面的纯星号段算号码（这一串都算），不交给 heard_refs 判断。
+        keep, num, prev_num = [], False, False
+        for t in texts:
+            if _STAR_ONLY.match(t or "") and prev_num:
+                num = True
+                continue
+            keep.append(t)
+            prev_num = bool(_NUM_CTX.search(t or ""))
+        out = heard_refs(keep)
+        if num:
+            out.add("number")
         for goal, kind in (("bank", "number"), ("phone", "number"), ("name", "name"), ("url", "url"), ("wallet", "wallet")):
             if self.session.have_goal(goal):
                 out.add(kind)

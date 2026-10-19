@@ -125,3 +125,18 @@ def test_after_hold_transfer():
     out = asyncio.run(GuardTextFilter(p.redactor, refs=p.heard_refs).filter("我已经转了。你报一下那个号"))
     assert "转了" not in out and "那个号" not in out, out
     assert P.speakable("我已经转了。") in out
+
+
+def test_fragment_star_segments_count_as_number_not_name():
+    """#186 打码后的号码片段单独成纯星号段：算号码，不算名字（本地号码探针 UYJ5OQDF：说出“户名是那个名字”）。"""
+    s, p, ctx = _proc()
+    s.ingest("你记一下。")
+    for t in ("卡号是62220212。", "345678。", "90123。"):
+        p.frag_redact(p.call_redact(s.ingest(t)))
+    assert any(m["text"] == "******。" for m in s.messages if m.get("role") == "scammer")
+    refs = p.heard_refs()
+    assert "number" in refs and "name" not in refs, refs
+    # 名字后面的纯星号逐字解释仍算名字（#172）
+    s2, p2, _ = _proc()
+    s2.messages += [{"role": "scammer", "text": "收款人叫张**。"}, {"role": "scammer", "text": "****，****。"}]
+    assert "name" in p2.heard_refs()
