@@ -7,10 +7,11 @@
 (function (root, factory) {
   var isNode = typeof module === 'object' && module.exports;
   var C = isNode ? require('../core/personas.json') : root.DeepSuck.coreData.personas;
-  var mod = factory(C);
+  var X = isNode ? require('../core/extractors.json') : root.DeepSuck.coreData.extractors;
+  var mod = factory(C, X);
   if (isNode) module.exports = mod;
   else { root.DeepSuck = root.DeepSuck || {}; root.DeepSuck.personas = mod; }
-})(typeof self !== 'undefined' ? self : this, function (C) {
+})(typeof self !== 'undefined' ? self : this, function (C, X) {
   'use strict';
   // 人设与拖延台词库见 site/assets/core/personas.json。
   // 模板可以是字符串，或 { when: '正则源码', t: '文本' }：仅当骗子本轮消息命中 when 时可用（且优先），加载时编译为 { re, t }。
@@ -35,6 +36,7 @@
   var SPEAK_INTEL = C.speakIntel;
   var NAME_RULE = C.nameRule; // 人设侧姓名规则（#130），llm.js 硬性规则 7 使用
   var REPLY_POLISH = C.replyPolish; // 大模型回复口语化（#132、#134），llm.js polishReply 使用
+  var SPLIT_NAME = X.nameRules.split; // 拆字报姓说法（#157，只读 extractors.json），engine.vagueDigits / llm.js 打码姓名替换用
   var DIGIT_ECHO = C.digitEcho; // 人设回复发出前的数字过滤配置（issue #121），engine.vagueDigits 使用
-  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL, DIGIT_ECHO: DIGIT_ECHO, NAME_RULE: NAME_RULE, REPLY_POLISH: REPLY_POLISH };
+  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL, DIGIT_ECHO: DIGIT_ECHO, NAME_RULE: NAME_RULE, REPLY_POLISH: REPLY_POLISH, SPLIT_NAME: SPLIT_NAME };
 });
