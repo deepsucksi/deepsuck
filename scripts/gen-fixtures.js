@@ -37,6 +37,8 @@ const SPLIT_NAME_CASES = [
   ['口天吴，一凡，记好了', 'mask'],
   ['他的成长很快，木头桌子，长木凳，李四来了', 'keep'],
   ['弓长张，你好', 'keep'],
+  ['户名弓长张，三丰', 'mask'], // #206 拆字说法本身不当姓名（以前取成「弓长张」打成「弓**」）
+  ['户名是弓长张三丰', 'mask'],
   ['木子李，就是李子的李', 'keep'],
   ['儿子小孙子很可爱，木子很多', 'keep'],
   ['长期有效，木材加工厂', 'keep'],
@@ -129,6 +131,22 @@ const CHAR_EXPLAIN_CASES = [
   ['龚长张口就骂人', 'keep'],
   ['尔东陈列馆门口见', 'keep'],
   ['龚厂长，伟大的祖国', 'keep']
+];
+
+// #206 P0（部署前必须过）：拆字说法前有「是」、逐字解释后跟「对吧」等确认说法时，以前打成「弓**，**的伟对吧」露出「伟」。
+// 单独一组（redact.json 的 splitExplainTail），格式同 charExplain；不并进 charExplain，免得与 #202 改同一组用例冲突。
+const SPLIT_EXPLAIN_TAIL_CASES = [
+  ['收款人是弓长张，伟大的伟对吧', 'mask'],
+  ['收款人是弓长张，伟大的伟', 'mask'],
+  ['户名是弓长张，伟大的伟，明天的明', 'mask'],
+  ['收款人是弓长张，伟大的伟，对吧', 'mask'],
+  ['收款人弓长张，伟大的伟对吗', 'mask'],
+  ['收款人是弓长张，伟大的伟对，你记一下', 'mask'],
+  ['收款人是耳东陈，东方的东对吧', 'mask'],
+  ['收款人是龚厂长，伟大的伟对吧', 'mask'], // ASR 写法：「龚厂长」被当成姓名打码，解释段也打码（#202 改 ASR 锚点后结果可能变，但不能露「伟」）
+  ['伟大的伟对吧', 'keep'], // 没有锚点的单段解释仍按原规则（#163）
+  ['这是大家的家对吧', 'keep'],
+  ['伟大的伟人对吧', 'keep'],
 ];
 
 // 验证码按上下文打码（#33）：[文本, 'mask' 应打码 | 'keep' 原样（卡号 / 手机号仍由实体规则打码）]，号码均为虚构
@@ -384,6 +402,13 @@ function build() {
       const spans = R.findNameSpans(text, ents);
       const redacted = R.redactText(text, ents);
       if ((expect === 'mask') !== (redacted !== text)) throw new Error('逐字解释用例与预期不符：' + text + ' -> ' + redacted);
+      return { text, expect, spans, redacted };
+    }),
+    splitExplainTail: SPLIT_EXPLAIN_TAIL_CASES.map(([text, expect]) => {
+      const ents = X.extractSensitive(text);
+      const spans = R.findNameSpans(text, ents);
+      const redacted = R.redactText(text, ents);
+      if ((expect === 'mask') !== (redacted !== text)) throw new Error('#206 用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
     }),
     otpSegments: OTP_SEG_CASES.map(([segments, expect]) => {

@@ -84,6 +84,8 @@ def masked_lead_not_surname(m, sur: str, fallback: str) -> bool:
     不放行；4 个及以上星号（「我只有****块钱」）才按字表的 after 放行。"""
     if len(sur) != 1:
         return False
+    if re.search("[*＊][\u4e00-\u9fff]", m.group(0)):  # #206 星号后面还跟着一个字（「对*明」「王*明」）：一律当姓名（宁可多遮）
+        return False
     star = re.search("[*＊]", m.group(0))
     rest = m.string[m.start() + (star.start() if star else len(m.group(0))):]
     st = stop_surname(sur, rest)
@@ -98,12 +100,16 @@ _SHORT_STARS = re.compile("[*＊]{1,3}(?![*＊])")
 
 
 _NAME_DIGITS = "零一二三四五六七八九"
+_SPLIT_SPELLINGS = frozenset(((_C["nameRules"].get("split") or {}).get("spellings") or [])
+                             + list(((_C["nameRules"].get("split") or {}).get("asrSplit") or {})))  # #163 ASR 同音写法（龚厂长…）与弓长张同一套
 
 
 def _clean_name(n: str, m=None, start: Optional[int] = None):
     # ASR 数字规整（ITN）会把“张三”转成“张3”：单个阿拉伯数字还原为汉字（等长，脱敏区间不变）
     n = re.sub(r"[0-9]", lambda m: _NAME_DIGITS[int(m.group(0))], n)
     if _NOT_NAMES.search(n) or _stop_name(n, m, start):
+        return None
+    if n in _SPLIT_SPELLINGS:  # #206「收款人是弓长张，伟大的伟」：拆字说法本身不是姓名（姓留给拆字报姓规则，只露姓）
         return None
     c = re.search(r"[开卡银账的是事在和与就吧了啊呢哦，电手微那呃嗯合你我找他她这打转加对说哈]|然后", n)
     if c and c.start() >= 2:

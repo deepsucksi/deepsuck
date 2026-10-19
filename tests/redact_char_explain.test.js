@@ -16,8 +16,7 @@ test('夹具：逐字解释用例逐项一致，正例反例都有', () => {
     assert.deepStrictEqual(R.findNameSpans(c.text, ents), c.spans, c.text);
     const out = R.redactText(c.text, ents);
     assert.strictEqual(out, c.redacted, c.text);
-    if (c.xfail) assert.ok(out.includes(c.leak), '已知缺陷已修好，请去掉 xfail：' + c.text);
-    else assert.strictEqual(out !== c.text, c.expect === 'mask', c.text);
+    assert.strictEqual(out !== c.text, c.expect === 'mask', c.text);
   });
   assert.ok(FX.filter((c) => c.expect === 'mask').length >= 12);
   assert.ok(FX.filter((c) => c.expect === 'keep').length >= 10);
@@ -94,4 +93,26 @@ test('#163 ASR 拆字同音写法（nameRules.split.asrSplit）：一段解释�
   assert.strictEqual(red('龚厂长，伟明，伟大的伟'), red('弓长张，伟明，伟大的伟').replace('弓长张', '龚厂长'));
   for (const t of ['龚厂长说明天的会别迟到', '龚厂长，明天的会别迟到', '工长张师傅明天来修水管', '宫长张罗了一桌菜',
     '龚长张口就骂人', '尔东陈列馆门口见', '龚厂长，伟大的祖国']) assert.strictEqual(red(t), t);
+});
+
+test('#206 夹具 splitExplainTail：两端逐项一致', () => {
+  const TAIL = require('./fixtures/redact.json').splitExplainTail;
+  assert.ok(TAIL.filter((c) => c.expect === 'mask').length >= 8 && TAIL.filter((c) => c.expect === 'keep').length >= 3);
+  for (const c of TAIL) {
+    const ents = X.extractSensitive(c.text);
+    assert.deepStrictEqual(R.findNameSpans(c.text, ents), c.spans, c.text);
+    const out = R.redactText(c.text, ents);
+    assert.strictEqual(out, c.redacted, c.text);
+    assert.strictEqual(out !== c.text, c.expect === 'mask', c.text);
+    if (c.expect === 'mask') ['伟', '明', '**的'].forEach((leak) => assert.ok(!out.includes(leak), c.text + ' -> ' + out));
+  }
+});
+
+test('#206 P0 探针：「收款人是弓长张，伟大的伟对吧」及变体不露「伟」「明」', () => {
+  for (const t of ['收款人是弓长张，伟大的伟对吧', '收款人是弓长张，伟大的伟', '户名是弓长张，伟大的伟，明天的明',
+    '收款人是弓长张，伟大的伟，对吧', '收款人弓长张，伟大的伟对吗', '收款人是龚厂长，伟大的伟对吧']) {
+    const out = red(t);
+    ['伟', '明', '**的'].forEach((leak) => assert.ok(!out.includes(leak), t + ' -> ' + out));
+  }
+  assert.strictEqual(red('收款人是弓长张，伟大的伟对吧'), '收款人是弓长张，****对吧');
 });

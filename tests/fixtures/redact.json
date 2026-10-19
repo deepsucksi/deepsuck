@@ -761,6 +761,24 @@
    "redacted": "弓长张，你好"
   },
   {
+   "text": "户名弓长张，三丰",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 6,
+     "end": 8,
+     "masked": "**"
+    }
+   ],
+   "redacted": "户名弓长张，**"
+  },
+  {
+   "text": "户名是弓长张三丰",
+   "expect": "mask",
+   "spans": [],
+   "redacted": "户名是弓长张**"
+  },
+  {
    "text": "木子李，就是李子的李",
    "expect": "keep",
    "spans": [],
@@ -1305,7 +1323,7 @@
      "masked": "****"
     }
    ],
-   "redacted": "收款人是工**，****"
+   "redacted": "收款人是工长张，****"
   },
   {
    "text": "宫长张，伟明，伟大的伟",
@@ -1334,7 +1352,7 @@
      "masked": "****"
     }
    ],
-   "redacted": "户名龚**，****"
+   "redacted": "户名龚长张，****"
   },
   {
    "text": "尔东陈，晓燕，知晓的晓",
@@ -1394,6 +1412,127 @@
    "expect": "keep",
    "spans": [],
    "redacted": "龚厂长，伟大的祖国"
+  }
+ ],
+ "splitExplainTail": [
+  {
+   "text": "收款人是弓长张，伟大的伟对吧",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 8,
+     "end": 12,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是弓长张，****对吧"
+  },
+  {
+   "text": "收款人是弓长张，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 8,
+     "end": 12,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是弓长张，****"
+  },
+  {
+   "text": "户名是弓长张，伟大的伟，明天的明",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    },
+    {
+     "start": 12,
+     "end": 16,
+     "masked": "****"
+    }
+   ],
+   "redacted": "户名是弓长张，****，****"
+  },
+  {
+   "text": "收款人是弓长张，伟大的伟，对吧",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 8,
+     "end": 12,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是弓长张，****，对吧"
+  },
+  {
+   "text": "收款人弓长张，伟大的伟对吗",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人弓长张，****对吗"
+  },
+  {
+   "text": "收款人是弓长张，伟大的伟对，你记一下",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 8,
+     "end": 12,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是弓长张，****对，你记一下"
+  },
+  {
+   "text": "收款人是耳东陈，东方的东对吧",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 8,
+     "end": 12,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是耳东陈，****对吧"
+  },
+  {
+   "text": "收款人是龚厂长，伟大的伟对吧",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 8,
+     "end": 12,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是龚厂长，****对吧"
+  },
+  {
+   "text": "伟大的伟对吧",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "伟大的伟对吧"
+  },
+  {
+   "text": "这是大家的家对吧",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "这是大家的家对吧"
+  },
+  {
+   "text": "伟大的伟人对吧",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "伟大的伟人对吧"
   }
  ],
  "otpSegments": [

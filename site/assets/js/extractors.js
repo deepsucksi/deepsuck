@@ -75,6 +75,7 @@
   var SHORT_STARS = /^[*＊]{1,3}(?![*＊])/;
   function maskedLeadNotSurname(m, sur, off, str, fallback) {
     if (sur.length !== 1) return false;
+    if (/[*＊][\u4e00-\u9fff]/.test(m)) return false; // #206 星号后面还跟着一个字（「对*明」「王*明」）：一律当姓名（宁可多遮）
     var star = m.search(/[*＊]/);
     var rest = String(str).slice(off + (star < 0 ? m.length : star));
     var st = stopSurname(sur, rest);
@@ -85,9 +86,13 @@
   var NAME_BOUNDARY = new RegExp(NR.boundary);
   // ASR 数字规整（ITN）会把“张三”转成“张3”：单个阿拉伯数字还原为汉字（等长，脱敏区间不变）
   var NAME_DIGITS = '零一二三四五六七八九';
+  var SPLIT_SPELLINGS = {};
+  ((NR.split && NR.split.spellings) || []).forEach(function (x) { SPLIT_SPELLINGS[x] = true; });
+  Object.keys((NR.split && NR.split.asrSplit) || {}).forEach(function (x) { SPLIT_SPELLINGS[x] = true; }); // #163 ASR 同音写法（龚厂长…）与弓长张同一套
   function cleanName(n, m, start) {
     n = n.replace(/[0-9]/g, function (d) { return NAME_DIGITS.charAt(+d); });
     if (NOT_NAMES.test(n) || stopName(n, m, start)) return null;
+    if (SPLIT_SPELLINGS[n]) return null; // #206「收款人是弓长张，伟大的伟」：拆字说法本身不是姓名（姓留给拆字报姓规则，只露姓）
     var cut = n.search(/[开卡银账的是事在和与就吧了啊呢哦，电手微那呃嗯合你我找他她这打转加对说哈]|然后/);
     if (cut >= 2) n = n.slice(0, cut);
     // “户名周杰农业银行”（户名后的逗号被去掉）：第 3、4 个字起是银行名 / 开户行时截断
