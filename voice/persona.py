@@ -526,7 +526,7 @@ def say_digits(text: str) -> str:
 def speakable(text: str, calm_tts: bool | None = None) -> str:
     """给 TTS 用：在 guard_output 基础上把打码值改成“那个号”，降调，数字过滤（#121），号码逐位读，残留星号读成停顿。
 
-    数字过滤（engine.vague_digits）在语音合成前最后一道：连续 3 位以上的数字（含中文数字）换成“好像是6开头的”“后面几位没听清”这类说法。
+    数字过滤（engine.vague_digits）在语音合成前最后一道：连续 2 位及以上的数字（#167 从 3 位收紧；含中文数字）换成“好像是6开头的”“后面几位没听清”这类说法。
     """
     s = unmask(guard_output(_unmask_names(str(text or ""))))  # #136：姓名打码先换说法，免得守卫把“是张**”再打成“***”
     if _CALM if calm_tts is None else calm_tts:
@@ -537,7 +537,7 @@ def speakable(text: str, calm_tts: bool | None = None) -> str:
 
 
 def guard_output(text: str) -> str:
-    """输出守卫（PolicyGuard）：去掉括号动作/Markdown、数字过滤（#121：连续 3 位以上的数字含中文数字换成含糊说法）、口语化（#132、#134）、脱敏、抹掉 5 位以上数字串。"""
+    """输出守卫（PolicyGuard）：去掉括号动作/Markdown、数字过滤（#121、#167：连续 2 位及以上的数字含中文数字换成含糊说法）、口语化（#132、#134）、脱敏、抹掉 5 位以上数字串。"""
     s = re.sub(r"<think>.*?</think>", "", str(text or ""), flags=re.S)
     s = _BOLD.sub(r"\1", s)
     s = vague_digits(s)
