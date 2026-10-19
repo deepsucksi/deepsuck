@@ -1,0 +1,9 @@
+[Unit]
+Description=DeepSuck daily cost summary at 20:40 +08:00 (GitHub #20)
+
+[Timer]
+OnCalendar=*-*-* 20:40:00 Asia/Shanghai
+Persistent=true
+
+[Install]
+WantedBy=timers.target
