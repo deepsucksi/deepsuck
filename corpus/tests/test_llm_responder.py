@@ -445,3 +445,66 @@ def test_redact_split_side_otp_with_chatter_and_no_overmask():
     out = M.redact_transcript(row)
     assert not any(re.search(r"[0-9]", m["text"]) for m in out if m["role"] == "scammer")
     assert M.redact_split_side(M.redact_split_side(SPLITS["space2"])) == M.redact_split_side(SPLITS["space2"])
+
+
+# ---------------------------------------------------------------- 三审（#199）必改：拆段卡号中间夹不带数字的骗子消息
+# 规则：跨段拼卡号时跳过不含数字的骗子消息，连续最多跳 2 条（_SPLIT_SKIP_MAX），第 3 条断开；人设回复本来就不计入。
+SPLITS_CHATTER = {
+    "chatter1_tail": ["卡号6222 0212 3456", "听清了吗", "7890 123"],
+    "chatter1_head": ["卡号6222 0212", "你别挂啊", "3456 7890 123"],
+}
+SPLIT_CHATTER3 = ["卡号6222 0212 3456", "听清了吗", "你别挂啊", "喂？", "7890 123"]
+
+
+def _run_split_cli(tmp_path, monkeypatch, parts):
+    fake = SplitScammerLLM(parts)
+    orig = M.run
+    monkeypatch.setattr(M, "run", lambda *a, **k: orig(*a, **{**k, "cache_dir": tmp_path / "cache"}))
+    monkeypatch.setattr(M.J, "default_client_factory", lambda *a, **k: (lambda: fake))
+    out = tmp_path / "eval199"
+    rc = M.main(["--run", "--profile", "hard", "--responder", "llm", "--seeds", "1", "--scenarios", "police",
+                 "--personas", "wang", "--workers", "1", "--no-rule-baseline", "--ledger", str(tmp_path / "spend.csv"),
+                 "--json", str(out / "a.json"), "--json-transcripts", "--transcripts", str(out / "a.jsonl"),
+                 "--md", str(out / "a.md")])
+    assert rc == 0
+    res = json.loads((out / "a.json").read_text(encoding="utf-8"))
+    rows = [res["rows"][0]["transcript"]] + [json.loads(x)["transcript"]
+                                             for x in (out / "a.jsonl").read_text(encoding="utf-8").splitlines()]
+    blobs = {fn: (out / fn).read_text(encoding="utf-8") for fn in ("a.json", "a.jsonl", "a.md")}
+    return blobs, rows
+
+
+@pytest.mark.parametrize("name", sorted(SPLITS_CHATTER))
+def test_cli_scammer_split_card_with_digitless_chatter_redacted(tmp_path, monkeypatch, name):
+    parts = SPLITS_CHATTER[name]
+    card = _split_digits(parts)
+    assert len(card) == 19
+    assert M.redact_split_side(parts) == [re.sub(r"[0-9]", "*", p) for p in parts]
+    blobs, rows = _run_split_cli(tmp_path, monkeypatch, parts)
+    for fn, blob in blobs.items():
+        assert card not in re.sub(r"[\s\-]", "", blob), fn
+        assert card not in re.sub(r"[^0-9]", "", blob), fn
+    digit_parts = [p for p in parts if re.search(r"[0-9]", p)]
+    for tr in rows:
+        said = [m["text"] for m in tr if m["role"] == "scammer"]
+        hits = [t for t in said if any(re.sub(r"[0-9]", "*", p) == t for p in digit_parts)]
+        assert len(hits) == len(digit_parts), said
+        assert not any(re.search(r"[0-9]", t) for t in hits)
+        assert "听清了吗" in said or "你别挂啊" in said  # 夹着的那句原样保留
+
+
+def test_cli_scammer_split_card_three_digitless_breaks_chain(tmp_path, monkeypatch):
+    """连续夹 3 条不带数字的骗子消息（超过上限 2 条）就断开：两段各自不足 15 位，不误连成卡号、原样保留。"""
+    parts = SPLIT_CHATTER3
+    assert M.redact_split_side(parts) == parts
+    # 再夹进人设回复也一样（人设回复不计入、不算跳过的条数）
+    row = {"seed": 1000, "transcript": [x for t in parts for x in
+                                        ({"role": "scammer", "text": t}, {"role": "bot", "text": "啊？", "intent": "x"})]}
+    assert [m["text"] for m in M.redact_transcript(row) if m["role"] == "scammer"] == parts
+    # 只夹 2 条（上限以内）仍要打码
+    two = parts[:3] + parts[4:]
+    assert M.redact_split_side(two) == [re.sub(r"[0-9]", "*", p) for p in two]
+    _, rows = _run_split_cli(tmp_path, monkeypatch, parts)
+    for tr in rows:
+        said = [m["text"] for m in tr if m["role"] == "scammer"]
+        assert parts[0] in said and parts[-1] in said, said

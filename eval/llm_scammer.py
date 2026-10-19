@@ -741,6 +741,7 @@ _SPLIT_DIGIT = re.compile(r"[0-9０-９]")
 _SPLIT_POS = re.compile(r"[0-9０-９*＊]")
 _SPLIT_EDGE_MAX = 8
 _SPLIT_CARD_MIN = 15  # 银行卡 16–19 位，放宽到 15 位（宁可多遮）；超过 19 位的整串也遮
+_SPLIT_SKIP_MAX = 2  # 跨段卡号中间连续夹不带数字的骗子消息，最多跳过 2 条（第 3 条断开）；总跨度仍受 2×segWindow+1 段限制
 _SPLIT_OTP_KW = re.compile(r"验证码|校验码|动态码|短信码|确认码|安全码|密码|[Cc]ode|CODE")
 _SPLIT_OTP_RUN = (1, 4)
 _SPLIT_OTP_TOTAL = (4, 8)
@@ -768,9 +769,16 @@ def redact_split_side(texts: List[str], window: Optional[int] = None) -> List[st
     for i in range(n):
         if not runs[i] or len(segs[i]) - runs[i][-1][1] > _SPLIT_EDGE_MAX:
             continue
-        chain, total = [(i, runs[i][-1])], runs[i][-1][2]
+        chain, total, gap = [(i, runs[i][-1])], runs[i][-1][2], 0
         for j in range(i + 1, min(n, i + span)):
-            if not runs[j] or runs[j][0][0] > _SPLIT_EDGE_MAX:
+            # 夹着不带数字的骗子消息（「听清了吗」）：跳过接着拼，连续最多跳 _SPLIT_SKIP_MAX 条，再多就断开
+            if not runs[j]:
+                gap += 1
+                if gap > _SPLIT_SKIP_MAX:
+                    break
+                continue
+            gap = 0
+            if runs[j][0][0] > _SPLIT_EDGE_MAX:
                 break
             first = runs[j][0]
             chain.append((j, first))
