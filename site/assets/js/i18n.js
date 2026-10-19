@@ -136,6 +136,8 @@
     'd.eng.direct': '<b>Direct from browser · LLM (advanced, optional)</b> — only for personal use on your own machine',
     'd.base': 'Base URL (standard chat API)',
     'd.model': 'Model',
+    'd.base.ph': 'https://your-api-host/v1', 'd.model.ph': 'model name',
+    'd.direct.help': 'Enter the standard chat API endpoint and model name of the service you use; see the <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/QUICKSTART.md" target="_blank" rel="noopener">self-hosting guide (QUICKSTART)</a>.',
     'd.remember': 'Remember in this browser\'s localStorage (do not tick on a shared computer)',
     'd.warn': 'In direct mode the key sits in the browser, where anyone or any extension with access to this page may read it; some providers do not allow cross-origin calls. The "server proxy" is recommended. Conversations sent to the model are masked locally first.',
     'd.fallback': 'If an LLM call fails, it falls back to the rule engine automatically. Intel extraction and masking always happen locally, regardless of the engine selected.',

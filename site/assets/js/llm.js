@@ -1,7 +1,8 @@
 /*!
  * DeepSuck — llm.js
- * 可选的大模型引擎（默认关闭）。兼容 OpenAI Chat Completions 协议，默认指向阿里云百炼 DashScope：
- *   https://dashscope.aliyuncs.com/compatible-mode/v1  （模型 qwen-plus）
+ * 可选的大模型引擎（默认关闭）。兼容标准聊天接口（Chat Completions 协议）。
+ * 不内置任何服务商的地址和模型名：直连模式由用户在沙盒里填写，服务端代理由 server/index.js 读 .env，
+ * 具体怎么配见 docs/QUICKSTART.md。
  * 两种接入方式：
  *   1) proxy  —— 推荐。浏览器调用本项目自带的 server（/api/chat），API Key 只保存在服务器 .env 中；
  *   2) direct —— 浏览器直连（Key 存在本机浏览器，仅适合本地自用；部分服务商不支持跨域）。
@@ -21,9 +22,10 @@
 })(typeof self !== 'undefined' ? self : this, function (D) {
   'use strict';
 
+  // baseUrl / model 留空：直连模式要用户自己填（见 docs/QUICKSTART.md），服务端代理有自己的默认值
   var DEFAULTS = {
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    model: 'qwen-plus',
+    baseUrl: '',
+    model: '',
     temperature: 0.9,
     maxTokens: 200
   };
@@ -144,7 +146,9 @@
 
   /** 调用 OpenAI 兼容接口（浏览器 direct 模式与 Node 服务端共用） */
   function chatCompletions(cfg, messages) {
-    var base = String(cfg.baseUrl || DEFAULTS.baseUrl).replace(/\/+$/, '');
+    var missing = missingDirectConfig(cfg, { apiKey: false });
+    if (missing.length) return Promise.reject(new Error('未配置 ' + missing.join('、') + '（见 docs/QUICKSTART.md）'));
+    var base = String(cfg.baseUrl || DEFAULTS.baseUrl).trim().replace(/\/+$/, '');
     var opt = withTimeout(cfg.timeoutMs || 20000);
     return fetch(base + '/chat/completions', {
       method: 'POST',
@@ -167,6 +171,33 @@
     });
   }
 
+  /** 直连配置缺了哪几项（baseUrl / model / apiKey）；opts.apiKey === false 时不查 Key */
+  function missingDirectConfig(cfg, opts) {
+    cfg = cfg || {};
+    var out = [];
+    if (!String(cfg.baseUrl || DEFAULTS.baseUrl || '').trim()) out.push('Base URL');
+    if (!String(cfg.model || DEFAULTS.model || '').trim()) out.push('model');
+    if (!(opts && opts.apiKey === false) && !String(cfg.apiKey || '').trim()) out.push('API Key');
+    return out;
+  }
+
+  /**
+   * 读取浏览器里已保存的直连配置（localStorage 'deepsuck.llm' 的 JSON 文本或已解析对象）。
+   * 已保存的值原样保留（包括以前版本存下的地址和模型名），不清除、不用默认值覆盖；
+   * 只在没保存过的字段上用 DEFAULTS。坏 JSON 当作没保存过。
+   */
+  function restoreDirectConfig(saved) {
+    var obj = saved;
+    if (typeof saved === 'string') { try { obj = JSON.parse(saved); } catch (e) { obj = null; } }
+    var direct = { baseUrl: DEFAULTS.baseUrl, model: DEFAULTS.model, apiKey: '' };
+    var engine = 'rule';
+    if (obj && typeof obj === 'object') {
+      ['baseUrl', 'model', 'apiKey'].forEach(function (k) { if (typeof obj[k] === 'string') direct[k] = obj[k]; });
+      if (obj.engine === 'rule' || obj.engine === 'proxy' || obj.engine === 'direct') engine = obj.engine;
+    }
+    return { engine: engine, direct: direct };
+  }
+
   /** 浏览器端：通过本项目 server 代理 */
   function viaProxy(payload, endpoint) {
     var opt = withTimeout(25000);
@@ -183,6 +214,7 @@
 
   return {
     DEFAULTS: DEFAULTS, INTENT_HINTS: INTENT_HINTS,
+    missingDirectConfig: missingDirectConfig, restoreDirectConfig: restoreDirectConfig,
     systemPrompt: systemPrompt, buildMessages: buildMessages, sanitizeReply: sanitizeReply,
     speakMasked: speakMasked, fixQuotes: fixQuotes,
     chatCompletions: chatCompletions, viaProxy: viaProxy
