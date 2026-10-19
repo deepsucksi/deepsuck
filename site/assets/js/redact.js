@@ -296,6 +296,155 @@
     });
   }
 
+  // ---- 卡号片段、人设侧兜底、两边说话人（#120）：规则见 core/extractors.json 的 redact.card / redact.persona ----
+  var CN_DIGIT = { '零': '0', '〇': '0', '一': '1', '幺': '1', '二': '2', '两': '2', '三': '3', '四': '4', '五': '5', '六': '6', '七': '7', '八': '8', '九': '9' };
+  function asciiDigits(s) {
+    var out = '';
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i), cc = s.charCodeAt(i);
+      if (cc >= 0xFF10 && cc <= 0xFF19) out += String.fromCharCode(cc - 0xFEE0);
+      else if (CN_DIGIT[ch]) out += CN_DIGIT[ch];
+      else if (ch >= '0' && ch <= '9') out += ch;
+    }
+    return out;
+  }
+
+  var CARD = null;
+  function cardRules() {
+    if (CARD !== null) return CARD;
+    var C = core && core();
+    var red = (C && C.redact) || {};
+    var c = red.card, o = red.otp;
+    if (!c || !o) return (CARD = false);
+    CARD = {
+      c: c,
+      kw: new RegExp(c.keyword, 'g'),
+      run: new RegExp(o.digit + '(?:' + o.sep + '{0,' + o.maxSep + '}' + o.digit + ')*', 'g'),
+      digit: new RegExp(o.digit, 'g'),
+      edge: new RegExp(o.edge),
+      prefixAfter: new RegExp(c.prefixAfter),
+      strongBin: new RegExp(c.strongBin),
+      notCard: new RegExp(c.notCard || '(?!)'),
+      tailBefore: new RegExp(c.tailBefore),
+      tailBlock: new RegExp(c.tailBlock)
+    };
+    return CARD;
+  }
+
+  function starDigits(re, s) { re.lastIndex = 0; return s.replace(re, '*'); }
+
+  /** 卡号片段（「6222开头」「尾号0123」，卡号语境下）：[{start, end, masked}]，数字全部换成 * */
+  function findCardSpans(text) {
+    var R = cardRules();
+    if (!R) return [];
+    var s = String(text || ''), c = R.c, kws = [], m;
+    R.kw.lastIndex = 0;
+    while ((m = R.kw.exec(s))) { kws.push([m.index, m.index + m[0].length]); if (!m[0].length) R.kw.lastIndex++; }
+    function kwNear(a, b) {
+      return kws.some(function (k) {
+        return (k[1] <= a && a - k[1] <= c.window) || (k[0] >= b && k[0] - b <= c.window) || (k[0] < b && a < k[1]);
+      });
+    }
+    var runs = [];
+    R.run.lastIndex = 0;
+    while ((m = R.run.exec(s))) {
+      var a = m.index, b = a + m[0].length;
+      if ((a > 0 && R.edge.test(s.charAt(a - 1))) || (b < s.length && R.edge.test(s.charAt(b)))) continue;
+      runs.push([a, b, countOf(R.digit, m[0])]);
+    }
+    var prefixes = [], tails = [];
+    runs.forEach(function (r) {
+      if (r[2] >= c.minLen && r[2] <= c.maxLen && R.prefixAfter.test(s.slice(r[1])) && !R.notCard.test(asciiDigits(s.slice(r[0], r[1])))) {
+        var strong = r[2] >= c.strongMinLen && R.strongBin.test(asciiDigits(s.slice(r[0], r[1])));
+        if (strong || kwNear(r[0], r[1])) prefixes.push([r[0], r[1]]);
+      }
+    });
+    runs.forEach(function (r) {
+      if (r[2] < c.minLen || r[2] > c.tailMaxLen) return;
+      var lo = Math.max(0, r[0] - c.tailBeforeChars);
+      var tm = R.tailBefore.exec(s.slice(lo, r[0]));
+      if (!tm) return;
+      var t0 = lo + tm.index;
+      if (R.tailBlock.test(s.slice(Math.max(0, t0 - c.tailBlockChars), t0))) return;
+      var nearPrefix = prefixes.some(function (p) { return Math.abs(r[0] - p[1]) <= c.window || Math.abs(p[0] - r[1]) <= c.window; });
+      if (kwNear(r[0], r[1]) || nearPrefix) tails.push([r[0], r[1]]);
+    });
+    var seen = {}, all = [];
+    prefixes.concat(tails).forEach(function (x) { var k = x[0] + ',' + x[1]; if (!seen[k]) { seen[k] = 1; all.push(x); } });
+    all.sort(function (x, y) { return x[0] - y[0] || x[1] - y[1]; });
+    return all.map(function (x) { return { start: x[0], end: x[1], masked: starDigits(R.digit, s.slice(x[0], x[1])) }; });
+  }
+
+  /** 卡号片段跨分段打码（窗口同 redact.otp.segWindow） */
+  function redactCardSegments(texts, window) {
+    var segs = (texts || []).map(function (t) { return t == null ? '' : String(t); });
+    var R = cardRules(), O = otpRules();
+    if (!R || !O || !segs.length) return segs;
+    var w = Math.max(0, parseInt(window == null ? (O.o.segWindow == null ? 2 : O.o.segWindow) : window, 10) || 0);
+    var joiner = O.o.segJoiner == null ? ' ' : O.o.segJoiner;
+    var hits = segs.map(function () { return []; });
+    for (var c = 0; c < segs.length; c++) {
+      var idx = [], offs = [], pos = 0;
+      for (var i = Math.max(0, c - w); i < Math.min(segs.length, c + w + 1); i++) idx.push(i);
+      idx.forEach(function (i, k) { if (k) pos += joiner.length; offs.push(pos); pos += segs[i].length; });
+      findCardSpans(idx.map(function (i) { return segs[i]; }).join(joiner)).forEach(function (sp) {
+        idx.forEach(function (i, k) {
+          var a = Math.max(sp.start, offs[k]), b = Math.min(sp.end, offs[k] + segs[i].length);
+          if (a < b) hits[i].push([a - offs[k], b - offs[k]]);
+        });
+      });
+    }
+    return segs.map(function (s, i) {
+      hits[i].forEach(function (h) { s = s.slice(0, h[0]) + starDigits(R.digit, s.slice(h[0], h[1])) + s.slice(h[1]); });
+      return s;
+    });
+  }
+
+  var PERSONA = null;
+  function personaRules() {
+    if (PERSONA !== null) return PERSONA;
+    var C = core && core();
+    var red = (C && C.redact) || {};
+    var p = red.persona, o = red.otp;
+    if (!p || !o) return (PERSONA = false);
+    PERSONA = { p: p, digit: new RegExp(o.digit, 'g'), run: new RegExp(o.digit + '(?:' + p.sep + '{0,' + p.maxSep + '}' + o.digit + ')*', 'g') };
+    return PERSONA;
+  }
+
+  /** 人设侧兜底（redact.persona）：连续 minRun 位及以上的逐位数字换成 *（长度不变，可重复执行） */
+  function redactPersona(text) {
+    var s = text == null ? '' : String(text);
+    var R = personaRules();
+    if (!R) return s;
+    return s.replace(R.run, function (m) { return countOf(R.digit, m) >= R.p.minRun ? starDigits(R.digit, m) : m; });
+  }
+
+  /** 两边说话人合在一起打码（#120，见 redact.dialogComment）：role 为 'scammer' 的是骗子侧，其余都算人设侧 */
+  function redactDialogSegments(texts, roles, window) {
+    var out = (texts || []).map(function (t) { return t == null ? '' : String(t); });
+    var side = out.map(function (_, i) { return (roles || [])[i] === 'scammer' ? 'scammer' : 'persona'; });
+    ['scammer', 'persona'].forEach(function (who) {
+      var idx = [];
+      side.forEach(function (x, i) { if (x === who) idx.push(i); });
+      redactOtpSegments(idx.map(function (i) { return out[i]; }), window).forEach(function (t, k) { out[idx[k]] = t; });
+    });
+    out = redactOtpSegments(out, window);
+    // 一方报数字、另一方说验证码且中间隔着别的话（「验证码多少」「是…47」「后面呢」「29」）：另一方的分段只留验证码关键词
+    var R = otpRules();
+    if (R) {
+      ['scammer', 'persona'].forEach(function (who) {
+        var view = out.map(function (t, i) {
+          if (side[i] === who) return t;
+          R.kw.lastIndex = 0;
+          return (t.match(R.kw) || []).join(' ');
+        });
+        redactOtpSegments(view, window).forEach(function (t, i) { if (side[i] === who) out[i] = t; });
+      });
+    }
+    out = redactCardSegments(out, window);
+    return out.map(function (t, i) { return side[i] === 'persona' ? redactPersona(t) : t; });
+  }
+
   /**
    * 将一段文本中的敏感片段替换成脱敏结果。
    * entities: extractors.extract() 返回的数组（含 start/end/type/value）；
@@ -326,6 +475,10 @@
     findOtpSpansSegments: findOtpSpansSegments,
     redactOtpSegments: redactOtpSegments,
     otpSegWindow: otpSegWindow,
+    findCardSpans: findCardSpans,
+    redactCardSegments: redactCardSegments,
+    redactPersona: redactPersona,
+    redactDialogSegments: redactDialogSegments,
     maskBankCard: maskBankCard,
     formatCardGroups: formatCardGroups,
     maskPhone: maskPhone,

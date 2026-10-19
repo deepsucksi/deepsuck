@@ -30,9 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "python") not in sys.path:
     sys.path.insert(0, str(ROOT / "python"))
 
-from deepsuck.redact import redact_otp_segments  # noqa: E402
+from deepsuck.redact import redact_dialog_segments  # noqa: E402
 
-PERSONA_KEYS = (("bot", "text"), ("turn", "filler"), ("turn", "reply"))
 
 
 def consent_of(rows: List[Optional[dict]]):
@@ -45,22 +44,26 @@ def consent_of(rows: List[Optional[dict]]):
 
 
 def redact_rows(rows: List[Optional[dict]]) -> Tuple[List[Optional[dict]], int, int]:
-    """返回（新行列表、改动的行数、改动的字段数）。rows 里不是 dict 的（坏行）原样保留。"""
+    """返回（新行列表、改动的行数、改动的字段数）。rows 里不是 dict 的（坏行）原样保留。
+
+    #120：两边说话人按时间排（turn 行内依次是 asr、filler、reply），用 redact_dialog_segments 连起来判断：
+    同一说话方跨段验证码、跨说话方验证码、卡号片段、人设侧连续 3 位以上数字兜底。"""
     out = [dict(r) if isinstance(r, dict) else r for r in rows]
-    speakers = {"scammer": [], "persona": []}   # [(行号, 字段)]
+    refs, roles = [], []   # [(行号, 字段)]
     for i, r in enumerate(out):
         if not isinstance(r, dict):
             continue
-        if r.get("type") == "turn" and isinstance(r.get("asr"), str):
-            speakers["scammer"].append((i, "asr"))
-        for typ, key in PERSONA_KEYS:
-            if r.get("type") == typ and isinstance(r.get(key), str):
-                speakers["persona"].append((i, key))
+        if r.get("type") == "turn":
+            for key, role in (("asr", "scammer"), ("filler", "bot"), ("reply", "bot")):
+                if isinstance(r.get(key), str):
+                    refs.append((i, key))
+                    roles.append(role)
+        elif r.get("type") == "bot" and isinstance(r.get("text"), str):
+            refs.append((i, "text"))
+            roles.append("bot")
     changed_rows, fields = set(), 0
-    for refs in speakers.values():
-        if not refs:
-            continue
-        fixed = redact_otp_segments([out[i][k] for i, k in refs])
+    if refs:
+        fixed = redact_dialog_segments([out[i][k] for i, k in refs], roles)
         for (i, k), new in zip(refs, fixed):
             if new != out[i][k]:
                 out[i][k] = new

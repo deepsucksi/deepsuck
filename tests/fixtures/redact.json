@@ -550,9 +550,87 @@
   },
   {
    "text": "验证码是多少？我念一下：一二三",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 12,
+     "end": 15,
+     "masked": "***"
+    }
+   ],
+   "redacted": "验证码是多少？我念一下：***"
+  },
+  {
+   "text": "嗯…验证码是472？",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 6,
+     "end": 9,
+     "masked": "***"
+    }
+   ],
+   "redacted": "嗯…验证码是***？"
+  },
+  {
+   "text": "验证码前三位是 472",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 8,
+     "end": 11,
+     "masked": "***"
+    }
+   ],
+   "redacted": "验证码前三位是 ***"
+  },
+  {
+   "text": "验证码是四七二",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 7,
+     "masked": "***"
+    }
+   ],
+   "redacted": "验证码是***"
+  },
+  {
+   "text": "验证码幺二三",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 3,
+     "end": 6,
+     "masked": "***"
+    }
+   ],
+   "redacted": "验证码***"
+  },
+  {
+   "text": "验证码5分钟内有效，工号 203",
    "expect": "keep",
    "spans": [],
-   "redacted": "验证码是多少？我念一下：一二三"
+   "redacted": "验证码5分钟内有效，工号 203"
+  },
+  {
+   "text": "验证码发过来了，转 300 元",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "验证码发过来了，转 300 元"
+  },
+  {
+   "text": "验证码过 30 秒再发",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "验证码过 30 秒再发"
+  },
+  {
+   "text": "验证码发到 138 开头那个手机了",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "验证码发到 138 开头那个手机了"
   }
  ],
  "otpSegments": [
@@ -719,13 +797,7 @@
    ],
    "expect": "mask",
    "spans": [
-    [
-     {
-      "start": 4,
-      "end": 7,
-      "masked": "***"
-     }
-    ],
+    [],
     [
      {
       "start": 0,
@@ -1015,16 +1087,22 @@
     "我数一下",
     "一二三"
    ],
-   "expect": "keep",
+   "expect": "mask",
    "spans": [
     [],
     [],
-    []
+    [
+     {
+      "start": 0,
+      "end": 3,
+      "masked": "***"
+     }
+    ]
    ],
    "redacted": [
     "验证码是多少",
     "我数一下",
-    "一二三"
+    "***"
    ]
   },
   {
@@ -1076,6 +1154,290 @@
    "redacted": [
     "验证码不能说",
     "我先挂了"
+   ]
+  }
+ ],
+ "dialog": [
+  {
+   "roles": [
+    "bot"
+   ],
+   "segments": [
+    "嗯…验证码是472？"
+   ],
+   "expect": "mask",
+   "redacted": [
+    "嗯…验证码是***？"
+   ]
+  },
+  {
+   "roles": [
+    "bot"
+   ],
+   "segments": [
+    "6222开头…尾号0123对吧"
+   ],
+   "expect": "mask",
+   "redacted": [
+    "****开头…尾号****对吧"
+   ]
+  },
+  {
+   "roles": [
+    "bot"
+   ],
+   "segments": [
+    "138开头…后面是零零幺三"
+   ],
+   "expect": "mask",
+   "redacted": [
+    "***开头…后面是****"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "bot",
+    "bot"
+   ],
+   "segments": [
+    "你把验证码念一下",
+    "四七",
+    "二九"
+   ],
+   "expect": "mask",
+   "redacted": [
+    "你把验证码念一下",
+    "**",
+    "**"
+   ]
+  },
+  {
+   "roles": [
+    "bot",
+    "scammer",
+    "scammer"
+   ],
+   "segments": [
+    "验证码收到了吗？",
+    "收到了",
+    "47 29"
+   ],
+   "expect": "mask",
+   "redacted": [
+    "验证码收到了吗？",
+    "收到了",
+    "** **"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "bot",
+    "scammer",
+    "bot"
+   ],
+   "segments": [
+    "验证码多少",
+    "是…47",
+    "后面呢",
+    "29"
+   ],
+   "expect": "mask",
+   "redacted": [
+    "验证码多少",
+    "是…**",
+    "后面呢",
+    "**"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "scammer"
+   ],
+   "segments": [
+    "卡号 6222 开头的是吧",
+    "尾号 0123"
+   ],
+   "expect": "mask",
+   "redacted": [
+    "卡号 **** 开头的是吧",
+    "尾号 ****"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "scammer",
+    "bot"
+   ],
+   "segments": [
+    "你那张卡",
+    "尾号多少",
+    "尾号…零一二三"
+   ],
+   "expect": "mask",
+   "redacted": [
+    "你那张卡",
+    "尾号多少",
+    "尾号…****"
+   ]
+  },
+  {
+   "roles": [
+    "bot"
+   ],
+   "segments": [
+    "我只有1000块"
+   ],
+   "expect": "mask",
+   "redacted": [
+    "我只有****块"
+   ]
+  },
+  {
+   "roles": [
+    "bot"
+   ],
+   "segments": [
+    "我只有五百块，下午三点半到"
+   ],
+   "expect": "keep",
+   "redacted": [
+    "我只有五百块，下午三点半到"
+   ]
+  },
+  {
+   "roles": [
+    "bot"
+   ],
+   "segments": [
+    "你说十八号是吧，我七十二了"
+   ],
+   "expect": "keep",
+   "redacted": [
+    "你说十八号是吧，我七十二了"
+   ]
+  },
+  {
+   "roles": [
+    "bot"
+   ],
+   "segments": [
+    "10:30 到，就 20 块钱"
+   ],
+   "expect": "keep",
+   "redacted": [
+    "10:30 到，就 20 块钱"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "bot"
+   ],
+   "segments": [
+    "我是 138 开头的号码，工号 203",
+    "哦好"
+   ],
+   "expect": "keep",
+   "redacted": [
+    "我是 138 开头的号码，工号 203",
+    "哦好"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "bot"
+   ],
+   "segments": [
+    "先转 300 元，下午 3 点前",
+    "验证码？"
+   ],
+   "expect": "keep",
+   "redacted": [
+    "先转 300 元，下午 3 点前",
+    "验证码？"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "bot"
+   ],
+   "segments": [
+    "你手机尾号 0123 是吧",
+    "对"
+   ],
+   "expect": "keep",
+   "redacted": [
+    "你手机尾号 0123 是吧",
+    "对"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "bot"
+   ],
+   "segments": [
+    "打 400 开头的客服电话",
+    "好的"
+   ],
+   "expect": "keep",
+   "redacted": [
+    "打 400 开头的客服电话",
+    "好的"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "scammer"
+   ],
+   "segments": [
+    "卡号 6222 开头",
+    "我是 138 开头的号码"
+   ],
+   "expect": "mask",
+   "redacted": [
+    "卡号 **** 开头",
+    "我是 138 开头的号码"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "scammer"
+   ],
+   "segments": [
+    "银行卡的事等会说",
+    "你打 400 开头那个"
+   ],
+   "expect": "keep",
+   "redacted": [
+    "银行卡的事等会说",
+    "你打 400 开头那个"
+   ]
+  },
+  {
+   "roles": [
+    "scammer",
+    "bot",
+    "scammer"
+   ],
+   "segments": [
+    "验证码发你了",
+    "嗯",
+    "一共 5000 元"
+   ],
+   "expect": "keep",
+   "redacted": [
+    "验证码发你了",
+    "嗯",
+    "一共 5000 元"
    ]
   }
  ]

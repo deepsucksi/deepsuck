@@ -101,18 +101,16 @@ def save_transcript(session, call_id: str, channel: str, env=None, now: Optional
     if not transcripts_enabled(env) or not getattr(session, "messages", None):
         return None
     from deepsuck.extractors import extract_sensitive
-    from deepsuck.redact import redact_otp_segments, redact_text
+    from deepsuck.redact import redact_dialog_segments, redact_text
 
     report = session.report()
     msgs = report.get("transcript", [])
     for m in msgs:
         t = m.get("text") or ""
         m["text"] = redact_text(t, extract_sensitive(t))
-    # #92：验证码被 ASR 切成几段时，同一说话方相邻几段连起来再判断一次
-    for role in {m.get("role") for m in msgs}:
-        same = [m for m in msgs if m.get("role") == role]
-        for m, t in zip(same, redact_otp_segments([m["text"] for m in same])):
-            m["text"] = t
+    # #92 / #120：验证码被 ASR 切成几段、或一方问验证码另一方报数字时连起来再判断；卡号片段、人设侧连续数字兜底
+    for m, t in zip(msgs, redact_dialog_segments([m["text"] for m in msgs], [m.get("role") for m in msgs])):
+        m["text"] = t
     report["channel"] = channel  # web / phone
     path = transcript_dir(env) / f"{_stamp(now)}-{channel}-{_safe(call_id)}.json"
     try:
