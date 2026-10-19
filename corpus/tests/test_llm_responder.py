@@ -86,7 +86,7 @@ def test_llm_responder_filters_and_params(tmp_path):
     for _, p in fake.persona_calls:
         assert p["temperature"] == LP.TEMPERATURE and p["max_tokens"] == LP.MAX_TOKENS and "response_format" not in p
     bots = [m for r in res["rows"] for m in r["transcript"][1:] if m["role"] == "bot"]
-    assert bots and all(m["raw"] in fake.replies for m in bots)
+    assert bots and all(m["raw"] in fake.replies for m in bots)  # 内存里留着原文算重复率；落盘时不存（见下）
     sent = " ".join(m["text"] for m in bots)
     assert "转过去了" not in sent and not re.search(r"[0-9]{2,}", sent)  # holdTransfer、长数字、vagueDigits 都过了
     assert res["overall"]["leakRate"] == 0
@@ -278,3 +278,96 @@ def test_cli_partial_result_flag(tmp_path, monkeypatch):
         row = json.loads(line)
         planted = M.SIM.plant(M.SIM.Rand(row["seed"]))
         assert planted["bank"] not in line.replace(" ", "")  # 对话全文 JSONL 也打码
+
+
+# ---------------------------------------------------------------- 二审：落盘对话走共享核心打码，不存 raw
+LEAKY = ["验证码是472913", "卡号前面是6217001234", "后面是567890123", "我手机13912345678"]
+SECRETS = ("472913", "6217001234", "567890123", "13912345678")
+
+
+def _no_secrets(blob: str):
+    flat = re.sub(r"[\s\-]", "", blob)
+    for x in SECRETS:
+        assert x not in blob and x not in flat, x
+
+
+def test_redact_transcript_core_and_dialog_segments():
+    """即使 text 本身没过滤（直接构造），落盘前也由共享核心打掉：验证码、拆成两段的卡号、手机号。"""
+    row = {"seed": 1000, "transcript": [
+        {"role": "bot", "text": "喂？", "intent": "opening"},
+        {"role": "scammer", "text": "把验证码发我"}, {"role": "bot", "text": LEAKY[0], "raw": LEAKY[0], "intent": "x"},
+        {"role": "scammer", "text": "卡号报一下"}, {"role": "bot", "text": LEAKY[1], "raw": LEAKY[1], "intent": "x"},
+        {"role": "bot", "text": LEAKY[2], "raw": LEAKY[2], "intent": "x"},
+        {"role": "scammer", "text": "电话多少"}, {"role": "bot", "text": LEAKY[3], "raw": LEAKY[3], "intent": "x"}]}
+    out = M.redact_transcript(row)
+    blob = json.dumps(out, ensure_ascii=False)
+    _no_secrets(blob)
+    assert all("raw" not in m for m in out)
+    assert [m["role"] for m in out] == [m["role"] for m in row["transcript"]]
+
+
+def test_cli_transcripts_core_redacted_no_raw(tmp_path, monkeypatch):
+    fake = FakeLLM(replies=LEAKY, hang_at=7)
+    orig = M.run
+    monkeypatch.setattr(M, "run", lambda *a, **k: orig(*a, **{**k, "cache_dir": tmp_path / "cache"}))
+    monkeypatch.setattr(M.J, "default_client_factory", lambda *a, **k: (lambda: fake))
+    out = tmp_path / "eval194"
+    rc = M.main(["--run", "--profile", "hard", "--responder", "llm", "--seeds", "1", "--scenarios", "police",
+                 "--personas", "wang", "--workers", "1", "--no-rule-baseline", "--ledger", str(tmp_path / "spend.csv"),
+                 "--json", str(out / "a.json"), "--json-transcripts", "--transcripts", str(out / "a.jsonl"),
+                 "--md", str(out / "a.md")])
+    assert rc == 0 and len(fake.persona_calls) >= 4
+    for name in ("a.json", "a.jsonl", "a.md"):
+        _no_secrets((out / name).read_text(encoding="utf-8"))
+    res = json.loads((out / "a.json").read_text(encoding="utf-8"))
+    assert res["rows"][0]["transcript"] and all("raw" not in m for m in res["rows"][0]["transcript"])
+    for line in (out / "a.jsonl").read_text(encoding="utf-8").splitlines():
+        assert all("raw" not in m for m in json.loads(line)["transcript"])
+
+
+# ---------------------------------------------------------------- 二审建议 5：实际 ≤ 余量时绝不超上限
+class MarginLLM(FakeLLM):
+    def __init__(self, holder, frac=0.9):
+        super().__init__(hang_at=50)
+        self.holder, self.frac, self.sent_after_stop = holder, frac, 0
+
+    def chat(self, messages, **params):
+        m = self.holder.get("m")
+        if m is not None and m.stopped:
+            self.sent_after_stop += 1
+        r = super().chat(messages, **params)
+        pin, pout = M.request_margin_tokens(messages, params)
+        r["usage"] = {"prompt_tokens": int(pin * self.frac), "completion_tokens": int(pout * self.frac)}
+        return r
+
+
+@pytest.mark.parametrize("workers", [1, 3, 6])
+@pytest.mark.parametrize("cap", [0.05, 0.13])
+def test_budget_never_exceeds_when_usage_within_margin(tmp_path, monkeypatch, workers, cap):
+    monkeypatch.setattr(M, "estimate_session", lambda *a, **k: {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0,
+                                                                "responder_prompt_tokens": 0, "responder_completion_tokens": 0})
+    holder = {}
+    fake = MarginLLM(holder)
+    res = M.run(scenarios=[s["id"] for s in M.SCENARIOS], personas=None, seeds=1, client_factory=lambda: fake,
+                cache_dir=tmp_path / "cache", dry_run=False, workers=workers, profile="hard", responder="llm",
+                max_cost=cap, meter_hook=lambda m: holder.__setitem__("m", m))
+    m = holder["m"]
+    assert m.u["cost_cny"] <= cap and res["stoppedByBudget"]
+    assert fake.sent_after_stop <= workers - 1 and abs(m.reserved) < 1e-12
+
+
+def test_caller_accounts_when_cache_write_fails(tmp_path, monkeypatch):
+    m = M.Meter(1.0)
+
+    class C:
+        def chat(self, messages, **params):
+            return {"content": "x", "usage": {"prompt_tokens": 1000, "completion_tokens": 10}}
+    caller = M.Caller(lambda: C(), m, tmp_path / "c")
+    monkeypatch.setattr(M.Path, "replace", lambda *a, **k: (_ for _ in ()).throw(OSError("disk")))
+    with pytest.raises(OSError):
+        caller([{"role": "user", "content": "hi"}], {"model": "m", "max_tokens": 10})
+    assert m.u["requests"] == 1 and m.u["prompt_tokens"] == 1000 and abs(m.reserved) < 1e-12
+
+
+def test_margin_counts_digits_per_token():
+    assert M._margin_tokens("1234567890") == 10 + 8 and M._margin_tokens("abcd") == 2 + 8

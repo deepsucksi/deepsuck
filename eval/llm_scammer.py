@@ -463,10 +463,20 @@ def cache_key(messages: List[dict], params: dict, version: str = PROMPT_VERSION)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
+def _margin_tokens(text: str) -> int:
+    """按 J.estimate_tokens 的口径（汉字等宽字符 1、其他 0.5、每条 +8），但数字逐位按 1 算（Qwen 逐位切分）。"""
+    wide = sum(1 for ch in text if ord(ch) > 0x2E7F or ch.isdigit())
+    return int(-(-(2 * wide + (len(text) - wide)) // 2)) + 8
+
+
+def request_margin_tokens(messages: List[dict], params: dict) -> tuple:
+    """单次请求的预估余量（输入 token, 输出 token）：输入见 _margin_tokens、不算缓存折扣，输出按 max_tokens 打满。"""
+    return (sum(_margin_tokens(str(m.get("content") or "")) for m in messages),
+            int(params.get("max_tokens") or MAX_OUT_TOKENS))
+
+
 def request_margin_cny(messages: List[dict], params: dict) -> float:
-    """单次请求的预估余量：输入按每汉字 1 token（偏保守）且不算缓存折扣，输出按 max_tokens 打满。"""
-    est_in = sum(J.estimate_tokens(str(m.get("content") or "")) for m in messages)
-    return J.cost_cny(est_in, int(params.get("max_tokens") or MAX_OUT_TOKENS))
+    return J.cost_cny(*request_margin_tokens(messages, params))
 
 
 class Meter:
@@ -551,23 +561,28 @@ class Caller:
         if self.get_client is None:
             raise CacheMiss(k)
         client = self.get_client()
-        margin = self.meter.reserve(request_margin_cny(messages, params)) if self.meter else 0.0
+        margin_in, margin_out = request_margin_tokens(messages, params)
+        margin = self.meter.reserve(J.cost_cny(margin_in, margin_out)) if self.meter else 0.0
         try:
             resp = client.chat(messages, **params)
         except BaseException:
             if self.meter:
                 self.meter.release(margin)
             raise
-        pt, ct, cached = J.usage_tokens(resp.get("usage") or {})
-        hit = {"model": resp.get("model") or params["model"], "content": resp.get("content", ""),
-               "usage": {"prompt_tokens": pt, "completion_tokens": ct, "cached_tokens": cached},
-               "request_id": resp.get("request_id"), "date": date.today().isoformat(), "prompt_version": self.version}
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        tmp = p.with_suffix(".json.tmp" + str(threading.get_ident()))
-        tmp.write_text(json.dumps(hit, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-        tmp.replace(p)
-        if self.meter:
-            self.meter.add(pt, ct, cached, self.who, margin)
+        # 请求已经发出：之后解析 usage、写缓存哪一步出错都要记账、释放预留（usage 解析不了就按余量记）
+        pt, ct, cached = margin_in, margin_out, 0
+        try:
+            pt, ct, cached = J.usage_tokens(resp.get("usage") or {})
+            hit = {"model": resp.get("model") or params["model"], "content": resp.get("content", ""),
+                   "usage": {"prompt_tokens": pt, "completion_tokens": ct, "cached_tokens": cached},
+                   "request_id": resp.get("request_id"), "date": date.today().isoformat(), "prompt_version": self.version}
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            tmp = p.with_suffix(".json.tmp" + str(threading.get_ident()))
+            tmp.write_text(json.dumps(hit, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+            tmp.replace(p)
+        finally:
+            if self.meter:
+                self.meter.add(pt, ct, cached, self.who, margin)
         return hit
 
 
@@ -683,48 +698,66 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
 
 
 # ---------------------------------------------------------------- transcript 脱敏（#164：结果文件里存对话全文）
-REDACT_TYPES = ("bank_card", "name", "id_card", "qq", "wechat", "alipay")  # 电话、钱包、网址按约定不打码（都是虚构值）
+# #194 二审：落盘的对话一律走共享核心 deepsuck.redact（redact_text + 跨段 redact_dialog_segments，人设一侧再过 redact_persona），
+# 不再保存模型 / 引擎原文 raw；下面两条正则和本场植入值只做兜底。
 _LONG_CARD = re.compile(r"(?<![0-9])[0-9](?:[ \-]?[0-9]){14,18}(?![0-9])")
 _ID18 = re.compile(r"(?<![0-9A-Za-z])[1-9][0-9]{16}[0-9Xx](?![0-9A-Za-z])")
 
 
-def redact_text(text: str, planted: Optional[dict] = None) -> str:
-    """存 transcript 前的脱敏：提取器认出的银行卡、姓名、身份证、QQ、微信、支付宝按 deepsuck.redact 的规则打码；
-    再兜底本场植入的虚构值（卡号各种写法、户名、微信号、QQ 号）和 15–19 位连续数字（卡号）、18 位身份证号。"""
+def _fallback(s: str, planted: Optional[dict]) -> str:
     from deepsuck import redact as RD
-    s = str(text or "")
-    if not s:
-        return s
-    spans = [e for e in X.extract(s) if e.get("type") in REDACT_TYPES and e.get("start") is not None]
-    for e in sorted(spans, key=lambda e: e["start"], reverse=True):
-        s = s[:e["start"]] + RD.mask(e["type"], s[e["start"]:e["end"]]) + s[e["end"]:]
     pv = planted or {}
     for k, t in (("bank_spaced", "bank_card"), ("bank", "bank_card"), ("bank_cn", "name"), ("name", "name"),
-                 ("wx", "wechat"), ("qq", "qq")):
+                 ("wx", "wechat"), ("qq", "qq"), ("phone", "phone")):
         v = pv.get(k)
         if v and v in s:
             s = s.replace(v, RD.mask(t, v) if k != "bank_cn" else "*" * len(v))
     s = _ID18.sub(lambda m: RD.mask_id_card(m.group()), s)
-    s = _LONG_CARD.sub(lambda m: RD.mask_bank_card(m.group()), s)
-    return s
+    return _LONG_CARD.sub(lambda m: RD.mask_bank_card(m.group()), s)
+
+
+def redact_text(text: str, planted: Optional[dict] = None, persona: bool = False) -> str:
+    """单段脱敏：共享核心 deepsuck.redact.redact_text(s, extract(s))（所有敏感类型，含验证码语境的短数字、拆字姓名），
+    persona=True 时再过 redact_persona（人设侧连续数字）；最后本场植入值和长卡号 / 身份证正则兜底。"""
+    from deepsuck import redact as RD
+    s = str(text or "")
+    if not s:
+        return s
+    s = RD.redact_text(s, X.extract(s))
+    if persona:
+        s = RD.redact_persona(s)
+    return _fallback(s, planted)
 
 
 def redact_transcript(row: dict) -> List[dict]:
-    """每一轮：骗子存原文（脱敏后），人设存 text（发出去的）和 raw（真人化之前的引擎原文），都脱敏。"""
+    """整场对话脱敏后再落盘：先逐段走共享核心 redact_text，再按时间顺序、按角色整场跑 redact_dialog_segments
+    （验证码、卡号被拆成几段时连起来认），最后兜底。只存发出去的 text，不存 raw 原文。"""
+    from deepsuck import redact as RD
     planted = SIM.plant(SIM.Rand(row["seed"]))
+    msgs = list(row.get("transcript") or [])
+    roles = ["scammer" if m["role"] == "scammer" else "persona" for m in msgs]
+    texts = [RD.redact_text(str(m.get("text") or ""), X.extract(str(m.get("text") or ""))) for m in msgs]
+    texts = RD.redact_dialog_segments(texts, roles)
     out = []
-    for m in row.get("transcript") or []:
-        o = {"role": m["role"], "text": redact_text(m.get("text", ""), planted)}
+    for m, t in zip(msgs, texts):
+        o = {"role": m["role"], "text": _fallback(t, planted)}
         if m["role"] == "bot":
-            o.update({"raw": redact_text(m.get("raw", ""), planted), "intent": m.get("intent")})
+            o["intent"] = m.get("intent")
             if m.get("silent"):
                 o["silent"] = True
         elif m.get("hangup"):
-            h = m["hangup"]
-            o["hangup"] = {k: (redact_text(h[k], planted) if isinstance(h.get(k), str) else h.get(k))
-                           for k in ("hangup_type", "category", "evidence", "reason", "turn", "trigger_intent")}
+            o["hangup"] = redact_hangup(m["hangup"], planted)
         out.append(o)
     return out
+
+
+def redact_hangup(h: dict, planted: Optional[dict]) -> dict:
+    """挂断信息：evidence / trigger_text 是人设回复的摘录，按人设侧打码；reason 也过一遍。"""
+    o = dict(h)
+    for k in ("evidence", "reason", "trigger_text"):
+        if isinstance(o.get(k), str):
+            o[k] = redact_text(o[k], planted, persona=True)
+    return o
 
 
 # ---------------------------------------------------------------- estimate / run
@@ -901,6 +934,7 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
     # submit + 遇到超限就 shutdown(cancel_futures=True)：排队的场直接取消，已在跑的场下一次请求在 Meter.reserve 处被拒
     ex = ThreadPoolExecutor(max_workers=max(1, workers))
     err: Optional[BaseException] = None
+    futs: dict = {}
     try:
         futs = {ex.submit(work, job): job for job in todo}
         pending = set(futs)
@@ -920,6 +954,10 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
             meter.stop(str(err) if isinstance(err, BudgetError) else f"出错停止：{err.__class__.__name__}")
     finally:
         ex.shutdown(wait=True, cancel_futures=True)
+    # shutdown 期间才跑完的场（钱已经花了、缓存也写了）也收进来，不算 unfinished
+    for f, job in futs.items():
+        if job not in rows and f.done() and not f.cancelled() and f.exception() is None:
+            rows[job] = f.result()[1]
     if err is not None and not isinstance(err, BudgetError):
         raise err
     stopped = isinstance(err, BudgetError)
@@ -1089,7 +1127,7 @@ def main(argv=None) -> int:
     ap.add_argument("--transcripts", default=None, help="可选：对话全文 JSONL（打码保存，规则同 --json-transcripts；建议不入库）")
     ap.add_argument("--md", default=None)
     ap.add_argument("--json-transcripts", action="store_true",
-                    help="#164：--json 结果里每场带脱敏后的对话全文（骗子原文；人设 text + 真人化前的 raw）")
+                    help="#164：--json 结果里每场带脱敏后的对话全文（骗子的话、人设发出去的 text；#194 起不存 raw，全部走共享核心打码）")
     a = ap.parse_args(argv)
     HUMANIZE_OVERRIDES.clear()
     for pid in [x for x in a.handwriting.split(",") if x.strip()]:
@@ -1130,6 +1168,12 @@ def main(argv=None) -> int:
             else:
                 note_c = ""
             L.append(a.budget_tag, "eval/llm_scammer.py", a.model, u, f"{note}{note_c} {status}", a.ledger)
+
+    def book_res(r: dict) -> None:
+        if r.get("stoppedByBudget"):
+            book(f"stopped:budget stoppedByBudget=true unfinished={len(r.get('unfinished') or [])}")
+        else:
+            book("ok")
     try:
         res = run(sc, ps, a.seeds, a.max_turns, a.model, max_cost, J.default_client_factory(), dry_run=not a.run,
                   refresh=a.refresh, humanize=not a.no_humanize, workers=a.workers, log=lambda s: print(s, file=sys.stderr),
@@ -1142,7 +1186,7 @@ def main(argv=None) -> int:
     except BaseException:
         book("stopped:error")
         raise
-    book("stopped:budget" if res.get("stoppedByBudget") else "ok")
+    book_res(res)
     if res.get("stoppedByBudget"):
         print(f"超限中途停止（stoppedByBudget=true）：{res.get('stopReason')}；已完成 {len(res['rows'])} 场，"
               f"未完成 {len(res['unfinished'])} 场，结果照写并带标志", file=sys.stderr)
@@ -1165,18 +1209,16 @@ def main(argv=None) -> int:
                                     "transcript": redact_transcript(r)}, ensure_ascii=False) + "\n")
     if a.json:
         out = {k: v for k, v in res.items() if k != "rows"}
-        out["rows"] = [{**{k: v for k, v in r.items() if k != "transcript"},
+        out["rows"] = [{**{k: v for k, v in r.items() if k not in ("transcript", "hangup")},
+                        "hangup": redact_hangup(r["hangup"], SIM.plant(SIM.Rand(r["seed"]))) if r.get("hangup") else None,
                         **({"transcript": redact_transcript(r)} if a.json_transcripts else {})} for r in res["rows"]]
         # 每场挂断信息里的证据 / 触发句也过一遍脱敏
-        for h in out.get("hangups") or []:
-            pl = SIM.plant(SIM.Rand(h["seed"]))
-            for k in ("evidence", "reason", "trigger_text"):
-                if isinstance(h.get(k), str):
-                    h[k] = redact_text(h[k], pl)
+        out["hangups"] = [redact_hangup(h, SIM.plant(SIM.Rand(h["seed"]))) for h in out.get("hangups") or []]
         if a.json_transcripts:
             out["transcriptFormat"] = ("rows[i].transcript：按时间顺序的消息列表；role=scammer 为骗子原文（text，挂断那条带 hangup），"
-                                       "role=bot 为人设：text 是发出去的回复（真人化 + 数字过滤之后），raw 是真人化之前的引擎原文，"
-                                       "intent 是引擎意图。银行卡、姓名、身份证、QQ、微信、支付宝已打码；电话、钱包、网址是虚构值，未打码。")
+                                       "role=bot 为人设：text 是发出去的回复（过滤之后），intent 是本轮意图；不保存模型 / 引擎原文。"
+                                       "全部按共享核心 deepsuck.redact 打码（redact_text + 跨段 redact_dialog_segments，人设侧 redact_persona），"
+                                       "银行卡、姓名、身份证、QQ、微信、支付宝、电话、验证码等都已打码。")
         Path(a.json).write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     if a.md:
         Path(a.md).write_text(md + "\n", encoding="utf-8")
