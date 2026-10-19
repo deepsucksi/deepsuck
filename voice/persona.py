@@ -15,6 +15,7 @@ from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
 from deepsuck.engine import polish_reply, vague_digits  # noqa: E402
 from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, resolve_persona_id  # noqa: E402
+from deepsuck.refs import UR as _UR, drop_unheard, heard_refs  # noqa: E402,F401  #173
 
 INTENT_HINTS: dict = load("personas")["intentHints"]
 
@@ -158,7 +159,7 @@ def voice_style(p: dict, scenes, topics=None, first_turn: bool = False, opener_k
     return style + extra
 
 
-def voice_style_parts(p: dict, scenes, topics=None, first_turn: bool = False, opener_key: str = ""):
+def voice_style_parts(p: dict, scenes, topics=None, first_turn: bool = False, opener_key: str = "", refs=None):
     """#169：返回 (风格规则, 例句和第一句说法)。风格规则基本不随轮次变，放提示词固定部分；例句按话题筛、第一句说法只在
     第一轮，放到每轮可变的末尾。
 
@@ -169,7 +170,10 @@ def voice_style_parts(p: dict, scenes, topics=None, first_turn: bool = False, op
     带出对方还没说的场景或话题时，只去掉这个例子，规则本身保留。台词文字一律不改。
     topics 不为 None 时（通话中），例句只留“对方台词里的话题都已经在本通电话里出现过”的那几条，
     免得例句里的链接、加微信、转账把模型往对方还没提的方向带。
-    first_turn 时再加几条第一句的说法示例（first_turn_openers，按 opener_key 挑）。"""
+    first_turn 时再加几条第一句的说法示例（first_turn_openers，按 opener_key 挑）。
+    refs（#173）：对方已经报过的代称种类（deepsuck.refs.heard_refs）；不为 None 时（通话中），风格规则里举的代称说法
+    （“那个名字”“户名没记全”…）整段去掉（风格规则在固定部分，要每轮不变；报过以后由 ref_line 在可变部分说），
+    回复里带对方没报过的那类说法的例句这轮不选。台词、例句文字一律不改。"""
     sc = _scene_list(scenes)
     head: list[str] = []
     out: list[str] = []
@@ -182,6 +186,8 @@ def voice_style_parts(p: dict, scenes, topics=None, first_turn: bool = False, op
         # #131：风格规则里“大约一半的句子带这种断续”按本人设的 voiceEllipsis 拼（与 style_rule 一致），文字不改
         if p.get("voiceEllipsis"):
             x = x.replace("大约一半的句子", f"大约{p['voiceEllipsis']}的句子")
+        if refs is not None:  # 固定部分每轮不变（#169 前缀缓存）：举的代称说法一律去掉，报过以后在可变部分另起一行（ref_line）
+            x = drop_unheard(x, set())
         style.append(x)
     if style:
         head.append("说话风格补充：")
@@ -191,6 +197,9 @@ def voice_style_parts(p: dict, scenes, topics=None, first_turn: bool = False, op
     pick = [x for x in pick if not (scenes_in(x["scammer"] + x["reply"]) - set(sc))]
     if topics is not None:
         pick = [x for x in pick if topics_in(x["scammer"] + x["reply"]) <= set(topics)]
+    if refs is not None:  # #173：对方没报过号码时不放“那个号你说”这类例句（例句文字不改，只是这轮不选）
+        gone = [w for k, ws in _UR["kinds"].items() if k not in refs for w in ws]
+        pick = [x for x in pick if not any(w in x["reply"] for w in gone)]
     # 开口就反问的例句改成“接词 + 半句陈述，问题放第二句”的示范：#64 / #95 只在第一轮改，#132 每轮都改
     # （后续回复第一句快速反问“衣服？…哪件啊”多数是照着例句学的）；例句文字不改，只改拼进提示词的样子。
     pick = [dict(x, reply=first_turn_shot(x["reply"], i)) for i, x in enumerate(pick[:_SHOTS_MAX])]
@@ -308,6 +317,15 @@ RULE_DIGITS = ("5. 嘴上不说任何数字串：对方报过的验证码、卡�
 # #169：压缩措辞，约束不变（不知道对方目的、只接说过的话、不先提、不猜、不追问从哪儿看到你）。
 NO_LEAK_RULE = ("你不知道对方打电话来干什么：只接对方说过的话，对方没提到的事一概不先提，也不猜对方的目的；"
                 "对方说在哪儿看到你、怎么认识你，也不追问是从哪儿、在哪儿看到的。")
+# #173：对方没报过的号码、账号、户名、金额不提（与 llm.js 硬性规则 4 同一句，personas.json 的 unsaidRefs.rule）
+UNSAID_RULE = _UR["rule"]
+# #173：“那个号”“那个名字”只在对方报过以后才进提示词，放在每轮可变的部分（固定部分里的号码规则、姓名规则去掉举的说法）
+REF_LINES = (("number", "提到对方报过的号码就说“你说的那个号”“那张卡”"), ("name", "提到对方报过的名字只说“那个名字”或“户名没记全”"))
+
+
+def ref_line(refs) -> str:
+    parts = [t for k, t in REF_LINES if k in (refs or ())]
+    return ("；".join(parts) + "。") if parts else ""
 # #64：每通电话人设的第一条回复不抢着反问（qwen3.7-flash 18 通里 17 通第一句就是问句，林姐还顺嘴问出了对方没提的事）
 # #95：原来的格式示例“嗯，衣服的事啊。”“哦…卡的事啊。”被模型当成模板，几乎每通都是「哦…X的事啊。」；改成只提要求、
 # 不给固定格式，示例放到 voice_style 的第一句说法里（每通挑几条不同句式）。
@@ -369,15 +387,15 @@ def first_sentence_is_question(text: str) -> bool:
 
 def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
                   said_first: str = "", topics=None, first_turn: bool = False, scenes=None,
-                  opener_key: str = "", have=None, facts=None) -> str:
+                  opener_key: str = "", have=None, facts=None, refs=None) -> str:
     """完整提示词 = 固定部分 + 换行 + 本轮可变部分（见 prompt_parts）。离线工具、测试用；通话里两段分开放（#169）。"""
     return "\n".join(prompt_parts(persona_id, scenario_id, hint, missing, said_first, topics, first_turn, scenes,
-                                   opener_key, have, facts))
+                                   opener_key, have, facts, refs))
 
 
 def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
                  said_first: str = "", topics=None, first_turn: bool = False, scenes=None,
-                 opener_key: str = "", have=None, facts=None) -> tuple[str, str]:
+                 opener_key: str = "", have=None, facts=None, refs=None) -> tuple[str, str]:
     """语音人设提示词，返回 (固定部分, 本轮可变部分)。#4：场景名、描述、后台选的场景都不进提示词；称呼和例句只按对方原话里已经认出的场景挑。
     #169：固定部分（开头、角色、不抢话、硬性规则、号码规则、说话风格）放前面，每轮基本不变，便于前缀缓存；
     本轮策略、缺项、已拿到的情报、人设说过的事实、例句、第一句说法、said_first、首轮/后续规则放末尾（通话中放在历史之后）。
@@ -386,7 +404,10 @@ def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: st
     topics：对方已经提到的话题（session_topics）；None 表示不过滤例句（离线工具用）。
     first_turn：对方刚说完第一段话（本通电话人设的第一条回复），加 FIRST_TURN_RULE 和第一句说法示例。
     opener_key：挑第一句说法示例用的键（调用方传对方第一句话），同一通电话里固定。
-    have：对方已经报过、已提取的情报种类（只列名称）。facts：人设自己说过、已截出上下文的关键事实。"""
+    have：对方已经报过、已提取的情报种类（只列名称）。facts：人设自己说过、已截出上下文的关键事实。
+    refs（#173）：对方已经报过的代称种类（"name" / "number" / "url" / "wallet" / "email"，见 deepsuck.refs.heard_refs）；
+    通话中必须传。对方没报过号码 / 户名时，号码规则、风格规则、建议策略里举的“那个号”“那个名字”这类说法整段去掉，
+    带这类说法的例句不选。None 表示离线工具，不判断。"""
     p = PERSONA_BY_ID.get(resolve_persona_id(persona_id)) or PERSONAS[0]
     if scenes is None:
         scenes = [(SCENARIO_BY_ID.get(scenario_id) or SCENARIOS[0])["id"]]
@@ -397,12 +418,19 @@ def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: st
     who = f"称呼对方为\"{call}\"。" if call else "先不用称呼对方。"
     # #169：放到末尾后，“对方已经提到、但还没说清楚的：收款人姓名”被模型读成“对方说过名字”（本地号码探针里说出
     # “你说的那个名字还没讲完”）；改成只说还没问到，并写明没说过的不要说成说过。
-    miss = MISS_HEAD + "、".join(missing) + "，可以顺着问一句；对方没说过的，不要说成他说过。" if missing else ""
-    style, extra = voice_style_parts(p, scenes, topics, first_turn, opener_key)
-    fixed = [PROMPT_HEAD, f"角色：{p['name']}，{_AGE.sub('', p['tagline'])}。{who}", NO_LEAK_RULE, *HARD_RULES, RULE_DIGITS,
-             style_rule(p)] + style
-    turn = [f"本轮建议策略：{INTENT_HINTS.get(hint, INTENT_HINTS['generic'])}。{miss}"]
-    turn += [x for x in (intel_line(have), facts_line(facts)) if x]
+    # #173 / #181：写明这些对方还没报过、要直接问（XSIBKTYQ：对方没报户名，人设说“户名是那个名字”）
+    miss = MISS_HEAD + "、".join(missing) + "（对方还没报过），要问就直接问；对方没说过的，不要说成他说过。" if missing else ""
+    style, extra = voice_style_parts(p, scenes, topics, first_turn, opener_key, refs)
+    digits = RULE_DIGITS if refs is None else drop_unheard(RULE_DIGITS, set())  # 固定部分每轮不变，报过的说法见 ref_line
+    if refs is not None and not refs and hint == "confirm_intel":
+        hint = "generic"  # #173：对方什么都没报过，没有可复述的（与 llm.js 一致）
+    hint_text = INTENT_HINTS.get(hint, INTENT_HINTS["generic"])
+    if refs is not None:
+        hint_text = drop_unheard(hint_text, refs)
+    fixed = [PROMPT_HEAD, f"角色：{p['name']}，{_AGE.sub('', p['tagline'])}。{who}", NO_LEAK_RULE, UNSAID_RULE, *HARD_RULES,
+             digits, style_rule(p)] + style
+    turn = [f"本轮建议策略：{hint_text}。{miss}"]
+    turn += [x for x in (intel_line(have), facts_line(facts), ref_line(refs)) if x]
     turn += extra
     if said_first:
         turn.append(said_first_line(said_first))

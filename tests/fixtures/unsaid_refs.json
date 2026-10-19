@@ -1,0 +1,27 @@
+{
+  "comment": "#173（含 #181）人设不提对方没报过的号码、户名：网页 tests/unsaid_refs.test.js（llm.js）、Python python/tests/test_unsaid_refs.py（deepsuck.refs + 规则引擎）、语音 voice/tests/test_unsaid_refs.py（voice/persona.py）共用。heard：对方说过的话（脱敏前后都可以，三端都先脱敏再换代称）；refs：三端算出来的“对方报过的代称种类”必须一样；hints：拿这几个建议策略各拼一次提示词。对方没报过号码时提示词里不能有“那个号”，没报过户名时不能有“那个名字”，什么都没报过时也不能有〔〕代称条款。goals：对方提到了、还没拿到的情报（网页 missing 传 goal id，语音传 GOAL_LABEL 名称）。liveRuns：qwen3.8-flash 实跑用的「骗子没报号」场景（eval/unsaid_refs_live.py）。",
+  "hints": ["generic", "confirm_intel", "elicit_account", "coop_step", "otp_stall", "re_ask", "slow_walk"],
+  "cases": [
+    {"id": "police_no_number", "persona": "wang", "heard": ["我是市公安局刑侦支队的，你名下一张银行卡涉嫌洗钱。", "你把钱转到国家安全账户，查清楚了马上退给你。"], "goals": ["bank", "name"], "refs": []},
+    {"id": "refund_no_number", "persona": "lin", "heard": ["您好，我是淘宝客服，您买的衣服有质量问题，要给您退款。", "您先下载一个会议软件，打开屏幕共享，我一步步教您。"], "goals": [], "refs": []},
+    {"id": "transfer_no_number", "persona": "zheng", "heard": ["你把店里的钱转到安全账户，查完退你。", "赶紧去银行，到了给我打电话。"], "goals": ["bank", "name", "phone"], "refs": []},
+    {"id": "otp_no_number", "persona": "chen", "heard": ["您好，您的账户有风险，我们给您发了验证码。", "验证码收到了吗？念给我听一下。"], "goals": [], "refs": []},
+    {"id": "card_no_name", "persona": "wang", "heard": ["钱转到这个账户，6222 0202 0011 2233 445，建设银行。"], "goals": ["name"], "refs": ["number"]},
+    {"id": "masked_card_no_name", "persona": "lin", "heard": ["转到 622202*********3445，转完截图。"], "goals": ["name"], "refs": ["number"]},
+    {"id": "name_no_number", "persona": "chen", "heard": ["收款人是张**，你先记一下。"], "goals": ["bank"], "refs": ["name"]},
+    {"id": "split_explain_name", "persona": "zheng", "heard": ["户名写弓长张，伟大的伟"], "goals": ["bank"], "refs": ["name"]},
+    {"id": "bare_explain_name", "persona": "lin", "heard": ["收款人写的是伟大的伟，早晨的晨"], "goals": ["bank"], "refs": ["name"]},
+    {"id": "card_and_name", "persona": "wang", "heard": ["转到 622202*********3445，户名王*明，工商银行。"], "goals": [], "refs": ["name", "number"]},
+    {"id": "url_only", "persona": "lin", "heard": ["点这个链接 bi***tc.top 按提示操作。"], "goals": ["bank"], "refs": ["url"]}
+  ],
+  "liveRuns": {
+    "model": "qwen3.8-flash",
+    "runs": 10,
+    "persona": "wang",
+    "hint": "elicit_account",
+    "goals": ["bank", "name"],
+    "heard": ["我是市公安局刑侦支队的，你名下一张银行卡涉嫌洗钱。", "你把钱转到国家安全账户，查清楚了马上退给你。"],
+    "replies": ["洗钱？哪张卡…你说是哪个行的", "转了还退…这么说我心里也慌，你那边到底怎么弄？"],
+    "forbid": ["那个号", "那个名字"]
+  }
+}

@@ -65,9 +65,11 @@
     return out;
   }
 
-  /** heard：对方（骗子）说过的话（字符串数组，已脱敏）。scenario 只用于兼容旧调用，不进提示词。 */
+  /** heard：对方（骗子）说过的话（字符串数组，已脱敏）。scenario 只用于兼容旧调用，不进提示词。
+   * #173：对方没报过的号码、户名一律不提。代称条款（〔〕是什么、怎么说）只在对方的话里真有〔〕代称时才加，举的说法只举出现过的那几种；
+   * 对方没报过号码 / 户名时，提示词里不出现“那个号”“那个名字”（规则里举的这类说法整段去掉，见 dropUnheard）。 */
   function systemPrompt(persona, scenario, hint, missing, heard) {
-    var scenes = heardScenes(heard), topics = heardTopics(heard);
+    var scenes = heardScenes(heard), topics = heardTopics(heard), refs = heardRefs(heard);
     var call = '';
     scenes.some(function (x) {
       var c = (persona.call && persona.call[x]) || '';
@@ -76,21 +78,26 @@
       return !!call;
     });
     if (NEEDS_TOPIC[hint] && !topics[NEEDS_TOPIC[hint]]) hint = 'generic';
+    if (hint === 'confirm_intel' && !Object.keys(refs).length) hint = 'generic'; // #173：对方什么都没报过，没有可复述的
     var want = (missing || []).filter(function (g) { return GOAL_TOPIC[g] && topics[GOAL_TOPIC[g]]; })
       .map(function (g) { return GOAL_LABEL[g] || g; });
+    var kinds = REF_ORDER.filter(function (k) { return refs[k]; });
     return [
       '你在一个反诈骗研究沙盒中扮演"潜在受害人"角色，与扮演骗子的人对话。目标：尽可能拖延对方时间；对方自己报出来的东西，再顺着让对方说清楚。',
       '角色：' + persona.name + '，' + persona.tagline + '。' + (call ? '称呼对方为"' + call + '"。' : '先不用称呼对方。'),
       '你不知道对方来找你干什么，只接对方已经说过的话；对方没提到的事一概不先提，也不要猜对方的目的。',
-      '本轮建议策略：' + (INTENT_HINTS[hint] || INTENT_HINTS.generic) + '。' + (want.length ? '对方已经提到、但还没说清楚的：' + want.join('、') + '，可以顺着问一句。' : ''),
+      // #173：原来写“对方已经提到、但还没说清楚的：户名”，模型读成对方报过户名
+      '本轮建议策略：' + dropUnheard(INTENT_HINTS[hint] || INTENT_HINTS.generic, refs) + '。' + (want.length ? '对方还没报过的：' + want.join('、') + '，要问就直接问对方要。' : ''),
       '硬性规则：',
       '1. 只用简体中文口语，一次回复 1–3 句，不超过 80 字，保持人设，不要出戏，不要说自己是 AI。',
       '2. 绝不提供任何真实或看似真实的验证码、卡号、密码、身份证号、地址；需要时就说找不到、没弄好、要再确认一下。',
       '3. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。',
-      '4. 对话里〔〕括起来的是对方发过的号码、网址等信息的代称（原文已隐去）。提到它们时用自然说法，比如“你发的那个网址”“你发的那个号”“那个名字”，不要照抄〔〕，不要写星号，名字、号码里没看到的部分不要补也不要照念，也不要自己编号码。',
+      '4. ' + UNSAID_RULE + (kinds.length ? '对话里〔〕括起来的是对方发过的信息的代称（原文已隐去），这次有：' +
+        kinds.map(function (k) { return '〔' + UR.phrase[k] + '〕'; }).join('') + '。提到时用自然说法“' +
+        kinds.map(function (k) { return UR.phrase[k]; }).join('”“') + '”，不要照抄〔〕，不要写星号，名字、号码里没看到的部分不要补也不要照念，也不要自己编号码。' : ''),
       '6. 嘴上不说任何数字串：对方报过的验证码、卡号、电话也不重复，开头几位、尾号、汉字写的数字都算；最多含糊地说“好像是…开头的”“后面几位没听清”，顶多带一个单独的数字。',
       '5. 复述对方的话只说两三个字的关键短语，不要整句或半句引用对方原话。',
-      '7. ' + D.personas.NAME_RULE,
+      '7. ' + dropUnheard(D.personas.NAME_RULE, refs),
       '8. 每条回复的第一句不要拿对方的词加问号反问（不要“报纸？”“会员？”“哪个？”这种开头）：先接对方一个词，词后面用逗号或“…”接半句陈述；要问的放到第二句。整条回复也不要只有一句短问话（不要“哪家？”“同学…哪个班的？”这种），先说半句自己的话，再问。'
     ].join('\n');
   }
@@ -113,6 +120,22 @@
     '(?:[*＊](?:(?![' + NDE.nameTailStop + '])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊]))', 'g');
   // #158：逐字解释（「晓是知晓的晓」）整段打成 *，紧跟在打码姓名后面时算这个名字的一部分（与 engine.vagueDigits 的 MERGE_N 一致），不当成号码
   var NAME_TAIL_RE = new RegExp('(〔?' + NDE.name + '〕?)(?:[ \u3000…,，、.．·~～\\-—]{1,2}[*＊]+(?![0-9A-Za-z*＊]))+', 'g');
+  // #172：逐字解释整段打成纯星号、前面没有打码姓名时（「弓长张，****」「伟是****」「****，****」）也是名字，念“那个名字”，不当号码。
+  // 规则见 personas.json 的 unsaidRefsComment；python/deepsuck/refs.py 同一套正则（tests/fixtures/redact.json charExplain 两端都跑）。
+  var UR = D.personas.UNSAID_REFS, EXP = D.personas.CHAR_EXPLAIN;
+  var reEsc = function (x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+  var HAN = '[\u4e00-\u9fff]';
+  var NOT_NEAR = '0-9A-Za-z_.:\\/@+#?=&%~\\-*＊';
+  // 纯星号串（可用逐字解释的 sep 连成一串）：两边不贴数字、字母、星号，也不隔一个空格贴数字（6222 **** **** 7890 是卡号）
+  var STAR_CHAIN = '(?<![' + NOT_NEAR + '])(?<![0-9A-Za-z]\\s)[*＊]+(?:' + EXP.sep + '(?:就是)?[*＊]+)*(?![' + NOT_NEAR + '])(?!\\s[0-9A-Za-z])';
+  var SPLIT_FULL = '(?:' + SPL.spellings.slice().sort(function (a, b) { return b.length - a.length; })
+    .map(function (x) { return reEsc(x.slice(0, -1)) + SPL.link + reEsc(x.slice(-1)); }).join('|') + ')';
+  var SEEN_EXPLAIN = '(?:(?:就是|是)?' + HAN + '{1,4}' + EXP.link + HAN + EXP.tail + ')'; // 「立早章，文章的章，****」里没打码的那段
+  var LEAD_CHAR = '(?<![^\\s，,、。！？!?；;…:：])(?![' + NDE.notSurname + UR.notLead + '])' + HAN + '字?(?:就是|是)';
+  var EXPLAIN_NAME_RE = new RegExp('(?:' + SPLIT_FULL + '(?:' + EXP.sep + SEEN_EXPLAIN + ')?' + EXP.sep + '(?:就是|是)?|' + LEAD_CHAR + ')' + STAR_CHAIN, 'g');
+  var BARE_STARS_RE = new RegExp(STAR_CHAIN, 'g');
+  var NUMBER_CUE = new RegExp('[0-9０-９]|' + UR.numberCue);
+  var NAME_DUP_RE = new RegExp('(〔?' + NDE.name + '〕?)(?:' + EXP.sep + '(?:就是|是)?〔?' + NDE.name + '〕?)+', 'g');
   function maskedPhrase(tok) {
     var t = String(tok);
     if (/[A-Za-z0-9]\.\.\.[A-Za-z0-9]/.test(t) && !/[*＊]/.test(t)) return '你发的那个钱包地址';
@@ -123,9 +146,12 @@
   /** 只换打码姓名（#130 / #157）：要在再跑一遍 redactText 之前做，否则“耳东陈***”会被再打成“耳*****”、当成号码 */
   function maskNames(text, bracket) {
     var w = bracket ? '〔' + NDE.name + '〕' : NDE.name;
-    return String(text || '').replace(NAME_MASK_RE, function (m, xing, sur) { return sur.length === 1 && NDE.notSurname.indexOf(sur) >= 0 ? m : w; })
+    var s = String(text || '').replace(NAME_MASK_RE, function (m, xing, sur) { return sur.length === 1 && NDE.notSurname.indexOf(sur) >= 0 ? m : w; })
       .replace(SPLIT_BEFORE_NAME, '')
-      .replace(NAME_TAIL_RE, '$1');
+      .replace(NAME_TAIL_RE, '$1')
+      .replace(EXPLAIN_NAME_RE, w); // #172
+    if (!NUMBER_CUE.test(s)) s = s.replace(BARE_STARS_RE, w); // #172：整句没有数字和号码字样时，单独的纯星号串也是逐字解释的名字
+    return s.replace(NAME_TAIL_RE, '$1').replace(NAME_DUP_RE, '$1');
   }
   /** 把文本里的打码值换成自然说法；bracket=true 时加〔〕（给模型看的代称） */
   function speakMasked(text, bracket) {
@@ -142,6 +168,48 @@
     }
     return s.replace(/[*＊]+/g, '');
   }
+
+  /* ---------- #173：对方报过哪几种（代称），没报过的说法不进提示词 ---------- */
+  var UNSAID_RULE = UR.rule; // 语音 voice/persona.py 的 UNSAID_RULE 同一句
+  var REF_ORDER = ['name', 'number', 'url', 'wallet', 'email'];
+  var REF_KIND = {};
+  REF_ORDER.forEach(function (k) { REF_KIND[UR.phrase[k]] = k; });
+  /** 对方的话（已脱敏）里出现过的代称种类：{ name: 1, number: 1, ... }。和 buildMessages 一样先换打码姓名、再脱敏、再换代称。 */
+  function heardRefs(heard) {
+    var out = {};
+    (heard || []).forEach(function (t) {
+      var s = maskNames(String(t || ''), true);
+      s = D.redact.redactText(s, D.extractors.extractSensitive(s));
+      (speakMasked(s, true).match(/〔[^〔〕]+〕/g) || []).forEach(function (m) {
+        var k = REF_KIND[m.slice(1, -1)];
+        if (k) out[k] = 1;
+      });
+    });
+    return out;
+  }
+  var QUOTED_RE = /“[^“”]*”/g;
+  /** 规则、建议策略里举的说法（引号括起来的），含对方没报过的那种代称（unsaidRefs.kinds）的整段去掉，再把剩下的标点理顺。
+   * 与 python/deepsuck/refs.py 的 drop_unheard 逐字一致。 */
+  function dropUnheard(text, refs) {
+    var gone = [];
+    Object.keys(UR.kinds).forEach(function (k) { if (!refs[k]) gone = gone.concat(UR.kinds[k]); });
+    var s = String(text || '').replace(QUOTED_RE, function (q) {
+      return gone.some(function (w) { return q.indexOf(w) >= 0; }) ? '\u0001' : q;
+    });
+    UNHEARD_TIDY.forEach(function (x) { s = s.replace(x[0], x[1]); });
+    return s;
+  }
+  // 去掉的说法先换成 \u0001，只理顺它旁边的标点：“只说‘那个名字’或‘户名没记全’”→“只说‘户名没记全’”，
+  // “要提就说‘你说的那个号’‘那张卡’，最多…”→“最多…”，“说‘那个名字’‘那个号’；”→“；”
+  var UNHEARD_TIDY = [
+    [/\u0001(?:[、或]?\u0001)*/g, '\u0001'],
+    [/[、或]\u0001/g, ''],
+    [/\u0001[、或]/g, ''],
+    [/[，,](?:要提就说|就说|只说|比如|说)\u0001(?=[；;。，,）)]|$)/g, ''],
+    [/(?:要提就说|就说|只说|比如|说)\u0001(?:[，,]|(?=[；;。）)]|$))/g, ''],
+    [/[（(]像\u0001[）)]/g, ''],
+    [/\u0001/g, '']
+  ];
 
   // 引号对：开 → 合；ASCII 双引号按出现顺序两两配对
   var QUOTE_PAIRS = { '“': '”', '「': '」', '『': '』', '‘': '’' };
@@ -336,7 +404,7 @@
   return {
     DEFAULTS: DEFAULTS, INTENT_HINTS: INTENT_HINTS,
     missingDirectConfig: missingDirectConfig, restoreDirectConfig: restoreDirectConfig,
-    systemPrompt: systemPrompt, heardScenes: heardScenes, buildMessages: buildMessages, sanitizeReply: sanitizeReply, polishReply: polishReply,
+    systemPrompt: systemPrompt, heardScenes: heardScenes, heardRefs: heardRefs, dropUnheard: dropUnheard, buildMessages: buildMessages, sanitizeReply: sanitizeReply, polishReply: polishReply,
     speakMasked: speakMasked, fixQuotes: fixQuotes,
     chatCompletions: chatCompletions, requestBody: requestBody, viaProxy: viaProxy
   };
