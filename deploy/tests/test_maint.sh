@@ -140,15 +140,15 @@ reset; FAKE_EXEC_OUT="$J0" REDACT_CONTAINER=other-voice bash "$RB"; grep -q '^do
 pass "redact-backfill failures (exec error, bad JSON, missing dir) -> ERROR + non-zero; container configurable"
 ! grep -q '^ *args+=(.*--backup' "$RB" || fail "redact-backfill must not keep backups"   # 上面也逐字检查了 exec 命令
 
-# --- chat-usage-prune（#178）：文字代理逐次台账 >2 天压缩、>30 天删除，等 cost-latest 读完 ---
+# --- chat-usage-prune（#178）：文字代理逐次台账 >2 天压缩、>45 天删除，等 cost-latest 读完 ---
 P="$T/proxy"; CL="$T/costlog"; mkdir -p "$CL"
 cu_setup() {
   rm -f "$P"/chat-usage-* "$CL"/*
-  for d in 2026-10-19 2026-10-17 2026-10-16 2026-10-14 2026-09-10; do
+  for d in 2026-10-19 2026-10-17 2026-10-16 2026-10-14 2026-08-20; do
     printf '{"ts":"%sT01:00:00.000Z","day":"%s","usage":{"prompt_tokens":10}}\n%.0s' "$d" "$d" $(seq 1 200) > "$P/chat-usage-$d.jsonl"
   done
   printf '{"day":"2026-10-15"}\n' | gzip -c > "$P/chat-usage-2026-10-15.jsonl.gz"
-  printf '{"day":"2026-09-18"}\n' | gzip -c > "$P/chat-usage-2026-09-18.jsonl.gz"
+  for d in 2026-09-18 2026-09-04 2026-09-03; do printf '{"day":"%s"}\n' "$d" | gzip -c > "$P/chat-usage-$d.jsonl.gz"; done  # 31 / 45（边界，保留）/ 46 天
   echo '{}' > "$P/chat-budget.json"
   for f in "$P"/chat-usage-* "$P/chat-budget.json"; do old 2 "$f"; done
   touch "$P/chat-usage-2026-10-14.jsonl"                     # 最后写入晚于 cost-latest：要跳过
@@ -162,11 +162,12 @@ for d in 2026-10-19 2026-10-17 2026-10-14; do [ -f "$P/chat-usage-$d.jsonl" ] ||
 [ ! -e "$P/chat-usage-2026-10-16.jsonl" ] && gzip -t "$P/chat-usage-2026-10-16.jsonl.gz" || fail "3-day-old file should be gzipped"
 gzip -dc "$P/chat-usage-2026-10-16.jsonl.gz" | cmp -s - "$T/cu-orig.jsonl" || fail "gz content must match"
 [ -f "$P/chat-usage-2026-10-15.jsonl.gz" ] || fail "existing .gz within 30 days kept"
-[ ! -e "$P/chat-usage-2026-09-18.jsonl.gz" ] && [ ! -e "$P/chat-usage-2026-09-10.jsonl" ] || fail ">30-day files deleted"
+[ -f "$P/chat-usage-2026-09-18.jsonl.gz" ] && [ -f "$P/chat-usage-2026-09-04.jsonl.gz" ] || fail "31- and 45-day .gz kept (delete only >45)"
+[ ! -e "$P/chat-usage-2026-09-03.jsonl.gz" ] && [ ! -e "$P/chat-usage-2026-08-20.jsonl" ] || fail ">45-day files deleted"
 [ -f "$P/chat-budget.json" ] || fail "chat-budget.json untouched"
 grep -q '^deepsuck-diskwatch|user.warning|WARN chat-usage-prune skipped chat-usage-2026-10-14.jsonl: cost-latest mtime .* not after file mtime' "$LOGFILE" || fail "skip WARN"
-grep -Eq '^deepsuck-diskwatch\|user.info\|INFO chat-usage-prune .*: compressed 1 \[chat-usage-2026-10-16.jsonl\] deleted 2 \[chat-usage-2026-09-1[08].jsonl(.gz)? chat-usage-2026-09-1[08].jsonl(.gz)?\] skipped 1, reclaimed [0-9]+KB \([0-9]+B; gzip >2d, delete >30d, Asia/Shanghai\)' "$LOGFILE" || fail "summary log: $(cat "$LOGFILE")"
-pass "chat-usage-prune gzips >2d, deletes >30d (by filename day), skips files newer than cost-latest, logs to diskwatch"
+grep -Eq '^deepsuck-diskwatch\|user.info\|INFO chat-usage-prune .*: compressed 1 \[chat-usage-2026-10-16.jsonl\] deleted 2 \[chat-usage-2026-0(8-20.jsonl|9-03.jsonl.gz) chat-usage-2026-0(8-20.jsonl|9-03.jsonl.gz)\] skipped 1, reclaimed [0-9]+KB \([0-9]+B; gzip >2d, delete >45d, Asia/Shanghai\)' "$LOGFILE" || fail "summary log: $(cat "$LOGFILE")"
+pass "chat-usage-prune gzips >2d, deletes >45d (by filename day), skips files newer than cost-latest, logs to diskwatch"
 cu_setup; before=$(find "$P" -type f | sort)
 reset; CU --dry-run chat-usage-prune
 [ "$before" = "$(find "$P" -type f | sort)" ] || fail "dry-run changed files"

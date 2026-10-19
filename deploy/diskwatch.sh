@@ -5,7 +5,7 @@
 #   deploy/diskwatch.sh [--dry-run] volumes       trace/录音卷和 voice-data 卷的大小；trace 卷接近 TRACE_MAX_MB 时告警
 #   deploy/diskwatch.sh [--dry-run] run           check + volumes（deepsuck-diskwatch.timer，每 15 分钟）
 #   deploy/diskwatch.sh [--dry-run] docker-prune  每周清理（deepsuck-docker-prune.timer）：先 chat-usage-prune，再 docker 清理
-#   deploy/diskwatch.sh [--dry-run] chat-usage-prune  文字代理逐次台账：超过 2 天压成 .gz、超过 30 天删除（#178）
+#   deploy/diskwatch.sh [--dry-run] chat-usage-prune  文字代理逐次台账：超过 2 天压成 .gz、超过 45 天删除（#178）
 #
 # 只写日志（logger -t deepsuck-diskwatch），不开 issue、不需要 GitHub token：journalctl -t deepsuck-diskwatch
 #
@@ -17,7 +17,7 @@
 #   文字记录 / 原始音频由 voice/records.py 按 VOICE_TRANSCRIPT_DAYS / KEEP_AUDIO_DAYS 清理（docs/TRACE_SCHEMA.md）。
 #   ROLLBACK_TAGS="deepsuck-caddy:rollback-887ac0"：docker 清理前必须都在，缺任何一个就跳过清理并记 ERROR。
 #   chat-usage-prune（#178）：proxy-data 卷（PROXY_DATA_HOST_DIR 可覆盖）里的 chat-usage-YYYY-MM-DD.jsonl，按文件名日期和
-#   上海自然日算天数：> CHAT_USAGE_GZIP_DAYS（默认 2）压成 .gz，> CHAT_USAGE_KEEP_DAYS（默认 30）连同 .gz 删除。
+#   上海自然日算天数：> CHAT_USAGE_GZIP_DAYS（默认 2）压成 .gz，> CHAT_USAGE_KEEP_DAYS（默认 45）连同 .gz 删除。
 #   每个文件都要 cost-latest（COST_OUT_DIR/cost-latest.json，每天 20:40 由 cost-report.sh 生成）的 mtime 晚于该文件的
 #   最后写入时间才动，否则跳过并记 WARN；cost-latest 不存在时一律跳过。只动这一种文件名，不碰通话数据。
 set -euo pipefail
@@ -77,7 +77,7 @@ chat_usage_prune() {
   local n_gz=0 n_del=0 n_skip=0 freed=0 gz_list="" del_list=""
   dir=$(vol_path proxy-data PROXY_DATA_HOST_DIR)
   gz_days=$(int_or "$(env_get CHAT_USAGE_GZIP_DAYS 2)" 2)
-  keep_days=$(int_or "$(env_get CHAT_USAGE_KEEP_DAYS 30)" 30)
+  keep_days=$(int_or "$(env_get CHAT_USAGE_KEEP_DAYS 45)" 45)
   if [ ! -d "$dir" ]; then log info "$TAG" "chat-usage-prune: $dir missing, nothing to do"; return 0; fi
   today=$(cn_daynum "${CHAT_USAGE_TODAY:-$(TZ=Asia/Shanghai date +%F)}")
   latest="${COST_OUT_DIR:-/var/log/deepsuck}/cost-latest.json"
