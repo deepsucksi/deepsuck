@@ -45,7 +45,7 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
 from .callredact import CallRedactor, redact_digit_fragments
-from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
+from .persona import (FILLERS, GOAL_TOPIC, drop_unsaid, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
                       speakable, system_prompt, unmask)
 
 Notify = Callable[[dict], Awaitable[None]]
@@ -106,14 +106,18 @@ async def _noop(_msg: dict) -> None:
 class GuardTextFilter(BaseTextFilter):
     """送 TTS 前的输出守卫。redactor：本通电话的 CallRedactor（#140），模型复述了已提取的姓名/号码也先打码。"""
 
-    def __init__(self, redactor: Optional[CallRedactor] = None):
+    def __init__(self, redactor: Optional[CallRedactor] = None, refs: Optional[Callable[[], set]] = None):
         self.redactor = redactor
+        self.refs = refs  # #184：IntelProcessor.heard_refs；对方没报过的代称换成直说（drop_unsaid）。None 不处理
 
     async def update_settings(self, settings):  # 无可调参数
         return None
 
     async def filter(self, text: str) -> str:
-        return speakable(self.redactor.apply(text) if self.redactor is not None else text)
+        text = self.redactor.apply(text) if self.redactor is not None else text
+        if self.refs is not None:
+            text = drop_unsaid(text, self.refs())
+        return speakable(text)
 
     async def handle_interruption(self):
         return None
@@ -506,7 +510,7 @@ class BotTextTap(FrameProcessor):
         elif isinstance(frame, LLMTextFrame):
             self._buf.append(frame.text)
         elif isinstance(frame, LLMFullResponseEndFrame) and self._buf:
-            text = guard_output(self.intel.redactor.apply("".join(self._buf)))
+            text = guard_output(drop_unsaid(self.intel.redactor.apply("".join(self._buf)), self.intel.heard_refs()))
             self._buf = []
             if text:
                 msg = self.intel.session.record_bot(text, self.intel.intent)

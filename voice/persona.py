@@ -355,6 +355,46 @@ HARD_RULES = (
 
 
 MISS_HEAD = "还没问到的："
+# #184（#181，#173 子 issue）：#183 已经把没报过的代称说法从提示词里去掉，固定部分有 UNSAID_RULE；qwen3.8-flash 文本回放
+# 「骗子没报号 / 户名」仍有 1–2/10 次说“那个号”“那个名字”。末尾按本轮再写一行：对方还没报过哪几样、要直接问、问法举例。
+# 这一行本身不出现代称说法（共用用例 forbidden_in），只在相关话题对方已经提到后才写（#4），第一轮不写。
+_UNSAID_ASK = (("number", "bank", "卡号", "“卡号多少”"), ("number", "phone", "电话", "“电话多少”"),
+               ("number", "wallet", "钱包地址", "“地址发过来”"), ("name", "bank", "户名", "“户名是谁”"))
+
+
+# 发出前兜底（#184）：提示词怎么写，qwen3.8-flash 偶尔仍说“你报一下那个号”；对方确实没报过的那类，代称换成直说。
+# 只在通话中（refs 不为 None）、对方没报过这一类时换；报过以后原样（“你说的那个号”是 unmask 给模型的正常说法）。
+_UNSAID_FIX = {
+    "number": ((re.compile(r"(?:你|您)?(?:刚才)?(?:说|发|报)的那(?:个号码?|张卡|几位)"), "号码"),
+               (re.compile(r"那个号码?"), "号码"), (re.compile(r"那张卡"), "卡"), (re.compile(r"那几位"), "号码")),
+    "name": ((re.compile(r"户名(?:是|叫)那个名字"), "户名叫什么"),
+             (re.compile(r"(?:你|您)?(?:刚才)?(?:说|报)的那个名字"), "名字"), (re.compile(r"那个名字"), "名字"),
+             (re.compile(r"户名没记全"), "户名还没说")),
+}
+
+
+def drop_unsaid(text: str, refs) -> str:
+    """人设回复里对方没报过的那类代称（“那个号”“那个名字”…）换成直说；refs 为 None（离线）时原样返回。"""
+    s = str(text or "")
+    if refs is None:
+        return s
+    for kind, rules in _UNSAID_FIX.items():
+        if kind in refs:
+            continue
+        for rx, rep in rules:
+            s = rx.sub(rep, s)
+    return s
+
+
+def unsaid_line(refs, topics=None) -> str:
+    """对方还没报过号码 / 户名、但已经提到相关话题时的一行（refs、topics 为 None 时不写）。"""
+    if refs is None or topics is None:
+        return ""
+    hit = [x for x in _UNSAID_ASK if x[0] not in refs and x[1] in set(topics)]
+    if not hit:
+        return ""
+    return ("对方到现在还没报过" + "、".join(x[2] for x in hit) + "：别用指代的说法，说得像他已经报过、你已经记下了都不行；"
+            "要问就直接问（比如" + "".join(x[3] for x in hit) + "），不用每句都问，上一句问过的这句别再问。")
 
 
 def said_first_line(said_first: str) -> str:
@@ -436,6 +476,8 @@ def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: st
     turn += extra
     if said_first:
         turn.append(said_first_line(said_first))
+    if not first_turn and unsaid_line(refs, topics):  # 第一轮只应一声，不加
+        turn.append(unsaid_line(refs, topics))
     turn.append(first_turn_rule() if first_turn else FOLLOW_UP_RULE)
     return "\n".join(fixed), "\n".join(turn)
 
