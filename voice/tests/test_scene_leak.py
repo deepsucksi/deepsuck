@@ -90,7 +90,7 @@ def test_style_example_dropped_only_when_scene_unheard():
     off = "\n".join(P.voice_style(p, [], topics=set()))
     on = "\n".join(P.voice_style(p, ["refund"], topics=set()))
     assert "退…退款" not in off and "退…退款" in on
-    assert "语序可以断断续续" in off and "大约一半的句子带这种断续" in off  # 规则本身还在
+    assert "语序可以断断续续" in off and f"大约{p['voiceEllipsis']}的句子带这种断续" in off  # 规则本身还在（#131：比例按 voiceEllipsis 拼）
 
 
 def test_heard_scenes_order():
