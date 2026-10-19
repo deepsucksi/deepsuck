@@ -84,3 +84,10 @@ def test_sim_split_reveal_lines_masked():
             assert name[0] + "*" * (len(name) - 1) in out   # 格式与现有姓名打码一致（张**）
             checked += 1
     assert checked >= 40
+
+
+def test_split_spelling_not_a_name_206():
+    """#206 拆字说法本身不当姓名：户名弓长张，三丰 / 收款人是弓长张，伟大的伟对吧。"""
+    from deepsuck import extract
+    for t in ("户名弓长张，三丰", "收款人是弓长张，伟大的伟对吧", "收款人是弓长张，伟大的伟"):
+        assert not any(e["type"] == "name" and e["value"] == "弓长张" for e in extract(t)), t

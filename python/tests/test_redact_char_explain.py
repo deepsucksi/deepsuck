@@ -99,3 +99,32 @@ XFAIL = [c for c in CASES if c.get("xfail")]
 @pytest.mark.xfail(strict=True, reason="#185 已知缺陷：ASR 拆字变体「龚厂长」+ 单段解释仍露「伟」，修复归语音（#163）")
 def test_known_gap_asr_split_variant(case):
     assert case["leak"] not in red(case["text"])
+
+
+@pytest.mark.parametrize("t", ["收款人是弓长张，伟大的伟对吧", "收款人是弓长张，伟大的伟", "户名是弓长张，伟大的伟，明天的明",
+                               "收款人是弓长张，伟大的伟，对吧", "收款人弓长张，伟大的伟对吗", "收款人是龚厂长，伟大的伟对吧"])
+def test_p0_206_probe(t):
+    """#206 P0 探针：拆字说法前有「是」、解释后跟「对吧」时不露「伟」「明」。"""
+    out = red(t)
+    for leak in ("伟", "明", "**的"):
+        assert leak not in out, (t, out)
+
+
+TAIL = fixture("redact")["splitExplainTail"]
+
+
+@pytest.mark.parametrize("case", TAIL, ids=[c["text"] for c in TAIL])
+def test_split_explain_tail_parity(case):
+    """#206 夹具 splitExplainTail：与 JS 逐项一致；正例不露「伟」「明」。"""
+    ents = extract_sensitive(case["text"])
+    assert find_name_spans(case["text"], ents) == case["spans"]
+    out = redact_text(case["text"], ents)
+    assert out == case["redacted"]
+    assert (out != case["text"]) == (case["expect"] == "mask")
+    if case["expect"] == "mask":
+        for leak in ("伟", "明", "**的"):
+            assert leak not in out, (case["text"], out)
+
+
+def test_p0_206_exact():
+    assert red("收款人是弓长张，伟大的伟对吧") == "收款人是弓长张，****对吧"

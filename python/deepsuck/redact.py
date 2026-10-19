@@ -503,6 +503,7 @@ def _explain_rules():
         "link": compile_js("(?:" + ex["link"] + ")(" + ex["han"] + ")"),
         "tail": compile_js("(?:" + (ex.get("tail") or "") + ")"),
         "stop": compile_js(ex.get("wordStop") or "(?!)"),
+        "tailWords": compile_js("(?:" + (ex.get("tailWords") or "(?!)") + ")"),  # #206「伟大的伟对吧」；用 match(s, pos)，不加 ^
         "particle": compile_js("^(?:" + (ex.get("particle") or "(?!)") + ")$"),
         "sep": compile_js("^(?:" + (ex.get("sep") or "") + ")$"),
         "gap": compile_js(ex["anchorGap"]),
@@ -562,7 +563,7 @@ def explain_units(s: str, ents: Optional[Iterable[dict]] = None) -> List[dict]:
         cands.append({"start": start, "head": head, "wstart": wstart, "end": end, "x": x, "strong": st})
     heads = {c["head"] for c in cands} | {c["wstart"] for c in cands}
     ok = [c for c in cands if c["end"] >= len(s) or not han(s[c["end"]]) or E["particle"].match(s[c["end"]])
-          or c["end"] in heads]
+          or c["end"] in heads or E["tailWords"].match(s, c["end"])]
     units: List[dict] = []
     for c in sorted(ok, key=lambda c: (c["start"], c["end"])):
         if not units or units[-1]["end"] <= c["start"]:

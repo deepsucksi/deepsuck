@@ -75,3 +75,10 @@ test('模拟器 revealSplitName 台词：报完户名再拆字复述，全名与
   });
   assert.ok(n >= 40);
 });
+
+test('#206 拆字说法本身不当姓名：户名弓长张，三丰 / 收款人是弓长张，伟大的伟对吧', () => {
+  const X = require('../site/assets/js/extractors.js');
+  for (const t of ['户名弓长张，三丰', '收款人是弓长张，伟大的伟对吧', '收款人是弓长张，伟大的伟']) {
+    assert.ok(!X.extract(t).some((e) => e.type === 'name' && e.value === '弓长张'), t);
+  }
+});
