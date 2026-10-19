@@ -6,7 +6,7 @@
     python eval/llm_scammer.py --run --json eval/results-llm-scammer.json --md /tmp/llm-scammer.md
 
 设计：
-- 骗子：百炼 DashScope 的 qwen-plus（OpenAI 兼容接口，非思考模式，JSON 输出）。系统提示取自
+- 骗子：百炼 DashScope 的 qwen3.8-flash（2026-10-19 起；之前是 qwen-plus）（OpenAI 兼容接口，非思考模式，JSON 输出）。系统提示取自
   site/assets/core/scam_scripts.json：模拟器场景对应的话术类型（与 deepsuck.sim 的 SCENARIO_TYPE 相同，campus 取
   loan_credit 中 variant=campus 的条目），按「开场、建立信任、施压、索要、收款指令」五个阶段，每阶段从同一类型、同一阶段
   取几条台词作示例（与规则骗子用同一批台词，挂断率可直接对比），外加该类型的施压手法；要求它像真实骗子一样推进、施压，
@@ -18,7 +18,7 @@
   按 personas.json 的 humanize.profile：王阿姨 → retiree，小陈妈妈 → mom，小林 → graduate，郑老板 → shop_owner；--no-humanize 关闭）；
 - 规模：7 个场景 × 模拟器人设 × 每组 --seeds 个种子（默认 1，四位人设共 28 场），每场至多 --max-turns 轮（默认 25）；
 - 费用护栏：调用前先用“只读缓存”的客户端把每场走一遍，已完全缓存的场次不计费，其余按字符数估算 token（每汉字 1 token，
-  偏保守）与 qwen-plus 官方单价，超过 3 元（硬上限，--max-cost 只能调低）拒绝运行；运行中实际费用超限也会停下；
+  偏保守）与骗子模型的官方单价，超过 3 元（硬上限，--max-cost 只能调低）拒绝运行；运行中实际费用超限也会停下；
 - 每次请求与回复按内容哈希缓存在 eval/.llm-scammer-cache/（.gitignore），重跑不重复计费；
 - API Key 只从环境变量 DASHSCOPE_API_KEY 或仓库根目录 .env 读取（复用 eval/realism_judge.py），不打印、不写入缓存和结果。
 """
@@ -64,8 +64,9 @@ def load_judge():
 
 
 J = load_judge()
+L = J.load_ledger()
 
-MODEL = "qwen-plus"
+MODEL = J.MODEL  # qwen3.8-flash，与评委同一处定义
 HARD_MAX_COST_CNY = 3.0
 DEFAULT_SEEDS = 1  # 四位人设后：7 × 4 × 1 = 28 场，估算在 3 元硬上限内（7 × 4 × 2 会超）
 DEFAULT_MAX_TURNS = 25
@@ -426,7 +427,8 @@ def plan(scenarios, personas, seeds: int) -> List[tuple]:
 def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: int = DEFAULT_MAX_TURNS,
         model: str = MODEL, max_cost: float = HARD_MAX_COST_CNY, client_factory: Optional[Callable[[], object]] = None,
         cache_dir: Path = CACHE_DIR, dry_run: bool = True, refresh: bool = False, humanize: bool = True,
-        workers: int = 6, corpus: Optional[dict] = None, log: Callable[[str], None] = lambda s: None) -> dict:
+        workers: int = 6, corpus: Optional[dict] = None, log: Callable[[str], None] = lambda s: None,
+        meter_hook: Optional[Callable[[object], None]] = None) -> dict:
     max_cost = min(float(max_cost), HARD_MAX_COST_CNY)
     scenarios = list(scenarios or [s["id"] for s in SCENARIOS])
     personas = list(personas or [p["id"] for p in PERSONAS])
@@ -468,6 +470,8 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
     if dry_run:
         return result
     meter = Meter(max_cost)
+    if meter_hook:
+        meter_hook(meter)  # 让调用方在中途停下时也能拿到已花的钱（记台账）
     lock = threading.Lock()
     holder = {}
 
@@ -566,7 +570,7 @@ def to_markdown(res: dict) -> str:
             out.append(f"| {names.get(k, k)} | " + " | ".join(c[2].format(v.get(c[0], 0)) for c in cols) + " |")
         return "\n".join(out)
     rows = {"llm": res["overall"]}
-    names = {"llm": "大模型骗子（qwen-plus）"}
+    names = {"llm": f"大模型骗子（{res['config']['model']}）"}
     if res.get("ruleBaseline"):
         rb = dict(res["ruleBaseline"])
         rb.setdefault("giveUp", 1 - rb.get("suspiciousQuit", 0) - rb.get("maxTurnsHit", 0))
@@ -588,7 +592,7 @@ def to_markdown(res: dict) -> str:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="大模型扮演骗子重测起疑挂断率（默认只估算，--run 才调用）")
-    ap.add_argument("--run", action="store_true", help="显式打开：实际调用 qwen-plus（默认只估算费用）")
+    ap.add_argument("--run", action="store_true", help="显式打开：实际调用骗子模型（默认 qwen3.8-flash；默认只估算费用）")
     ap.add_argument("--seeds", type=int, default=DEFAULT_SEEDS)
     ap.add_argument("--max-turns", type=int, default=DEFAULT_MAX_TURNS)
     ap.add_argument("--scenarios", default=None, help="逗号分隔，默认全部 7 个")
@@ -596,6 +600,9 @@ def main(argv=None) -> int:
     ap.add_argument("--model", default=MODEL)
     ap.add_argument("--max-cost", type=float, default=HARD_MAX_COST_CNY, help="费用上限（元），只能调低，硬上限 3 元")
     ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--budget-tag", default=None, help="费用台账标签：同标签累计不超过 --total-budget，每次运行逐笔记入 eval-spend.csv")
+    ap.add_argument("--total-budget", type=float, default=L.HARD_TOTAL_CNY, help="同一 --budget-tag 的总预算（元），硬上限 10 元")
+    ap.add_argument("--ledger", type=Path, default=L.LEDGER, help="费用台账 CSV，默认仓库根目录 eval-spend.csv")
     ap.add_argument("--no-humanize", action="store_true")
     ap.add_argument("--handwriting", default="", help="逗号分隔的人设：打开 humanize 手写输入档（错字密度改用 handwritingTypoPer100）")
     ap.add_argument("--typo-rate", default="", help="覆盖每百字错字目标，如 wang=2.5,li=2.0")
@@ -614,11 +621,30 @@ def main(argv=None) -> int:
     sc = a.scenarios.split(",") if a.scenarios else None
     ps = a.personas.split(",") if a.personas else None
     try:
-        res = run(sc, ps, a.seeds, a.max_turns, a.model, a.max_cost, J.default_client_factory(), dry_run=not a.run,
-                  refresh=a.refresh, humanize=not a.no_humanize, workers=a.workers, log=lambda s: print(s, file=sys.stderr))
-    except BudgetError as e:
+        max_cost = L.cap(min(a.max_cost, HARD_MAX_COST_CNY), a.budget_tag, a.total_budget, a.ledger)
+    except L.LedgerBudgetError as e:
         print(str(e), file=sys.stderr)
         return 2
+    held = {}
+    note = f"seeds={a.seeds} maxTurns={a.max_turns} personas={a.personas or 'all'} scenarios={a.scenarios or 'all'}" + (
+        f" handwriting={a.handwriting}" if a.handwriting else "")
+
+    def book(status: str) -> None:
+        m = held.get("m")
+        if a.budget_tag and a.run and m is not None and m.u["requests"]:
+            L.append(a.budget_tag, "eval/llm_scammer.py", a.model, m.u, f"{note} {status}", a.ledger)
+    try:
+        res = run(sc, ps, a.seeds, a.max_turns, a.model, max_cost, J.default_client_factory(), dry_run=not a.run,
+                  refresh=a.refresh, humanize=not a.no_humanize, workers=a.workers, log=lambda s: print(s, file=sys.stderr),
+                  meter_hook=lambda m: held.__setitem__("m", m))
+    except BudgetError as e:
+        book("stopped:budget")
+        print(str(e), file=sys.stderr)
+        return 2
+    except BaseException:
+        book("stopped:error")
+        raise
+    book("ok")
     if res["dry_run"]:
         print(json.dumps(res["estimate"], ensure_ascii=False, indent=1))
         return 0

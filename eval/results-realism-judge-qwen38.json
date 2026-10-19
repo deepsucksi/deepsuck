@@ -1,0 +1,140 @@
+{
+ "seed1": {
+  "make": {
+   "n": 60,
+   "seed": 1
+  },
+  "llm_judge": {
+   "note": "代理指标：大模型评委的判断，不能代替人工盲测，可能有评委偏差",
+   "model": "qwen3.8-flash",
+   "mode": "item",
+   "date": "2026-10-19",
+   "seed": 1,
+   "estimate": {
+    "mode": "item",
+    "items": 120,
+    "batches": 120,
+    "uncached_batches": 120,
+    "prompt_tokens": 41175,
+    "completion_tokens": 10800,
+    "cost_cny": 0.0621,
+    "max_cost_cny": 1.0,
+    "price": {
+     "input_per_m": 0.8,
+     "output_per_m": 2.7,
+     "source": "https://help.aliyun.com/zh/model-studio/model-pricing (qwen3.8-flash, 北京, 0-1M 不分档, 2026-10-19)"
+    }
+   },
+   "dry_run": false,
+   "items": 120,
+   "invalid_items": 0,
+   "usage": {
+    "prompt_tokens": 29539,
+    "completion_tokens": 3981,
+    "cost_cny": 0.03438,
+    "requests": 120,
+    "cached_requests": 0,
+    "cached_prompt_tokens": 0,
+    "cached_completion_tokens": 0
+   },
+   "score": {
+    "conditions": {
+     "raw": {
+      "n": 60,
+      "human_mean": 4.95,
+      "human_ci95": 0.098,
+      "detected_rate": 0.017,
+      "unreadable_rate": 0.0
+     },
+     "humanized": {
+      "n": 60,
+      "human_mean": 5.0,
+      "human_ci95": 0.0,
+      "detected_rate": 0.0,
+      "unreadable_rate": 0.05
+     }
+    },
+    "detected_diff_humanized_minus_raw": {
+     "pairs": 60,
+     "mean": -0.017,
+     "ci95": [
+      -0.05,
+      0.0
+     ]
+    },
+    "pairwise_agreement": null,
+    "raters": 1,
+    "ratings": 120
+   }
+  }
+ },
+ "seed2": {
+  "make": {
+   "n": 60,
+   "seed": 2
+  },
+  "llm_judge": {
+   "note": "代理指标：大模型评委的判断，不能代替人工盲测，可能有评委偏差",
+   "model": "qwen3.8-flash",
+   "mode": "item",
+   "date": "2026-10-19",
+   "seed": 2,
+   "estimate": {
+    "mode": "item",
+    "items": 120,
+    "batches": 120,
+    "uncached_batches": 120,
+    "prompt_tokens": 41097,
+    "completion_tokens": 10800,
+    "cost_cny": 0.062,
+    "max_cost_cny": 1.0,
+    "price": {
+     "input_per_m": 0.8,
+     "output_per_m": 2.7,
+     "source": "https://help.aliyun.com/zh/model-studio/model-pricing (qwen3.8-flash, 北京, 0-1M 不分档, 2026-10-19)"
+    }
+   },
+   "dry_run": false,
+   "items": 120,
+   "invalid_items": 0,
+   "usage": {
+    "prompt_tokens": 29438,
+    "completion_tokens": 3958,
+    "cost_cny": 0.034237,
+    "requests": 120,
+    "cached_requests": 0,
+    "cached_prompt_tokens": 0,
+    "cached_completion_tokens": 0
+   },
+   "score": {
+    "conditions": {
+     "humanized": {
+      "n": 60,
+      "human_mean": 4.9,
+      "human_ci95": 0.137,
+      "detected_rate": 0.033,
+      "unreadable_rate": 0.033
+     },
+     "raw": {
+      "n": 60,
+      "human_mean": 4.9,
+      "human_ci95": 0.137,
+      "detected_rate": 0.033,
+      "unreadable_rate": 0.0
+     }
+    },
+    "detected_diff_humanized_minus_raw": {
+     "pairs": 60,
+     "mean": 0.0,
+     "ci95": [
+      -0.05,
+      0.05
+     ]
+    },
+    "pairwise_agreement": null,
+    "raters": 1,
+    "ratings": 120
+   }
+  }
+ }
+}

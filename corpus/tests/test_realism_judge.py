@@ -88,7 +88,7 @@ def test_request_params_are_deterministic_json():
     key, forms = _data(4)
     b = J.make_batches(J.select_items(key, forms, 4), 10)[0]
     p = J.request_params(b, seed=1)
-    assert p["temperature"] == 0 and p["seed"] == 1 and p["model"] == "qwen-plus"
+    assert p["temperature"] == 0 and p["seed"] == 1 and p["model"] == "qwen3.8-flash"
     assert p["response_format"] == {"type": "json_object"} and p["enable_thinking"] is False
     m = J.messages_for(b)
     assert "JSON" in m[0]["content"]
@@ -103,7 +103,7 @@ def test_run_scores_with_shared_summary_and_caches(tmp_path):
     out = J.run_judge(key, forms, lambda: fake, n_pairs=12, batch_size=5, cache_dir=tmp_path, mode="batch")
     assert len(fake.calls) == 6 and out["usage"]["requests"] == 6
     assert out["usage"]["prompt_tokens"] == 6000 and out["usage"]["completion_tokens"] == 1200
-    assert out["usage"]["cost_cny"] == pytest.approx(6000 * 0.8e-6 + 1200 * 2e-6)
+    assert out["usage"]["cost_cny"] == pytest.approx(6000 * 0.8e-6 + 1200 * 2.7e-6)
     assert len(out["ratings"]) == 24 and out["invalid_items"] == 0
     assert set(out["ratings"][0]) == {"id", "rater", "human", "bot", "unreadable"}
     res = R.score(key, out["ratings"])  # 与人工评测同一个汇总函数
