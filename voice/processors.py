@@ -26,6 +26,7 @@ from pipecat.frames.frames import (
     Frame,
     InterruptionFrame,
     InterimTranscriptionFrame,
+    LLMContextFrame,
     LLMFullResponseEndFrame,
     LLMFullResponseStartFrame,
     LLMTextFrame,
@@ -43,7 +44,7 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
-from .callredact import CallRedactor
+from .callredact import CallRedactor, redact_digit_fragments
 from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
                       speakable, system_prompt, unmask)
 
@@ -330,6 +331,40 @@ class IntelProcessor(FrameProcessor):
                 self.context.set_messages(msgs)
         return a
 
+    def frag_redact(self, a: dict) -> dict:
+        """#186：ASR 把号码切成几段时，本段和前几段对方的话连起来看，号码片段的数字打成 *（session 里对方的话一起回写）。
+        情报提取已经在 session.ingest 里用原文做完，这里只改送出去的文字。"""
+        msgs = getattr(self.session, "messages", None) or []
+        idx = [i for i, m in enumerate(msgs) if m.get("role") == "scammer" and isinstance(m.get("text"), str)][-3:]
+        if not idx:
+            a["redacted"] = redact_digit_fragments([a.get("redacted", "")])[0]
+            return a
+        fixed = redact_digit_fragments([msgs[i]["text"] for i in idx])
+        for i, t in zip(idx, fixed):
+            msgs[i]["text"] = t
+        a["redacted"] = redact_digit_fragments([msgs[i]["text"] for i in idx[:-1]] + [a.get("redacted", "")])[-1]
+        return a
+
+    def guard_context(self, context) -> bool:
+        """#186：调大模型前最后一道：上下文里全部用户消息连起来再打一次号码片段，并补上按通话打码。
+        已经推进用户聚合器、收不回来的前几段（「卡号是62220212。」）在这里改掉。返回是否改动。"""
+        if context is None:
+            return False
+        msgs = list(context.get_messages())
+        idx = [i for i, m in enumerate(msgs) if m.get("role") == "user" and isinstance(m.get("content"), str)]
+        if not idx:
+            return False
+        fixed = redact_digit_fragments([msgs[i]["content"] for i in idx])
+        changed = False
+        for i, t in zip(idx, fixed):
+            t = unmask(self.redactor.apply(t))
+            if t != msgs[i]["content"]:
+                msgs[i] = {**msgs[i], "content": t}
+                changed = True
+        if changed:
+            context.set_messages(msgs)
+        return changed
+
     def have_labels(self) -> List[str]:
         """对方已经报过、已提取的情报种类（GOAL_LABEL 的名称），从 session.intel 算，和上下文截断无关。"""
         return [GOAL_LABEL[g] for g in GOAL_LABEL if self.session.have_goal(g)]
@@ -395,7 +430,7 @@ class IntelProcessor(FrameProcessor):
         text = (frame.text or "").strip()
         if not text:
             return
-        a = self.call_redact(self.session.ingest(text))
+        a = self.frag_redact(self.call_redact(self.session.ingest(text)))
         if self.backchannel is not None:
             self.said_first = self.backchannel.note(a["redacted"]) or ""
         if self.mode == "rule":
@@ -432,6 +467,23 @@ class IntelProcessor(FrameProcessor):
             await self.notify(self.snapshot())
         except Exception as e:  # 黑名单只是加分项，失败不影响通话
             logger.warning(f"blocklist check failed: {e}")
+
+
+class ContextGuard(FrameProcessor):
+    """#186：放在用户聚合器之后、LLM 之前：发给大模型的上下文再过一遍号码片段打码（IntelProcessor.guard_context）。"""
+
+    def __init__(self, intel: IntelProcessor, **kwargs):
+        super().__init__(**kwargs)
+        self.intel = intel
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, LLMContextFrame) and direction == FrameDirection.DOWNSTREAM:
+            try:
+                self.intel.guard_context(frame.context)
+            except Exception as e:  # 打码失败不能卡住通话；记下来
+                logger.warning(f"context guard failed: {e}")
+        await self.push_frame(frame, direction)
 
 
 class BotTextTap(FrameProcessor):

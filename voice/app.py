@@ -169,7 +169,7 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
 
     from .interrupt import user_turn_strategies
     from .callredact import CallRedactor
-    from .processors import BotTextTap, FillerProcessor, GuardTextFilter, IntelProcessor, TailDedupeProcessor
+    from .processors import BotTextTap, ContextGuard, FillerProcessor, GuardTextFilter, IntelProcessor, TailDedupeProcessor
     from .services import CosyVoiceStreamTTSService, CosyVoiceTTSService, ParaformerSTTService
     from .tuning import get_profile, vad_params
 
@@ -236,7 +236,7 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
     tap = BotTextTap(intel)
     # #175：本通最近 3 轮尾句去重（per-call，同 redactor），放在填充音之前：删空的一轮不发文字，填充音不会被取消
     dedupe = TailDedupeProcessor(pid, redactor=redactor)
-    procs = [transport.input(), stt, intel, agg.user(), llm, dedupe, filler, tap, tts, transport.output(), agg.assistant()]
+    procs = [transport.input(), stt, intel, agg.user(), ContextGuard(intel), llm, dedupe, filler, tap, tts, transport.output(), agg.assistant()]
     return Pipeline(_with_audiobuf(_with_taps(procs, recorder), audiobuf, procs[-2])), intel, context
 
 

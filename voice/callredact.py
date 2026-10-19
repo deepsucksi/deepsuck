@@ -117,6 +117,61 @@ def explain_segments(s: str) -> List[List[dict]]:
     return chains
 
 
+# ---- #186：ASR 切开的号码片段（「卡号是62220212。」「345678。」「*0123。」）----
+# 共享核心 Session.ingest 拼出完整卡号后只回写 session 里对方的话；已经推给用户聚合器、放进大模型上下文的前几段收不回来，
+# 而 CallRedactor 只认完整号码的写法。这里在送给大模型之前，把同一段、相邻几段对方的话连起来看：号码语境下（本段或前
+# window 段里说了卡号 / 账号 / 手机 / 验证码……，或上一段刚报过号码片段）的 3 位以上数字片段，以及单独的 7 位以上数字串，
+# 以及挨着星号、被打了一半的号码（622202**），数字一律换成 *（再经 persona.unmask 读成“那个号”）。情报提取不经过这里，session 里拼好的完整号码不变。
+# 不打：金额（后面跟元 / 块 / 万…，或前面是转 / 付 / 填 / 金额…）、时间（10:30、3点）、挨着字母的（TRC20、USDT）、
+# “两三天”这类（“两”不算数字，单个“三”不够 3 位）。
+_FD = "0-9０-９零〇一二三四五六七八九幺"
+_FRAG_RUN = re.compile("[" + _FD + r"](?:[\s、，,\-－—·.]{0,2}[" + _FD + "])*")
+_FRAG_DIGIT = re.compile("[" + _FD + "]")
+_FRAG_KW = re.compile(r"卡号|账号|帐号|账户|户头|银行卡|卡|号码|手机|电话|验证码|尾号|开头|QQ|qq|微信号|身份证|密码|那个号|那几位")
+_FRAG_UNIT = re.compile(r"^\s*(?:元|块|万|千|百|亿|毛|角|岁|年|月|日|号(?!码)|点|分|秒|个|次|天|周|台|件|单|笔|人|斤|米|公里|%|％|倍|多|折|美元|刀|[:：])")
+_FRAG_MONEY = re.compile(r"(?:[¥￥$]|转|给|打|付|交|还|借|赔|退|充|花|垫|汇|存|取|贷|赚|亏|收|罚|填|金额(?:是|为)?)\s*$")
+_FRAG_MARK = re.compile(r"[*＊]{3,}|那个号|那几位")
+FRAG_MIN = 3     # 号码语境下的片段最少几位
+FRAG_ALONE = 7   # 没有语境也打的数字串位数
+
+
+_FRAG_KEEP = re.compile(r"[0-9]{2,}[*＊]{3,}[0-9]{2,4}")  # 共享核心完整的打码值（622202*********0128），unmask 读成“尾号0128”，不动
+
+
+def _frag_spans(seg: str, ctx: bool) -> List[Tuple[int, int]]:
+    out = []
+    keep = [(m.start(), m.end()) for m in _FRAG_KEEP.finditer(seg)]
+    for m in _FRAG_RUN.finditer(seg):
+        a, b = m.start(), m.end()
+        if any(k0 <= a and b <= k1 for k0, k1 in keep):
+            continue
+        n = len(_FRAG_DIGIT.findall(m.group(0)))
+        if n < FRAG_MIN:
+            continue
+        if (a > 0 and re.match(r"[A-Za-z]", seg[a - 1])) or (b < len(seg) and re.match(r"[A-Za-z]", seg[b])):
+            continue
+        if _FRAG_UNIT.match(seg[b:]) or _FRAG_MONEY.search(seg[max(0, a - 4):a]):
+            continue
+        star = (a > 0 and seg[a - 1] in "*＊") or (b < len(seg) and seg[b] in "*＊")  # 共享核心打了一半的号码（622202**）
+        if n >= FRAG_ALONE or star or ctx or _FRAG_KW.search(seg[:a]) or _FRAG_KW.search(seg[b:b + 6]):
+            out.append((a, b))
+    return out
+
+
+def redact_digit_fragments(segs, window: int = 2) -> List[str]:
+    """对方按时间排的几段话（已脱敏或已 unmask 的都行）：号码片段的数字换成 *，返回同样长度的列表。可重复执行。"""
+    segs = ["" if x is None else str(x) for x in (segs or [])]
+    out = []
+    for i, seg in enumerate(segs):
+        prev = segs[max(0, i - window):i]
+        ctx = any(_FRAG_KW.search(p) for p in prev) or (i > 0 and bool(_FRAG_MARK.search(out[i - 1])))
+        cur = seg
+        for a, b in sorted(_frag_spans(seg, ctx), reverse=True):
+            cur = cur[:a] + _FRAG_DIGIT.sub("*", cur[a:b]) + cur[b:]
+        out.append(cur)
+    return out
+
+
 def digit_pattern(digits: str) -> str:
     """号码去空格 / 连字符等写法都认：1 3 8-1234-5678、138 1234 5678。前后不能紧挨数字。"""
     return r"(?<![0-9])" + _SEP.join(digits) + r"(?![0-9])"
