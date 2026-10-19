@@ -55,6 +55,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 | `guard.py` | 费用护栏：每日预算（预占 + 实时记账 + 持久化）、并发/每 IP 限制、时长/轮数/静默看门狗 |
 | `netpatch.py` | UDP 端口段限制、公网 IP 候选（服务器部署用） |
 | `probe.py` | `python -m voice.probe`：aiortc 端到端探针（部署后验证 UDP/ICE；`--json-out` 输出逐句端到端延迟） |
+| `cost.py` | `python -m voice.cost --day YYYY-MM-DD`：按天汇总调用成本（计数 × 单价重算），见下文「每日成本汇总」 |
 | `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用 qwen-plus → CosyVoice → Paraformer 的冒烟测试 |
 | `telephony/` | 电话接入抽象层（默认关闭）：`TelephonyAdapter` 基类 + 注册表，`ws-raw` 通用 SIP/WebSocket 适配器、`pipecat-ws`（Twilio/Telnyx/Plivo/Exotel）；阿里云呼入适配器设计稿。见 [telephony/README.md](telephony/README.md) |
 
@@ -100,6 +101,32 @@ WebRTC 网络（`netpatch.py`）：`VOICE_UDP_PORTS=40000-40199` 把 aioice 的 
 ```bash
 python -m voice.probe --url http://127.0.0.1:7860 --wav scammer16k.wav --seconds 30
 ```
+
+## 每日成本汇总（#20）
+
+`python -m voice.cost` 只用标准库，按 +08:00 日期把一天的调用折成原价金额，给每天 21:00 的日报用。服务器上在容器里跑：
+
+```bash
+cd deploy && docker compose exec -T voice python -m voice.cost --day 2026-10-19        # 文本
+cd deploy && docker compose exec -T voice python -m voice.cost --day 2026-10-19 --json # 给脚本用
+```
+
+| 数据 | 默认位置（参数 / 环境变量可改） | 说明 |
+| --- | --- | --- |
+| 通话追踪 | `TRACE_DIR`（`--traces`） | 每通 end 行的 `usage`，按 end 时间分桶；`kind`、ASR/TTS 模型和音色有就用 |
+| 逐通用量 | `DATA_DIR/voice/voice-usage.jsonl`（`--usage`、`VOICE_USAGE_FILE`） | 不同意存储的通话也有一行（不含内容）；与 trace 同一 `call_id` 只算一次 |
+| 当日账本 | `DATA_DIR/voice-budget.json`（`--data`） | 只当全量计数参考：比逐通记录多出的部分单列「账本差额」，不用 `spent_cny` |
+| 文字代理 | `PROXY_DATA_DIR` 或 `DATA_DIR` 下 `chat-budget.json`（`--chat-budget`） | 当天的 `inTokens`/`outTokens`，按 `LLM_MODEL` 单价 |
+| 评测花费 | `/workspace/deepsuck-costs/eval-spend.csv`（`--eval-spend`、`COST_EVAL_SPEND`） | 表头 `date,role,pr,cny,note`，按 `date` 求和 |
+| 优惠券基准 | `DATA_DIR/cost-baseline.json`（`--baseline`、`COST_BASELINE`） | 手填，格式见 [`deploy/cost-baseline.example.json`](../deploy/cost-baseline.example.json)，不进仓库 |
+
+文件不存在就跳过，输出末尾列出跳过了哪些。规则：
+
+- 金额一律「计数 × 单价」重算。LLM 按每通的模型查 `guard.py` 单价表（覆盖方式同护栏）；ASR `PRICE_ASR_PER_SEC`；TTS 按模型（v3-flash 1 元、v3.5-flash 0.8 元 / 万字符，设计音色按 ID 前缀推断，未知按 1 元），`PRICE_TTS_PER_10K_CHARS` 设了就全部覆盖。
+- TTS 按百炼规则汉字算 2 个字符：记录有 `tts_billed_chars`（旧名 `tts_billable_chars`）就用它，否则 `tts_chars × 2` 并标「估算」。
+- ASR 另给扣 Paraformer 每月 10 小时免费额度后的金额（`COST_ASR_FREE_SEC_PER_MONTH`，默认 36000；本月已用量只从逐通记录累计）。
+- 优惠券：估算余额 = 基准余额 − 基准日之后（不含当天）每天扣免费额度后的合计；本月累计占 `monthly_budget` 达 `COST_ALERT_PCT`（默认 50）% 时输出「⚠ 提醒」，JSON 里 `baseline.alert=true`。
+- 只是估算：活动折扣、代金券、缓存命中都不算，以百炼控制台账单为准。
 
 ## 延迟
 
