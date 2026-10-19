@@ -385,17 +385,40 @@ def calm(text: str, pauses: bool | None = None) -> str:
     return re.sub(r"^[，。\s]+", "", s).rstrip("，")
 
 
-# 打码值（130****8600、622202*********3445、130-***-8600）：只在看板和日志里出现，进模型、进 TTS 前改成“那个号”。
+# 打码值（130****8600、622202*********3445、130-***-8600）：只在看板和日志里出现，进模型、进 TTS 前改成“那个号”
+# （姓名类打码 张** 例外，换成“那个名字”，见 _unmask_names）。
 # #121 起不再带出可见尾号（原来改成“尾号8600”，模型和 TTS 都会把尾号原样复述）。
 _MASKED = re.compile(r"[0-9]{0,8}[-\s]?[*＊]+(?:[-\s]?[*＊]+)*[-\s]?([0-9]*)")
 _TAIL_WORD = re.compile(r"尾号(?:是)?\s*$")
 
 
+# #136：姓名类打码（脱敏只留姓：张**、欧***；语料里也有中间打码 王*明、欧阳*锋）不是号码，不能念成“张那个号”。
+# 与语料、人设统一：打码姓名一律换成“那个名字”（不保留姓氏），号码类仍是“那个号”。前面的“姓”一并换掉（“他姓张**”→
+# “他那个名字”，不说“姓那个名字”）。星号前是数字或“号/码/卡/是”等字的仍按号码处理。
+_COMPOUND_SURNAMES = ("欧阳", "司马", "诸葛", "上官", "东方", "慕容", "令狐", "皇甫", "夏侯", "尉迟", "公孙", "长孙",
+                      "宇文", "司徒", "端木", "独孤", "南宫", "西门", "轩辕", "呼延", "澹台", "百里", "东郭", "申屠")
+_NOT_SURNAME = "号码卡户名姓叫位数是为的了在到个账机话址箱写填尾"
+_NAME_MASKED = re.compile(
+    r"(姓)?(" + "|".join(_COMPOUND_SURNAMES) + r"|[\u4e00-\u9fff])"
+    r"(?:[*＊](?:[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊]))")
+NAME_PHRASE = "那个名字"
+
+
+def _unmask_names(s: str) -> str:
+    def rep(m: re.Match) -> str:
+        sur = m.group(2)
+        if len(sur) == 1 and sur in _NOT_SURNAME:
+            return m.group(0)
+        return NAME_PHRASE
+    return _NAME_MASKED.sub(rep, s)
+
+
 def unmask(text: str) -> str:
-    """把打码值换成自然说法“那个号”（前面已经说了“尾号”就说“那几位”）。不留任何星号，也不带出可见的数字。"""
+    """把打码值换成自然说法：姓名类打码换成“那个名字”（#136，见 _unmask_names）；号码类换成“那个号”（前面已经说了“尾号”就说
+    “那几位”）。不留任何星号，也不带出可见的数字。"""
     def rep(m: re.Match) -> str:
         return "那几位" if _TAIL_WORD.search(m.string[:m.start()]) else "那个号"
-    return _MASKED.sub(rep, str(text or ""))
+    return _MASKED.sub(rep, _unmask_names(str(text or "")))
 
 
 # 号码逐位读（送 TTS 前）：连续 3 位以上的数字按位读，1 读“幺”；金额、日期、数量照旧按数值读。
@@ -423,7 +446,7 @@ def speakable(text: str, calm_tts: bool | None = None) -> str:
 
     数字过滤（engine.vague_digits）在语音合成前最后一道：连续 3 位以上的数字（含中文数字）换成“好像是6开头的”“后面几位没听清”这类说法。
     """
-    s = unmask(guard_output(text))
+    s = unmask(guard_output(_unmask_names(str(text or ""))))  # #136：姓名打码先换说法，免得守卫把“是张**”再打成“***”
     if _CALM if calm_tts is None else calm_tts:
         s = calm(s)
     s = vague_digits(s)

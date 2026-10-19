@@ -216,3 +216,43 @@ def test_speakable_reads_numbers_digitwise_and_no_stars():
     assert unmask("尾号是130-***-8600") == "尾号是那几位"
     assert unmask("号码 ****") == "号码那个号"
     assert unmask("*0123。") == "那个号。"  # 跨回合报号时上一段被打码，只剩一个星号
+
+
+def test_unmask_masked_names_say_that_name_not_number_phrase():
+    """#136：姓名类打码（汉字姓 + 星号）与语料、人设统一换成“那个名字”（不保留姓氏），不念成“张那个号”；
+    不留星号、不带数字。号码类仍是“那个号”。"""
+    from voice.persona import guard_output, speakable, unmask
+
+    assert unmask("户名张**") == "户名那个名字"
+    assert unmask("你转到这张卡，户名张**") == "你转到这张卡，户名那个名字"
+    assert unmask("户名是：李**。") == "户名是：那个名字。"
+    # 中间打码：王*明 整个换掉，末字也不念
+    assert unmask("收款人王*明") == "收款人那个名字"
+    assert unmask("找王*明办") == "找那个名字办"
+    # 复姓：常见复姓整体当姓（欧阳** → 那个名字，不会剩下“欧”）；脱敏只留首字时（mask_name("欧阳娜娜") == "欧***"）按首字处理，结果相同
+    assert unmask("户名欧阳**") == "户名那个名字"
+    assert unmask("欧阳*锋说的") == "那个名字说的"
+    assert unmask("户名欧***") == "户名那个名字"
+    assert unmask("李*") == "那个名字"
+    assert unmask("他姓张**") == "他那个名字"  # 前面的“姓”一并换掉，不说“姓那个名字”
+    for t in ("户名张**", "收款人王*明", "户名欧阳**", "李*", "户名是张**对吧？", "他叫张**"):
+        for out in (unmask(t), speakable(t, calm_tts=True)):
+            assert "那个名字" in out and "那个号" not in out, (t, out)
+            assert "*" not in out and "＊" not in out and not any(c.isdigit() for c in out), (t, out)
+            assert not any(x in out for x in "张王李欧阳"), (t, out)  # 不保留姓氏
+        assert guard_output(unmask(t)) == unmask(t), t  # 换完的说法过输出守卫不会再被打码
+    # 送 TTS：模型照抄“户名是张**”时，守卫的户名规则会把“是张**”打成“***”，所以先换说法
+    assert speakable("户名是张**对吧？", calm_tts=True) == "户名是那个名字对吧？"
+    assert speakable("户名张**", calm_tts=True) == "户名那个名字"
+    # 号码 / 卡号类回归不变（星号前是数字或“号/码/卡/是”等字）
+    assert unmask("我的号是130****8600") == "我的号是那个号"
+    assert unmask("卡号622202*********3445") == "卡号那个号"
+    assert unmask("尾号是130-***-8600") == "尾号是那几位"
+    assert unmask("尾号是****") == "尾号是那几位"
+    assert unmask("号码 ****") == "号码那个号"
+    assert unmask("号码****") == "号码那个号"
+    assert unmask("卡号****3445") == "卡号那个号"
+    assert unmask("QQ 28******10") == "QQ 那个号"
+    assert unmask("张**1234") == "张那个号"  # 星号后跟数字是号码，不是姓名
+    assert unmask("转到 621700*********0123，户名李**") == "转到 那个号，户名那个名字"
+    assert speakable("卡号622202*********3445", calm_tts=True) == "卡号那几个数没听清"
