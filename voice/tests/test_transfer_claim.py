@@ -20,6 +20,8 @@ def test_guard_output_holds_claims(case):
     out = P.guard_output(case["text"])
     assert any(x in out for x in TC["stall"]), out
     assert not any(w in out for w in BAD), out
+    if case.get("mustKeep"):  # #204：改写后仍保留问收款信息那一问
+        assert case["mustKeep"] in out, out
     spoken = P.speakable(case["text"], calm_tts=False)
     assert not any(w in spoken for w in BAD), spoken
 
