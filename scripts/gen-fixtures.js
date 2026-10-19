@@ -44,6 +44,38 @@ const SPLIT_NAME_CASES = [
   ['弓长岭', 'keep']
 ];
 
+// 逐字解释名字（#158）：[文本, 'mask' 应打码 | 'keep' 原样]，姓名均为虚构
+const CHAR_EXPLAIN_CASES = [
+  ['收款户名张伟晨，弓长张，伟大的伟，早晨的晨', 'mask'],
+  ['弓长张，伟大的伟', 'mask'],
+  ['耳东陈，东方的东', 'mask'],
+  ['户名陈东，耳东陈，东方的东', 'mask'],
+  ['户名陈东屿，耳东陈，东方的东，岛屿的屿', 'mask'],
+  ['立早章，文章的章，晓得的晓，帆船的帆', 'mask'],
+  ['伟是伟大的伟，晨是早晨的晨', 'mask'],
+  ['收款人张伟晨，伟字是伟大的伟', 'mask'],
+  ['就是伟大的伟', 'mask'],
+  ['伟大的伟早晨的晨', 'mask'],
+  ['木子李，就是李子的李，春天的春', 'mask'],
+  ['口天吴，就是天空的空', 'mask'],
+  ['弓长张，伟大的那个伟字', 'mask'],
+  ['弓长张伟大的伟', 'mask'],
+  ['伟大的伟，就是早晨的晨', 'mask'],
+  ['伟大的祖国', 'keep'],
+  ['明天的会', 'keep'],
+  ['我的卡', 'keep'],
+  ['我的卡号发你了，明天的会别迟到', 'keep'],
+  ['伟大的伟人', 'keep'],
+  ['东方的东西', 'keep'],
+  ['明天的明天会更好', 'keep'],
+  ['这是大家的家', 'keep'],
+  ['他说好的好处呢', 'keep'],
+  ['木子李，就是李子的李', 'keep'],
+  ['立早章，文章的章', 'keep'],
+  ['李子的李', 'keep'],
+  ['伟大的那个伟字', 'keep']
+];
+
 // 验证码按上下文打码（#33）：[文本, 'mask' 应打码 | 'keep' 原样（卡号 / 手机号仍由实体规则打码）]，号码均为虚构
 const OTP_CASES = [
   ['您的验证码是472915，5分钟内有效，请勿告诉他人', 'mask'],
@@ -290,6 +322,13 @@ function build() {
       const spans = R.findNameSpans(text, ents);
       const redacted = R.redactText(text, ents);
       if ((expect === 'mask') !== (redacted !== text)) throw new Error('拆字报姓用例与预期不符：' + text + ' -> ' + redacted);
+      return { text, expect, spans, redacted };
+    }),
+    charExplain: CHAR_EXPLAIN_CASES.map(([text, expect]) => {
+      const ents = X.extractSensitive(text);
+      const spans = R.findNameSpans(text, ents);
+      const redacted = R.redactText(text, ents);
+      if ((expect === 'mask') !== (redacted !== text)) throw new Error('逐字解释用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
     }),
     otpSegments: OTP_SEG_CASES.map(([segments, expect]) => {
