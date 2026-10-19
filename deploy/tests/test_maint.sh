@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy/diskwatch.sh、cost-report.sh、install-timers.sh 的离线测试：docker/df/logger/systemctl 全部打桩，不碰真机器。
+# deploy/diskwatch.sh、cost-report.sh、redact-backfill.sh、install-timers.sh 的离线测试：docker/df/logger/systemctl 全部打桩，不碰真机器。
 #   bash deploy/tests/test_maint.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -28,6 +28,9 @@ case "$1 ${2:-}" in
   "volume inspect") exit 1 ;;
   "system df") echo "Images=1.2GB (40%)"; echo "Build Cache=300MB" ;;
   "builder prune") echo "Total:  300MB" ;;
+  "exec "*) [ -n "${FAKE_EXEC_ERR:-}" ] && echo "$FAKE_EXEC_ERR" >&2
+            [ -n "${FAKE_EXEC_OUT:-}" ] && printf '%s\n' "$FAKE_EXEC_OUT"
+            exit "${FAKE_EXEC_RC:-0}" ;;
   "image prune") echo "Total reclaimed space: 0B" ;;
 esac
 S
@@ -104,6 +107,33 @@ grep -q 'balance_est=291.71' "$LOGFILE" || fail "baseline in summary"
 pass "cost-report writes cost-DAY.json + atomic cost-latest.json symlink"
 rm "$DIR/deploy/.env"
 
+# --- redact-backfill（#107）---
+RB="$DIR/deploy/redact-backfill.sh"
+J0='{"backup_files": 0, "consented": 7, "dir_exists": true, "dry_run": false, "fields_changed": 0, "files_changed": 0, "files_scanned": 7, "rows_changed": 0, "skipped_changed": 0, "skipped_not_consented": 2, "skipped_recent": 0, "skipped_unknown_consent": 0}'
+J3='{"consented": 7, "dir_exists": true, "fields_changed": 4, "files_changed": 2, "files_scanned": 9, "rows_changed": 3}'
+reset; FAKE_EXEC_OUT="$J0" FAKE_EXEC_ERR="pipecat banner 验证码是 3827" bash "$RB"
+grep -q '^docker exec deepsuck-voice-1 python -m voice.redact_backfill$' "$CALLS" || fail "redact exec command (no --backup, no --dry-run)"
+grep -q '^deepsuck-redact|user.info|INFO no changes: files_scanned=7 consented=7 files_changed=0 rows_changed=0 ' "$LOGFILE" || fail "rows=0 -> INFO"
+! grep -q '3827\|验证码\|banner' "$LOGFILE" || fail "container stderr leaked into log"
+pass "redact-backfill rows_changed=0 -> INFO, container stderr not logged"
+reset; FAKE_EXEC_OUT="$J3" bash "$RB"
+grep -q '^deepsuck-redact|user.warning|WARN re-redacted stored traces: files_scanned=9 consented=7 files_changed=2 rows_changed=3 fields_changed=4' "$LOGFILE" || fail "rows>0 -> WARN"
+pass "redact-backfill rows_changed>0 -> WARN with counts"
+reset; FAKE_EXEC_OUT="$J3" bash "$RB" --dry-run
+grep -q '^docker exec deepsuck-voice-1 python -m voice.redact_backfill --dry-run$' "$CALLS" || fail "dry-run passes --dry-run"
+grep -q 'user.warning|WARN \[dry-run\] would re-redact' "$LOGFILE" || fail "dry-run log"
+pass "redact-backfill --dry-run passes through"
+reset; FAKE_EXEC_RC=1 FAKE_EXEC_ERR="Traceback 验证码 3827" bash "$RB" && fail "exec failure must exit non-zero" || true
+grep -q '^deepsuck-redact|user.err|ERROR voice.redact_backfill failed in deepsuck-voice-1 (exit 1)' "$LOGFILE" || fail "exec failure -> ERROR"
+! grep -q '3827\|Traceback' "$LOGFILE" || fail "traceback leaked"
+reset; FAKE_EXEC_OUT="not json" bash "$RB" && fail "bad json must fail" || true
+grep -q 'user.err|ERROR voice.redact_backfill output is not the expected JSON' "$LOGFILE" || fail "bad json -> ERROR"
+reset; FAKE_EXEC_OUT='{"dir_exists": false}' bash "$RB" && fail "missing dir must fail" || true
+grep -q 'user.err|ERROR trace dir missing' "$LOGFILE" || fail "missing dir -> ERROR"
+reset; FAKE_EXEC_OUT="$J0" REDACT_CONTAINER=other-voice bash "$RB"; grep -q '^docker exec other-voice ' "$CALLS" || fail "container override"
+pass "redact-backfill failures (exec error, bad JSON, missing dir) -> ERROR + non-zero; container configurable"
+! grep -q '^ *args+=(.*--backup' "$RB" || fail "redact-backfill must not keep backups"   # 上面也逐字检查了 exec 命令
+
 # --- install-timers ---
 export DEEPSUCK_ETC="$T/etc" COST_OUT_DIR="$T/log2"
 rm -f "$T/data/cost-baseline.json"
@@ -111,16 +141,18 @@ reset; bash "$DIR/deploy/install-timers.sh" --dry-run > "$T/inst.txt"
 [ ! -e "$T/etc/systemd" ] && [ ! -e "$T/log2" ] && [ ! -e "$T/data/cost-baseline.json" ] || fail "install --dry-run changed files"
 ! grep -q . "$CALLS" || fail "install --dry-run called systemctl"; pass "install-timers --dry-run changes nothing"
 reset; bash "$DIR/deploy/install-timers.sh" > "$T/inst.txt"
-for u in deepsuck-diskwatch deepsuck-docker-prune deepsuck-cost; do
+for u in deepsuck-diskwatch deepsuck-docker-prune deepsuck-redact deepsuck-cost; do
   [ -f "$T/etc/systemd/system/$u.service" ] && [ -f "$T/etc/systemd/system/$u.timer" ] || fail "$u units"
 done
 grep -q "ExecStart=$DIR/deploy/diskwatch.sh run" "$T/etc/systemd/system/deepsuck-diskwatch.service" || fail "@DIR@ rendered"
 ! grep -rq '@DIR@' "$T/etc/systemd/system" || fail "@DIR@ left"
 grep -q 'OnCalendar=\*-\*-\* 20:40:00 Asia/Shanghai' "$T/etc/systemd/system/deepsuck-cost.timer" || fail "cost timer time"
+grep -q 'OnCalendar=\*-\*-\* 20:30:00 Asia/Shanghai' "$T/etc/systemd/system/deepsuck-redact.timer" || fail "redact timer time (before 20:40 cost)"
+grep -q "ExecStart=$DIR/deploy/redact-backfill.sh$" "$T/etc/systemd/system/deepsuck-redact.service" || fail "redact service ExecStart"
 grep -q 'ROLLBACK_TAGS=' "$T/etc/default/deepsuck-maint" || fail "maint env"
 [ -f "$T/data/cost-baseline.json" ] && [ -d "$T/log2" ] || fail "baseline/logdir"
-grep -q 'systemctl daemon-reload' "$CALLS" && grep -q 'systemctl enable --now deepsuck-diskwatch.timer deepsuck-docker-prune.timer deepsuck-cost.timer' "$CALLS" || fail "systemctl calls"
-pass "install-timers installs 3 services + 3 timers, config, baseline"
+grep -q 'systemctl daemon-reload' "$CALLS" && grep -q 'systemctl enable --now deepsuck-diskwatch.timer deepsuck-docker-prune.timer deepsuck-redact.timer deepsuck-cost.timer' "$CALLS" || fail "systemctl calls"
+pass "install-timers installs 4 services + 4 timers, config, baseline"
 echo "ROLLBACK_TAGS=custom:1" > "$T/etc/default/deepsuck-maint"; echo '{"coupon_balance": 1}' > "$T/data/cost-baseline.json"
 reset; bash "$DIR/deploy/install-timers.sh" > "$T/inst.txt"
 grep -q 'custom:1' "$T/etc/default/deepsuck-maint" && grep -q '"coupon_balance": 1' "$T/data/cost-baseline.json" || fail "overwrote existing config"
