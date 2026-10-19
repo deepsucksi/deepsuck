@@ -25,6 +25,7 @@ test('正例：改写成拖延说法，逐字等于 expected，过滤后不再�
   for (const c of F.claim) {
     const out = E.holdTransfer(c.text);
     assert.equal(out, c.expected, c.text);
+    if (c.mustKeep) assert.ok(out.includes(c.mustKeep), '#204 保留那一问：' + out);
     assert.notEqual(out, c.text, c.text);
     assert.ok(TC.stall.some((x) => out.includes(x)), out);
     assert.equal(anyClaim(out), false, out);
