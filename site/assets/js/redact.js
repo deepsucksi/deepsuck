@@ -465,9 +465,118 @@
     return SPLIT;
   }
 
+  // ---- 逐字解释名字（#158）：规则见 core/extractors.json 的 nameRules.explain，与 redact.py 共用 ----
+  var EXPLAIN = null;
+  function explainRules() {
+    if (EXPLAIN !== null) return EXPLAIN;
+    var C = core && core();
+    var ex = C && C.nameRules && C.nameRules.explain;
+    if (!ex || !ex.link) return (EXPLAIN = false);
+    EXPLAIN = {
+      ex: ex,
+      han: new RegExp('^' + ex.han + '$'),
+      link: new RegExp('(?:' + ex.link + ')(' + ex.han + ')', 'y'),
+      tail: new RegExp('(?:' + (ex.tail || '') + ')', 'y'),
+      stop: new RegExp(ex.wordStop || '(?!)'),
+      particle: new RegExp('^(?:' + (ex.particle || '(?!)') + ')$'),
+      sep: new RegExp('^(?:' + (ex.sep || '') + ')$'),
+      gap: new RegExp(ex.anchorGap)
+    };
+    return EXPLAIN;
+  }
+
+  /**
+   * 逐字解释（「伟大的伟，明天的明」「伟是伟大的伟」）：[{start, end, x, keep}]，按 start 升序、互不重叠。
+   * head：这一段连同前面的「就是」「是」从哪里开始（只用来判断相邻，不打码「就是」本身）。
+   * keep：被解释的是姓（相邻拆字报姓的姓或已提取姓名的姓），这一段不打码。
+   */
+  function explainUnits(s, ents) {
+    var E = explainRules();
+    if (!E) return [];
+    var ex = E.ex;
+    var wmin = ex.wordMin || 2, wmax = ex.wordMax || 4;
+    var leads = ex.leads || [], strong = ex.strongLeads || [];
+    var cands = [];
+    for (var i = 0; i < s.length; i++) {
+      E.link.lastIndex = i;
+      var m = E.link.exec(s);
+      if (!m) continue;
+      var x = m[1];
+      var wstart = -1;
+      for (var L = 1; L <= wmax && i - L >= 0; L++) {
+        var c = s.charAt(i - L);
+        if (!E.han.test(c) || E.stop.test(c)) break;
+        if (L >= wmin && s.slice(i - L, i).indexOf(x) >= 0) { wstart = i - L; break; }
+      }
+      if (wstart < 0) continue;
+      var end = i + m[0].length;
+      E.tail.lastIndex = end;
+      var t = E.tail.exec(s);
+      if (t) end += t[0].length;
+      var start = wstart, head = wstart, st = false;
+      for (var k = 0; k < leads.length; k++) {
+        var ld = leads[k];
+        if (wstart < ld.length || s.slice(wstart - ld.length, wstart) !== ld) continue;
+        var b = wstart - ld.length;
+        head = b;
+        if (b >= 1 && s.charAt(b - 1) === x) { start = head = b - 1; st = true; }
+        else if (b >= 2 && s.slice(b - 2, b) === x + '字') { start = head = b - 2; st = true; }
+        else if (strong.indexOf(ld) >= 0) st = true;
+        break;
+      }
+      cands.push({ start: start, head: head, wstart: wstart, end: end, x: x, strong: st });
+    }
+    var heads = {};
+    cands.forEach(function (c) { heads[c.head] = 1; heads[c.wstart] = 1; });
+    var units = [];
+    cands.filter(function (c) {
+      var n = s.charAt(c.end);
+      return c.end >= s.length || !E.han.test(n) || E.particle.test(n) || heads[c.end] === 1;
+    }).sort(function (a, b) { return a.start - b.start || a.end - b.end; }).forEach(function (c) {
+      if (!units.length || units[units.length - 1].end <= c.start) units.push(c);
+    });
+    if (!units.length) return [];
+    var anchors = [];
+    var R = splitRules();
+    if (R) {
+      var sm;
+      R.re.lastIndex = 0;
+      while ((sm = R.re.exec(s))) anchors.push({ end: sm.index + sm[0].length, sur: sm[1].slice(-1) });
+    }
+    var surAll = {};
+    (ents || []).forEach(function (e) {
+      if (typeof e.start !== 'number' || e.type !== 'name' || !e.value) return;
+      anchors.push({ end: e.end, sur: String(e.value).charAt(0) });
+      surAll[String(e.value).charAt(0)] = 1;
+    });
+    var out = [];
+    var chain = [];
+    function flush() {
+      if (!chain.length) return;
+      var first = chain[0].head;
+      var sur = {};
+      Object.keys(surAll).forEach(function (k) { sur[k] = 1; });
+      var anchored = false;
+      anchors.forEach(function (a) {
+        if (a.end <= first && E.gap.test(s.slice(a.end, first))) { anchored = true; sur[a.sur] = 1; }
+      });
+      if (chain.length >= 2 || anchored || chain.some(function (c) { return c.strong; })) {
+        chain.forEach(function (c) { out.push({ start: c.start, end: c.end, x: c.x, keep: sur[c.x] === 1 }); });
+      }
+      chain = [];
+    }
+    units.forEach(function (u) {
+      if (chain.length && !E.sep.test(s.slice(chain[chain.length - 1].end, u.head))) flush();
+      chain.push(u);
+    });
+    flush();
+    return out;
+  }
+
   /**
    * 拆字报姓（「弓长张，三丰」「木子李四」）后紧跟的名：[{start, end, masked}]，名换成等长的 *。
    * entities：extract() 的结果；同姓的已提取姓名决定名的长度，与敏感实体重叠的位置不再重复给出。
+   * 逐字解释（「伟大的伟，明天的明」，#158）整段一并给出（含被解释的字），见 explainUnits。
    * 拆字说法以外单独出现的名（「三丰」）不在这里处理。
    */
   function findNameSpans(text, entities) {
@@ -479,6 +588,8 @@
     var names = ents.filter(function (e) { return e.type === 'name' && String(e.value || '').length >= 2; })
       .map(function (e) { return String(e.value); });
     var max = R.sp.givenMax == null ? 2 : R.sp.givenMax;
+    // 逐字解释（#158）：拆字报姓后紧跟逐字解释时不再往后数字打码，整段解释由下面统一打码
+    var units = explainUnits(s, ents);
     var out = [];
     var m;
     R.re.lastIndex = 0;
@@ -486,13 +597,15 @@
       var sur = m[1].slice(-1);
       var after = m.index + m[0].length;
       var pos = after + R.sep.exec(s.slice(after))[0].length;
+      if (units.some(function (u) { return u.start <= pos && pos < u.end; })) continue;
       var given = '';
       for (var k = 0; k < names.length; k++) {
         var n = names[k];
         if (n.charAt(0) === sur && s.substr(pos, n.length - 1) === n.slice(1)) { given = n.slice(1); break; }
       }
       if (!given) {
-        while (given.length < max && pos + given.length < s.length && !R.stop.test(s.charAt(pos + given.length))) {
+        while (given.length < max && pos + given.length < s.length && !R.stop.test(s.charAt(pos + given.length)) &&
+          !units.some(function (u) { return u.start === pos + given.length; })) {
           given += s.charAt(pos + given.length);
         }
         if (given && R.notNames && R.notNames.test(given)) given = '';
@@ -502,6 +615,14 @@
       claimed.push([pos, end]);
       out.push({ start: pos, end: end, masked: stars(given.length) });
     }
+    var ex = (explainRules() || {}).ex || {};
+    units.forEach(function (u) {
+      if (u.keep || claimed.some(function (c) { return c[0] < u.end && u.start < c[1]; })) return;
+      var glue = claimed.some(function (c) { return c[1] === u.start; }) ? (ex.joiner || '') : '';
+      claimed.push([u.start, u.end]);
+      out.push({ start: u.start, end: u.end, masked: glue + stars(u.end - u.start) });
+    });
+    out.sort(function (a, b) { return a.start - b.start; });
     return out;
   }
 
@@ -516,7 +637,7 @@
       .filter(function (e) { return typeof e.start === 'number' && e.sensitive !== false; })
       .map(function (e) { return { start: e.start, end: e.end, masked: e.masked || mask(e.type, e.value) }; });
     var all = (entities || []).filter(function (e) { return typeof e.start === 'number'; });
-    // 拆字报姓后的名（#139）
+    // 拆字报姓后的名（#139）与逐字解释（#158）
     findNameSpans(s, all).forEach(function (n) { list.push(n); all.push({ start: n.start, end: n.end }); });
     findOtpSpans(s).forEach(function (p) {
       var hit = all.some(function (e) { return e.start < p.end && p.start < e.end; });
@@ -534,6 +655,7 @@
     mask: mask,
     redactText: redactText,
     findNameSpans: findNameSpans,
+    explainUnits: explainUnits,
     findOtpSpans: findOtpSpans,
     findOtpSpansSegments: findOtpSpansSegments,
     redactOtpSegments: redactOtpSegments,

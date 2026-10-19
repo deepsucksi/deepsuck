@@ -791,6 +791,342 @@
    "redacted": "弓长岭"
   }
  ],
+ "charExplain": [
+  {
+   "text": "收款户名张伟晨，弓长张，伟大的伟，早晨的晨",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 12,
+     "end": 16,
+     "masked": "****"
+    },
+    {
+     "start": 17,
+     "end": 21,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款户名张**，弓长张，****，****"
+  },
+  {
+   "text": "弓长张，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 8,
+     "masked": "****"
+    }
+   ],
+   "redacted": "弓长张，****"
+  },
+  {
+   "text": "耳东陈，东方的东",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 8,
+     "masked": "****"
+    }
+   ],
+   "redacted": "耳东陈，****"
+  },
+  {
+   "text": "户名陈东，耳东陈，东方的东",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 9,
+     "end": 13,
+     "masked": "****"
+    }
+   ],
+   "redacted": "户名陈*，耳东陈，****"
+  },
+  {
+   "text": "户名陈东屿，耳东陈，东方的东，岛屿的屿",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 10,
+     "end": 14,
+     "masked": "****"
+    },
+    {
+     "start": 15,
+     "end": 19,
+     "masked": "****"
+    }
+   ],
+   "redacted": "户名陈**，耳东陈，****，****"
+  },
+  {
+   "text": "立早章，文章的章，晓得的晓，帆船的帆",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 9,
+     "end": 13,
+     "masked": "****"
+    },
+    {
+     "start": 14,
+     "end": 18,
+     "masked": "****"
+    }
+   ],
+   "redacted": "立早章，文章的章，****，****"
+  },
+  {
+   "text": "伟是伟大的伟，晨是早晨的晨",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 6,
+     "masked": "******"
+    },
+    {
+     "start": 7,
+     "end": 13,
+     "masked": "******"
+    }
+   ],
+   "redacted": "******，******"
+  },
+  {
+   "text": "收款人张伟晨，伟字是伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 7,
+     "end": 14,
+     "masked": "*******"
+    }
+   ],
+   "redacted": "收款人张**，*******"
+  },
+  {
+   "text": "就是伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 2,
+     "end": 6,
+     "masked": "****"
+    }
+   ],
+   "redacted": "就是****"
+  },
+  {
+   "text": "伟大的伟早晨的晨",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 4,
+     "masked": "****"
+    },
+    {
+     "start": 4,
+     "end": 8,
+     "masked": "，****"
+    }
+   ],
+   "redacted": "****，****"
+  },
+  {
+   "text": "木子李，就是李子的李，春天的春",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 11,
+     "end": 15,
+     "masked": "****"
+    }
+   ],
+   "redacted": "木子李，就是李子的李，****"
+  },
+  {
+   "text": "口天吴，就是天空的空",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 6,
+     "end": 10,
+     "masked": "****"
+    }
+   ],
+   "redacted": "口天吴，就是****"
+  },
+  {
+   "text": "弓长张，伟大的那个伟字",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 11,
+     "masked": "*******"
+    }
+   ],
+   "redacted": "弓长张，*******"
+  },
+  {
+   "text": "弓长张伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 3,
+     "end": 7,
+     "masked": "****"
+    }
+   ],
+   "redacted": "弓长张****"
+  },
+  {
+   "text": "伟大的伟，就是早晨的晨",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 4,
+     "masked": "****"
+    },
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "****，就是****"
+  },
+  {
+   "text": "户名写耳东陈陈东屿东是东方的东，岛屿的屿",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 9,
+     "end": 15,
+     "masked": "，******"
+    },
+    {
+     "start": 16,
+     "end": 20,
+     "masked": "****"
+    }
+   ],
+   "redacted": "户名写耳东陈***，******，****"
+  },
+  {
+   "text": "收款人叫张伟晨，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 8,
+     "end": 12,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人叫张**，****"
+  },
+  {
+   "text": "弓长张，日月明的明",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 5,
+     "masked": "*"
+    },
+    {
+     "start": 5,
+     "end": 9,
+     "masked": "，****"
+    }
+   ],
+   "redacted": "弓长张，*，****"
+  },
+  {
+   "text": "伟大的祖国",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "伟大的祖国"
+  },
+  {
+   "text": "明天的会",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "明天的会"
+  },
+  {
+   "text": "我的卡",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "我的卡"
+  },
+  {
+   "text": "我的卡号发你了，明天的会别迟到",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "我的卡号发你了，明天的会别迟到"
+  },
+  {
+   "text": "伟大的伟人",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "伟大的伟人"
+  },
+  {
+   "text": "东方的东西",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "东方的东西"
+  },
+  {
+   "text": "明天的明天会更好",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "明天的明天会更好"
+  },
+  {
+   "text": "这是大家的家",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "这是大家的家"
+  },
+  {
+   "text": "他说好的好处呢",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "他说好的好处呢"
+  },
+  {
+   "text": "木子李，就是李子的李",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "木子李，就是李子的李"
+  },
+  {
+   "text": "立早章，文章的章",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "立早章，文章的章"
+  },
+  {
+   "text": "李子的李",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "李子的李"
+  },
+  {
+   "text": "伟大的那个伟字",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "伟大的那个伟字"
+  }
+ ],
  "otpSegments": [
   {
    "segments": [
