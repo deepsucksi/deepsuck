@@ -105,15 +105,30 @@ const CHAR_EXPLAIN_CASES = [
   // #185 拆字探针原句（asr-compat，四人设两种 ASR）：曾打成「**的伟」露出单字「伟」，人设念成「那个号的伟」
   ['收款人叫张伟明，弓长张，伟大的伟，明天的明。', 'mask'],
   ['收款人叫张伟明，弓长张，伟大的伟。', 'mask'],
-  // #185 ASR 把「弓长张」识别成「龚厂长」：「龚厂长」本身照原样留（与拆字报姓「弓长张」一样只露姓的说法），后面的逐字解释要打码
+  // #185 / #163 ASR 把拆字报姓识别成同音写法（nameRules.split.asrSplit）：写法本身照原样留（与「弓长张」一样只露姓的说法），
+  // 后面紧跟的逐字解释（一段也算）和中间隔的名要打码，与「弓长张」同类句子一致
   ['收款人叫张伟明，龚厂长，伟大的伟，明天的明。', 'mask'],
   ['好的，龚厂长，伟大的伟，明天的明，我记下了', 'mask'], // 人设复述
-  // #163：只有一段解释时，「龚厂长」按 nameRules.explain.asrSplit 算锚点，解释段照样打码（原为 xfail）
   ['收款人叫张伟明，龚厂长，伟大的伟。', 'mask'],
   ['好的，龚厂长，伟大的伟', 'mask'], // 人设复述
-  // asrSplit 的边界：同音写法后面紧跟汉字、或后面不是逐字解释，都不算
+  ['龚厂长伟大的伟', 'mask'],
+  ['好的龚厂长，伟大的伟', 'mask'],
+  ['龚厂长啊，伟大的伟', 'mask'],
+  ['龚厂长的张，伟大的伟', 'mask'],
+  ['龚厂长，伟明，伟大的伟', 'mask'],
+  ['弓长张，伟明，伟大的伟', 'mask'], // 对照：拆字报姓原写法
+  ['收款人是工长张，伟大的伟', 'mask'],
+  ['宫长张，伟明，伟大的伟', 'mask'],
+  ['户名龚长张，伟大的伟', 'mask'],
+  ['尔东陈，晓燕，知晓的晓', 'mask'],
+  // asrSplit 的反例：同音写法后面没有逐字解释（普通称呼、普通词）不算，什么都不打
   ['龚厂长说明天的会别迟到', 'keep'],
-  ['龚厂长，明天的会别迟到', 'keep']
+  ['龚厂长，明天的会别迟到', 'keep'],
+  ['工长张师傅明天来修水管', 'keep'],
+  ['宫长张罗了一桌菜', 'keep'],
+  ['龚长张口就骂人', 'keep'],
+  ['尔东陈列馆门口见', 'keep'],
+  ['龚厂长，伟大的祖国', 'keep']
 ];
 
 // 验证码按上下文打码（#33）：[文本, 'mask' 应打码 | 'keep' 原样（卡号 / 手机号仍由实体规则打码）]，号码均为虚构
@@ -364,16 +379,10 @@ function build() {
       if ((expect === 'mask') !== (redacted !== text)) throw new Error('拆字报姓用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
     }),
-    // xfail：已知缺陷，spans / redacted 记的是当前实现的结果（两端逐字一致），expect 是应有的结果，leak 是现在还露出来的片段；
-    // 缺陷修好（redacted 里不再有 leak）时这里会报错，提醒去掉 xfail
-    charExplain: CHAR_EXPLAIN_CASES.map(([text, expect, xfail, leak]) => {
+    charExplain: CHAR_EXPLAIN_CASES.map(([text, expect]) => {
       const ents = X.extractSensitive(text);
       const spans = R.findNameSpans(text, ents);
       const redacted = R.redactText(text, ents);
-      if (xfail) {
-        if (!redacted.includes(leak)) throw new Error('已知缺陷用例已经不露「' + leak + '」，请去掉 xfail：' + text + ' -> ' + redacted);
-        return { text, expect, spans, redacted, xfail, leak };
-      }
       if ((expect === 'mask') !== (redacted !== text)) throw new Error('逐字解释用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
     }),

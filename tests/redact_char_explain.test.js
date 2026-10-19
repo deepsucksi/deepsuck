@@ -84,12 +84,14 @@ test('#185 拆字探针原句与 ASR「龚厂长」：解释段不露单字「�
   }
 });
 
-test('#163 ASR「龚厂长」+ 单段解释也打码（原 xfail，nameRules.explain.asrSplit）', () => {
-  assert.strictEqual(FX.filter((c) => c.xfail).length, 0);
-  for (const t of ['收款人叫张伟明，龚厂长，伟大的伟。', '好的，龚厂长，伟大的伟']) {
+test('#163 ASR 拆字同音写法（nameRules.split.asrSplit）：一段解释也打码，写法本身不打，没有解释时不算', () => {
+  assert.ok(FX.every((c) => !('xfail' in c)));
+  for (const t of ['收款人叫张伟明，龚厂长，伟大的伟。', '好的，龚厂长，伟大的伟', '龚厂长伟大的伟', '好的龚厂长，伟大的伟',
+    '龚厂长啊，伟大的伟', '龚厂长的张，伟大的伟', '龚厂长，伟明，伟大的伟', '宫长张，伟明，伟大的伟', '尔东陈，晓燕，知晓的晓']) {
     const out = red(t);
-    ['伟大', '伟。', '**的'].forEach((leak) => assert.ok(!out.includes(leak), t + ' -> ' + out));
-    assert.ok(out.includes('龚厂长'), t + ' -> ' + out); // 同音写法本身不打码
+    ['伟大', '伟明', '晓燕', '知晓', '**的'].forEach((leak) => assert.ok(!out.includes(leak), t + ' -> ' + out));
   }
-  for (const t of ['龚厂长说明天的会别迟到', '龚厂长，明天的会别迟到']) assert.strictEqual(red(t), t);
+  assert.strictEqual(red('龚厂长，伟明，伟大的伟'), red('弓长张，伟明，伟大的伟').replace('弓长张', '龚厂长'));
+  for (const t of ['龚厂长说明天的会别迟到', '龚厂长，明天的会别迟到', '工长张师傅明天来修水管', '宫长张罗了一桌菜',
+    '龚长张口就骂人', '尔东陈列馆门口见', '龚厂长，伟大的祖国']) assert.strictEqual(red(t), t);
 });

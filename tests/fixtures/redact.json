@@ -1214,6 +1214,146 @@
    "redacted": "好的，龚厂长，****"
   },
   {
+   "text": "龚厂长伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 3,
+     "end": 7,
+     "masked": "****"
+    }
+   ],
+   "redacted": "龚厂长****"
+  },
+  {
+   "text": "好的龚厂长，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 6,
+     "end": 10,
+     "masked": "****"
+    }
+   ],
+   "redacted": "好的龚厂长，****"
+  },
+  {
+   "text": "龚厂长啊，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 5,
+     "end": 9,
+     "masked": "****"
+    }
+   ],
+   "redacted": "龚厂长啊，****"
+  },
+  {
+   "text": "龚厂长的张，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 6,
+     "end": 10,
+     "masked": "****"
+    }
+   ],
+   "redacted": "龚厂长的张，****"
+  },
+  {
+   "text": "龚厂长，伟明，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 6,
+     "masked": "**"
+    },
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "龚厂长，**，****"
+  },
+  {
+   "text": "弓长张，伟明，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 6,
+     "masked": "**"
+    },
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "弓长张，**，****"
+  },
+  {
+   "text": "收款人是工长张，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 8,
+     "end": 12,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是工**，****"
+  },
+  {
+   "text": "宫长张，伟明，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 6,
+     "masked": "**"
+    },
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "宫长张，**，****"
+  },
+  {
+   "text": "户名龚长张，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 6,
+     "end": 10,
+     "masked": "****"
+    }
+   ],
+   "redacted": "户名龚**，****"
+  },
+  {
+   "text": "尔东陈，晓燕，知晓的晓",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 6,
+     "masked": "**"
+    },
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "尔东陈，**，****"
+  },
+  {
    "text": "龚厂长说明天的会别迟到",
    "expect": "keep",
    "spans": [],
@@ -1224,6 +1364,36 @@
    "expect": "keep",
    "spans": [],
    "redacted": "龚厂长，明天的会别迟到"
+  },
+  {
+   "text": "工长张师傅明天来修水管",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "工长张师傅明天来修水管"
+  },
+  {
+   "text": "宫长张罗了一桌菜",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "宫长张罗了一桌菜"
+  },
+  {
+   "text": "龚长张口就骂人",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "龚长张口就骂人"
+  },
+  {
+   "text": "尔东陈列馆门口见",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "尔东陈列馆门口见"
+  },
+  {
+   "text": "龚厂长，伟大的祖国",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "龚厂长，伟大的祖国"
   }
  ],
  "otpSegments": [

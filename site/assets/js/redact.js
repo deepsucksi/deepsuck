@@ -455,14 +455,41 @@
     if (!sp || !sp.spellings || !sp.spellings.length) return (SPLIT = false);
     function esc(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
     var alts = sp.spellings.slice().sort(function (a, b) { return b.length - a.length; });
+    var asr = sp.asrSplit || {};
+    var asrKeys = Object.keys(asr).sort(function (a, b) { return b.length - a.length; });
     SPLIT = {
       sp: sp,
+      // #163：ASR 同音写法（龚厂长），只在后面紧跟逐字解释时才算，见 splitHits
+      asr: new RegExp(asrKeys.length ? '(' + asrKeys.map(function (k) { return esc(k) + '(?:' + (sp.link || '') + esc(asr[k]) + ')?'; }).join('|') + ')' : '((?!))', 'g'),
+      asrKeys: asrKeys,
+      asrSur: asr,
       re: new RegExp('(' + alts.map(function (x) { return esc(x.slice(0, -1)) + (sp.link || '') + esc(x.slice(-1)); }).join('|') + ')', 'g'),
       sep: new RegExp('^(?:' + (sp.sep || '') + ')'),
       stop: new RegExp(sp.givenStop),
       notNames: nr.notNames ? new RegExp(nr.notNames) : null
     };
     return SPLIT;
+  }
+
+  // 拆字报姓的位置 [{start, end, sur}]，按 start 排；asrSplit 同音写法只在 units 里有一段解释紧跟在后面时才算（units 为 null 时全给出），与 redact.py split_hits 一致
+  function splitHits(s, units) {
+    var R = splitRules();
+    if (!R) return [];
+    var out = [];
+    var m;
+    R.re.lastIndex = 0;
+    while ((m = R.re.exec(s))) out.push({ start: m.index, end: m.index + m[0].length, sur: m[1].slice(-1) });
+    var E = explainRules();
+    R.asr.lastIndex = 0;
+    while ((m = R.asr.exec(s))) {
+      var a = m.index, b = m.index + m[0].length;
+      if (out.some(function (h) { return h.start < b && a < h.end; })) continue;
+      if (units && !(E && units.some(function (u) { return u.start >= b && E.gap.test(s.slice(b, u.start)); }))) continue;
+      var g = m[1];
+      var key = R.asrKeys.filter(function (k) { return g.indexOf(k) === 0; })[0];
+      out.push({ start: a, end: b, sur: R.asrSur[key] });
+    }
+    return out.sort(function (x, y) { return x.start - y.start; });
   }
 
   // ---- 逐字解释名字（#158）：规则见 core/extractors.json 的 nameRules.explain，与 redact.py 共用 ----
@@ -480,10 +507,7 @@
       stop: new RegExp(ex.wordStop || '(?!)'),
       particle: new RegExp('^(?:' + (ex.particle || '(?!)') + ')$'),
       sep: new RegExp('^(?:' + (ex.sep || '') + ')$'),
-      gap: new RegExp(ex.anchorGap),
-      asr: Object.keys(ex.asrSplit || {}).map(function (k) {
-        return { re: new RegExp('(?<![\\u4e00-\\u9fa5])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\u4e00-\\u9fa5])', 'g'), sur: ex.asrSplit[k] };
-      })
+      gap: new RegExp(ex.anchorGap)
     };
     return EXPLAIN;
   }
@@ -540,17 +564,7 @@
     });
     if (!units.length) return [];
     var anchors = [];
-    var R = splitRules();
-    if (R) {
-      var sm;
-      R.re.lastIndex = 0;
-      while ((sm = R.re.exec(s))) anchors.push({ end: sm.index + sm[0].length, sur: sm[1].slice(-1) });
-    }
-    (E.asr || []).forEach(function (a) { // #163：ASR 同音写法（龚厂长）也算锚点
-      var m;
-      a.re.lastIndex = 0;
-      while ((m = a.re.exec(s))) anchors.push({ end: m.index + m[0].length, sur: a.sur });
-    });
+    splitHits(s, null).forEach(function (h) { anchors.push({ end: h.end, sur: h.sur }); }); // #163：含 asrSplit 同音写法
     var surAll = {};
     (ents || []).forEach(function (e) {
       if (typeof e.start !== 'number' || e.type !== 'name' || !e.value) return;
@@ -599,13 +613,11 @@
     // 逐字解释（#158）：拆字报姓后紧跟逐字解释时不再往后数字打码，整段解释由下面统一打码
     var units = explainUnits(s, ents);
     var out = [];
-    var m;
-    R.re.lastIndex = 0;
-    while ((m = R.re.exec(s))) {
-      var sur = m[1].slice(-1);
-      var after = m.index + m[0].length;
+    splitHits(s, units).forEach(function (h) {
+      var sur = h.sur;
+      var after = h.end;
       var pos = after + R.sep.exec(s.slice(after))[0].length;
-      if (units.some(function (u) { return u.start <= pos && pos < u.end; })) continue;
+      if (units.some(function (u) { return u.start <= pos && pos < u.end; })) return;
       var given = '';
       for (var k = 0; k < names.length; k++) {
         var n = names[k];
@@ -619,10 +631,10 @@
         if (given && R.notNames && R.notNames.test(given)) given = '';
       }
       var end = pos + given.length;
-      if (!given || claimed.some(function (c) { return c[0] < end && pos < c[1]; })) continue;
+      if (!given || claimed.some(function (c) { return c[0] < end && pos < c[1]; })) return;
       claimed.push([pos, end]);
       out.push({ start: pos, end: end, masked: stars(given.length) });
-    }
+    });
     var ex = (explainRules() || {}).ex || {};
     units.forEach(function (u) {
       if (u.keep || claimed.some(function (c) { return c[0] < u.end && u.start < c[1]; })) return;

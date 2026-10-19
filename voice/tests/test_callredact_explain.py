@@ -19,9 +19,8 @@ from voice.processors import GuardTextFilter, IntelProcessor
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = json.loads((ROOT / "tests/fixtures/redact.json").read_text(encoding="utf-8"))["charExplain"]
-MASK = [c for c in CASES if c["expect"] == "mask" and not c.get("xfail")]
-KEEP = [c for c in CASES if c["expect"] == "keep" and not c.get("xfail")]
-XFAIL = [c for c in CASES if c.get("xfail")]  # #185 已知缺陷（ASR 拆字变体「龚厂长」+ 单段解释），修好后并回 MASK
+MASK = [c for c in CASES if c["expect"] == "mask"]
+KEEP = [c for c in CASES if c["expect"] == "keep"]
 _SPLIT_SUR = {cz + sur: sur for sur, czs in CHAIZI.items() for cz in czs}
 
 
@@ -51,7 +50,7 @@ def _call_name(case):
 
 
 def test_fixture_counts():
-    assert len(CASES) == 39 and len(MASK) == 24 and len(KEEP) == 15 and len(XFAIL) == 0  # #163：2 条 xfail 修好并回 MASK，另加 2 条 asrSplit 边界反例
+    assert len(CASES) == len(MASK) + len(KEEP) and not any("xfail" in c for c in CASES)  # #163：xfail 已全部修好
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["text"] for c in CASES])

@@ -482,13 +482,38 @@ def _split_rules():
         return None
     alts = sorted(sp["spellings"], key=len, reverse=True)
     src = "(" + "|".join(re.escape(x[:-1]) + sp.get("link", "") + re.escape(x[-1]) for x in alts) + ")"
+    asr = sp.get("asrSplit") or {}
+    asr_src = ("(" + "|".join(re.escape(k) + "(?:" + sp.get("link", "") + re.escape(asr[k]) + ")?"
+                              for k in sorted(asr, key=len, reverse=True)) + ")") if asr else "((?!))"
     return {
         "sp": sp,
         "re": compile_js(src),
+        "asr": compile_js(asr_src),  # #163：ASR 同音写法（龚厂长），只在后面紧跟逐字解释时才算，见 split_hits
+        "asrSur": asr,
         "sep": compile_js("^(?:" + sp.get("sep", "") + ")"),
         "stop": compile_js(sp["givenStop"]),
         "notNames": compile_js(nr["notNames"]) if nr.get("notNames") else None,
     }
+
+
+def split_hits(s: str, units=None) -> List[tuple]:
+    """拆字报姓的位置：[(start, end, 姓)]，按 start 排。spellings 全算；asrSplit 的同音写法（#163）只在 units（explain_units
+    的结果）里有一段解释紧跟在后面（按 explain.anchorGap）时才算；units 为 None 时同音写法全给出（只当锚点用，锚点本身要求紧跟解释）。"""
+    R = _split_rules()
+    if not R:
+        return []
+    out = [(m.start(), m.end(), m.group(1)[-1]) for m in R["re"].finditer(s)]
+    E = _explain_rules()
+    for m in R["asr"].finditer(s):
+        if any(a < m.end() and m.start() < b for a, b, _ in out):
+            continue
+        if units is not None and not (E and any(u["start"] >= m.end() and E["gap"].search(s[m.end():u["start"]])
+                                                for u in units)):
+            continue
+        g = m.group(1)
+        key = next(k for k in sorted(R["asrSur"], key=len, reverse=True) if g.startswith(k))
+        out.append((m.start(), m.end(), R["asrSur"][key]))
+    return sorted(out)
 
 
 # ---- 逐字解释名字（#158）：规则见 core/extractors.json 的 nameRules.explain，与 redact.js 共用 ----
@@ -506,8 +531,6 @@ def _explain_rules():
         "particle": compile_js("^(?:" + (ex.get("particle") or "(?!)") + ")$"),
         "sep": compile_js("^(?:" + (ex.get("sep") or "") + ")$"),
         "gap": compile_js(ex["anchorGap"]),
-        "asr": [(compile_js("(?<![\u4e00-\u9fa5])" + re.escape(k) + "(?![\u4e00-\u9fa5])"), v)
-                for k, v in (ex.get("asrSplit") or {}).items()],
     }
 
 
@@ -572,11 +595,7 @@ def explain_units(s: str, ents: Optional[Iterable[dict]] = None) -> List[dict]:
     if not units:
         return []
     anchors = []
-    R = _split_rules()
-    if R:
-        anchors += [(sm.end(), sm.group(1)[-1]) for sm in R["re"].finditer(s)]
-    for rx, sur in E.get("asr") or []:  # #163：ASR 同音写法（龚厂长）也算锚点
-        anchors += [(m.end(), sur) for m in rx.finditer(s)]
+    anchors += [(b, sur) for _a, b, sur in split_hits(s)]  # #163：含 asrSplit 同音写法
     sur_all = set()
     for e in ents or []:
         if not isinstance(e.get("start"), int) or e.get("type") != "name" or not e.get("value"):
@@ -625,9 +644,8 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
     # 逐字解释（#158）：拆字报姓后紧跟逐字解释时不再往后数字打码，整段解释由下面统一打码
     units = explain_units(s, ents)
     out: List[dict] = []
-    for m in R["re"].finditer(s):
-        sur = m.group(1)[-1]
-        pos = m.end() + R["sep"].match(s[m.end():]).end()
+    for _a, m_end, sur in split_hits(s, units):
+        pos = m_end + R["sep"].match(s[m_end:]).end()
         if any(u["start"] <= pos < u["end"] for u in units):
             continue
         given = next((n[1:] for n in names if n[0] == sur and s.startswith(n[1:], pos)), "")
