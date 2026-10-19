@@ -478,6 +478,7 @@
       link: new RegExp('(?:' + ex.link + ')(' + ex.han + ')', 'y'),
       tail: new RegExp('(?:' + (ex.tail || '') + ')', 'y'),
       stop: new RegExp(ex.wordStop || '(?!)'),
+      tailWords: new RegExp('^(?:' + (ex.tailWords || '(?!)') + ')'), // #206「伟大的伟对吧」
       particle: new RegExp('^(?:' + (ex.particle || '(?!)') + ')$'),
       sep: new RegExp('^(?:' + (ex.sep || '') + ')$'),
       gap: new RegExp(ex.anchorGap)
@@ -531,7 +532,7 @@
     var units = [];
     cands.filter(function (c) {
       var n = s.charAt(c.end);
-      return c.end >= s.length || !E.han.test(n) || E.particle.test(n) || heads[c.end] === 1;
+      return c.end >= s.length || !E.han.test(n) || E.particle.test(n) || heads[c.end] === 1 || E.tailWords.test(s.slice(c.end));
     }).sort(function (a, b) { return a.start - b.start || a.end - b.end; }).forEach(function (c) {
       if (!units.length || units[units.length - 1].end <= c.start) units.push(c);
     });

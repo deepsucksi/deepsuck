@@ -28,6 +28,8 @@ def any_claim(t: str) -> bool:
 def test_claim_rewritten_same_as_js(case):
     out = hold_transfer(case["text"])
     assert out == case["expected"]
+    if case.get("mustKeep"):  # #204：改写后仍保留问收款信息那一问
+        assert case["mustKeep"] in out, out
     assert out != case["text"] and any(x in out for x in TC["stall"])
     assert not any_claim(out)
     assert hold_transfer(out) == out

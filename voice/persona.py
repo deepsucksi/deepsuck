@@ -13,6 +13,7 @@ if str(_PY) not in sys.path:
 
 from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
+from deepsuck.extractors import masked_lead_not_surname  # noqa: E402  #201 共用字表 core/name_stopchars.json
 from deepsuck.engine import hold_transfer, polish_reply, vague_digits  # noqa: E402
 from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, TRANSFER_CLAIM, resolve_persona_id  # noqa: E402
 from deepsuck.refs import UR as _UR, drop_unheard, heard_refs  # noqa: E402,F401  #173
@@ -560,8 +561,8 @@ NAME_PHRASE = "那个名字"
 
 def _unmask_names(s: str) -> str:
     def rep(m: re.Match) -> str:
-        sur = m.group(2)
-        if len(sur) == 1 and sur in _NOT_SURNAME:
+        # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓），不在表里的再看 _NOT_SURNAME
+        if masked_lead_not_surname(m, m.group(2), _NOT_SURNAME):
             return m.group(0)
         return NAME_PHRASE
     return _NAME_MASKED.sub(rep, s)

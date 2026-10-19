@@ -55,8 +55,10 @@ def test_coop_step_rule_lines_reveal_no_digits():
 
 def test_misread_lines_kept():
     found = {p["id"]: [t for _, t in _all_lines(p) if _misread_digits(t)] for p in PERSONAS}
-    for pid in ("wang", "lin", "zheng"):
+    # #198：小林唯一一句（otp_stall[12]“前两位是5、2”）已由负责人换成不带数字的句子，小林不再有这类台词
+    for pid in ("wang", "zheng"):
         assert found[pid], pid  # “像9又像4”这类台词保留
+    assert not found["lin"]
 
 
 def test_misread_digits_cannot_form_number():

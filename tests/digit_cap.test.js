@@ -27,6 +27,21 @@ test('夹具：反例原样不变', () => {
   for (const t of F.negative) assert.equal(E.vagueDigits(t), t);
 });
 
+test('台词库里没有两个数字挨着的句子（#198 小林三句已换）', () => {
+  const core = require('../site/assets/core/personas.json');
+  const bad = [];
+  for (const p of core.personas) for (const [k, v] of Object.entries(p.templates || {})) v.forEach((x, i) => {
+    const t = typeof x === 'string' ? x : (x.t || '');
+    if (pairs(t).length) bad.push([p.id, k, i, t]);
+  });
+  assert.deepEqual(bad, []);
+  const lin = core.personas.find((p) => p.id === 'lin').templates;
+  for (const t of [lin.otp_stall[12], lin.loan_stall[5], lin.coop_step[7].t]) {
+    assert.ok(F.negative.includes(t), t);
+    assert.equal(E.vagueDigits(t), t);
+  }
+});
+
 test('recordBot：两位数字的回复也过滤', () => {
   const s = new E.Session({ scenario: 'police', persona: 'wang', rng: () => 0.3, now: () => 0 });
   for (const x of F.positive) assert.deepEqual(pairs(s.recordBot(x.in, 'coop_step').text), [], x.in);
