@@ -15,7 +15,7 @@
   var deps = isNode ? {
     redact: require('./redact.js'), extractors: require('./extractors.js'),
     personas: require('./personas.js'), scenarios: require('./scenarios.js'),
-    llmQuirks: require('./llm-quirks.js')
+    llmQuirks: require('./llm-quirks.js'), engine: require('./engine.js')
   } : root.DeepSuck;
   var mod = factory(deps);
   if (isNode) module.exports = mod;
@@ -91,7 +91,7 @@
       '硬性规则：',
       '1. 只用简体中文口语，一次回复 1–3 句，不超过 80 字，保持人设，不要出戏，不要说自己是 AI。',
       '2. 绝不提供任何真实或看似真实的验证码、卡号、密码、身份证号、地址；需要时就说找不到、没弄好、要再确认一下。',
-      '3. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。',
+      '3. ' + D.personas.TRANSFER_CLAIM.rule, // #187：与语音硬性规则 4 同一句；不举“转完了”“我先转”这类原话，免得模型照着说
       '4. ' + UNSAID_RULE + (kinds.length ? '对话里〔〕括起来的是对方发过的信息的代称（原文已隐去），这次有：' +
         kinds.map(function (k) { return '〔' + UR.phrase[k] + '〕'; }).join('') + '。提到时用自然说法“' +
         kinds.map(function (k) { return UR.phrase[k]; }).join('”“') + '”，不要照抄〔〕，不要写星号，名字、号码里没看到的部分不要补也不要照念，也不要自己编号码。' : ''),
@@ -301,6 +301,7 @@
     // 整句被一对引号包住时才去掉这对引号（原来无条件去掉开头的“，句首是引用时会留下单边的”）
     var w = s.match(/^\s*(["“「])([\s\S]*)(["”」])\s*$/);
     if (w && (w[1] === '"' ? w[3] === '"' : QUOTE_PAIRS[w[1]] === w[3]) && !/["“”「」]/.test(w[2])) s = w[2];
+    if (D.engine && D.engine.holdTransfer) s = D.engine.holdTransfer(s); // #187：说成已经转了 / 答应去转的分句换成“还在弄，没弄好”（在姓名替换、数字过滤之前）
     s = maskNames(s, false); // #157：模型照抄的打码姓名先换掉，再脱敏
     s = D.redact.redactText(s, D.extractors.extractSensitive(s));
     s = speakMasked(s, false); // 打码值（模型照抄的或刚脱敏的）换成自然说法，回复里不出现星号

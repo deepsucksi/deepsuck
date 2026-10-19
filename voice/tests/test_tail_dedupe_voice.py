@@ -7,7 +7,7 @@ from pipecat.pipeline.pipeline import Pipeline
 from pipecat.tests.utils import run_test
 
 from deepsuck.engine import Session
-from deepsuck.personas import PERSONA_BY_ID
+from deepsuck.personas import PERSONA_BY_ID, TAIL_DEDUPE
 from voice.callredact import CallRedactor
 from voice.processors import BotTextTap, IntelProcessor, TailDedupeProcessor, TailHistory
 
@@ -16,6 +16,12 @@ ASK = "ask_repeat"
 
 def _plain(pid):
     return [x for x in PERSONA_BY_ID[pid]["templates"][ASK] if "{" not in x]
+
+
+def _picked(pid):
+    """#188：兜底只从 tailDedupe.fallbackPick 标了的 ask_repeat 里挑（不带具体场景、不带变量、最多一位数字）。"""
+    lst = PERSONA_BY_ID[pid]["templates"][ASK]
+    return [lst[i] for i in TAIL_DEDUPE["fallbackPick"][pid]]
 
 
 def _turn(*chunks):
@@ -79,10 +85,10 @@ def test_different_calls_independent():
 @pytest.mark.parametrize("pid", ["chen", "wang", "mom"])  # mom 是 chen 的别名
 def test_emptied_reply_falls_back_to_ask_repeat(pid):
     p = TailDedupeProcessor(pid)
-    pool = _plain("chen" if pid == "mom" else pid)
+    pool = _picked("chen" if pid == "mom" else pid)
     down = _run(p, _turn("行。"), _turn("行！"))
     r = _replies(down)
-    assert r[0] == "行。" and r[1] in pool  # 删空后从该人设不带变量的 ask_repeat 里挑
+    assert r[0] == "行。" and r[1] in pool  # 删空后从该人设 fallbackPick 标了的 ask_repeat 里挑（#188）
     assert p.history.recent()[-1] == r[1].strip() or p.history.recent()[-1] in r[1]
     # 确定性：同样的输入同样的结果
     q = TailDedupeProcessor(pid)
@@ -181,3 +187,13 @@ def test_interruption_resets_and_history_window():
     for x in ["a。", "b。", "", "c。", "d。"]:
         h.push(x)
     assert h.recent() == ["b。", "c。", "d。"]
+
+
+@pytest.mark.parametrize("pid", ["wang", "chen", "lin", "zheng"])
+def test_fallback_never_scene_specific(pid):
+    # #188：语音链路删空兜底不会拿到「哪个按钮？红的绿的？」这类带具体场景的句子
+    ok = _picked(pid)
+    for t in ("行。", "好的吧。", "嗯，我听着呢。"):
+        r = _replies(_run(TailDedupeProcessor(pid), _turn(t), _turn(t)))
+        assert r[0] == t and (len(r) == 1 or r[1] in ok), r
+    assert "哪个按钮？红的绿的？你说清楚点阿姨照着按。" not in _picked("wang")

@@ -16,7 +16,7 @@ from .core import load, utf16_len
 from . import extractors as X
 from . import redact as R
 from . import tactics as T
-from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, DIGIT_ECHO, REPLY_POLISH, TAIL_DEDUPE, resolve_persona_id
+from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, DIGIT_ECHO, REPLY_POLISH, TAIL_DEDUPE, TRANSFER_CLAIM, resolve_persona_id
 
 REPORT_SCHEMA = "deepsuck.intel-report/v0.1"
 VERSION = "0.4.0"
@@ -209,10 +209,13 @@ def tail_sentence(text: str) -> str:
 
 
 def _td_fallback(text: str, persona_id, seen: set) -> str:
-    """删完为空时的兜底：该人设 templates[fallback] 里已有台词（纯文本、不带 {变量}），按原句哈希定起点依次挑，
-    整句和尾句都不在 seen 里的第一句；挑不出返回空串。不新增任何台词文本。"""
+    """删完为空时的兜底：该人设 templates[fallback] 里已有台词（纯文本、不带 {变量}；#188 只用 tailDedupe.fallbackPick
+    标了的那几句），按原句哈希定起点依次挑，整句和尾句都不在 seen 里的第一句；挑不出返回空串。不新增任何台词文本。"""
     p = PERSONA_BY_ID.get(resolve_persona_id(persona_id)) if persona_id else None
-    pool = [x for x in ((p or {}).get("templates", {}).get(_TD["fallback"]) or []) if isinstance(x, str) and "{" not in x]
+    lst = (p or {}).get("templates", {}).get(_TD["fallback"]) or []
+    pick = [lst[i] for i in ((_TD.get("fallbackPick") or {}).get((p or {}).get("id")) or []) if 0 <= i < len(lst)]
+    # #188：fallbackPick 里标了的（不带具体场景、不带变量、最多一位数字）才用；没标或标空时回退到原来的整池
+    pool = [x for x in (pick or lst) if isinstance(x, str) and "{" not in x]
     if not pool:
         return ""
     start = _td_hash(_td_norm(text)) % len(pool)
@@ -238,6 +241,93 @@ def dedupe_tail(text: str, recent_tails: list, persona_id: Optional[str] = None)
         if _td_norm(parts[-1]) not in seen:
             return s
         s = "".join(parts[:-1]).rstrip()
+
+
+# ---- #187：不说成已经转账或答应去转（配置 personas.json 的 transferClaim；JS 在 engine.js 的 holdTransfer，用例 tests/fixtures/transfer_claim.json）----
+_TC = TRANSFER_CLAIM
+_TC_TRIGGER = re.compile(_TC["trigger"])
+_TC_QUOTE = re.compile(_TC["quote"])
+_TC_SEG = re.compile("[^" + re.escape(_TC["split"]) + "]+|[" + re.escape(_TC["split"]) + "]+")
+_TC_SEP = set(_TC["split"])
+_TC_DONE = re.compile(_TC["done"])
+_TC_COMMIT = re.compile(_TC["commit"])
+_TC_RECEIPT = re.compile(_TC["receipt"])
+_TC_RECEIPT_OBJ = re.compile(_TC["receiptObj"])
+_TC_NEG_PRE = re.compile(_TC["negPre"])
+_TC_NEG_POST = re.compile(_TC["negPost"])
+_TC_NAV_PRE = re.compile(_TC["navPre"])
+_TC_NOT_VERB = re.compile(_TC["notVerb"])
+_TC_REPORT = re.compile(_TC["report"])
+_TC_COND = re.compile(_TC["cond"])
+_TC_COND_POST = re.compile(_TC["condPost"])
+_TC_ASK = re.compile(_TC["ask"])
+_TC_QMARK = "？?"
+_TC_HOLD = "\ue010"  # 引号里的话挪开时的占位
+
+
+def _tc_hit(seg: str, pat: re.Pattern, cond_post: bool) -> bool:
+    for m in pat.finditer(seg):
+        pre, post = seg[:m.start()], seg[m.end():]
+        if _TC_NEG_PRE.search(pre) or _TC_NAV_PRE.search(pre) or _TC_REPORT.search(pre) or _TC_COND.search(pre):
+            continue
+        if _TC_NEG_POST.search(post) or _TC_NOT_VERB.search(post) or (cond_post and _TC_COND_POST.search(post)):
+            continue
+        return True
+    return False
+
+
+def transfer_claim(seg: str, receipt_ok: bool = True) -> bool:
+    """一个分句（引号里的话已挪开）是不是说成已经转了 / 答应去转（见 personas.json transferClaim.comment）。"""
+    if _TC_ASK.search(seg):
+        return False
+    if _tc_hit(seg, _TC_DONE, True) or _tc_hit(seg, _TC_COMMIT, False):
+        return True
+    return receipt_ok and _tc_hit(seg, _TC_RECEIPT, False)
+
+
+def hold_transfer(text: str) -> str:
+    """#187 发送前过滤（只用于大模型回复）：说成已经转账、问对方收没收到、答应马上去转的分句，整句换成拖延说法
+    （transferClaim.stall，按原句字符码之和轮换；相邻的合并成一处，问号改句号）。否定（还没转、不敢转）、引述对方的话
+    （引号里、你说 / 你让我…）、假设（要是转过去了…）、问细节（转到哪）不动。与 engine.js 的 holdTransfer 逐字一致。"""
+    src = str(text or "")
+    if not src or not _TC_TRIGGER.search(src):
+        return src
+    quoted: list = []
+
+    def _stash(m):
+        quoted.append(m.group(0))
+        return _TC_HOLD
+
+    s = _TC_QUOTE.sub(_stash, src)
+    receipt_ok = not _TC_RECEIPT_OBJ.search(s)
+    segs = _TC_SEG.findall(s)
+    stall = _TC["stall"][sum(ord(c) for c in src) % len(_TC["stall"])]
+    out: list = []
+    last_hit = False
+    changed = False
+    for seg in segs:
+        if seg[0] in _TC_SEP:
+            if last_hit and any(c in _TC_QMARK for c in seg):
+                seg = "".join("。" if c in _TC_QMARK else c for c in seg)
+            out.append(seg)
+            continue
+        if transfer_claim(seg, receipt_ok):
+            changed = True
+            if last_hit:  # 和上一处命中的连着：去掉中间的标点，合并成一处
+                while out and out[-1][0] in _TC_SEP:
+                    out.pop()
+                last_hit = True
+                continue
+            out.append(stall)
+            last_hit = True
+        else:
+            out.append(seg)
+            last_hit = False
+    if not changed:
+        return src
+    r = "".join(out)
+    it = iter(quoted)
+    return re.sub(_TC_HOLD, lambda _m: next(it), r) if quoted else r
 
 
 def vague_digits(text: str) -> str:
