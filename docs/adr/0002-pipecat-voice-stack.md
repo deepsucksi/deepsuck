@@ -17,3 +17,5 @@
 - 中文识别与合成质量好，单一供应商便于记账（`voice/guard.py` 预算护栏）。
 - 依赖 Pipecat 的接口演进：当前用到的 `PipelineTask`/`PipelineRunner` 与上下文内 system 消息已弃用，升级 2.0 前必须迁移（#9）。
 - SmallWebRTC 在受限网络下连通性差，必须有 TURN 回退与前端失败提示。
+
+2026-10-19 起统一改用 qwen3.8-flash，见 #145。

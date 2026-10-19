@@ -116,7 +116,7 @@
 
 ## 4. 推荐方案与月成本估算
 
-假设：每月 60 分钟诈骗/营销来电；主号与转移目标同一归属地；AI 费用按百炼目录价约 0.045 元/分钟（ASR 0.014 + TTS 0.016 + qwen-plus 0.015，见第 4.3 节；语音模型 2026-10 改为 qwen3.7-flash 后大模型一项约 0.004 元）；云主机未计入（以所选实例为准）。海外价格以美元列出，不做汇率换算。
+假设：每月 60 分钟诈骗/营销来电；主号与转移目标同一归属地；AI 费用按百炼目录价约 0.045 元/分钟（ASR 0.014 + TTS 0.016 + qwen3.8-flash 约 0.015（非思考），见第 4.3 节）；云主机未计入（以所选实例为准）。海外价格以美元列出，不做汇率换算。
 
 | 方案 | 定位 | 固定 | 每分钟 | 60 分钟/月合计 |
 |---|---|---|---|---|
@@ -136,7 +136,7 @@
 
 ### 4.2 管线
 
-与浏览器版相同：Silero VAD → Paraformer 实时 ASR → 拖延策略 + qwen3.7-flash → CosyVoice 流式 TTS；电话链路有单独的延迟参数（`DEEPSUCK_PHONE_LAT_*`，见 [VOICE_LATENCY.md](VOICE_LATENCY.md)）。
+与浏览器版相同：Silero VAD → Paraformer 实时 ASR → 拖延策略 + qwen3.8-flash → CosyVoice 流式 TTS；电话链路有单独的延迟参数（`DEEPSUCK_PHONE_LAT_*`，见 [VOICE_LATENCY.md](VOICE_LATENCY.md)）。
 
 ### 4.3 AI 费用（阿里云百炼北京地域目录价，沿用本文旧版数据）
 
@@ -144,7 +144,7 @@
 |---|---|---|
 | Paraformer 实时 ASR | 0.00024 元/秒 | 约 0.014 元 |
 | CosyVoice TTS | 0.8 元/万字符（1 汉字 = 2 字符） | 每分钟约 100 字，约 0.016 元 |
-| qwen3.7-flash（非思考） | 输入 0.0002 / 输出 0.0008 元/千 token | 约 0.004 元（2026-10 由 qwen-plus 切换，见 [LLM_AB.md](LLM_AB.md)） |
+| qwen3.8-flash（非思考） | 输入 0.0008 / 输出 0.0027 元/千 token | 约 0.015 元（2026-10-19 起统一用 Qwen 最新系列，见 [LLM_AB.md](LLM_AB.md)） |
 
 建议在百炼控制台设置费用告警；`VOICE_DAILY_BUDGET_CNY` 护栏对电话入口同样生效。
 
@@ -269,7 +269,7 @@ sip 容器：Asterisk 22（andrius/asterisk:22.11.0-alpine-3.24，host 网络）
    │  WebSocket 客户端 → ws://127.0.0.1:7860/telephony/asterisk-ws（HTTP Basic，密码 = VOICE_TELEPHONY_TOKEN）
    ▼
 voice 容器：TelephonyAdapter "asterisk-ws"（复用 ws-raw 的编解码/重采样）→ 与网页、电话共用的同一条管线
-   Silero VAD → Paraformer ASR → 拖延策略 + qwen3.7-flash → CosyVoice TTS → 回到 Asterisk → 手机
+   Silero VAD → Paraformer ASR → 拖延策略 + qwen3.8-flash → CosyVoice TTS → 回到 Asterisk → 手机
 ```
 
 - 不经过 Caddy：Asterisk 和 voice 都在 host 网络，走本机回环；Caddyfile 对公网请求 `/telephony/asterisk-ws*` 一律回 404。

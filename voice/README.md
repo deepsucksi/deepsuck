@@ -5,7 +5,7 @@
 一个本地跑的级联语音管线：你对着浏览器麦克风扮演骗子，DeepSuck 用四位人设（王阿姨 / 小陈妈妈 / 小林 / 郑老板，与首页同一组编号、身份和头像）的声音陪你周旋，同时在看板上实时显示抽取到的（已脱敏）情报、识别出的话术和本轮策略。
 
 ```
-浏览器麦克风 ──SmallWebRTC──▶ Paraformer 实时 ASR ──▶ IntelProcessor ──▶ qwen3.7-flash ──▶ 输出守卫 ──▶ CosyVoice TTS ──SmallWebRTC──▶ 浏览器扬声器
+浏览器麦克风 ──SmallWebRTC──▶ Paraformer 实时 ASR ──▶ IntelProcessor ──▶ qwen3.8-flash ──▶ 输出守卫 ──▶ CosyVoice TTS ──SmallWebRTC──▶ 浏览器扬声器
                                                      │ 情报抽取 / 话术识别 / 黑名单比对
                                                      │ 规则引擎选策略 → 改写系统提示词
                                                      │ 插播拖延填充音（"哎……你等一下啊"）
@@ -34,7 +34,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 
 | 参数 | 说明 |
 |---|---|
-| 环境变量 `DEEPSUCK_LLM_MODEL` / `DEEPSUCK_LLM_THINKING` | 语音大模型，默认 `qwen3.7-flash`、思考关（显式发 `enable_thinking=false`）；单价按模型查 `guard.py` 的 `LLM_PRICES`，选型见 [docs/LLM_AB.md](../docs/LLM_AB.md) |
+| 环境变量 `DEEPSUCK_LLM_MODEL` / `DEEPSUCK_LLM_THINKING` | 语音大模型，默认 `qwen3.8-flash`（该模型默认开思考）、思考关（显式发 `enable_thinking=false`）；单价按模型查 `guard.py` 的 `LLM_PRICES`，选型见 [docs/LLM_AB.md](../docs/LLM_AB.md) |
 | `--engine rule` | 不调用大模型，用规则引擎（与网页版同一套模板）出话；仍需 ASR/TTS |
 | `--host` / `--port` | 默认 `127.0.0.1:7860` |
 
@@ -56,7 +56,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 | `netpatch.py` | UDP 端口段限制、公网 IP 候选（服务器部署用） |
 | `probe.py` | `python -m voice.probe`：aiortc 端到端探针（部署后验证 UDP/ICE；`--json-out` 输出逐句端到端延迟） |
 | `cost.py` | `python -m voice.cost --day YYYY-MM-DD`：按天汇总调用成本（计数 × 单价重算），见下文「每日成本汇总」；VPS 上每天 20:40 由 `deepsuck-cost.timer` 写 `/var/log/deepsuck/cost-latest.json`（docs/DEPLOY.md 第 8 节） |
-| `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用 qwen-plus → CosyVoice → Paraformer 的冒烟测试 |
+| `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用 qwen3.8-flash → CosyVoice → Paraformer 的冒烟测试 |
 | `telephony/` | 电话接入抽象层（默认关闭）：`TelephonyAdapter` 基类 + 注册表，`ws-raw` 通用 SIP/WebSocket 适配器、`pipecat-ws`（Twilio/Telnyx/Plivo/Exotel）；阿里云呼入适配器设计稿。见 [telephony/README.md](telephony/README.md) |
 
 人设音色：王阿姨 `longlaoyi_v3`（龙老姨），小林 `longanyang`，郑老板 `longsanshu_v3`（龙三叔）。小陈妈妈用设计音色（`python -m voice.design_voice chen` 创建，填 `DEEPSUCK_VOICE_CHEN`），默认语速 0.75；没填时退回默认音色 `longlaoyi_v3`，自托管不配也能用。见下文“小陈妈妈、郑老板的音色与底噪”。

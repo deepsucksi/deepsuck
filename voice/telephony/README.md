@@ -18,7 +18,7 @@ SIP 侧（任选其一，独立进程，与 DeepSuck 只有一条 WebSocket）
 voice/telephony   TelephonyAdapter（握手 → CallInfo；serializer 编解码 + 重采样 + DTMF/挂断/打断）
      │ Pipecat FastAPIWebsocketTransport
      ▼
-voice/app.py 同一条管线：Paraformer → IntelProcessor → qwen3.7-flash → 输出守卫 → CosyVoice
+voice/app.py 同一条管线：Paraformer → IntelProcessor → qwen3.8-flash → 输出守卫 → CosyVoice
 ```
 
 ## 接口
@@ -159,7 +159,7 @@ class TurnAction:
     interruptible: bool = True
 ```
 
-- 内核复用：`deepsuck.engine.Session`（ingest → 话术/情报 → choose_intent）+ `voice.persona.system_prompt` + qwen3.7-flash +
+- 内核复用：`deepsuck.engine.Session`（ingest → 话术/情报 → choose_intent）+ `voice.persona.system_prompt` + qwen3.8-flash +
   `guard_output/speakable`，与 `IntelProcessor` 同一套逻辑，只是没有 Pipecat 音频帧。可以先把 `IntelProcessor` 里
   “一句转写 → 策略 → 提示词”的部分抽成纯函数，两边共用。
 - `AliyunVmsInboundAdapter(TextTurnAdapter)`：FastAPI `POST /telephony/aliyun-vms/callback`，按 `content_type` 分发，
