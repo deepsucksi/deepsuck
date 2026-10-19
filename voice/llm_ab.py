@@ -90,6 +90,12 @@ def prompt_digits(text: str) -> set:
     return set(_RUN.findall(norm_digits(text)))
 
 
+def digit_echoes(text: str) -> List[str]:
+    """#121：回复里连续 3 位以上的数字串（汉字数字、混写、夹空格顿号都算，按 norm_digits 归一）。
+    不管对方有没有先说过——复述对方报的号码也算。"""
+    return _RUN.findall(norm_digits(text))
+
+
 def digit_leaks(reply: str, said: str, examples=PROMPT_DIGIT_EXAMPLES) -> List[str]:
     """回复里出现、但对方此前（含本轮）没说过的提示词例子数字串。"""
     r, s = norm_digits(reply), norm_digits(said)
@@ -235,6 +241,10 @@ def summarize(rows: List[dict], model: str, turns_per_call: int = 10) -> dict:
         "leak_replies": sum(1 for r in leak_rows if r["leaked"]), "leak_n": len(leak_rows),
         "digit_leak_replies": len(dl), "digit_leak_calls": len({r.get("call") for r in dl}),
         "digit_leak_hits": sorted({d for r in dl for d in r["digit_leaked"]}),
+        # #121：复述数字。raw 是模型原话（看提示词管不管用），final 是过滤后真正发出去 / 念出来的
+        "digit_echo_raw_replies": sum(1 for r in ok if r.get("digit_echo_raw")),
+        "digit_echo_replies": sum(1 for r in ok if r.get("digit_echo")),
+        "digit_echo_raw_examples": [r["raw"] for r in ok if r.get("digit_echo_raw")][:8],
         "scene_leak_replies": len(sl), "scene_leak_calls": len({r.get("call") for r in sl}),
         "scene_leak_hits": sorted({d for r in sl for d in r["scene_leaked"]}),
         "sent_ellipsis_pct": round(100 * sum(bool(ELLIPSIS.search(x)) for x in sents) / (len(sents) or 1), 1),
@@ -325,6 +335,7 @@ async def run_script(http, url, key, model, sc, thinking=False, call: int = 0) -
         row.update(raw=raw, reply=reply, guarded=reply != raw.strip(), think="<think>" in raw or res["reasoning"],
                    leaked=leaked(reply, said) if sc["leak_check"] else [], style=style(raw),
                    digit_leaked=digit_leaks(raw, heard, examples), scene_leaked=scene_leaks(raw, heard),
+                   digit_echo_raw=digit_echoes(raw), digit_echo=digit_echoes(reply),
                    ttft_ms=res["ttft_ms"], total_ms=res["total_ms"], **{"in": res["in"], "out": res["out"]})
         rows.append(row)
     return rows

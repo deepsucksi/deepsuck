@@ -13,6 +13,7 @@ if str(_PY) not in sys.path:
 
 from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
+from deepsuck.engine import vague_digits  # noqa: E402
 from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, resolve_persona_id  # noqa: E402
 
 INTENT_HINTS: dict = load("personas")["intentHints"]
@@ -260,9 +261,10 @@ def voice_opening(session) -> dict:
 
 # #73：号码规则里不放具体数字当例子（原来是“尾号8600是吧…”“幺三零…”，qwen3.7-flash 被问尾号时会把 8600 原样说出来）。
 # 提示词里任何地方都不要写具体号码；要举例就用“后四位”“开头几位”这类说法（voice/tests/test_digit_leak.py 会检查）。
-RULE_DIGITS = ("5. 号码只复述对方自己报过的一部分：只说对方报的那串号码的后四位，或者只说开头几位、后面就说“后面是多少来着”；"
-               "不要念星号，不要把整串号码念全，也不要自己编号码。问到你自己的卡号、尾号、手机号、验证码，"
-               "就说找不到、记不清、要去翻一下，不报号码。")
+# #121：连对方报过的号码也不复述（原来允许说后四位、开头几位，模型会说出“验证码是…？”“…开头…尾号…对吧”）。
+RULE_DIGITS = ("5. 嘴上不说任何数字串：对方报过的验证码、卡号、电话也不重复，开头几位、尾号、用汉字说的数字都算；"
+               "要提就说“你说的那个号”“那张卡”，最多含糊地说“好像是…开头的”“后面几位没听清”，顶多带一个单独的数字。"
+               "不要念星号，也不要自己编号码。问到你自己的卡号、尾号、手机号、验证码，就说找不到、记不清、要去翻一下，不报号码。")
 
 NO_LEAK_RULE = ("你不知道对方打电话来干什么，只接对方已经说过的话；对方没提到的事一概不先提，也不要猜对方的目的；"
                 "对方说在哪儿看到你、怎么认识你，也不要追问是从哪儿、在哪儿看到的。")
@@ -383,19 +385,16 @@ def calm(text: str, pauses: bool | None = None) -> str:
     return re.sub(r"^[，。\s]+", "", s).rstrip("，")
 
 
-# 打码值（130****8600、622202*********3445、130-***-8600）：只在看板和日志里出现，进模型、进 TTS 前改成“尾号8600”。
+# 打码值（130****8600、622202*********3445、130-***-8600）：只在看板和日志里出现，进模型、进 TTS 前改成“那个号”。
+# #121 起不再带出可见尾号（原来改成“尾号8600”，模型和 TTS 都会把尾号原样复述）。
 _MASKED = re.compile(r"[0-9]{0,8}[-\s]?[*＊]+(?:[-\s]?[*＊]+)*[-\s]?([0-9]*)")
 _TAIL_WORD = re.compile(r"尾号(?:是)?\s*$")
 
 
 def unmask(text: str) -> str:
-    """把打码值换成自然说法：有 3 位以上可见尾号就说“尾号XXXX”，否则说“那个号”。不留任何星号。"""
+    """把打码值换成自然说法“那个号”（前面已经说了“尾号”就说“那几位”）。不留任何星号，也不带出可见的数字。"""
     def rep(m: re.Match) -> str:
-        tail = m.group(1) or ""
-        before = m.string[:m.start()]
-        if len(tail) >= 3:
-            return tail if _TAIL_WORD.search(before) else f"尾号{tail}"
-        return "那个号"
+        return "那几位" if _TAIL_WORD.search(m.string[:m.start()]) else "那个号"
     return _MASKED.sub(rep, str(text or ""))
 
 
@@ -420,18 +419,23 @@ def say_digits(text: str) -> str:
 
 
 def speakable(text: str, calm_tts: bool | None = None) -> str:
-    """给 TTS 用：在 guard_output 基础上把打码值改成“尾号XXXX”，降调，号码逐位读，残留星号读成停顿。"""
+    """给 TTS 用：在 guard_output 基础上把打码值改成“那个号”，降调，数字过滤（#121），号码逐位读，残留星号读成停顿。
+
+    数字过滤（engine.vague_digits）在语音合成前最后一道：连续 3 位以上的数字（含中文数字）换成“好像是6开头的”“后面几位没听清”这类说法。
+    """
     s = unmask(guard_output(text))
     if _CALM if calm_tts is None else calm_tts:
         s = calm(s)
+    s = vague_digits(s)
     s = say_digits(s)
     return _STARS.sub("……", s)
 
 
 def guard_output(text: str) -> str:
-    """输出守卫（PolicyGuard）：去掉括号动作/Markdown、脱敏、抹掉 5 位以上数字串（防止编造验证码/卡号）。"""
+    """输出守卫（PolicyGuard）：去掉括号动作/Markdown、数字过滤（#121：连续 3 位以上的数字含中文数字换成含糊说法）、脱敏、抹掉 5 位以上数字串。"""
     s = re.sub(r"<think>.*?</think>", "", str(text or ""), flags=re.S)
     s = _BOLD.sub(r"\1", s)
+    s = vague_digits(s)
     s = redact_text(s, extract_sensitive(s))
     s = _LONG_DIGITS.sub("……", s)
     s = _STRIP.sub("", s).strip()

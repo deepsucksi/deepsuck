@@ -80,9 +80,11 @@ def test_spoken_tail_only_reveals_what_mask_already_shows():
 def test_speak_intel_forms_cover_types_and_wrong_digit():
     for k in ("bank_card", "phone", "name", "url", "crypto", "default"):
         assert SPEAK_INTEL[k]
-    s = Session("police", "lin", rng=lambda: 0.99, now=lambda: 0)  # 取最后一种说法：尾号报错一位
-    said = s.speak_intel({"type": "bank_card", "label": "银行卡号", "masked": R.mask_bank_card(RAW["card"])}, RAW["card"])
-    assert said == "卡号尾号3454"
+    # #121：号码一个数字都不复述，带尾号的说法（含“尾号报错一位”）退回“你说的那个…”
+    for r in (0.0, 0.5, 0.99):
+        s = Session("police", "lin", rng=lambda r=r: r, now=lambda: 0)
+        said = s.speak_intel({"type": "bank_card", "label": "银行卡号", "masked": R.mask_bank_card(RAW["card"])}, RAW["card"])
+        assert said == "你说的那个银行卡号" and not re.search(r"[0-9]", said)
 
 
 def test_no_template_redacts_itself():

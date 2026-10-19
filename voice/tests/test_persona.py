@@ -10,13 +10,13 @@ def test_system_prompt_uses_core_json():
 def test_guard_strips_and_masks():
     assert guard_output("<think>x</think>好的（笑）**行**") == "好的行"
     assert "123456" not in guard_output("验证码是123456")
-    # 不能吃掉脱敏星号
-    assert guard_output("卡号6222 **** **** 7890") == "卡号6222 **** **** 7890"
-    assert guard_output("bi***t***.top") == "bi***t***.top"
+    # #121：夹着脱敏星号的号码也是一串数字，整串换成含糊说法（不再留开头、尾号）
+    assert guard_output("卡号6222 **** **** 7890") == "卡号那几个数没听清"
+    assert guard_output("bi***t***.top") == "bi***t***.top"  # 不是数字的打码值不动
 
 
-def test_speakable_reads_masked_tail_digitwise():
-    assert speakable("尾号 ****7890") == "尾号七八九零"
+def test_speakable_never_reads_masked_tail():
+    assert speakable("尾号 ****7890") == "后面几位没听清"
 
 
 def test_fillers_for_every_persona():

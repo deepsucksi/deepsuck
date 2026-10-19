@@ -20,6 +20,8 @@ PERSONA_BY_ID = {p["id"]: p for p in PERSONAS}
 STALL_SECONDS: dict = _P["stallSeconds"]
 # 复述情报给骗子听的说法（不念星号）；engine.Session.speak_intel 使用
 SPEAK_INTEL: dict = _P["speakIntel"]
+# 人设回复发出前的数字过滤配置（issue #121）；engine.vague_digits 使用
+DIGIT_ECHO: dict = _P["digitEcho"]
 
 SCENARIOS = _S["scenarios"]
 SCENARIO_BY_ID = {s["id"]: s for s in SCENARIOS}
