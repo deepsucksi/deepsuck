@@ -18,6 +18,8 @@ F = json.loads((ROOT / "tests/fixtures/heard_refs_p0.json").read_text(encoding="
 
 
 def ok(expect, refs):
+    if expect == "name+number":
+        return "name" in refs and "number" in refs
     if expect == "number":
         return "number" in refs and "name" not in refs
     if expect == "name":

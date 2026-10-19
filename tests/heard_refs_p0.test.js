@@ -9,6 +9,7 @@ const R = require('../site/assets/js/redact.js');
 const F = require('./fixtures/heard_refs_p0.json');
 
 function check(expect, refs) {
+  if (expect === 'name+number') return refs.includes('name') && refs.includes('number');
   if (expect === 'number') return refs.includes('number') && !refs.includes('name');
   if (expect === 'name') return refs.includes('name');
   return !refs.includes('name');

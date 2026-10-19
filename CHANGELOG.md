@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- #214 语料组审查（相对 ee2c102 的新漏名）：`maskContext.numberBefore` 去掉「转给、汇给、转入、存到」，这些后面的星号按姓名算；新增 `maskContext.nameAfter`（共用函数 `extractors.starsName` / Python `stars_name`），「转到**名下」「打到**的卡上」「汇到**的账户」等仍是姓名，优先于号码语境。llm.js maskNames / refs.mask_names 的纯星号规则改为按逗号、句号等分段看号码字样，「卡号是***，户名***」同时记 number 和 name（顺带「户名***，卡号***」也不再丢名字）。`tests/fixtures/heard_refs_p0.json` 补 33 条（1–3 个星号各一条），新增 expect `name+number`。
 <<<<<<< HEAD
 - 人设侧已打码星号按上下文判代称（#206 第六条探针，语音 P0）：`site/assets/core/name_stopchars.json` 新增 `maskContext`（numberBefore / notNameAfter），共用函数 `extractors.starsNotName` / Python `stars_not_name`。「验证码是***」「卡号是**」「尾号是***」「密码是*」「账号是***」「转到***」「手机号是**」念「那个号」、heard_refs 记 number；「我在***上班」不当姓名；「收款人是***」「户名是**」「收款人姓和**」「户名和平」「对方叫**」仍是姓名。改动点：`maskedLeadNotSurname` / `masked_lead_not_surname` 先查上下文（早于 1–3 星号兜底 `_SHORT_STARS`），llm.js maskNames 与 refs.mask_names 的纯星号规则也先查上下文。用例 `tests/fixtures/heard_refs_p0.json`（语音组 p0-cases.json 的 37 条 + 补充），网页、Python、语音三端断言；「验证码是123」打码后念「验证码是你发的那个号」。
 =======

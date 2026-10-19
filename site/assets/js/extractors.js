@@ -77,8 +77,12 @@
   var NUMBER_BEFORE = new RegExp(MC.numberBefore || '(?!)');
   var NOT_NAME_AFTER = new RegExp('^(?:' + (MC.notNameAfter || '(?!)') + ')');
   /** #206 第六条探针：str 里 pos 处开始的星号按上下文不当姓名（号码语境「验证码是***」「转到**」，或「我在***上班」）。与 Python stars_not_name 一致。 */
+  var NAME_AFTER = new RegExp('^(?:' + (MC.nameAfter || '(?!)') + ')');
+  /** #214 审查：str 里 pos 处开始的星号后面跟「名下、的卡、的账户」等，是收款人姓名（「转到**名下」）。与 Python stars_name 一致。 */
+  function starsName(str, pos) { return NAME_AFTER.test(String(str).slice(pos)); }
   function starsNotName(str, pos) {
     str = String(str);
+    if (starsName(str, pos)) return false; // #214：「转到**名下」「打到**的卡上」仍是姓名
     return NUMBER_BEFORE.test(str.slice(0, pos)) || NOT_NAME_AFTER.test(str.slice(pos));
   }
   function maskedLeadNotSurname(m, sur, off, str, fallback) {
@@ -482,5 +486,5 @@
     return extract(text).filter(function (e) { return e.sensitive; });
   }
 
-  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
+  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, starsName: starsName, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
 });

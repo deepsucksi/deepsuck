@@ -103,11 +103,19 @@ _SHORT_STARS = re.compile("[*＊]{1,3}(?![*＊])")
 _MC = load("name_stopchars").get("maskContext") or {}
 _NUMBER_BEFORE = compile_js(_MC.get("numberBefore") or "(?!)")
 _NOT_NAME_AFTER = compile_js(_MC.get("notNameAfter") or "(?!)")
+_NAME_AFTER = compile_js(_MC.get("nameAfter") or "(?!)")
+
+
+def stars_name(s: str, pos: int) -> bool:
+    """#214 审查：s 里 pos 处开始的星号后面跟「名下、的卡、的账户」等，是收款人姓名（「转到**名下」）。与 JS starsName 一致。"""
+    return bool(_NAME_AFTER.match(str(s), pos))
 
 
 def stars_not_name(s: str, pos: int) -> bool:
     """#206 第六条探针：s 里 pos 处开始的星号按上下文不当姓名（号码语境「验证码是***」「转到**」，或「我在***上班」）。与 JS starsNotName 一致。"""
     s = str(s)
+    if stars_name(s, pos):  # #214：「转到**名下」「打到**的卡上」仍是姓名
+        return False
     return bool(_NUMBER_BEFORE.search(s[:pos]) or _NOT_NAME_AFTER.match(s, pos))
 
 
