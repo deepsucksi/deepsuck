@@ -9,7 +9,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 test('name_stopchars.json：格式、单字、不重复、每个字至少一条反例', () => {
-  assert.equal(S.schema, 'deepsuck.core.name_stopchars/v1');
+  assert.equal(S.schema, 'deepsuck.core.name_stopchars/v2');
   assert.ok(typeof S.comment === 'string' && S.comment.includes('用途'));
   assert.ok(Array.isArray(S.chars) && S.chars.length > 0);
   const seen = new Set();
@@ -18,10 +18,17 @@ test('name_stopchars.json：格式、单字、不重复、每个字至少一条�
     assert.ok(!seen.has(r.char), '重复：' + r.char);
     seen.add(r.char);
     assert.ok(typeof r.kind === 'string' && r.kind);
+    assert.equal(typeof r.surname, 'boolean', r.char + ' 要写明 surname');
+    if (r.surname) {
+      assert.ok(typeof r.after === 'string' && r.after, r.char + ' 可能是真姓，要写 after（放行的上下文）');
+      assert.doesNotThrow(() => new RegExp('^(?:' + r.after + ')'));
+      assert.ok(!/\(\?<[a-zA-Z]/.test(r.after) && !/\\p\{/.test(r.after), 'after 只用 Python re 也支持的语法：' + r.char);
+    } else assert.equal(r.after, undefined, r.char + ' 不是真姓，不写 after');
     assert.ok(Array.isArray(r.negatives) && r.negatives.length >= 1, r.char + ' 至少一条反例');
     for (const t of r.negatives) assert.ok(t.includes(r.char), r.char + ' 的反例要含这个字：' + t);
   }
   for (const c of ['对', '是', '嗯', '好', '行', '哦', '有', '没', '只', '和', '谁', '啥']) assert.ok(seen.has(c), '缺 ' + c);
+  for (const c of ['和', '有', '谁', '是', '都', '还', '那', '信', '姓']) assert.ok(S.chars.find((r) => r.char === c).surname, c + ' 可能是真姓，要按上下文判断');
   const words = new Set();
   for (const r of S.words || []) {
     assert.match(r.word, /^[\u4e00-\u9fa5]{2,}$/, 'words 每项是两个字以上：' + r.word);
@@ -32,8 +39,8 @@ test('name_stopchars.json：格式、单字、不重复、每个字至少一条�
   for (const w of ['什么', '多少']) assert.ok(words.has(w), '缺 ' + w);
 });
 
-test('name_stopchars.json：表里的字都不是常见姓氏', () => {
-  for (const r of S.chars) assert.ok(!EX.nameRules.surnames.includes(r.char), r.char + ' 在 nameRules.surnames 里');
+test('name_stopchars.json：surname=false 的字都不是常见姓氏；常见姓氏必须按上下文判断', () => {
+  for (const r of S.chars) assert.ok(r.surname || !EX.nameRules.surnames.includes(r.char), r.char + ' 在 nameRules.surnames 里');
 });
 
 test('name_stopchars.json：已打包进 core-data.js（网页侧读 DeepSuck.coreData.name_stopchars）', () => {

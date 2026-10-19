@@ -38,9 +38,9 @@ test('高压档原句：会话里不记假户名（确认台词的「姓{s}」�
   assert.ok(!Object.values(s.intel).some((i) => i.type === 'name'), JSON.stringify(s.intel));
 });
 
-test('#147 输出守卫误打码的 23 条人设原话：脱敏后原样不变', () => {
-  assert.equal(FX.redactKeep.length, 23);
-  for (const t of FX.redactKeep) assert.equal(R.redactText(t, X.extractSensitive(t)), t);
+test('#147 输出守卫误打码的 23 条人设原话 + 共用不打码说法：脱敏后原样不变', () => {
+  assert.equal(FX.redactKeep147.length, 23);
+  for (const t of FX.redactKeep147.concat(FX.redactKeep)) assert.equal(R.redactText(t, X.extractSensitive(t)), t);
 });
 
 test('真名照常打码（正例不退）', () => {
@@ -51,4 +51,17 @@ test('words 多字词：名字以这些词开头时不算', () => {
   for (const r of S.words) for (const t of r.negatives) {
     assert.ok(!names(t).some((n) => n.startsWith(r.word)), r.word + '：' + t + ' -> ' + names(t));
   }
+});
+
+test('可能是真姓的字：上下文不是字段名时照常打码（户名和平、收款人姓和、户名有志强）', () => {
+  for (const r of S.chars) for (const t of r.positives || []) {
+    const out = R.redactText(t, X.extractSensitive(t));
+    assert.notEqual(out, t, r.char + '：' + t + ' 没打码');
+    assert.ok(out.includes('*'), t + ' -> ' + out);
+  }
+});
+
+test('「收款人姓和」整段记成户名时，确认台词不念「姓姓」', () => {
+  const s = new E.Session({ scenario: 'pig', persona: 'lin', seed: 1000 });
+  for (let i = 0; i < 40; i++) assert.ok(!s.speakIntel({ type: 'name', label: '收款户名', masked: '姓*', raw: '姓和' }).includes('姓姓'));
 });

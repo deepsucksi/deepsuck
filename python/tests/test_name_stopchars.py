@@ -1,17 +1,22 @@
 """#185 共用字表 site/assets/core/name_stopchars.json 的格式检查（与 tests/name_stopchars.test.js 一致）。"""
-from deepsuck.core import load
+from deepsuck.core import compile_js, load
 
 
 def test_name_stopchars_format():
     s = load("name_stopchars")
-    assert s["schema"] == "deepsuck.core.name_stopchars/v1"
+    assert s["schema"] == "deepsuck.core.name_stopchars/v2"
     assert "用途" in s["comment"]
     chars = [r["char"] for r in s["chars"]]
     assert len(chars) == len(set(chars))
     surnames = load("extractors")["nameRules"]["surnames"]
     for r in s["chars"]:
         assert len(r["char"]) == 1 and "\u4e00" <= r["char"] <= "\u9fa5"
-        assert r["char"] not in surnames
+        assert isinstance(r["surname"], bool)
+        if r["surname"]:
+            assert r["after"]
+            compile_js("^(?:" + r["after"] + ")")
+        else:
+            assert "after" not in r and r["char"] not in surnames
         assert r["negatives"] and all(r["char"] in t for t in r["negatives"])
     for c in "对是嗯好行哦有没只和谁啥":
         assert c in chars
@@ -39,7 +44,11 @@ def _names(t):
 
 
 def test_stopchars_loaded_from_core():
-    assert NAME_STOPCHARS == {r["char"] for r in STOP}
+    assert set(NAME_STOPCHARS) == {r["char"] for r in STOP}
+    for r in STOP:
+        assert (NAME_STOPCHARS[r["char"]] is None) == (not r["surname"])
+    for c in "和有谁是都还那信姓":
+        assert next(r for r in STOP if r["char"] == c)["surname"], c
 
 
 @pytest.mark.parametrize("char,text", [(r["char"], t) for r in STOP for t in r["negatives"]])
@@ -70,10 +79,10 @@ def test_core_word_negatives(word, text):
 
 
 def test_redact_keep_147_count():
-    assert len(FX["redactKeep"]) == 23
+    assert len(FX["redactKeep147"]) == 23
 
 
-@pytest.mark.parametrize("text", FX["redactKeep"])
+@pytest.mark.parametrize("text", FX["redactKeep147"] + FX["redactKeep"])
 def test_redact_keep_147(text):
     """#147 输出守卫误打码的人设原话（「户名没记全」「户名和开户行」「户名到底填谁」「户名是啥」）：脱敏后原样不变。"""
     assert redact_text(text, extract_sensitive(text)) == text
@@ -82,3 +91,16 @@ def test_redact_keep_147(text):
 @pytest.mark.parametrize("case", FX["redactMask"], ids=[c["text"] for c in FX["redactMask"]])
 def test_redact_mask_real_names(case):
     assert redact_text(case["text"], extract_sensitive(case["text"])) == case["redacted"]
+
+
+@pytest.mark.parametrize("char,text", [(r["char"], t) for r in STOP for t in r.get("positives", [])])
+def test_surname_positives_still_masked(char, text):
+    """可能是真姓的字，上下文不是字段名、疑问词时照常打码（户名和平、收款人姓和、户名有志强）。"""
+    out = redact_text(text, extract_sensitive(text))
+    assert out != text and "*" in out, (char, text, out)
+
+
+def test_speak_intel_no_double_xing():
+    s = Session(scenario="pig", persona="lin", rng=mulberry32(1000), now=lambda: 0)
+    for _ in range(40):
+        assert "姓姓" not in s.speak_intel({"type": "name", "label": "收款户名", "masked": "姓*"}, "姓和")
