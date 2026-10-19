@@ -15,6 +15,7 @@ import base64
 import hashlib
 import hmac
 import os
+import secrets
 import sys
 import time
 import uuid
@@ -149,8 +150,8 @@ def public_config(engine: str, limits: Optional[G.Limits] = None, budget: Option
                       "voice": _public_voice(p["id"])} for p in PERSONAS],
         "aliases": PERSONA_ALIASES,
         "scenarios": [{"id": s["id"], "title": s["title"]} for s in SCENARIOS],
-        # 通话追踪（同意制，见 voice/trace.py）：页面据此显示同意复选框和说明
-        "trace": {"enabled": TR.enabled(), "days": TR.days(), "audio": TR.audio_enabled()},
+        # 通话追踪（见 voice/trace.py、docs/TRACE_SCHEMA.md）：页面据此显示录音同意复选框和留存说明
+        "trace": {"enabled": TR.enabled(), "days": TR.days(), "audioDays": TR.audio_days(), "audio": TR.audio_enabled()},
     }
 
 
@@ -257,7 +258,7 @@ def _with_taps(procs: list, recorder) -> list:
 async def run_bot(connection, persona: str, scenario: str, engine: str, *, limits: Optional[G.Limits] = None,
                   budget: Optional[G.VoiceBudget] = None, ticket: Optional[G.Ticket] = None,
                   on_done=None, connect_timeout: Optional[float] = None, consent: bool = False,
-                  trace_id: Optional[str] = None) -> None:
+                  trace_id: Optional[str] = None, feedback_key: str = "") -> None:
     """一次通话：SmallWebRTC 连接 → 管线 → 开场白；看门狗按时长/轮数/静默/预算挂断。"""
     from pipecat.frames.frames import EndFrame, TTSSpeakFrame
     from pipecat.pipeline.runner import PipelineRunner
@@ -281,13 +282,17 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
     call_id = ""
     try:
         session = Session(scenario=scenario, persona=persona, engine=f"voice-{engine}")
-        # 通话追踪：勾选同意才存内容（文字 + 两轨录音）；不勾选只计数。编号与 /api/offer 返回给页面的一致
+        # 通话追踪：脱敏文字每通都存；勾选同意才录两轨录音。编号与 /api/offer 返回给页面的一致
         trace = TR.CallTrace(channel="web", consent=consent, persona=session.persona["id"],
                              scenario=session.scenario["id"], model=LLM_MODEL if engine == "llm" else "rule",
-                             engine=engine, trace_id=trace_id)
+                             engine=engine, trace_id=trace_id, asr_model=ASR_MODEL, tts_model=TTS_MODEL,
+                             tts_voice=persona_voice(session.persona["id"], TTS_MODEL).voice,
+                             usage_fn=(lambda: dict(ticket.usage)) if ticket is not None else None,
+                             feedback_key=feedback_key)
         call_id = trace.id
         trace.session = session
-        recorder = REC.recorder_for(call_id) if trace.store else None  # KEEP_AUDIO=1 且同意才录 WAV（旧开关）
+        # KEEP_AUDIO=1 且勾选同意才录 WAV（旧开关）
+        recorder = REC.recorder_for(call_id) if trace.store and trace.consent is True else None
         transport = SmallWebRTCTransport(webrtc_connection=connection, params=TransportParams(
             audio_in_enabled=True, audio_out_enabled=True, audio_in_sample_rate=IN_RATE, audio_out_sample_rate=OUT_RATE,
             audio_out_mixer=make_mixer(session.persona["id"])))
@@ -380,14 +385,15 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
             recorder.close()
         if session is not None:
             session.end()
-            if trace is not None and trace.store:  # 不勾选同意就什么都不存
+            if trace is not None and trace.store and trace.consent is True:  # 旧的整通文字存档仍只在同意时写
                 REC.save_transcript(session, call_id, "web")
         if trace is not None:
             try:
                 from .latency import summarize
                 trace.end(st["reason"] or "pipeline_end", stats=session.stats() if session else None,
                           latency=summarize(lat.turns) if lat is not None else None,
-                          usage=ticket.usage if ticket is not None else None)
+                          usage=ticket.usage if ticket is not None else None,
+                          cost_cny=ticket.spent if ticket is not None else None)
             except Exception as e:
                 logger.warning(f"通话追踪收尾失败: {e}")
         if ticket is not None:
@@ -519,6 +525,7 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
         req = SmallWebRTCRequest(sdp=body["sdp"], type=body["type"], pc_id=pc_id)
         started = {"v": False}
         trace_id = TR.new_id() if not renegotiate else None
+        fb_key = secrets.token_urlsafe(18) if not renegotiate else ""  # 只发给这个页面：“这通有问题”只认当前通话
 
         async def on_conn(conn):
             started["v"] = True
@@ -528,7 +535,8 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
                 known_pcs.pop(_pc, None)
 
             background.add_task(run_bot, conn, persona, scenario, engine, limits=limits, budget=budget,
-                                ticket=ticket, on_done=done, consent=consent, trace_id=trace_id)
+                                ticket=ticket, on_done=done, consent=consent, trace_id=trace_id,
+                                feedback_key=fb_key)
 
         try:
             ans = await handler.handle_web_request(req, on_conn)
@@ -545,8 +553,9 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
                 known_pcs[ans["pc_id"]] = sid
             if public_ip and ans.get("sdp"):
                 ans["sdp"] = add_public_ip_candidates(ans["sdp"], public_ip)
-            if trace_id and started["v"] and consent and TR.enabled():
-                ans["trace_id"] = trace_id  # 只有同意存储时才把编号给页面（用于反馈和复制）
+            if trace_id and started["v"] and TR.enabled():
+                ans["trace_id"] = trace_id  # 每通都有编号（页面显示、可复制，报问题时引用）
+                ans["feedback_key"] = fb_key
         return ans
 
     small_hits: Dict[str, list] = {}
@@ -595,20 +604,26 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
 
     @app.post("/api/feedback/{trace_id}")
     async def feedback(trace_id: str, request: Request):
-        """“这通有问题”：可选一句说明、可选第几轮，写进同一份通话追踪。只接受已同意存储的网页通话。"""
+        """“这通有问题”：可选一句说明、可选第几轮，写进同一份通话追踪（feedback 行，flagged=true）。
+        防滥用：同一 IP 每分钟 6 次；只认当前通话（要带 /api/offer 发给这个页面的 feedback_key，且通话开始
+        不超过 TRACE_FEEDBACK_HOURS 小时）；每通最多 TR.MAX_FEEDBACK 条。"""
         if origins and request.headers.get("origin", "").rstrip("/") not in origins:
             raise HTTPException(403, "origin not allowed")
+        _small_rate(request, "feedback", per_min=6)
         try:
             body = await request.json()
         except Exception:
             body = {}
         if not isinstance(body, dict):
             body = {}
-        res = await asyncio.to_thread(TR.feedback, trace_id, str(body.get("note") or ""), body.get("turn"))
+        key = body.get("key")
+        res = await asyncio.to_thread(TR.feedback, trace_id, str(body.get("note") or ""), body.get("turn"),
+                                      key=key if isinstance(key, str) else None)
         if res is None:
             raise HTTPException(404, "not found")
         if not res.get("ok"):
-            raise HTTPException(429, "too many reports for this call")
+            code = {"forbidden": 403, "expired": 410}.get(res.get("error"), 429)
+            raise HTTPException(code, str(res.get("error") or "too many"))
         return {"ok": True}
 
     # ---- 通话追踪读取端（不对公众：Caddy 对 /api/traces* 直接 404；这里再要求 TRACE_ADMIN_TOKEN） ----
@@ -622,9 +637,15 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
             raise HTTPException(403, "forbidden")
 
     @app.get("/api/traces")
-    async def traces(request: Request, since: Optional[str] = None, limit: int = 50):
+    async def traces(request: Request, since: Optional[str] = None, limit: int = 50, flagged: bool = False):
         _admin(request)
-        return {"traces": await asyncio.to_thread(TR.list_traces, since, limit)}
+        return {"traces": await asyncio.to_thread(TR.list_traces, since, limit, None, flagged)}
+
+    @app.get("/api/traces-usage")
+    async def traces_usage(request: Request, since: Optional[str] = None, until: Optional[str] = None):
+        """按天用量汇总（#20 成本监控）：与 python -m voice.trace_cli --usage 同一份 JSON。"""
+        _admin(request)
+        return await asyncio.to_thread(TR.usage_by_day, since, until)
 
     @app.get("/api/traces/{trace_id}")
     async def trace_get(trace_id: str, request: Request):
@@ -638,10 +659,8 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
     @app.get("/api/traces/{trace_id}/audio/{track}")
     async def trace_audio(trace_id: str, track: str, request: Request):
         _admin(request)
-        if not TR.valid_id(trace_id) or track not in TR.TRACKS:
-            raise HTTPException(404, "not found")
-        p = TR.trace_dir() / f"{trace_id}-{track}.ogg"
-        if not p.is_file():
+        p = TR.audio_file(trace_id, track)
+        if p is None:
             raise HTTPException(404, "not found")
         return FileResponse(p, media_type="audio/ogg")
 

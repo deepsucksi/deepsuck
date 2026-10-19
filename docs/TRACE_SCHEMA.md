@@ -1,0 +1,151 @@
+# 通话追踪 schema（v2）
+
+当前版本：`schema_version = 2`。代码在 `voice/trace.py`（`SCHEMA_VERSION`），测试在 `voice/tests/test_trace_schema.py`，
+测试会检查本文档列全了下面的字段。语音工程（#5）、磁盘监控（#18）、成本监控（#20）共用这一份。
+
+- 每通电话一个文件 `<TRACE_DIR>/<call_id>.jsonl`，每行一个 JSON 对象，`type` 区分行的种类。
+- 每一行都带 `schema_version` 和 `call_id`。v1（6ccede1 的旧格式）没有这两个字段，读的时候按 v1 处理。
+- 时间一律 ISO 8601、毫秒精度、带 `+08:00`（UTC+8）。按天汇总以通话开始时间（start 行的 `t`）的日期为准。
+- 新增字段只加不改；改字段含义或删字段时 `schema_version` 加 1，并在本文档末尾记一笔。
+
+## 通话编号
+
+`call_id`：8 位 base32（`A-Z2-7`，40 bit 随机），`/api/offer` 生成，接通后页面显示「通话编号 XXXXXXXX」并可复制，
+用户报问题时引用。同一通电话重协商不换编号。电话线路（SIP）由服务端生成，不对外显示。
+
+## 每轮（`type = "turn"`）
+
+一个用户回合（对方说完一段 → 人设回复）一行。为了让跨回合补打码（卡号分几句报）生效，落盘会晚 3 个回合，挂断时全部写完。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `schema_version` | 整数 | 2 |
+| `call_id` | 字符串 | 通话编号 |
+| `turn` | 整数 | 轮次，从 1 开始（旧字段 `n` 同值，保留兼容） |
+| `ts` | 字符串 | 本轮开始时间（对方这一段的转写到达时刻；旧字段 `t` 同值） |
+| `persona_id` | 字符串 | 人设 id（`wang` / `chen` / `lin` / `zheng`，见 `site/assets/core/personas.json`） |
+| `model` | 字符串 | 大模型名（环境变量 `DEEPSUCK_LLM_MODEL`）；规则模式为 `rule` |
+| `llm_in_tokens` | 整数 | 大模型输入 token 数，取接口返回的 usage（`prompt_tokens`）累加 |
+| `llm_out_tokens` | 整数 | 大模型输出 token 数，取接口返回的 usage（`completion_tokens`）累加 |
+| `llm_first_token_ms` | 整数或 null | 大模型首字延迟：开始请求 → 第一个文字（`latency.llm_ttft`） |
+| `llm_full_ms` | 整数或 null | 大模型整句延迟：开始请求 → 回复结束 |
+| `first_audible_ms` | 整数或 null | 对方说完 → 听到第一个声音（含口头语） |
+| `e2e_reply_ms` | 整数或 null | 对方说完 → 正式回复首包 |
+| `asr_audio_sec` | 小数 | 本轮送去识别的音频秒数（按发送的音频时长计，与计费口径一致） |
+| `tts_chars` | 整数 | 本轮合成的字数（含口头语、填充音的合成） |
+| `tts_voice` | 字符串 | 本通人设使用的音色 id |
+| `interrupted` | 布尔 | 人设在说话时对方开口（打断）为 `true` |
+| `asr` | 字符串 | 对方这一段的识别文字（已脱敏） |
+| `reply` | 字符串 | 人设回复（已脱敏） |
+| `intent` / `intents` | 字符串 / 数组 | 本轮策略意图 |
+| `intel` | 数组 | 本轮新抽到的情报，只有 `type` / `label` / `masked`（打码值） |
+| `tactics` | 数组 | 识别出的话术 id |
+| `latency` | 对象 | 延迟拆解原样（字段见 `voice/latency.py`：`asr`、`turn_ms`、`llm_ttft`、`agg`、`tts_ttfb`、`e2e_reply`、`first_audible`、`filler`） |
+| `prompt` / `promptVersion` / `code` | 字符串 | 本轮系统提示词短哈希、提示词模板版本、代码版本 |
+| `persona` / `scenario` / `consent` | | 旧字段，保留兼容 |
+
+用量口径：每轮的 `llm_*_tokens`、`asr_audio_sec`、`tts_chars` 是「上一轮收尾到本轮收尾」之间计量的增量
+（第 1 轮含开场白，最后一轮含挂断前的告别语）。各轮相加 = 每通合计；以 end 行的 `usage_total` 为准。
+规则模式、没有计量的通话这几项为 0。
+
+## 每通汇总（`type = "end"`）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `schema_version` | 整数 | 2 |
+| `call_id` | 字符串 | 通话编号 |
+| `started_at` | 字符串 | 开始时间（与 start 行一致） |
+| `ended_at` | 字符串 | 结束时间 |
+| `duration_sec` | 小数 | 时长（秒） |
+| `exit_reason` | 字符串 | 退出原因：`client_hangup`（网页挂断）、`caller_hangup`（电话挂断）、`time`（时长上限）、`turns`（轮数上限）、`idle`（静默）、`budget`（额度）、`connect_timeout`、`error`、`pipeline_end`（旧字段 `reason` 同值） |
+| `consent` | 布尔或字符串 | 是否同意录音：网页 `true` / `false`；电话线路为 `"sip-text-only"` |
+| `audio` | 布尔 | 这通是否录了音 |
+| `turns` | 整数 | 轮数 |
+| `interrupted_turns` | 整数 | 被打断的轮数 |
+| `usage_total` | 对象 | 各项用量合计：`llm_in_tokens`、`llm_out_tokens`、`asr_audio_sec`、`tts_chars` |
+| `cost_cny` | 小数 | 按 `VOICE_PRICE_*` 单价估算的本通花费（元），没有计量时不写 |
+| `persona_id` / `model` / `tts_voice` | 字符串 | 同每轮，便于只读 end 行做汇总 |
+| `stats` / `latency` / `usage` | 对象 | 会话统计、延迟分位、计量原样（旧字段） |
+
+## 其他行
+
+| `type` | 说明 |
+|---|---|
+| `start` | 第一行：`started_at`、`channel`（`web` / `phone`）、`consent`、`persona_id`、`scenario`、`model`、`asr_model`、`tts_model`、`tts_voice`、`code`、`promptVersion`；网页通话另有 `fk`（反馈口令的哈希，不是口令本身）；电话另有打码的 `caller` |
+| `bot` | 开场白 / 说明 / 告别语（`kind` = `opening` / `disclosure` / `hangup`，文字已脱敏） |
+| `interrupt` | 还没有回合时被打断（例如开场白），`during` = `opening` / `filler` |
+| `feedback` | 「这通有问题」：`flagged`（恒为 `true`）、`note`（脱敏、最多 200 字）、`turn`（可选，用户填的第几轮） |
+| `audio` | 录音收尾：每轨 `file`、`bytes`、`seconds` |
+| `audio_stopped` | 录音因磁盘上限或剩余不足停止（文字照存） |
+| `client_connected` / `client_error` | 页面上报的接通 / 失败（#3） |
+| `latency` | 没有对应回合的延迟记录 |
+
+## 脱敏
+
+文字（`asr`、`reply`、`bot.text`、`filler`、`feedback.note`、页面上报的原因）落盘前一律经过：
+
+1. 共享核心 `deepsuck.redact_text(text, extract_sensitive(text))`，规则在 `site/assets/core/extractors.json`，
+   与网页版 `redact.js` 一致：银行卡（PCI：保留前 6 后 4）、身份证（保留前 6 后 4）、手机号、QQ、微信、支付宝、
+   邮箱、收款人姓名、网址、钱包地址、验证码类短数字等。
+2. 自报 / 转述姓名补充规则（`voice/trace.py`）：「我叫张伟」「我是李明警官」「他叫王强」「姓名是王小红」，
+   姓氏表、称呼表复用 `extractors.json` 的 `nameRules`，打码用共享的 `mask_name`（`张*`）。「王经理」「李总」这类称呼不打码。
+
+卡号等原值只在进程内存里，不进文件。
+
+## 存储与保留
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `VOICE_TRACE` | `1` | `0` 全部关闭（什么都不存，页面不显示同意选项） |
+| `TRACE_DIR` | `DATA_DIR/voice/traces` | 文字（`<call_id>.jsonl`）和无内容计数（`stats.json`）。容器里是命名卷 `voice-traces:/traces` |
+| `TRACE_DAYS` | `30` | 文字保留天数 |
+| `TRACE_AUDIO` | `1` | `0` 不录音 |
+| `TRACE_AUDIO_DIR` | 同 `TRACE_DIR` | 录音（`<call_id>-scammer.ogg`、`<call_id>-persona.ogg`，16k 单声道 opus，约 2 KB/秒/轨）。容器里必须在挂载的卷内（如 `/traces/audio`） |
+| `TRACE_AUDIO_DAYS` | 同 `TRACE_DAYS` | 录音保留天数 |
+| `TRACE_MAX_MB` | `1024` | 录音和文字目录总量上限，超过停录音（文字照存） |
+| `TRACE_MIN_FREE_MB` | `1024` | 磁盘剩余低于此值停录音 |
+| `TRACE_FEEDBACK_HOURS` | `6` | 通话开始后多少小时内还能提交「这通有问题」 |
+| `TRACE_ADMIN_TOKEN` | 空 | 读取接口口令；留空则接口 404 |
+
+- 文字每通都存；录音只在网页通话勾选同意时存；电话线路只存文字。
+- 清理：服务启动时一次、之后每 24 小时一次，按文件修改时间删除超过保留天数的 `*.jsonl` / `*.ogg`；`stats.json` 只有计数，不删。
+- 文件权限 0600。#18 做按天清理或监控时：文件名是 `<call_id>` 不含日期，按修改时间（或 start 行 `t`）判断天数；
+  录音目录大小即 `TRACE_AUDIO_DIR` 下 `*.ogg` 的总和。
+
+## 「这通有问题」
+
+- 页面：通话页「通话编号」旁的「这通有问题」，可填一句说明和第几轮，提交后原位显示结果。
+- 接口：`POST /api/feedback/<call_id>`，JSON `{"key", "note", "turn"}`。`key` 是 `/api/offer` 只发给这个页面的一次性口令
+  （`feedback_key`，服务端只存哈希）。
+- 防滥用：同一 IP 每分钟 6 次（429）；口令不对 403；没有这通或是电话线路 404；通话开始超过 `TRACE_FEEDBACK_HOURS` 小时 410；
+  每通最多 5 条（429）；校验 `VOICE_ALLOWED_ORIGINS`。
+
+## 读取
+
+只在服务器本机（Caddy 对公网的 `/api/traces*` 一律 404，接口还要 `Authorization: Bearer $TRACE_ADMIN_TOKEN`）：
+
+    docker exec deepsuck-voice-1 python -m voice.trace_cli --list            # 最近的通话
+    docker exec deepsuck-voice-1 python -m voice.trace_cli <call_id> --audio # 一通的逐轮记录和录音路径
+    docker exec deepsuck-voice-1 python -m voice.trace_cli <call_id> --json  # 原始 JSONL
+    docker exec deepsuck-voice-1 python -m voice.trace_cli --flagged [--since 2026-10-19] [--json]
+    docker exec deepsuck-voice-1 python -m voice.trace_cli --usage [--since 2026-10-01] [--until 2026-10-19] [--days 7]
+
+- `--flagged`：只列被点了「这通有问题」的通话，附每条说明。
+- `--usage`：按天汇总用量，输出 JSON（同 `GET /api/traces-usage?since=&until=`），#20 直接用：
+
+```json
+{"schema_version": 2, "generated_at": "2026-10-19T12:00:00.000+08:00", "tz": "+08:00",
+ "days": [{"date": "2026-10-19", "calls": 12, "consent_calls": 9, "audio_calls": 9, "sip_calls": 0,
+           "flagged_calls": 1, "turns": 85, "interrupted_turns": 7, "duration_sec": 1830.5, "cost_cny": 0.42,
+           "llm_in_tokens": 152000, "llm_out_tokens": 4100, "asr_audio_sec": 1790.2, "tts_chars": 5200,
+           "by_model": {"qwen-flash": {"calls": 12, "llm_in_tokens": 152000, "llm_out_tokens": 4100}},
+           "by_persona": {"wang": 5, "lin": 7}, "exit_reasons": {"client_hangup": 10, "idle": 2}}]}
+```
+
+没有 end 行的通话（进行中或异常退出）用各轮相加，`exit_reasons` 记为 `unfinished`。
+
+## 版本记录
+
+- v2（#5）：每行加 `schema_version`、`call_id`；每轮加 token、ASR 秒数、TTS 字数和音色、首字 / 整句延迟、是否打断；
+  end 行加起止时间、时长、`exit_reason`、`usage_total`、`cost_cny`；文字每通都存（录音仍要同意）；反馈加口令、`flagged`。
+- v1（6ccede1）：初版，只在同意时存文字和录音。

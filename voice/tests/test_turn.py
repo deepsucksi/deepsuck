@@ -108,17 +108,21 @@ def test_client_report_writes_into_same_trace(monkeypatch, tmp_path):
     assert "前端上报失败: ice_timeout" in out and "前端已接通: path=relay/tcp" in out
 
 
-def test_client_report_without_consent_only_counts(monkeypatch, tmp_path):
+def test_client_report_counts_and_goes_into_text_trace(monkeypatch, tmp_path):
+    """#5 起文字每通都存：不勾选录音的网页通话，上报也写进同一编号；电话线路不收；没编号只计数。"""
     c = TestClient(_app(monkeypatch, tmp_path))
     off = TR.CallTrace(channel="web", consent=False, persona="lin", scenario="pig", model="m")
     assert c.post("/api/client-report", json={"trace_id": off.id, "stage": "ice_failed"}).status_code == 200
     assert c.post("/api/client-report", json={"stage": "offer_failed", "reason": "HTTP 429"}).status_code == 200
-    assert not off.path.exists()
+    assert [r["stage"] for r in _lines(off.path) if r["type"] == "client_error"] == ["ice_failed"]
+    sip = TR.CallTrace(channel="phone", consent=None, persona="lin", scenario="pig", model="m")
+    assert TR.client_report(sip.id, "ice_failed") == {"ok": True, "stored": False}
+    assert not any(r["type"] == "client_error" for r in _lines(sip.path))
     assert c.post("/api/client-report", json={"stage": "rm -rf"}).status_code == 400
     assert c.post("/api/client-report", content=b"[]", headers={"Content-Type": "application/json"}).status_code == 400
     assert c.post("/api/client-report", json={"trace_id": "../../x", "stage": "ice_failed"}).status_code == 200
     day = next(iter(json.loads((Path(TR.trace_dir()) / "stats.json").read_text()).values()))
-    assert day["clientIceFailed"] == 2 and day["clientOfferFailed"] == 1
+    assert day["clientIceFailed"] == 3 and day["clientOfferFailed"] == 1
 
 
 def test_client_report_capped_per_call(tmp_path):
