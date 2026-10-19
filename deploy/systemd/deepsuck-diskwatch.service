@@ -1,5 +1,5 @@
 [Unit]
-Description=DeepSuck disk usage check + recording/trace retention (GitHub #18)
+Description=DeepSuck disk usage + trace/data volume size check, read-only (GitHub #18)
 Documentation=https://github.com/deepsucksi/deepsuck/blob/main/docs/DEPLOY.md
 After=docker.service
 

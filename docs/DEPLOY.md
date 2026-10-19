@@ -254,16 +254,16 @@ systemctl list-timers 'deepsuck-*'
 
 | timer | 时间（+08:00） | 做什么 | 日志 |
 |---|---|---|---|
-| `deepsuck-diskwatch.timer` | 每 15 分钟 | `deploy/diskwatch.sh run`：根分区和 docker 数据目录（`/var/lib/docker`、`/var/lib/containerd`，同分区只报一次）使用率 >80% 记 WARN、>90% 记 ERROR；再按天数清理录音/trace/文字记录 | `journalctl -t deepsuck-diskwatch` |
+| `deepsuck-diskwatch.timer` | 每 15 分钟 | `deploy/diskwatch.sh run`：根分区和 docker 数据目录（`/var/lib/docker`、`/var/lib/containerd`，同分区只报一次）使用率 >80% 记 WARN、>90% 记 ERROR；再记 voice-traces 卷（文字 + 录音）和 voice-data 卷大小，trace 卷超过 `TRACE_MAX_MB` 的 80%/90% 同样 WARN/ERROR。只读，不删任何文件 | `journalctl -t deepsuck-diskwatch` |
 | `deepsuck-docker-prune.timer` | 每周日 04:30 | `deploy/diskwatch.sh docker-prune`：先确认 `ROLLBACK_TAGS`（默认 `deepsuck-caddy:rollback-887ac0`）都在，缺一个就跳过并记 ERROR（单元失败）；再 `docker builder prune -f --filter until=168h` 和 `docker image prune -f`，记录前后 `df` 差值 | 同上 |
 | `deepsuck-cost.timer` | 每天 20:40 | `deploy/cost-report.sh`：宿主机 `python3 -m voice.cost --json`，写 `/var/log/deepsuck/cost-YYYY-MM-DD.json`，`cost-latest.json` 符号链接原子指向当天（`rename(2)`），保留 180 天；券额占比 ≥50% 记 WARN | `journalctl -t deepsuck-cost` |
 
 - 只写 journald，不开 issue，VPS 上不放 GitHub token。过滤告警：`journalctl -t deepsuck-diskwatch -p warning --since today`。
 - 配置：`/etc/default/deepsuck-maint`（首次安装从 `deploy/maint.env.example` 复制），阈值、检查目录、回滚标签、成本输出目录都在这里改，下次触发生效。
 - 手动验证：`deploy/diskwatch.sh --dry-run run`、`deploy/diskwatch.sh --dry-run docker-prune`（只列出将执行的命令和可回收空间）、`systemctl start deepsuck-cost.service && cat /var/log/deepsuck/cost-latest.json`、`deploy/cost-report.sh --dry-run --day 2026-10-19`（只打印不写）。
-- 成本任务不进容器：`voice/cost.py` 只用标准库，直接读命名卷在宿主机上的目录（`docker volume inspect deepsuck_voice-data` 等）。单价从 `deploy/.env` 按名取 `PRICE_*`、`*_LLM_MODEL`（不 source 整个 `.env`，Key 不进环境）。优惠券基准 `cost-baseline.json` 放在 voice-data 卷根目录，安装脚本在缺失时从 `deploy/cost-baseline.example.json` 复制一份，**查过控制台后改 `coupon_balance`/`as_of`**。评测花费 CSV 默认 `/var/lib/deepsuck/eval-spend.csv`（没有就跳过，输出 `sources` 里注明）。
+- 成本任务不进容器：`voice/cost.py` 只用标准库，宿主机 `python3` 直接读命名卷的 Mountpoint（`docker volume inspect -f "{{.Mountpoint}}" deepsuck_voice-traces`，每通一个 `<call_id>.jsonl`，同意与否都有；`deepsuck_voice-data`、`deepsuck_proxy-data` 同理），容器停着也能出报表、不用重建镜像。单价从 `deploy/.env` 按名取 `PRICE_*`、`*_LLM_MODEL`（不 source 整个 `.env`，Key 不进环境）。优惠券基准 `cost-baseline.json` 放在 voice-data 卷根目录，安装脚本在缺失时从 `deploy/cost-baseline.example.json` 复制一份，**查过控制台后改 `coupon_balance`/`as_of`**。评测花费 CSV 默认 `/var/lib/deepsuck/eval-spend.csv`（没有就跳过，输出 `sources` 里注明）。
 - 卸载：`systemctl disable --now deepsuck-{diskwatch,docker-prune,cost}.timer && rm /etc/systemd/system/deepsuck-* && systemctl daemon-reload`。
 
-**录音与 trace 清理不重复、不冲突**：容器里 `voice/trace.py` 每天删 `TRACE_DAYS`（默认 30）天前的 `*.jsonl`/`*.ogg`，`voice/records.py` 每小时删过期文字记录（`VOICE_TRANSCRIPT_DAYS`，0 = 不删）和音频（`KEEP_AUDIO_DAYS`，最多 7）。宿主机 `diskwatch.sh retention` 用**同一套天数（缺省读 `deploy/.env`）、同样的后缀和“修改时间早于 N 天”规则**，只看目录第一层，作为兜底（容器停了或 `VOICE_TRACE=0` 时历史文件照样按期删）；两边删的是同一批文件，谁先到谁删。`stats.json`、`voice-usage.jsonl`、`voice-budget.json` 不在清理范围。
+**录音与 trace 的按天清理只在容器里做**：`voice/trace.py` 按 `TRACE_DAYS`（文字，默认 30）和 `TRACE_AUDIO_DAYS`（录音，默认同 `TRACE_DAYS`）每天删过期的 `*.jsonl`/`*.ogg`，`voice/records.py` 按 `VOICE_TRANSCRIPT_DAYS` / `KEEP_AUDIO_DAYS` 清理留存（见 `docs/TRACE_SCHEMA.md`「存储与保留」）。宿主机 `diskwatch.sh` 不删通话数据，只监控卷大小写日志，避免两套清理规则漂移。
 
 **容量估算（2026-10-19 VPS 实测 6 通）**：录音双路 Opus，约 3.5 KB/s（≈210 KB/分钟，95 秒一通 342 KB，其中 jsonl 3–6 KB）。单通上限 5 分钟 ≈ 1.1 MB。trace 目录有硬上限 `TRACE_MAX_MB=1024`（或磁盘剩余低于 `TRACE_MIN_FREE_MB=1024`）：超过后**只停录音、文字照存，服务不停**（trace 里记一条 `audio_stopped` 事件）。30 天内 1 GB ≈ 4900 分钟录音（≈160 分钟/天），远小于 40 GB 系统盘；真正占盘的是镜像和构建缓存（`docker system df`），由每周清理处理。容器日志已在 `docker-compose.yml` 统一 `json-file` 轮转（10 MB × 3 个/服务）。

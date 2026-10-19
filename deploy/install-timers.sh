@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 安装 / 更新三个 systemd timer（GitHub #18、#20），幂等，可重复运行：
-#   deepsuck-diskwatch.timer     每 15 分钟：磁盘使用率检查 + 录音/trace 按天数清理（deploy/diskwatch.sh run）
+#   deepsuck-diskwatch.timer     每 15 分钟：磁盘使用率 + trace/数据卷大小检查，只读（deploy/diskwatch.sh run）
 #   deepsuck-docker-prune.timer  每周日 04:30（+08:00）：docker builder/image prune（deploy/diskwatch.sh docker-prune）
 #   deepsuck-cost.timer          每天 20:40（+08:00）：成本汇总 → /var/log/deepsuck/cost-latest.json（deploy/cost-report.sh）
 #

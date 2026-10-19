@@ -53,32 +53,24 @@ reset; FAKE_PCT=91 bash "$DW" check; grep -q 'user.err|ERROR disk / 91% .* > 90%
 reset; FAKE_PCT=85 DISKWATCH_WARN_PCT=90 DISKWATCH_CRIT_PCT=95 bash "$DW" check; grep -q 'INFO disk / 85%' "$LOGFILE" || fail "custom thresholds"; pass "check thresholds configurable"
 reset; DISKWATCH_PATHS="/ $T /nonexistent" bash "$DW" check; [ "$(grep -c 'disk /' "$LOGFILE")" = 1 ] || fail "same mount reported once"; pass "check dedupes mounts, skips missing paths"
 
-# --- retention ---
+# --- volumes：只统计不删 ---
 old() { touch -d "@$(( $(date +%s) - $1 * 86400 - 3600 ))" "$2"; }
-mk() { : > "$1"; }
-for f in AAAAAAAA.jsonl AAAAAAAA.ogg BBBBBBBB.jsonl stats.json; do mk "$T/traces/$f"; done
-old 31 "$T/traces/AAAAAAAA.jsonl"; old 31 "$T/traces/AAAAAAAA.ogg"; old 29 "$T/traces/BBBBBBBB.jsonl"; old 99 "$T/traces/stats.json"
-mk "$T/data/voice/transcripts/x.json"; old 31 "$T/data/voice/transcripts/x.json"
-mk "$T/data/voice/audio/a.wav"; old 8 "$T/data/voice/audio/a.wav"
-mk "$T/data/voice/voice-usage.jsonl"; old 99 "$T/data/voice/voice-usage.jsonl"
-mk "$T/data/voice-budget.json"; old 99 "$T/data/voice-budget.json"
-reset; bash "$DW" --dry-run retention
-[ -f "$T/traces/AAAAAAAA.jsonl" ] || fail "dry-run must not delete"; grep -q 'would delete 2 files' "$LOGFILE" || fail "dry-run summary"; pass "retention --dry-run deletes nothing"
-reset; bash "$DW" retention
-[ ! -e "$T/traces/AAAAAAAA.jsonl" ] && [ ! -e "$T/traces/AAAAAAAA.ogg" ] || fail "old trace not deleted"
-[ -f "$T/traces/BBBBBBBB.jsonl" ] || fail "29-day trace deleted"
-[ -f "$T/traces/stats.json" ] || fail "stats.json must be kept"
-[ ! -e "$T/data/voice/transcripts/x.json" ] || fail "old transcript kept"
-[ ! -e "$T/data/voice/audio/a.wav" ] || fail "audio > 7 days kept"
-[ -f "$T/data/voice/voice-usage.jsonl" ] && [ -f "$T/data/voice-budget.json" ] || fail "usage/budget files must be kept"
-grep -q 'retention deleted 2 files .* older than 30d' "$LOGFILE" || fail "retention log"; pass "retention deletes only expired traces/recordings, keeps stats/usage"
-mk "$T/traces/CCCCCCCC.jsonl"; old 11 "$T/traces/CCCCCCCC.jsonl"
-reset; TRACE_DAYS=10 bash "$DW" retention; [ ! -e "$T/traces/CCCCCCCC.jsonl" ] || fail "TRACE_DAYS override"
-echo "TRACE_DAYS=5" > "$DIR/deploy/.env"; mk "$T/traces/DDDDDDDD.jsonl"; old 6 "$T/traces/DDDDDDDD.jsonl"
-reset; bash "$DW" retention; [ ! -e "$T/traces/DDDDDDDD.jsonl" ] || fail "TRACE_DAYS from deploy/.env"; rm "$DIR/deploy/.env"
-mk "$T/data/voice/transcripts/y.json"; old 400 "$T/data/voice/transcripts/y.json"
-reset; VOICE_TRANSCRIPT_DAYS=0 bash "$DW" retention; [ -f "$T/data/voice/transcripts/y.json" ] || fail "VOICE_TRANSCRIPT_DAYS=0 keeps"
-pass "retention days from env / deploy/.env, 0 disables transcripts"
+for f in AAAAAAAA.jsonl BBBBBBBB.jsonl stats.json; do : > "$T/traces/$f"; old 99 "$T/traces/$f"; done
+head -c 200000 /dev/zero > "$T/traces/AAAAAAAA-scammer.ogg"; old 99 "$T/traces/AAAAAAAA-scammer.ogg"
+: > "$T/data/voice/transcripts/x.json"; old 400 "$T/data/voice/transcripts/x.json"
+before=$(find "$T/traces" "$T/data" -type f | sort)
+reset; bash "$DW" volumes
+grep -q '^deepsuck-diskwatch|user.info|INFO volumes voice-traces=[0-9]*KB (audio [0-9]*KB, 2 calls) voice-data=[0-9]*KB; traces 0% of TRACE_MAX_MB=1024' "$LOGFILE" || fail "volumes info line"
+reset; bash "$DW" run
+[ "$before" = "$(find "$T/traces" "$T/data" -type f | sort)" ] || fail "diskwatch must never delete call data"
+grep -q 'INFO disk /' "$LOGFILE" && grep -q 'INFO volumes' "$LOGFILE" || fail "run = check + volumes"
+pass "volumes logs sizes, run = check + volumes, deletes nothing (even 99-day-old traces)"
+head -c 1000000 /dev/zero > "$T/traces/big.ogg"
+reset; TRACE_MAX_MB=1 bash "$DW" volumes; grep -q 'user.err|ERROR volumes .*traces [0-9]*% of TRACE_MAX_MB=1 > 90% (recording stops at 100%)' "$LOGFILE" || fail "trace cap ERROR"
+echo "TRACE_MAX_MB=2" > "$DIR/deploy/.env"; head -c 1550000 /dev/zero > "$T/traces/big.ogg"
+reset; bash "$DW" volumes; grep -q 'WARN volumes .* of TRACE_MAX_MB=2 > 80%' "$LOGFILE" || fail "TRACE_MAX_MB from deploy/.env + WARN"
+rm -f "$DIR/deploy/.env" "$T/traces/big.ogg"
+pass "volumes warns/errors as trace volume approaches TRACE_MAX_MB (from env or deploy/.env)"
 
 # --- docker-prune ---
 reset; FAKE_TAGS="" bash "$DW" docker-prune && fail "missing rollback tag must fail" || true
