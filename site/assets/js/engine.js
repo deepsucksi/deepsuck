@@ -152,10 +152,13 @@
     var parts = tdSplit(text).filter(function (x) { return tdNorm(x); });
     return parts.length ? parts[parts.length - 1].trim() : '';
   }
-  /** 删完为空时的兜底：该人设 templates[fallback] 里已有台词（纯文本、不带 {变量}），按原句哈希定起点依次挑整句和尾句都没说过的第一句 */
+  /** 删完为空时的兜底：该人设 templates[fallback] 里已有台词（纯文本、不带 {变量}；#188 只用 fallbackPick 标了的），按原句哈希定起点依次挑整句和尾句都没说过的第一句 */
   function tdFallback(text, personaId, seen) {
     var p = personaId ? D.personas.BY_ID[D.personas.resolveId(personaId)] : null;
-    var pool = ((p && p.templates && p.templates[TD.fallback]) || []).filter(function (x) { return typeof x === 'string' && x.indexOf('{') < 0; });
+    var lst = (p && p.templates && p.templates[TD.fallback]) || [];
+    // #188：fallbackPick 里标了的（不带具体场景、不带变量、最多一位数字）才用；没标或标空时回退到原来的整池
+    var pick = (((TD.fallbackPick || {})[p && p.id]) || []).filter(function (i) { return i >= 0 && i < lst.length; }).map(function (i) { return lst[i]; });
+    var pool = (pick.length ? pick : lst).filter(function (x) { return typeof x === 'string' && x.indexOf('{') < 0; });
     if (!pool.length) return '';
     var start = tdHash(tdNorm(text)) % pool.length;
     for (var i = 0; i < pool.length; i++) {
@@ -177,6 +180,73 @@
       if (!seen[tdNorm(parts[parts.length - 1])]) return s;
       s = parts.slice(0, -1).join('').replace(/\s+$/, '');
     }
+  }
+
+  /* ---------- #187：不说成已经转账或答应去转（配置 personas.json 的 transferClaim；与 Python deepsuck.engine.hold_transfer 逐字一致，
+   * 用例 tests/fixtures/transfer_claim.json）---------- */
+  var TC = D.personas.TRANSFER_CLAIM;
+  var tcEsc = function (x) { return x.replace(/[\\\]\[^\-]/g, '\\$&'); };
+  var TC_TRIGGER = new RegExp(TC.trigger);
+  var TC_QUOTE = new RegExp(TC.quote, 'g');
+  var TC_SEG = new RegExp('[^' + tcEsc(TC.split) + ']+|[' + tcEsc(TC.split) + ']+', 'g');
+  var TC_DONE = new RegExp(TC.done, 'g'), TC_COMMIT = new RegExp(TC.commit, 'g'), TC_RECEIPT = new RegExp(TC.receipt, 'g');
+  var TC_RECEIPT_OBJ = new RegExp(TC.receiptObj), TC_NEG_PRE = new RegExp(TC.negPre), TC_NEG_POST = new RegExp(TC.negPost), TC_NAV_PRE = new RegExp(TC.navPre);
+  var TC_NOT_VERB = new RegExp(TC.notVerb), TC_REPORT = new RegExp(TC.report), TC_COND = new RegExp(TC.cond);
+  var TC_COND_POST = new RegExp(TC.condPost), TC_ASK = new RegExp(TC.ask);
+  var TC_HOLD = '\uE010'; // 引号里的话挪开时的占位
+  function tcHit(seg, pat, condPost) {
+    pat.lastIndex = 0;
+    var m;
+    while ((m = pat.exec(seg))) {
+      if (!m[0]) { pat.lastIndex++; continue; }
+      var pre = seg.slice(0, m.index), post = seg.slice(m.index + m[0].length);
+      if (!(TC_NEG_PRE.test(pre) || TC_NAV_PRE.test(pre) || TC_REPORT.test(pre) || TC_COND.test(pre) ||
+        TC_NEG_POST.test(post) || TC_NOT_VERB.test(post) || (condPost && TC_COND_POST.test(post)))) return true;
+    }
+    return false;
+  }
+  /** 一个分句（引号里的话已挪开）是不是说成已经转了 / 答应去转（见 personas.json transferClaim.comment） */
+  function transferClaim(seg, receiptOk) {
+    if (receiptOk === undefined) receiptOk = true;
+    if (TC_ASK.test(seg)) return false;
+    if (tcHit(seg, TC_DONE, true) || tcHit(seg, TC_COMMIT, false)) return true;
+    return !!receiptOk && tcHit(seg, TC_RECEIPT, false);
+  }
+  /** #187 发送前过滤（只用于大模型回复）：说成已经转账、问对方收没收到、答应马上去转的分句，整句换成拖延说法
+   *  （transferClaim.stall，按原句字符码之和轮换；相邻的合并成一处，问号改句号）。否定、引述对方的话、假设、问细节不动。 */
+  function holdTransfer(text) {
+    var src = String(text == null ? '' : text);
+    if (!src || !TC_TRIGGER.test(src)) return src;
+    var quoted = [];
+    var s = src.replace(TC_QUOTE, function (m) { quoted.push(m); return TC_HOLD; });
+    var receiptOk = !TC_RECEIPT_OBJ.test(s);
+    var segs = s.match(TC_SEG) || [];
+    var h = 0;
+    for (var ch of src) h += ch.codePointAt(0);
+    var stall = TC.stall[h % TC.stall.length];
+    var out = [], lastHit = false, changed = false;
+    segs.forEach(function (seg) {
+      if (TC.split.indexOf(seg[0]) >= 0) {
+        if (lastHit && /[？?]/.test(seg)) seg = seg.replace(/[？?]/g, '。');
+        out.push(seg);
+        return;
+      }
+      if (transferClaim(seg, receiptOk)) {
+        changed = true;
+        if (lastHit) { // 和上一处命中的连着：去掉中间的标点，合并成一处
+          while (out.length && TC.split.indexOf(out[out.length - 1][0]) >= 0) out.pop();
+          return;
+        }
+        out.push(stall);
+        lastHit = true;
+      } else {
+        out.push(seg);
+        lastHit = false;
+      }
+    });
+    if (!changed) return src;
+    var r = out.join('');
+    return quoted.length ? r.replace(/\uE010/g, function () { return quoted.shift(); }) : r;
   }
 
   var DE = D.personas.DIGIT_ECHO;
@@ -646,5 +716,5 @@
     });
   };
 
-  return { Session: Session, goalOf: goalOf, scenesIn: scenesIn, heardScenes: heardScenes, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION, vagueDigits: vagueDigits, dedupeTail: dedupeTail, tailSentence: tailSentence };
+  return { Session: Session, goalOf: goalOf, scenesIn: scenesIn, heardScenes: heardScenes, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION, vagueDigits: vagueDigits, dedupeTail: dedupeTail, tailSentence: tailSentence, holdTransfer: holdTransfer, transferClaim: transferClaim };
 });
