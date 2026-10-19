@@ -43,38 +43,13 @@ topics（GitHub 上限 20 个，全小写、连字符）：
 
 不建议加下载量、访问计数器这类第三方计数徽章（会向第三方暴露访客请求）。
 
-### 1.3 good first issue 规范
+### 1.3 good first issue 规范（已执行，#31）
 
-标签已存在。一个 issue 打上 `good first issue` 前需满足：
+规范已写进 [CONTRIBUTING.md 的「新人任务」](../CONTRIBUTING.md#新人任务good-first-issue)一节，以那里为准：范围小、不碰 `deploy/`、不需要云服务密钥、不碰人设台词和情报数据、本地 `npm test` 能验证、有联系人 48 小时内回复；同时打 `area:*` 标签，认领后两周没有进展改回 `help wanted`。
 
-1. **范围小**：预计改动不超过 1–2 个文件、半天以内；不涉及 `deploy/`、密钥、费用护栏、脱敏逻辑。
-2. **写清楚**：背景（为什么）、要改哪里（文件路径）、完成标准（哪个测试要通过 / 新增什么用例）、怎么本地验证（`npm test`、`cd python && python -m pytest -q`）。
-3. **不需要密钥**：不依赖云端语音或大模型接口，规则引擎和测试就能验证。
-4. **有人带**：注明维护者，48 小时内回复评论。
-5. 同时打 `area:*` 标签；做不完或卡住超过 2 周，改回 `help wanted`。
-
-适合的题目举例：给提取器补一种虚构的去武装写法和测试用例；给 `site/assets/core/scam_scripts.json` 补一条带来源类型标注、已脱敏的话术；补英文文档的错别字；给博客补一篇译文。
-
-模板（建议放进 `.github/ISSUE_TEMPLATE/good-first-issue.yml`，另开 PR）：
-
-```markdown
-### 背景
-<为什么要做，一两句>
-
-### 要改的地方
-- `path/to/file`：……
-
-### 完成标准
-- [ ] `npm test` 通过，新增用例 ……
-- [ ] 不包含真实号码、账号、网址（用测试号段和 .example 域名）
-
-### 本地验证
-npm test
-cd python && python -m pytest -q
-
-### 联系人
-@维护者
-```
+- 模板：`.github/ISSUE_TEMPLATE/good-first-issue.yml`（「新人任务」Issue Form，字段为背景、要做什么、涉及文件、怎么验证、完成标准、预估难度、联系人，自动加 `good first issue`）。
+- 标签：`good first issue`、`help wanted` 均已存在。
+- 题目优先选网站、文档和测试类的小问题（无障碍属性、文档链接、补测试），开之前先在仓库里核实问题确实存在。提取器、话术语料、人设台词这类改动需要项目背景，不作为新人任务。
 
 ### 1.4 Discussions（已开启，分类已调整完成）
 

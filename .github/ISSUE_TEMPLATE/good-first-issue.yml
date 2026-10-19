@@ -1,0 +1,87 @@
+name: 新人任务 / Good first issue
+description: 维护者整理给新贡献者的小任务：范围小、不需要密钥、本地能验证。A small, self-contained task for first-time contributors.
+title: "[新人任务] "
+labels: ["good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        开新人任务前，请对照 CONTRIBUTING.md 的「新人任务」一节：范围小（1–2 个文件、半天以内）；不碰 `deploy/`、脱敏逻辑、人设与台词、话术语料、情报数据、提取器与 schema、评测数字；不需要任何云服务密钥；本地 `npm test` 能验证；有联系人在 48 小时内回复。提交后请再补一个 `area:*` 标签。
+
+        Before filing, check the "good first issue" rules in CONTRIBUTING.md: small scope, no `deploy/`, no secrets, verifiable locally with `npm test`, and a named contact. Add an `area:*` label afterwards.
+  - type: dropdown
+    id: area
+    attributes:
+      label: 模块 / Area
+      options:
+        - 网站与沙盒 / site
+        - 文档 / docs
+        - 测试 / tests
+        - 其他（请在背景里说明）/ other
+    validations:
+      required: true
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景 / Background
+      description: 为什么要做，一两句话；能指到具体位置更好。Why this matters, in one or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: task
+    attributes:
+      label: 要做什么 / What to do
+      description: 具体改动，按步骤写。Concrete changes, step by step.
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: 涉及文件 / Files involved
+      description: 预计要改或新增的文件路径。Paths of files to change or add.
+      placeholder: |
+        - `site/demo.html`
+        - `tests/xxx.test.js`（新增）
+    validations:
+      required: true
+  - type: textarea
+    id: verify
+    attributes:
+      label: 怎么验证 / How to verify
+      description: 本地验证命令与手动检查步骤，不需要任何密钥。Local commands and manual checks; no secrets needed.
+      value: |
+        npm test
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 完成标准 / Definition of done
+      description: 做到什么程度算完成，最好可测试。Testable acceptance criteria.
+      value: |
+        - [ ] `npm test` 全部通过
+        - [ ] 不包含真实号码、账号、网址（用测试号段和 .example 域名）
+        - [ ] UI 改动附桌面与手机截图
+    validations:
+      required: true
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: 预估难度 / Estimated difficulty
+      options:
+        - 入门：1 小时内 / Starter (< 1h)
+        - 简单：半天以内 / Easy (< half a day)
+    validations:
+      required: true
+  - type: input
+    id: contact
+    attributes:
+      label: 联系人 / Contact
+      description: 负责答疑和审 PR 的维护者，48 小时内回复评论。Maintainer who answers questions and reviews the PR.
+      placeholder: "@deepsucksi"
+    validations:
+      required: true

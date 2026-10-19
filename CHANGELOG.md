@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- 贡献（#31）：CONTRIBUTING.md 新增「新人任务」一节，写明什么算 good first issue（范围小、不碰 `deploy/`、不需要云服务密钥、不碰人设台词和情报数据、本地 `npm test` 能验证）、怎么认领、怎么提 PR、在 Discussions「问答」提问；新增「新人任务」Issue Form `.github/ISSUE_TEMPLATE/good-first-issue.yml`（自动加 `good first issue`）；README 加入口链接，docs/GROWTH.md 第 1.3 节改为指向该规范。首批新人任务：#82 #83 #84 #85 #86。
 - 人设统一（#11）：`site/assets/core/personas.json` 成为人设唯一数据源，四位人设与首页一一对应：01 王阿姨 · 退休老人（`wang`）、02 小陈妈妈 · 宝妈（`chen`，新增）、03 小林 · 刚毕业学生（`lin`，台词按刚毕业上班调整）、04 郑老板 · 个体小老板（`zheng`，新增）。李大爷（`li`）下线，完整资料归档到 `personas/archive/li.json`；顶层 `aliases` 做别名映射：`li` → `wang`，`xiaochen` / `mom` → `chen`，`shop_owner` → `zheng`，旧链接仍可用。
   - 删去 `personas/prompts/*.yaml` 与 `personas/voice_traits.yaml`：提示词资料并入各人设的 `prompt` 字段、共用规则并入顶层 `promptRules`、语音说话特征（含 #47 的接电话那一声 `opening`）并入 `voiceTraits`；旧版（含周伯）存档在 `personas/archive/prompts-v0.json`。`personas.prompt`、`personas.voice_traits`、`voice/persona.py`、评测脚本都改读 personas.json，不再需要 PyYAML。
   - 首页“四位人设”一行、卡片 `data-persona` 改为四个新 id；卡片的沙盒与体验链接带 `?persona=<id>` 直达。体验页人设选项改成与首页同样的编号、身份和头像卡片（`/api/config` 新增 `no` / `role` / `photo` / `aliases`），语音镜像带上 round6 头像。
