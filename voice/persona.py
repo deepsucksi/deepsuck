@@ -60,7 +60,7 @@ STYLE_RULE = ("6. 说话平常、克制，像普通人接电话：句子短，�
 def style_rule(p: dict) -> str:
     """#131：带“…”的句子按人设调（personas.json 的 voiceEllipsis，如“四成”），都在 40–60% 之间；没写的用“一半”。"""
     v = str(p.get("voiceEllipsis") or "").strip()
-    return STYLE_RULE.replace("大约一半的句子", f"大约{v}的句子") if v else STYLE_RULE
+    return STYLE_RULE.replace("大约一半的句子", f"大约{v}的句子").replace("另一半说完整的短句", "其余的说完整的短句") if v else STYLE_RULE
 
 
 _AGE = re.compile(r"^\s*\d+\s*岁\s*")
@@ -153,6 +153,12 @@ def voice_style(p: dict, scenes, topics=None, first_turn: bool = False, opener_k
         if not x:
             continue
         x = _EXAMPLE.sub(lambda m: "" if _unheard(m.group(1), sc, topics) else m.group(0), x)
+        # #131：风格规则里“大约一半的句子带这种断续”按本人设的 voiceEllipsis 拼（与 style_rule 一致），文字不改
+        if p.get("voiceEllipsis"):
+            x = x.replace("大约一半的句子", f"大约{p['voiceEllipsis']}的句子")
+        # #132：“多反问：…”后面补一句问法要求，免得模型整条只甩一句短问话
+        if x.startswith("多反问"):
+            x = x.rstrip("。") + FOLLOW_UP_ASK
         style.append(x)
     if style:
         out.append("说话风格补充：")
@@ -291,6 +297,8 @@ FIRST_TURN_RULE = ("第一句提到对方的词时，词后面接“…”再说
 # #132：后续回复（第一轮以后）第一句也不用快速反问（抽检 48 条里 25–33 条是“衣服？…哪件啊”“两千？…哪笔钱啊”）
 FOLLOW_UP_RULE = ("这一条的第一句不要拿对方的词加问号反问（不要“衣服？”“两千？”“哪个？”这种开头）：先接对方一个词，"
                   "词后面用逗号或“…”接半句陈述；要问的放到第二句。整条回复也不要只有一句短问话（不要“哪张卡？”“民警…哪里的？”这种），先说半句自己的话，再问。")
+
+FOLLOW_UP_ASK = "（问的放在半句陈述后面，不要整条只甩一句短问话）。"
 
 
 def first_turn_rule(openers) -> str:
