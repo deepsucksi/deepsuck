@@ -124,28 +124,6 @@ def polish_reply(text: str) -> str:
 
 def _fnv(text: str) -> int:
     """FNV-1a 32 位，按 UTF-16 码元算（JS 端 charCodeAt 同一结果），用来确定性地挑句子。"""
-# ---- 跨轮去重（#153，配置在 personas.json 的 tailDedupe；JS 在 engine.js 的 dedupeTail，用例 tests/fixtures/tail_dedupe.json）----
-_TD = TAIL_DEDUPE
-_TD_IGNORE = re.compile("[" + re.escape(_TD["ignore"]) + "]+")
-_TD_SENT = re.compile(r"[^。？！?!；;\n]+[。？！?!；;]*|[。？！?!；;]+")
-_TD_END = re.compile(r"[。？！?!；;…\s]*$")
-
-
-def _td_norm(s: str) -> str:
-    return _TD_IGNORE.sub("", str(s or ""))
-
-
-def _td_split(text: str) -> list:
-    out: list = []
-    for x in _TD_SENT.findall(str(text or "")):
-        if out and not _td_norm(x):
-            out[-1] += x  # 只剩标点的碎片并回上一句
-        elif _td_norm(x) or not out:
-            out.append(x)
-    return out
-
-
-def _td_hash(text: str) -> int:
     h = 0x811C9DC5
     b = text.encode("utf-16-le")
     for i in range(0, len(b), 2):
@@ -177,6 +155,38 @@ def _thin_ellipsis(s: str) -> str:
             return "，"
         out.append(_RP_ELL.sub(sub, sent))
     return "".join(out)
+
+
+# ---- 跨轮去重（#153，配置在 personas.json 的 tailDedupe；JS 在 engine.js 的 dedupeTail，用例 tests/fixtures/tail_dedupe.json）----
+_TD = TAIL_DEDUPE
+_TD_IGNORE = re.compile("[" + re.escape(_TD["ignore"]) + "]+")
+_TD_SENT = re.compile(r"[^。？！?!；;\n]+[。？！?!；;]*|[。？！?!；;]+")
+_TD_END = re.compile(r"[。？！?!；;…\s]*$")
+
+
+def _td_norm(s: str) -> str:
+    return _TD_IGNORE.sub("", str(s or ""))
+
+
+def _td_split(text: str) -> list:
+    out: list = []
+    for x in _TD_SENT.findall(str(text or "")):
+        if out and not _td_norm(x):
+            out[-1] += x  # 只剩标点的碎片并回上一句
+        elif _td_norm(x) or not out:
+            out.append(x)
+    return out
+
+
+def _td_hash(text: str) -> int:
+    h = 0x811C9DC5
+    b = text.encode("utf-16-le")
+    for i in range(0, len(b), 2):
+        h ^= b[i] | (b[i + 1] << 8)
+        h = (h * 0x01000193) & 0xFFFFFFFF
+    return h
+
+
 def tail_sentence(text: str) -> str:
     """一条回复的尾句（最后一个有字的句子，带句末标点）；没有字时返回空串。"""
     parts = [x for x in _td_split(text) if _td_norm(x)]
