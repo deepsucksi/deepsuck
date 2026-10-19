@@ -77,7 +77,7 @@ gh pr checks -R $R <PR号> --watch
 - **一个分支对应一个独立的 worktree**。
 - **绝不在共用的检出目录 `/opt/deepsuck-dev` 和 `/workspace/deepsuck` 里 checkout 或提交**，也不在里面改文件、不动里面未提交的东西。
 - 生产目录 `/opt/deepsuck` 只用来执行下面的部署命令，不在里面改文件、切分支或提交。
-- 只推自己的分支；PR 合并（或关闭）后删掉对应的 worktree。
+- 只推自己的分支，不推、不改别人的分支；PR 合并（或关闭）后用 `git worktree remove` 删掉对应的 worktree，再 `git worktree prune`。
 - **每完成一个阶段就推一次自己的分支**，别攒本地提交。
 
 VPS：
@@ -101,6 +101,16 @@ git -C /workspace/deepsuck worktree prune
 
 - 推送认证：VPS 上用部署密钥（只能推分支，推 `main` 会被拒绝）；共享电脑上远端走 HTTPS，推送时临时借用已登录的 `gh` 作为 git 凭据助手，例如 `git -c credential.helper= -c credential.helper='!gh auth git-credential' push -u origin <branch>`。不在文档、命令或日志里写令牌。
 - 开 PR、合并用已登录的 `gh`。
+
+### 停止进程：只停自己启动的
+
+共享电脑上多人和多个代理同时在跑测试、评测，**不许按名字杀进程**（`pkill -f pytest`、`pkill node`、`killall …` 都不行），只能用自己记下的 PID 停自己启动的进程。按名字杀会误伤别人正在跑的测试和付费评测，费用台账也会对不上。
+
+```bash
+npm test > /tmp/<role>-test.log 2>&1 &
+echo $! > /tmp/<role>-test.pid          # 后台启动时记下 PID
+kill "$(cat /tmp/<role>-test.pid)"      # 停的时候只停这个 PID
+```
 
 ## 6. 部署
 
