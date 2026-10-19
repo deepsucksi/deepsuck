@@ -137,7 +137,9 @@ ${alt}
 <meta name="twitter:image" content="${og}">
 <meta name="theme-color" content="#ffffff">
 ${head}<link rel="icon" href="${r('/assets/brand/favicon-32.png')}" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="${r('/assets/brand/favicon-180.png')}">
+<link rel="icon" href="${r('/favicon.ico')}" sizes="48x48">
+<link rel="apple-touch-icon" href="${r('/assets/brand/favicon-180.png')}" sizes="180x180">
+<link rel="manifest" href="${r('/site.webmanifest')}">
 <link rel="stylesheet" href="${r('/assets/css/style.css')}">
 <link rel="stylesheet" href="${r('/assets/css/blog.css')}">
 </head>
