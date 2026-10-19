@@ -170,3 +170,96 @@ def test_bot_leak_metric():
     assert M.bot_leak("验证码是 3 8 2 1 5 6") and M.bot_leak("密码 1234") and M.bot_leak("我卡号6222021234567893445")
     for ok in ("尾号3445的那张卡", "前两位是5、2，后面被挡住了", "进度60%多", "你发的那个网址"):
         assert not M.bot_leak(ok), ok
+
+
+# ---------------------------------------------------------------- #164：高压档、对照组、缓存计费
+def test_fixed_prefix_is_identical_across_sessions():
+    from deepsuck import sim
+    for prof in M.PROFILES:
+        fx = M.fixed_prompt(prof)
+        a = M.system_prompt(CORPUS, "police", sim.plant(sim.Rand(1000)), ["bank"], 1000, prof)
+        b = M.system_prompt(CORPUS, "pig", sim.plant(sim.Rand(1001)), ["url", "wallet"], 1001, prof)
+        assert a.startswith(fx) and b.startswith(fx) and a != b
+        assert len(fx) > 300   # 场景、收款信息都在固定前缀之后
+    assert "suspicion" in M.fixed_prompt("hard") and "strikes" in M.fixed_prompt("hard") and "试探" in M.fixed_prompt("hard")
+    assert "suspicion" not in M.fixed_prompt("default")
+    assert M.params_for(M.MODEL, 1)["enable_thinking"] is False
+    with pytest.raises(ValueError):
+        M.fixed_prompt("nope")
+
+
+def test_parse_hard_fields():
+    t = M.parse_turn('{"say": "你在哪", "action": "continue", "suspicion": "12", "probe": 1, "strikes": 2}')
+    assert t["suspicion"] == 10 and t["probe"] == 1 and t["strikes"] == 2
+    t = M.parse_turn('{"say": "x", "action": "continue"}')
+    assert "suspicion" not in t and "probe" not in t
+
+
+class FakeHard:
+    """hard 档假骗子：每轮打起疑分 = 轮次 × 3，第 3 轮挂断。"""
+
+    def __init__(self):
+        self.calls = []
+
+    def chat(self, messages, **params):
+        self.calls.append(messages)
+        k = sum(m["role"] == "assistant" for m in messages) + 1
+        d = {"say": f"第{k}步", "action": "continue", "suspicion": 3 * k, "probe": k % 2, "strikes": k - 1}
+        if k >= 3:
+            d.update({"action": "hangup", "hangup_type": "bot", "category": "template", "evidence": "", "reason": "r"})
+        return {"content": json.dumps(d, ensure_ascii=False),
+                "usage": {"prompt_tokens": 2000, "completion_tokens": 30, "prompt_tokens_details": {"cached_tokens": 1024}},
+                "model": "qwen3.8-flash"}
+
+
+def test_hard_profile_keeps_fields_in_history_and_meters_cache(tmp_path):
+    fake = FakeHard()
+    res = _run(tmp_path, fake, personas=["wang"], profile="hard")
+    r = res["rows"][0]
+    assert r["suspicion"] == [3, 6, 9] and r["probes"] == 2 and r["flaggedTurns"] == 1 and r["quit"] == "suspicious"
+    hist = [json.loads(m["content"]) for m in fake.calls[-1] if m["role"] == "assistant"]
+    assert hist[0] == {"say": "第1步", "action": "continue", "suspicion": 3, "probe": 1, "strikes": 0}
+    assert fake.calls[-1][0]["content"].startswith(M.fixed_prompt("hard"))
+    o = res["overall"]
+    assert o["avgSuspicion"] == 6 and o["suspiciousQuitEarly"] == 1.0 and o["probesPerSession"] == 2
+    u = res["usage"]
+    assert u["cached_tokens"] == 3 * 1024 and u["cache_hit_rate"] == round(1024 / 2000, 4)
+    assert u["cost_cny"] == pytest.approx(3 * M.J.cost_cny(2000, 30, 1024), abs=1e-6)
+    assert res["config"]["profile"] == "hard" and res["config"]["enableThinking"] is False
+
+
+def test_bad_and_stall_responders_are_deterministic_and_repetitive(tmp_path):
+    b1, b2 = M.BadResponder(7), M.BadResponder(7)
+    seq = [b1.reply(f"第{i}句话请马上转账") for i in range(10)]
+    assert seq == [b2.reply(f"第{i}句话请马上转账") for i in range(10)]
+    assert len(set(seq)) < len(seq) and any("第2句话请马上转账" in x for x in seq)  # 复读 + 原样复述
+    st = M.StallResponder(3)
+    s2 = [st.reply("x") for _ in range(12)]
+    assert s2[:6] == s2[6:] and all(x in M.STALL_LINES for x in s2)
+    res = _run(tmp_path, FakeScammer(hang_at=None), personas=["wang"], responder="bad", max_turns=6)
+    r = res["rows"][0]
+    assert r["responder"] == "bad" and all(m["intent"] == "bad" for m in r["transcript"][1:] if m["role"] == "bot")
+    assert r["revealedItems"] >= 1 and r["capturedItems"] >= 1   # 情报提取照常
+    with pytest.raises(ValueError):
+        _run(tmp_path, FakeScammer(), responder="nope")
+
+
+def test_cli_books_cached_tokens_and_budget_guard(tmp_path, monkeypatch):
+    led = tmp_path / "l.csv"
+    monkeypatch.setattr(M, "CACHE_DIR", tmp_path / "c")
+    fake = FakeHard()
+    monkeypatch.setattr(M.J, "default_client_factory", lambda *a, **k: (lambda: fake))
+    monkeypatch.setattr(M, "run", lambda *a, **k: M.__dict__["_orig_run"](*a, **{**k, "cache_dir": tmp_path / "c"}))
+    rc = M.main(["--run", "--profile", "hard", "--personas", "wang", "--scenarios", "police", "--seeds", "1",
+                 "--budget-tag", "t", "--ledger", str(led), "--no-rule-baseline"])
+    assert rc == 0
+    import csv
+    rows = list(csv.DictReader(open(led, encoding="utf-8")))
+    assert rows[-1]["cached_tokens"] == str(3 * 1024) and "profile=hard" in rows[-1]["note"]
+    assert float(rows[-1]["cost_cny"]) == pytest.approx(3 * M.J.cost_cny(2000, 30, 1024), abs=1e-6)
+    M.L.append("t", "x", "m", {"cost_cny": 10.0}, ledger=led)   # 总预算用完：拒绝运行，不建客户端
+    assert M.main(["--run", "--profile", "hard", "--personas", "wang", "--scenarios", "police", "--seeds", "1",
+                   "--budget-tag", "t", "--ledger", str(led)]) == 2
+
+
+M.__dict__.setdefault("_orig_run", M.run)
