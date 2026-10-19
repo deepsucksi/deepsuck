@@ -129,6 +129,56 @@
   var DIGIT_TYPES = ['bank_card', 'phone', 'alipay', 'qq'];
   /** 把尾号报错一位（让对方纠正）：末两位不同则对调，否则末位 +1 */
   // 人设回复发出前的过滤（#121 数字、#130 打码片段与叠词；与 python/deepsuck/engine.py 的 vague_digits 逐字一致）
+  /* ---------- 跨轮去重（#153，配置 personas.json 的 tailDedupe；与 Python deepsuck.engine.dedupe_tail 逐字一致）---------- */
+  var TD = D.personas.TAIL_DEDUPE;
+  var TD_IGNORE = new RegExp('[' + TD.ignore.replace(/[\\\]\[^-]/g, '\\$&') + ']+', 'g');
+  var TD_SENT = /[^。？！?!；;\n]+[。？！?!；;]*|[。？！?!；;]+/g;
+  function tdNorm(s) { return String(s || '').replace(TD_IGNORE, ''); }
+  function tdSplit(text) {
+    var out = [];
+    (String(text || '').match(TD_SENT) || []).forEach(function (x) {
+      if (out.length && !tdNorm(x)) out[out.length - 1] += x;
+      else if (tdNorm(x) || !out.length) out.push(x);
+    });
+    return out;
+  }
+  function tdHash(t) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h >>> 0;
+  }
+  /** 一条回复的尾句（最后一个有字的句子，带句末标点）；没有字时返回空串 */
+  function tailSentence(text) {
+    var parts = tdSplit(text).filter(function (x) { return tdNorm(x); });
+    return parts.length ? parts[parts.length - 1].trim() : '';
+  }
+  /** 删完为空时的兜底：该人设 templates[fallback] 里已有台词（纯文本、不带 {变量}），按原句哈希定起点依次挑整句和尾句都没说过的第一句 */
+  function tdFallback(text, personaId, seen) {
+    var p = personaId ? D.personas.BY_ID[D.personas.resolveId(personaId)] : null;
+    var pool = ((p && p.templates && p.templates[TD.fallback]) || []).filter(function (x) { return typeof x === 'string' && x.indexOf('{') < 0; });
+    if (!pool.length) return '';
+    var start = tdHash(tdNorm(text)) % pool.length;
+    for (var i = 0; i < pool.length; i++) {
+      var c = pool[(start + i) % pool.length];
+      if (!seen[tdNorm(c)] && !seen[tdNorm(tailSentence(c))]) return c;
+    }
+    return '';
+  }
+  /** 跨轮去重（纯函数）：recentTails 是最近几轮人设回复的尾句（调用方维护）；当前尾句去掉标点后与其中之一相同就删掉这句，
+   *  删完为空时从 personaId 这个人设已有的台词里确定性地挑一句最近几轮没说过的，不加新说法 */
+  function dedupeTail(text, recentTails, personaId) {
+    var s = String(text || '');
+    var seen = {};
+    (recentTails || []).slice(-TD.window).forEach(function (x) { var n = tdNorm(x); if (n) seen[n] = 1; });
+    if (!Object.keys(seen).length) return s;
+    for (;;) {
+      var parts = tdSplit(s).filter(function (x) { return tdNorm(x); });
+      if (!parts.length) return tdNorm(text) ? tdFallback(text, personaId, seen) : s;
+      if (!seen[tdNorm(parts[parts.length - 1])]) return s;
+      s = parts.slice(0, -1).join('').replace(/\s+$/, '');
+    }
+  }
+
   var DE = D.personas.DIGIT_ECHO;
   function reEsc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
   var DD = '[' + DE.digits + ']';
@@ -586,5 +636,5 @@
     });
   };
 
-  return { Session: Session, goalOf: goalOf, scenesIn: scenesIn, heardScenes: heardScenes, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION, vagueDigits: vagueDigits };
+  return { Session: Session, goalOf: goalOf, scenesIn: scenesIn, heardScenes: heardScenes, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION, vagueDigits: vagueDigits, dedupeTail: dedupeTail, tailSentence: tailSentence };
 });
