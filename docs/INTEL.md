@@ -85,6 +85,8 @@ DeepSuck 会**公开发布**它收集到的诈骗情报，让任何人都能检�
 
 验证码不是情报实体，`redact_text` 另按上下文打码（`find_otp_spans(text)` 可单独调用，JS 为 `redactText` / `findOtpSpans`）：只在“验证码、动态码、动态密码、校验码、短信码、确认码、安全码、OTP”前 16 个字或后 8 个字以内（中间不夹阿拉伯数字，至多跨 2 个句末标点）出现 4–8 位数字时，把数字逐个换成 `*`、分隔符保留，例如“验证码是 4 7 2 9 1 5”→“验证码是 * * * * * *”、“校验码⋯四七二⋯九一五”→“校验码⋯***⋯***”。数字之间允许空格、“…”“⋯”“...”、连字符，可用中文数字逐位读出，两段各不超过 4 位时可用“，”“、”连接。不打码：手机号、卡号等实体（照常由实体规则打码）、紧挨字母 / 数字 / `*` 的数字（订单号、已打码值）、前面是“尾号 / 后四位 / 金额 / 工号 / 订单号 / ¥”等、后面是“元 / 块 / 分钟 / 位 / 个”等单位的数字，以及离关键词远的普通数字。规则在 `site/assets/core/extractors.json` 的 `redact.otp`，JS 与 Python 共用（#33）。
 
+跨 ASR 分段（#92）：语音识别会把一串验证码切成几段（“验证码是 38”“27 15”），逐段判断时都不打码。`redact_otp_segments(texts)`（JS `redactOtpSegments`；`find_otp_spans_segments` / `findOtpSpansSegments` 返回各段下标）接收同一通电话、**同一说话方**按时间排的连续分段，以每段为中心连同前后各 `segWindow`（2）段用空格拼接，按上面同一套规则再判断，命中的数字映射回各段换成 `*`（长度不变，可重复调用）。拼接处两侧的数字串之间只有空白、句读或“嗯 / 啊 / 那个”时可连成一串（合计不超过 8 位）。对逐段 `redact_text` 之后的文本调用。调用点：`Session.ingest`（JS / Python，本段和前 2 段对方的话）、`voice/trace.py` 落盘（对方、人设各自一串，落盘晚 3 段，看得到前后 2 段）、`voice/records.py` 文字记录（按角色）；历史 trace 用 `python -m voice.redact_backfill` 重跑。
+
 `mask`、`redact_text`、`extract_sensitive` 也可直接 `from deepsuck import ...`。另有按类型的 `mask_bank_card`、`mask_phone`、`mask_id_card` 等函数，类型到函数的映射见 `MASKERS`。
 
 ### 各类型打码规则
