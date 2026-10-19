@@ -55,7 +55,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 | `guard.py` | 费用护栏：每日预算（预占 + 实时记账 + 持久化）、并发/每 IP 限制、时长/轮数/静默看门狗 |
 | `netpatch.py` | UDP 端口段限制、公网 IP 候选（服务器部署用） |
 | `probe.py` | `python -m voice.probe`：aiortc 端到端探针（部署后验证 UDP/ICE；`--json-out` 输出逐句端到端延迟） |
-| `cost.py` | `python -m voice.cost --day YYYY-MM-DD`：按天汇总调用成本（计数 × 单价重算），见下文「每日成本汇总」 |
+| `cost.py` | `python -m voice.cost --day YYYY-MM-DD`：按天汇总调用成本（计数 × 单价重算），见下文「每日成本汇总」；VPS 上每天 20:40 由 `deepsuck-cost.timer` 写 `/var/log/deepsuck/cost-latest.json`（docs/DEPLOY.md 第 8 节） |
 | `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用 qwen-plus → CosyVoice → Paraformer 的冒烟测试 |
 | `telephony/` | 电话接入抽象层（默认关闭）：`TelephonyAdapter` 基类 + 注册表，`ws-raw` 通用 SIP/WebSocket 适配器、`pipecat-ws`（Twilio/Telnyx/Plivo/Exotel）；阿里云呼入适配器设计稿。见 [telephony/README.md](telephony/README.md) |
 

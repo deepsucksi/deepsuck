@@ -1,0 +1,12 @@
+[Unit]
+Description=DeepSuck weekly docker builder/image prune, keeps rollback tags (GitHub #18)
+Documentation=https://github.com/deepsucksi/deepsuck/blob/main/docs/DEPLOY.md
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/deepsuck-maint
+ExecStart=@DIR@/deploy/diskwatch.sh docker-prune
+Nice=10
+IOSchedulingClass=idle
