@@ -40,6 +40,9 @@ var CFG = {
   model: process.env.LLM_MODEL || 'qwen3.8-flash',
   temperature: process.env.LLM_TEMPERATURE ? parseFloat(process.env.LLM_TEMPERATURE) : llm.DEFAULTS.temperature,
   maxTokens: parseInt(process.env.LLM_MAX_TOKENS || '120', 10),
+  // #166：上游默认是百炼 qwen3.8-flash，该模型默认开思考（慢、多计思考 token）。发往上游的请求体固定带 enable_thinking，
+  // 默认 false；只有 LLM_ENABLE_THINKING=1/true 才开。浏览器发来的请求体不转发（只取 persona/hint/transcript 等），客户端打不开思考。
+  enableThinking: /^(1|true|on|yes)$/i.test(String(process.env.LLM_ENABLE_THINKING || '').trim()),
   // ---- 费用护栏（公开部署时务必保留默认值或调得更严） ----
   rateLimit: parseInt(process.env.RATE_LIMIT_PER_MIN || '20', 10),          // 每 IP 每分钟
   ratePerDay: parseInt(process.env.RATE_LIMIT_PER_DAY || '300', 10),        // 每 IP 每天
