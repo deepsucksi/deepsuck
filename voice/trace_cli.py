@@ -4,6 +4,11 @@
     python -m voice.trace_cli <编号> --audio    另外列出录音文件路径和大小
     python -m voice.trace_cli --list [-n 20]    最近的通话
     python -m voice.trace_cli <编号> --json     原始 JSONL（每行一个对象）
+    python -m voice.trace_cli --flagged [--since 2026-10-19] [--json]
+                                                被点了“这通有问题”的通话和各条说明
+    python -m voice.trace_cli --usage [--since 2026-10-01] [--until 2026-10-19] [--days 7]
+                                                按天（UTC+8）汇总用量，输出 JSON（#20 成本监控直接用）
+字段表见 docs/TRACE_SCHEMA.md。
 
 容器里：docker exec deepsuck-voice-1 python -m voice.trace_cli <编号>
 """
@@ -48,7 +53,8 @@ def render(t: dict, audio: bool = False) -> str:
             out.append(f"[{ts}] 人设({r.get('kind')}): {r.get('text')}")
         elif typ == "turn":
             out.append(f"[{ts}] #{r.get('n')} 意图={r.get('intent')}" + (f"（{'/'.join(r['intents'])}）" if r.get("intents") else "")
-                       + (f"  提示词={r.get('prompt')}" if r.get("prompt") else ""))
+                       + (f"  提示词={r.get('prompt')}" if r.get("prompt") else "")
+                       + ("  被打断" if r.get("interrupted") else ""))
             out.append(f"    对方: {r.get('asr')}")
             if r.get("filler"):
                 out.append(f"    口头语: {r['filler']}")
@@ -56,14 +62,23 @@ def render(t: dict, audio: bool = False) -> str:
             if r.get("intel"):
                 out.append("    情报: " + "、".join(f"{i.get('label')} {i.get('masked')}" for i in r["intel"]))
             if r.get("latency"):
-                out.append(f"    延迟: {_lat(r['latency'])}")
+                out.append(f"    延迟: {_lat(r['latency'])}"
+                           + (f" llm整句={r['llm_full_ms']}ms" if r.get("llm_full_ms") is not None else ""))
+            if "llm_in_tokens" in r:
+                out.append(f"    用量: llm {r.get('llm_in_tokens')}/{r.get('llm_out_tokens')} tokens  "
+                           f"asr {r.get('asr_audio_sec')}s  tts {r.get('tts_chars')} 字（{r.get('tts_voice') or '-'}）")
         elif typ == "feedback":
-            out.append(f"[{ts}] 反馈" + (f"（第 {r['turn']} 轮）" if r.get("turn") is not None else "") + f": {r.get('note') or '（无说明）'}")
+            out.append(f"[{ts}] 这通有问题" + (f"（第 {r['turn']} 轮）" if r.get("turn") is not None else "") + f": {r.get('note') or '（无说明）'}")
         elif typ == "end":
             hl = r.get("latency") or {}
             fa = (hl.get("first_audible") or {}).get("p50")
+            u = r.get("usage_total") or {}
             out.append(f"[{ts}] 结束：原因={r.get('reason')} 轮数={r.get('turns')}"
-                       + (f" 首声p50={fa}ms" if fa is not None else ""))
+                       + (f" 时长={r['duration_sec']}s" if r.get("duration_sec") is not None else "")
+                       + (f" 首声p50={fa}ms" if fa is not None else "")
+                       + (f" 合计 llm {u.get('llm_in_tokens')}/{u.get('llm_out_tokens')} tokens asr {u.get('asr_audio_sec')}s"
+                          f" tts {u.get('tts_chars')} 字" if u else "")
+                       + (f" 约 {r['cost_cny']} 元" if r.get("cost_cny") is not None else ""))
         elif typ == "audio":
             parts = [f"{k} {v.get('seconds')}s {v.get('bytes')}B" for k, v in r.items() if isinstance(v, dict)]
             out.append(f"[{ts}] 录音: " + "，".join(parts) + (f"（停止：{r['stopped']}）" if r.get("stopped") else ""))
@@ -89,14 +104,40 @@ def main(argv=None) -> int:
     ap.add_argument("--list", action="store_true", help="列出最近的通话")
     ap.add_argument("-n", type=int, default=20)
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--flagged", action="store_true", help="只列被标记“这通有问题”的通话")
+    ap.add_argument("--usage", action="store_true", help="按天汇总用量（JSON）")
+    ap.add_argument("--since", help="起始日期 YYYY-MM-DD（含）")
+    ap.add_argument("--until", help="截止日期 YYYY-MM-DD（含，仅 --usage）")
+    ap.add_argument("--days", type=int, help="最近几天（仅 --usage，等价于 --since 今天往前 N-1 天）")
     a = ap.parse_args(argv)
+    if a.usage:
+        since = a.since
+        if a.days and not since:
+            from datetime import datetime, timedelta
+            since = (datetime.now(TR.TZ) - timedelta(days=max(1, a.days) - 1)).strftime("%Y-%m-%d")
+        print(json.dumps(TR.usage_by_day(since, a.until), ensure_ascii=False, indent=1))
+        return 0
+    if a.flagged:
+        rows = TR.list_traces(since=a.since, limit=a.n if a.n != 20 else 500, flagged=True)
+        if a.json:
+            print(json.dumps(rows, ensure_ascii=False, indent=1))
+            return 0
+        for r in rows:
+            print(f"{r['id']}  {r['t']}  {r['channel']:5s}  {r['persona']}/{r['scenario']}  轮数={r['turns']}  "
+                  f"原因={r['reason']}  录音={'有' if r['audio'] else '无'}")
+            for n in r.get("notes") or []:
+                print(f"    [{str(n.get('t', ''))[:19]}]" + (f" 第 {n['turn']} 轮" if n.get("turn") is not None else "")
+                      + f" {n.get('note') or '（无说明）'}")
+        if not rows:
+            print("（没有被标记有问题的通话）")
+        return 0
     if a.list or not a.id:
-        rows = TR.list_traces(limit=a.n)
+        rows = TR.list_traces(since=a.since, limit=a.n)
         if a.json:
             print(json.dumps(rows, ensure_ascii=False, indent=1))
         for r in rows if not a.json else []:
             print(f"{r['id']}  {r['t']}  {r['channel']:5s}  {str(r['consent']):13s}  {r['persona']}/{r['scenario']}  "
-                  f"轮数={r['turns']}  原因={r['reason']}  反馈={r['feedback']}  录音={'有' if r['audio'] else '无'}")
+                  f"轮数={r['turns']}  原因={r['reason']}  有问题={r['feedback']}  录音={'有' if r['audio'] else '无'}")
         if not rows:
             print(f"（{TR.trace_dir()} 下没有通话记录）")
         return 0

@@ -580,7 +580,8 @@ def test_latency_observer_real_pipeline_counts_every_turn_and_notifies_before_ha
                                         + [LLMFullResponseEndFrame()])
                 await asyncio.sleep(0.1)
                 gc.collect()  # 释放本回合的帧，让下一回合的新帧有机会复用同一地址
-            before_flush["turns"], before_flush["notified"] = len(lat.turns), len(got)
+            before_flush["turns"] = len(lat.turns)
+            before_flush["notified"] = sum(1 for m in got if m["type"] == "latency")
             await lat.flush()
             await task.cancel()
 
@@ -592,5 +593,32 @@ def test_latency_observer_real_pipeline_counts_every_turn_and_notifies_before_ha
     lat, before = asyncio.run(go())
     assert before == {"turns": 4, "notified": 4}
     assert len(lat.turns) == 4
+    llm = [m for m in got if m["type"] == "llm_done"]  # 通话追踪用的大模型整句耗时，每回合一条
+    got = [m for m in got if m["type"] == "latency"]
+    assert len(llm) == 4 and all(m["full_ms"] is not None and m["full_ms"] >= 0 for m in llm)
     assert [m["turn"] for m in got] == [1, 2, 3, 4]
     assert all(m["e2e_reply"] is not None and m["e2e_reply"] >= 0 for m in got)
+
+
+def test_latency_observer_reports_llm_full_and_interrupt_for_trace():
+    """通话追踪（#5）：大模型整句耗时（Start→End）和“人设说话时对方开口”各发一条通知；不进 turns。"""
+    from pipecat.frames.frames import BotStartedSpeakingFrame, BotStoppedSpeakingFrame, LLMFullResponseEndFrame
+    clk = _Clock()
+    got = []
+
+    async def notify(m):
+        got.append(m)
+    obs = LatencyObserver(clock=clk, notify=notify)
+    _feed(obs, clk, [(1.0, UserStartedSpeakingFrame()), (2.0, VADUserStoppedSpeakingFrame(stop_secs=0.2)),
+                     (2.1, UserStoppedSpeakingFrame()), (2.2, TranscriptionFrame("好", "u", "t")),
+                     (2.3, LLMFullResponseStartFrame()), (2.7, LLMTextFrame("哎")), (2.8, TTSStartedFrame()),
+                     (3.0, AUDIO()), (3.05, BotStartedSpeakingFrame()), (3.5, LLMFullResponseEndFrame()),
+                     (4.0, UserStartedSpeakingFrame()),               # 人设还在说：打断
+                     (4.5, VADUserStoppedSpeakingFrame(stop_secs=0.2)), (4.6, UserStoppedSpeakingFrame()),
+                     (5.0, BotStoppedSpeakingFrame()),
+                     (6.0, UserStartedSpeakingFrame())])              # 人设已停：不算打断
+    kinds = [m["type"] for m in got]
+    assert kinds.count("interrupt") == 1 and kinds.count("llm_done") == 1
+    assert next(m for m in got if m["type"] == "llm_done")["full_ms"] == 1200
+    assert kinds.index("llm_done") < kinds.index("interrupt")
+    assert len(obs.turns) == 1
