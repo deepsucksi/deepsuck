@@ -1,0 +1,2 @@
+time,tag,script,model,requests,prompt_tokens,completion_tokens,cost_cny,note
+2026-10-19T14:20:00+08:00,qwen38-baseline-2026-10-19,DashScope 兼容接口冒烟（max_tokens=5）,qwen3.8-flash,2,56,10,0.000072,确认 qwen3.8-flash 可用 ok

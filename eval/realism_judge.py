@@ -6,7 +6,7 @@
     python eval/realism_blind.py score --key eval/realism/key.json --judge llm --dry-run
 
 设计：
-- 评委是百炼 DashScope 的 qwen-plus（OpenAI 兼容接口，非思考模式），temperature 0、固定 seed，要求 JSON 输出；
+- 评委是百炼 DashScope 的 qwen3.8-flash（2026-10-19 起；之前是 qwen-plus）（OpenAI 兼容接口，非思考模式），temperature 0、固定 seed，要求 JSON 输出；
 - 评委看到的内容和评测者一样：骗子消息 + 回复，不知道条件；默认逐题独立判（--judge-mode item：一题一次请求，
   评委看不到同一份表的其他题，避免“与某题雷同”式的跨题比较）；可选批量模式（--judge-mode batch：每次请求放同一份表的
   若干题，默认 10 题，即 76cef8b 的旧做法）。两种模式下同一句的 raw / humanized 都不会出现在同一次请求里，请求之间没有上下文；
@@ -23,6 +23,7 @@ import json
 import math
 import os
 import re
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -32,14 +33,14 @@ from typing import Callable, Dict, List, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 
-MODEL = "qwen-plus"
+MODEL = "qwen3.8-flash"
 BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-# qwen-plus 单价（元 / 百万 token，华北 2 北京地域，单次请求输入 ≤128K 档，非思考模式），
-# 来源：阿里云百炼「模型调用价格」https://help.aliyun.com/zh/model-studio/model-pricing（2026-10-18 查阅）。
-# 本脚本每次请求只有几千 token，始终落在 ≤128K 档；不计免费额度和缓存折扣，按原价算，偏保守。
+# qwen3.8-flash 单价（元 / 百万 token，华北 2 北京地域，0<输入≤1M 不分档，思考与非思考同价），
+# 来源：阿里云百炼「模型调用价格」https://help.aliyun.com/zh/model-studio/model-pricing（2026-10-19 查阅，千问 Flash 表）。
+# 不计免费额度和缓存折扣，按原价算，偏保守。换模型前（qwen-plus，≤128K 非思考）是 0.8 / 2.0。
 PRICE_INPUT_PER_M = 0.8
-PRICE_OUTPUT_PER_M = 2.0
-PRICE_SOURCE = "https://help.aliyun.com/zh/model-studio/model-pricing (qwen-plus, 北京, ≤128K, 非思考, 2026-10-18)"
+PRICE_OUTPUT_PER_M = 2.7
+PRICE_SOURCE = "https://help.aliyun.com/zh/model-studio/model-pricing (qwen3.8-flash, 北京, 0-1M 不分档, 2026-10-19)"
 HARD_MAX_COST_CNY = 1.0
 DEFAULT_PAIRS = 60
 DEFAULT_BATCH = 10
@@ -91,6 +92,18 @@ def system_prompt(mode: str = "batch") -> str:
 
 def prompt_version(mode: str = "batch") -> str:
     return PROMPT_VERSION_ITEM if mode == "item" else PROMPT_VERSION
+
+
+def load_ledger():
+    """费用台账模块（eval/spend_ledger.py，按路径加载）。"""
+    if "spend_ledger" in sys.modules:
+        return sys.modules["spend_ledger"]
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("spend_ledger", Path(__file__).with_name("spend_ledger.py"))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["spend_ledger"] = mod
+    spec.loader.exec_module(mod)
+    return mod
 
 
 # ---------------------------------------------------------------- key / client
@@ -261,7 +274,7 @@ def run_judge(key: Dict[str, dict], forms: Dict[str, List[dict]], client_factory
               n_pairs: int = DEFAULT_PAIRS, batch_size: int = DEFAULT_BATCH, seed: int = DEFAULT_SEED,
               model: str = MODEL, max_cost: float = HARD_MAX_COST_CNY, cache_dir: Path = CACHE_DIR,
               dry_run: bool = False, refresh: bool = False, log: Callable[[str], None] = lambda s: None,
-              mode: str = DEFAULT_MODE) -> dict:
+              mode: str = DEFAULT_MODE, usage_hook: Optional[Callable[[dict], None]] = None) -> dict:
     """返回 {"ratings": [...人工评分同格式...], "judgments": {...}, "usage": {...}, "estimate": {...}}。
     client_factory 只在确实需要调用（有未缓存批次且不是 dry_run）时才被调用。"""
     max_cost = min(float(max_cost), HARD_MAX_COST_CNY)
@@ -297,6 +310,8 @@ def run_judge(key: Dict[str, dict], forms: Dict[str, List[dict]], client_factory
         return result
     client = None
     u = result["usage"]
+    if usage_hook:
+        usage_hook(u)  # 中途停下时调用方也能拿到已花的钱（记台账）
     invalid = 0
     for b, params, k, hit in plan:
         if hit is None:
