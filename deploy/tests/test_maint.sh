@@ -140,6 +140,54 @@ reset; FAKE_EXEC_OUT="$J0" REDACT_CONTAINER=other-voice bash "$RB"; grep -q '^do
 pass "redact-backfill failures (exec error, bad JSON, missing dir) -> ERROR + non-zero; container configurable"
 ! grep -q '^ *args+=(.*--backup' "$RB" || fail "redact-backfill must not keep backups"   # 上面也逐字检查了 exec 命令
 
+# --- chat-usage-prune（#178）：文字代理逐次台账 >2 天压缩、>30 天删除，等 cost-latest 读完 ---
+P="$T/proxy"; CL="$T/costlog"; mkdir -p "$CL"
+cu_setup() {
+  rm -f "$P"/chat-usage-* "$CL"/*
+  for d in 2026-10-19 2026-10-17 2026-10-16 2026-10-14 2026-09-10; do
+    printf '{"ts":"%sT01:00:00.000Z","day":"%s","usage":{"prompt_tokens":10}}\n%.0s' "$d" "$d" $(seq 1 200) > "$P/chat-usage-$d.jsonl"
+  done
+  printf '{"day":"2026-10-15"}\n' | gzip -c > "$P/chat-usage-2026-10-15.jsonl.gz"
+  printf '{"day":"2026-09-18"}\n' | gzip -c > "$P/chat-usage-2026-09-18.jsonl.gz"
+  echo '{}' > "$P/chat-budget.json"
+  for f in "$P"/chat-usage-* "$P/chat-budget.json"; do old 2 "$f"; done
+  touch "$P/chat-usage-2026-10-14.jsonl"                     # 最后写入晚于 cost-latest：要跳过
+  echo '{}' > "$CL/cost-2026-10-18.json"; touch -d "@$(( $(date +%s) - 3600 ))" "$CL/cost-2026-10-18.json"
+  ln -sfn cost-2026-10-18.json "$CL/cost-latest.json"
+}
+CU() { CHAT_USAGE_TODAY=2026-10-19 COST_OUT_DIR="$CL" bash "$DW" "$@"; }
+cu_setup; cp "$P/chat-usage-2026-10-16.jsonl" "$T/cu-orig.jsonl"
+reset; CU chat-usage-prune
+for d in 2026-10-19 2026-10-17 2026-10-14; do [ -f "$P/chat-usage-$d.jsonl" ] || fail "chat-usage-$d.jsonl must stay"; done
+[ ! -e "$P/chat-usage-2026-10-16.jsonl" ] && gzip -t "$P/chat-usage-2026-10-16.jsonl.gz" || fail "3-day-old file should be gzipped"
+gzip -dc "$P/chat-usage-2026-10-16.jsonl.gz" | cmp -s - "$T/cu-orig.jsonl" || fail "gz content must match"
+[ -f "$P/chat-usage-2026-10-15.jsonl.gz" ] || fail "existing .gz within 30 days kept"
+[ ! -e "$P/chat-usage-2026-09-18.jsonl.gz" ] && [ ! -e "$P/chat-usage-2026-09-10.jsonl" ] || fail ">30-day files deleted"
+[ -f "$P/chat-budget.json" ] || fail "chat-budget.json untouched"
+grep -q '^deepsuck-diskwatch|user.warning|WARN chat-usage-prune skipped chat-usage-2026-10-14.jsonl: cost-latest mtime .* not after file mtime' "$LOGFILE" || fail "skip WARN"
+grep -Eq '^deepsuck-diskwatch\|user.info\|INFO chat-usage-prune .*: compressed 1 \[chat-usage-2026-10-16.jsonl\] deleted 2 \[chat-usage-2026-09-1[08].jsonl(.gz)? chat-usage-2026-09-1[08].jsonl(.gz)?\] skipped 1, reclaimed [0-9]+KB \([0-9]+B; gzip >2d, delete >30d, Asia/Shanghai\)' "$LOGFILE" || fail "summary log: $(cat "$LOGFILE")"
+pass "chat-usage-prune gzips >2d, deletes >30d (by filename day), skips files newer than cost-latest, logs to diskwatch"
+cu_setup; before=$(find "$P" -type f | sort)
+reset; CU --dry-run chat-usage-prune
+[ "$before" = "$(find "$P" -type f | sort)" ] || fail "dry-run changed files"
+grep -q 'INFO \[dry-run\] chat-usage-prune .*compressed 1 .*deleted 2 ' "$LOGFILE" || fail "dry-run summary"
+pass "chat-usage-prune --dry-run changes nothing"
+cu_setup; rm -f "$CL/cost-latest.json"; before=$(find "$P" -type f | sort)
+reset; CU chat-usage-prune
+[ "$before" = "$(find "$P" -type f | sort)" ] || fail "no cost-latest -> must not touch"
+[ "$(grep -c 'WARN chat-usage-prune skipped .*cost-latest missing' "$LOGFILE")" = 4 ] || fail "missing cost-latest WARN per file"
+grep -q 'INFO chat-usage-prune .*compressed 0 \[\] deleted 0 \[\] skipped 4, reclaimed 0KB' "$LOGFILE" || fail "summary when skipped"
+pass "chat-usage-prune skips everything when cost-latest is missing"
+cu_setup
+reset; FAKE_TAGS="deepsuck-caddy:rollback-887ac0" CU docker-prune
+[ -f "$P/chat-usage-2026-10-16.jsonl.gz" ] || fail "weekly docker-prune runs chat-usage-prune"
+awk -F'|' '/chat-usage-prune .*compressed/{a=NR} /docker-prune freed/{b=NR} END{exit !(a && b && a < b)}' "$LOGFILE" || fail "chat-usage-prune before docker prune"
+cu_setup
+reset; FAKE_TAGS="" CU docker-prune && fail "missing rollback tag still fails" || true
+[ -f "$P/chat-usage-2026-10-16.jsonl.gz" ] || fail "chat-usage-prune runs even when docker prune is skipped"
+pass "weekly docker-prune (#18) runs chat-usage-prune first, independent of rollback-tag check"
+rm -f "$P"/chat-usage-* "$P/chat-budget.json"
+
 # --- install-timers ---
 export DEEPSUCK_ETC="$T/etc" COST_OUT_DIR="$T/log2"
 rm -f "$T/data/cost-baseline.json"

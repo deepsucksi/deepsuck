@@ -4,7 +4,8 @@
 #   deploy/diskwatch.sh [--dry-run] check         根分区和 docker 数据目录使用率：>WARN% 记 WARN，>CRIT% 记 ERROR
 #   deploy/diskwatch.sh [--dry-run] volumes       trace/录音卷和 voice-data 卷的大小；trace 卷接近 TRACE_MAX_MB 时告警
 #   deploy/diskwatch.sh [--dry-run] run           check + volumes（deepsuck-diskwatch.timer，每 15 分钟）
-#   deploy/diskwatch.sh [--dry-run] docker-prune  每周 docker 清理（deepsuck-docker-prune.timer）
+#   deploy/diskwatch.sh [--dry-run] docker-prune  每周清理（deepsuck-docker-prune.timer）：先 chat-usage-prune，再 docker 清理
+#   deploy/diskwatch.sh [--dry-run] chat-usage-prune  文字代理逐次台账：超过 2 天压成 .gz、超过 30 天删除（#178）
 #
 # 只写日志（logger -t deepsuck-diskwatch），不开 issue、不需要 GitHub token：journalctl -t deepsuck-diskwatch
 #
@@ -15,12 +16,16 @@
 #   本脚本不删任何通话数据：trace 和录音由容器内 voice/trace.py 按 TRACE_DAYS / TRACE_AUDIO_DAYS 清理，
 #   文字记录 / 原始音频由 voice/records.py 按 VOICE_TRANSCRIPT_DAYS / KEEP_AUDIO_DAYS 清理（docs/TRACE_SCHEMA.md）。
 #   ROLLBACK_TAGS="deepsuck-caddy:rollback-887ac0"：docker 清理前必须都在，缺任何一个就跳过清理并记 ERROR。
+#   chat-usage-prune（#178）：proxy-data 卷（PROXY_DATA_HOST_DIR 可覆盖）里的 chat-usage-YYYY-MM-DD.jsonl，按文件名日期和
+#   上海自然日算天数：> CHAT_USAGE_GZIP_DAYS（默认 2）压成 .gz，> CHAT_USAGE_KEEP_DAYS（默认 30）连同 .gz 删除。
+#   每个文件都要 cost-latest（COST_OUT_DIR/cost-latest.json，每天 20:40 由 cost-report.sh 生成）的 mtime 晚于该文件的
+#   最后写入时间才动，否则跳过并记 WARN；cost-latest 不存在时一律跳过。只动这一种文件名，不碰通话数据。
 set -euo pipefail
 # shellcheck source=deploy/maint-lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/maint-lib.sh"
 TAG="${DISKWATCH_TAG:-deepsuck-diskwatch}"
 
-usage() { sed -n '2,8p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 check() {
   local warn crit root p src pct avail mnt seen=" " worst=0
@@ -64,6 +69,49 @@ volumes() {
   log info "$TAG" "$msg"
 }
 
+# 上海自然日的 epoch 天数；CHAT_USAGE_TODAY=YYYY-MM-DD 可覆盖（测试用）
+cn_daynum() { echo $(( $(TZ=UTC date -d "$1" +%s) / 86400 )); }
+
+chat_usage_prune() {
+  local dir gz_days keep_days today latest latest_m f base d age m sz gsz
+  local n_gz=0 n_del=0 n_skip=0 freed=0 gz_list="" del_list=""
+  dir=$(vol_path proxy-data PROXY_DATA_HOST_DIR)
+  gz_days=$(int_or "$(env_get CHAT_USAGE_GZIP_DAYS 2)" 2)
+  keep_days=$(int_or "$(env_get CHAT_USAGE_KEEP_DAYS 30)" 30)
+  if [ ! -d "$dir" ]; then log info "$TAG" "chat-usage-prune: $dir missing, nothing to do"; return 0; fi
+  today=$(cn_daynum "${CHAT_USAGE_TODAY:-$(TZ=Asia/Shanghai date +%F)}")
+  latest="${COST_OUT_DIR:-/var/log/deepsuck}/cost-latest.json"
+  latest_m=$(stat -L -c %Y "$latest" 2>/dev/null || echo 0)
+  shopt -s nullglob
+  for f in "$dir"/chat-usage-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9].jsonl "$dir"/chat-usage-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9].jsonl.gz; do
+    [ -f "$f" ] && [ ! -L "$f" ] || continue
+    base=$(basename "$f"); d=${base#chat-usage-}; d=${d%%.*}
+    age=$(( today - $(cn_daynum "$d") ))
+    [ "$age" -gt "$gz_days" ] || continue
+    case "$f" in *.gz) [ "$age" -gt "$keep_days" ] || continue ;; esac
+    m=$(stat -c %Y "$f")
+    if [ "$latest_m" -le "$m" ]; then
+      n_skip=$((n_skip + 1))
+      log warning "$TAG" "chat-usage-prune skipped $base: cost-latest $([ "$latest_m" = 0 ] && echo missing || echo "mtime $(date -d "@$latest_m" '+%F %T %z') not after file mtime $(date -d "@$m" '+%F %T %z')")"
+      continue
+    fi
+    sz=$(stat -c %s "$f")
+    if [ "$age" -gt "$keep_days" ]; then
+      [ "$DRY_RUN" = 1 ] || rm -f -- "$f"
+      n_del=$((n_del + 1)); freed=$((freed + sz)); del_list="$del_list $base"
+    else
+      case "$f" in *.gz) continue ;; esac
+      if [ -e "$f.gz" ]; then n_skip=$((n_skip + 1)); log warning "$TAG" "chat-usage-prune skipped $base: $base.gz already exists"; continue; fi
+      if [ "$DRY_RUN" = 1 ]; then gsz=$(gzip -c -- "$f" | wc -c)
+      else gzip -9 -- "$f"; gsz=$(stat -c %s "$f.gz")
+      fi
+      n_gz=$((n_gz + 1)); freed=$((freed + sz - gsz)); gz_list="$gz_list $base"
+    fi
+  done
+  shopt -u nullglob
+  log info "$TAG" "chat-usage-prune $dir: compressed $n_gz [${gz_list# }] deleted $n_del [${del_list# }] skipped $n_skip, reclaimed $((freed / 1024))KB (${freed}B; gzip >${gz_days}d, delete >${keep_days}d, Asia/Shanghai)"
+}
+
 docker_prune() {
   local t root before after
   for t in ${ROLLBACK_TAGS:-$(env_get ROLLBACK_TAGS deepsuck-caddy:rollback-887ac0)}; do
@@ -91,7 +139,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run|-n) DRY_RUN=1 ;;
     -h|--help) usage 0 ;;
-    check|volumes|run|docker-prune) CMD="$1" ;;
+    check|volumes|run|docker-prune|chat-usage-prune) CMD="$1" ;;
     *) echo "unknown argument: $1" >&2; usage 2 >&2 ;;
   esac
   shift
@@ -101,6 +149,7 @@ case "${CMD:-}" in
   check) check ;;
   volumes) volumes ;;
   run) check; volumes ;;
-  docker-prune) docker_prune ;;
+  docker-prune) chat_usage_prune || log err "$TAG" "chat-usage-prune failed"; docker_prune ;;
+  chat-usage-prune) chat_usage_prune ;;
   *) usage 2 >&2 ;;
 esac
