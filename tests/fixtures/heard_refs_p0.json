@@ -1,6 +1,6 @@
 {
   "schema": "deepsuck.fixture.heard_refs_p0/v1",
-  "comment": "#206 第六条探针（语音 P0）：对方的话（已脱敏）里的星号，heard_refs 判成哪类代称。expect=number：必须记 number、不能记 name（念「那个号」）；name：必须记 name（防回归，宁可多遮）；not_name：不能记 name。前 37 条逐字取自语音组 p0-cases.json（以该文件为准），后面是补充的防回归。speak：明文打码后念出来的话。tests/heard_refs_p0.test.js（llm.heardRefs / speakMasked）、python/tests/test_heard_refs_p0.py（deepsuck.refs）、voice/tests/test_heard_refs_p0.py（voice.persona.heard_refs）三端共用。 expect=name+number：name 和 number 都要有（#214 审查，按片段分别判断）。",
+  "comment": "#206 第六条探针（语音 P0）：对方的话（已脱敏）里的星号，heard_refs 判成哪类代称。expect=number：必须记 number、不能记 name（念「那个号」）；name：必须记 name（防回归，宁可多遮）；not_name：不能记 name。前 37 条逐字取自语音组 p0-cases.json（以该文件为准），后面是补充的防回归。speak：明文打码后念出来的话。tests/heard_refs_p0.test.js（llm.heardRefs / speakMasked）、python/tests/test_heard_refs_p0.py（deepsuck.refs）、voice/tests/test_heard_refs_p0.py（voice.persona.heard_refs）三端共用。 expect=name+number：name 和 number 都要有（#214 审查，按片段分别判断）。 xfail：已知未修，三端测试按预期失败处理（JS 跳过），原因写在 xfail 里。",
   "source": "p0-cases.json：P0 cases: number words + 1-3 stars must be number; name anchors stay name",
   "cases": [
     {
@@ -25,7 +25,8 @@
     },
     {
       "text": "转到*",
-      "expect": "number"
+      "expect": "name",
+      "note": "#214 语音/语料审查：转账动词后的星号按姓名算（宁可多遮），原期望 number"
     },
     {
       "text": "手机号是*",
@@ -49,7 +50,8 @@
     },
     {
       "text": "我在*上班",
-      "expect": "not_name"
+      "expect": "not_name",
+      "xfail": "#214 不修（负责人决定）：「星号后紧跟一个字一律当姓名」挪到号码/不当姓名语境前面（语音审查第 3 条）后，单星号的「我在*上班」被当成姓名，念「我在那个名字上班」（偏遮，不露原文）。原期望 not_name，见合并 issue。"
     },
     {
       "text": "验证码是**",
@@ -73,7 +75,8 @@
     },
     {
       "text": "转到**",
-      "expect": "number"
+      "expect": "name",
+      "note": "#214 语音/语料审查：转账动词后的星号按姓名算（宁可多遮），原期望 number"
     },
     {
       "text": "手机号是**",
@@ -121,7 +124,8 @@
     },
     {
       "text": "转到***",
-      "expect": "number"
+      "expect": "name",
+      "note": "#214 语音/语料审查：转账动词后的星号按姓名算（宁可多遮），原期望 number"
     },
     {
       "text": "手机号是***",
@@ -145,7 +149,8 @@
     },
     {
       "text": "我在***上班",
-      "expect": "not_name"
+      "expect": "not_name",
+      "note": "期望 not_name 仍通过（refs 里没有 name）；但现在记成 number、念「那个号」，#214 不修，见合并 issue"
     },
     {
       "text": "户名和平",
@@ -353,6 +358,56 @@
       "text": "打给**",
       "expect": "name",
       "note": "#214 审查表格里的收款人用例"
+    },
+    {
+      "text": "转到*明",
+      "expect": "name",
+      "note": "#214 语音审查：星号后紧跟一个字一律当姓名；户名/收款人/名下/对方叫后的星号优先算姓名"
+    },
+    {
+      "text": "卡号是*华",
+      "expect": "name",
+      "note": "#214 语音审查：星号后紧跟一个字一律当姓名；户名/收款人/名下/对方叫后的星号优先算姓名"
+    },
+    {
+      "text": "验证码是*明",
+      "expect": "name",
+      "note": "#214 语音审查：星号后紧跟一个字一律当姓名；户名/收款人/名下/对方叫后的星号优先算姓名"
+    },
+    {
+      "text": "转到**明",
+      "expect": "name",
+      "note": "#214 语音审查：星号后紧跟一个字一律当姓名；户名/收款人/名下/对方叫后的星号优先算姓名"
+    },
+    {
+      "text": "卡号是***，户名是**",
+      "expect": "name+number",
+      "note": "#214 语音审查：星号后紧跟一个字一律当姓名；户名/收款人/名下/对方叫后的星号优先算姓名"
+    },
+    {
+      "text": "户名：**",
+      "expect": "name",
+      "note": "#214 语音审查：星号后紧跟一个字一律当姓名；户名/收款人/名下/对方叫后的星号优先算姓名"
+    },
+    {
+      "text": "户名为**",
+      "expect": "name",
+      "note": "#214 语音审查：星号后紧跟一个字一律当姓名；户名/收款人/名下/对方叫后的星号优先算姓名"
+    },
+    {
+      "text": "对方叫**",
+      "expect": "name",
+      "note": "#214 语音审查：星号后紧跟一个字一律当姓名；户名/收款人/名下/对方叫后的星号优先算姓名"
+    },
+    {
+      "text": "收款人***",
+      "expect": "name",
+      "note": "#214 语音审查：星号后紧跟一个字一律当姓名；户名/收款人/名下/对方叫后的星号优先算姓名"
+    },
+    {
+      "text": "卡号是***，名下***",
+      "expect": "name+number",
+      "note": "#214 语音审查：星号后紧跟一个字一律当姓名；户名/收款人/名下/对方叫后的星号优先算姓名"
     }
   ],
   "speak": [

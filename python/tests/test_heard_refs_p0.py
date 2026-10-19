@@ -16,6 +16,8 @@ from deepsuck.refs import heard_refs, speak_masked  # noqa: E402
 
 F = json.loads((ROOT / "tests/fixtures/heard_refs_p0.json").read_text(encoding="utf-8"))
 
+CASES = [pytest.param(c, marks=pytest.mark.xfail(reason=c["xfail"], strict=True)) if c.get("xfail") else c for c in F["cases"]]
+
 
 def ok(expect, refs):
     if expect == "name+number":
@@ -31,7 +33,7 @@ def test_case_count():
     assert len(F["cases"]) >= 37
 
 
-@pytest.mark.parametrize("case", F["cases"], ids=lambda c: c["text"])
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c["text"])
 def test_heard_refs_p0(case):
     refs = heard_refs([case["text"]])
     assert ok(case["expect"], refs), (case["text"], case["expect"], refs)

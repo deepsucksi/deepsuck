@@ -78,8 +78,9 @@
   var NOT_NAME_AFTER = new RegExp('^(?:' + (MC.notNameAfter || '(?!)') + ')');
   /** #206 第六条探针：str 里 pos 处开始的星号按上下文不当姓名（号码语境「验证码是***」「转到**」，或「我在***上班」）。与 Python stars_not_name 一致。 */
   var NAME_AFTER = new RegExp('^(?:' + (MC.nameAfter || '(?!)') + ')');
-  /** #214 审查：str 里 pos 处开始的星号后面跟「名下、的卡、的账户」等，是收款人姓名（「转到**名下」）。与 Python stars_name 一致。 */
-  function starsName(str, pos) { return NAME_AFTER.test(String(str).slice(pos)); }
+  var NAME_BEFORE = new RegExp(MC.nameBefore || '(?!)');
+  /** #214 审查：str 里 pos 处开始的星号前面是「户名、收款人、名下、对方叫」或后面跟「名下、的卡、的账户」等，是姓名。与 Python stars_name 一致。 */
+  function starsName(str, pos) { str = String(str); return NAME_BEFORE.test(str.slice(0, pos)) || NAME_AFTER.test(str.slice(pos)); }
   function starsNotName(str, pos) {
     str = String(str);
     if (starsName(str, pos)) return false; // #214：「转到**名下」「打到**的卡上」仍是姓名
@@ -87,8 +88,8 @@
   }
   function maskedLeadNotSurname(m, sur, off, str, fallback) {
     if (sur.length !== 1) return false;
-    if (starsNotName(str, off + Math.max(m.search(/[*＊]/), 0))) return true; // #206 第六条探针：号码语境 / 「我在***上班」不当姓名，先于下面两条兜底
-    if (/[*＊][\u4e00-\u9fff]/.test(m)) return false; // #206 星号后面还跟着一个字（「对*明」「王*明」）：一律当姓名（宁可多遮）
+    if (/[*＊][\u4e00-\u9fff]/.test(m)) return false; // #206 星号后面还跟着一个字（「对*明」「王*明」「转到*明」「卡号是*华」）：一律当姓名（宁可多遮），先于号码语境
+    if (starsNotName(str, off + Math.max(m.search(/[*＊]/), 0))) return true; // #206 第六条探针：号码语境 / 「我在***上班」不当姓名，先于 SHORT_STARS 兜底
     var star = m.search(/[*＊]/);
     var rest = String(str).slice(off + (star < 0 ? m.length : star));
     var st = stopSurname(sur, rest);

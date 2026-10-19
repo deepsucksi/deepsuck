@@ -18,6 +18,10 @@ function check(expect, refs) {
 test('heard_refs P0：号码语境念「那个号」，姓名照旧是名字，「我在***上班」不当名字', () => {
   assert.ok(F.cases.length >= 37);
   for (const c of F.cases) {
+    if (c.xfail) { // 已知未修（见 c.xfail），确认仍是旧结果，改好了要去掉 xfail
+      assert.ok(!check(c.expect, Object.keys(L.heardRefs([c.text]))), c.text + ' 已通过，请去掉 xfail');
+      continue;
+    }
     const refs = Object.keys(L.heardRefs([c.text]));
     assert.ok(check(c.expect, refs), c.text + ' 期望 ' + c.expect + '，实际 ' + JSON.stringify(refs));
   }
