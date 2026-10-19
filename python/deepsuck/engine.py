@@ -76,7 +76,12 @@ _DIGIT_MONEY = re.compile(_DRUN + _DJ + _MONEYW)
 _DIGIT_TAIL = re.compile(_TAILW + "(?:是|为)?" + _DJ + _DRUN)
 _DIGIT_RUN = re.compile(_DRUN)
 # 打码姓名（#130，与 voice/persona.py 的 _unmask_names 同一规则）：张**、王*明、欧阳**，前面的“姓”一并换掉
-_NAME_MASK = re.compile("(姓)?(" + "|".join(_DE["compoundSurnames"]) + "|[\u4e00-\u9fff])"
+# #157：拆字报姓的说法（“耳东陈***”“弓长张**”）跟着打码姓名一起换掉，不留“耳东那个名字”；拆字说法读 extractors.json 的
+# nameRules.split（只读，与 redact 同一份数据）
+_SPLIT = load("extractors")["nameRules"]["split"]
+_SPLIT_PRE = "(?:(?:" + "|".join(re.escape(x[:-1]) for x in sorted(_SPLIT["spellings"], key=len, reverse=True)) + ")" + _SPLIT["link"] + ")"
+_SPLIT_BEFORE_NAME = re.compile(_SPLIT_PRE + "(?=" + re.escape(_DE["name"]) + ")")
+_NAME_MASK = re.compile(_SPLIT_PRE + "?(姓)?(" + "|".join(_DE["compoundSurnames"]) + "|[\u4e00-\u9fff])"
                         "(?:[" + _STAR + "](?:(?![" + _DE["nameTailStop"] + "])[\u4e00-\u9fff](?![" + _STAR + "]))?(?![0-9A-Za-z" + _STAR + "])|[" + _STAR + "]{2,4}(?![0-9A-Za-z" + _STAR + "]))")
 _OTHER_MASK = re.compile("[A-Za-z0-9_.:/@\\-]*[" + _STAR + "]+[A-Za-z0-9_.:/@\\-" + _STAR + "]*")
 _LITERAL = sorted([(p, "T") for p in _DE["tail"]] + [(p, "O") for p in _DE["other"]], key=lambda x: -len(x[0]))
@@ -249,6 +254,7 @@ def vague_digits(text: str) -> str:
     s = _DIGIT_TAIL.sub(_tok("T"), s)
     s = _DIGIT_MONEY.sub(_tok("M"), s)
     s = _DIGIT_RUN.sub(_tok("O"), s)
+    s = _SPLIT_BEFORE_NAME.sub("", s)  # #157：上游已换成“那个名字”时（语音 unmask）去掉前面残留的拆字说法
     s = _NAME_MASK.sub(lambda m: m.group(0) if len(m.group(2)) == 1 and m.group(2) in _DE["notSurname"] else _tok("N"), s)
     s = _OTHER_MASK.sub(lambda m: _tok("E" if "@" in m.group() else "U" if re.search(r"[A-Za-z]{2,}\.|\.[A-Za-z]{2,}", m.group()) else "H"), s)
     if "\ue000" not in s:

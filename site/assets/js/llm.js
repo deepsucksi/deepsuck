@@ -103,7 +103,12 @@
   // 打码姓名（#130，与 engine.vagueDigits、语音端 #137 同一规则）：张**、王*明（中间打码整段吃掉）、欧阳**，前面的“姓”一并换掉；
   // 统一说“那个名字”（原来是“姓X的那个人”，“王*明”会剩下“〔姓王的那个人〕明”）
   var NDE = D.personas.DIGIT_ECHO;
-  var NAME_MASK_RE = new RegExp('(姓)?(' + NDE.compoundSurnames.join('|') + '|[\u4e00-\u9fff])' +
+  // #157：拆字报姓的说法（耳东陈***）一起换掉；拆字说法读 extractors.json 的 nameRules.split（与 engine.vagueDigits 同一份）
+  var SPL = D.personas.SPLIT_NAME;
+  var SPLIT_PRE = '(?:(?:' + SPL.spellings.slice().sort(function (a, b) { return b.length - a.length; })
+    .map(function (x) { return x.slice(0, -1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|') + ')' + SPL.link + ')';
+  var SPLIT_BEFORE_NAME = new RegExp(SPLIT_PRE + '(?=〔?' + NDE.name + ')', 'g');
+  var NAME_MASK_RE = new RegExp(SPLIT_PRE + '?(姓)?(' + NDE.compoundSurnames.join('|') + '|[\u4e00-\u9fff])' +
     '(?:[*＊](?:(?![' + NDE.nameTailStop + '])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊]))', 'g');
   function maskedPhrase(tok) {
     var t = String(tok);
@@ -112,10 +117,16 @@
     if (/:\/\/|^www\.|\.[A-Za-z*＊]{2,}(?:[\/?#]|$)/i.test(t) && !/^[0-9*＊ .\-]+$/.test(t)) return '你发的那个网址';
     return '你发的那个号';
   }
+  /** 只换打码姓名（#130 / #157）：要在再跑一遍 redactText 之前做，否则“耳东陈***”会被再打成“耳*****”、当成号码 */
+  function maskNames(text, bracket) {
+    var w = bracket ? '〔' + NDE.name + '〕' : NDE.name;
+    return String(text || '').replace(NAME_MASK_RE, function (m, xing, sur) { return sur.length === 1 && NDE.notSurname.indexOf(sur) >= 0 ? m : w; })
+      .replace(SPLIT_BEFORE_NAME, '');
+  }
   /** 把文本里的打码值换成自然说法；bracket=true 时加〔〕（给模型看的代称） */
   function speakMasked(text, bracket) {
     var wrap = function (p) { return bracket ? '〔' + p + '〕' : p; };
-    var s = String(text || '').replace(NAME_MASK_RE, function (m, xing, sur) { return sur.length === 1 && NDE.notSurname.indexOf(sur) >= 0 ? m : wrap(NDE.name); });
+    var s = maskNames(text, bracket);
     s = s.replace(MASKED_RE, function (m) {
       var lead = m.match(/^[\s]*/)[0];
       return lead + wrap(maskedPhrase(m.trim()));
@@ -164,6 +175,7 @@
     var msgs = [{ role: 'system', content: systemPrompt(persona, scenario, opts.hint, opts.missing, heard) }];
     (opts.transcript || []).slice(-16).forEach(function (m) {
       var text = String(m.text || '').slice(0, 600);
+      text = maskNames(text, true); // #157：已打码的姓名先换掉，免得双保险再打一遍变成号码
       text = D.redact.redactText(text, D.extractors.extractSensitive(text)); // 双保险
       text = speakMasked(text, true); // 打码值换成〔代称〕，模型不会照抄星号
       msgs.push({ role: m.role === 'bot' ? 'assistant' : 'user', content: text });
@@ -217,6 +229,7 @@
     // 整句被一对引号包住时才去掉这对引号（原来无条件去掉开头的“，句首是引用时会留下单边的”）
     var w = s.match(/^\s*(["“「])([\s\S]*)(["”」])\s*$/);
     if (w && (w[1] === '"' ? w[3] === '"' : QUOTE_PAIRS[w[1]] === w[3]) && !/["“”「」]/.test(w[2])) s = w[2];
+    s = maskNames(s, false); // #157：模型照抄的打码姓名先换掉，再脱敏
     s = D.redact.redactText(s, D.extractors.extractSensitive(s));
     s = speakMasked(s, false); // 打码值（模型照抄的或刚脱敏的）换成自然说法，回复里不出现星号
     s = s.replace(/(?<![\d*])\d{5,}(?![\d*])/g, '……');

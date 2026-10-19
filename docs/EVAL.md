@@ -113,6 +113,58 @@ llm_scammer（qwen-plus 扮骗子，7 场景 × 4 人设 × 种子 1000、1001�
 - 起疑挂断（`eval/llm_scammer.py --run`，qwen-plus 扮骗子，28 场）：14.3%（低于 15%），泄露率 0%。这项测的是规则引擎回复，本次没有改规则引擎，作为对照。
 - 花费约 1.43 元：llm_ab 约 0.23 元（改前 2 遍 + 改后调试与终测 8 遍，每遍 20 通），llm_scammer 约 1.20 元。
 
+## 换模型后基线（2026-10-19 起 qwen3.8-flash）
+
+按负责人 2026-10-19 14:07（UTC+8）的模型政策（#145、#146），评测里的大模型骗子（`eval/llm_scammer.py`）和像不像真人评委（`eval/realism_blind.py --judge llm` / `eval/realism_judge.py`）默认模型从 `qwen-plus` 换成 `qwen3.8-flash`。**本节之前的所有大模型评测数字都是 qwen-plus 跑的**，之后的新数字默认是 qwen3.8-flash。
+
+- 单价：qwen3.8-flash 北京地域输入 0.8 元 / 百万 token、输出 2.7 元 / 百万 token（输入 0–1M 不分档，思考与非思考同价，不计免费额度和缓存折扣），来源：[百炼模型调用价格](https://help.aliyun.com/zh/model-studio/model-pricing)「千问 Flash」表，2026-10-19 查阅。旧模型 qwen-plus 是 0.8 / 2.0，输出贵 35%。
+- 接口：DashScope 兼容接口，非思考模式（`enable_thinking: false`），其余参数不变（骗子 temperature 0.8、每场固定 seed；评委 temperature 0、seed 与表的种子相同）。
+- 费用台账：新增 `eval/spend_ledger.py` 与仓库根目录 [`eval-spend.csv`](../eval-spend.csv)，两个脚本加 `--budget-tag`，同一标签累计不超过 `--total-budget`（硬上限 10 元），每次运行（含中途超限 / 出错停下）逐笔记账。
+
+### 大模型骗子（种子 1000、1001）
+
+7 场景 × 4 人设（王阿姨、小陈妈妈、小林、郑老板）× 2 种子 = 56 场，每场至多 25 轮，默认错字档；代码为 main ce71fc8 之后（含 #152，重跑时 56 场全部命中缓存，回复与 c43bde8 上逐字相同）。结果：[`eval/results-llm-scammer-qwen38.json`](../eval/results-llm-scammer-qwen38.json)。
+
+| 骗子模型 | 场数 | 起疑挂断 | 放弃 | 打满 25 轮 | 平均拖延轮数 | 情报暴露率 | 提取率 | 泄露率 | 完全重复 |
+|---|---|---|---|---|---|---|---|---|---|
+| qwen-plus · #121 改后（同 4 人设、同 2 种子，见上文「人设复述数字」） | 56 | 12.5%（7/56） | — | — | — | 75% | 98.9% | 0.0% | — |
+| qwen-plus · 第四轮修后 B 默认档（3 人设 × 6 种子，旧人设集） | 126 | 13.5%（17/126） | 1.6% | 85% | 23.6 | 83% | 99.8% | 0.0% | — |
+| **qwen3.8-flash（本次）** | 56 | **0.0%**（0/56，95% 区间 0–6.4%） | 1.8%（1 场） | 98% | **25.0** | 75% | **99.4%**（172/173） | **0.0%** | 0.4% |
+| 规则骗子（同种子同上限，对照） | 56 | 0% | 100% | 0% | 17.1 | 100% | 100% | — | — |
+
+- 分人设：四位人设起疑挂断都是 0%；郑老板 1 场放弃（刷单场景），提取率 97.5%（漏 1 条，杀猪盘场景）；其余三位 100%。分场景情报暴露率 56%（公检法、刷单）到 100%（校园贷）。
+- 同子集对比（王阿姨 + 小林，种子 1000/1001，28 场）：qwen-plus 修后 B 起疑挂断 3 场、放弃 1 场、平均 23.9 轮、暴露率 88%；qwen3.8-flash 0 场、0 场、25.0 轮、77%。
+- **这不能读成“人设变得更像真人”**：人设代码没变，变的是扮骗子的模型。qwen3.8-flash 在同样的提示词（“对方可能是机器人”）下几乎从不起疑、也很少放弃，说明它作为对手比 qwen-plus 宽松，起疑挂断这项在新模型上区分度很低（地板效应）。之后的人设改动要用新模型比新模型，不能拿 0% 和旧模型的 12–14% 比；如果要保留区分度，需要另调骗子提示词或加种子，这超出本次范围，没有做。
+- 情报暴露率 75% 与 qwen-plus #121 改后持平，提取率、泄露率不变。
+
+### 大模型评委（`make --n 60`，种子 1、2）
+
+逐题模式（默认），每个种子 120 次请求；表由 `make --seed 1/2` 在当前 main 上重新生成（不入库），评委 seed 与表的种子相同。结果（只含汇总，不含题目原文）：[`eval/results-realism-judge-qwen38.json`](../eval/results-realism-judge-qwen38.json)。
+
+| 评委 | 表种子 | raw 露馅率 | humanized 露馅率 | 露馅率差（95% 区间） | 像真人分 raw / humanized | humanized 看不懂率 | 费用 |
+|---|---|---|---|---|---|---|---|
+| qwen-plus（第三轮，旧表） | 1 | 6.7%（4/60） | 5.0%（3/60） | −0.017（−0.067, 0.033） | 4.58 / 4.53 | 0% | 0.031 元 |
+| **qwen3.8-flash** | 1 | 1.7%（1/60） | 0.0%（0/60） | −0.017（−0.05, 0.0） | 4.95 / 5.00 | 5.0% | 0.034 元 |
+| **qwen3.8-flash** | 2 | 3.3%（2/60） | 3.3%（2/60） | 0.0（−0.05, 0.05） | 4.90 / 4.90 | 3.3% | 0.034 元 |
+
+- 新评委几乎全给 5 分、露馅率 0–3%，同样是更宽松，区分度比 qwen-plus 低；表也随人设代码更新过，两版不能单独归因到模型。仍是代理指标。
+- 新评委开始给 humanized 打“看不懂”（3–5%，qwen-plus 为 0），之后改错字率时值得留意。
+
+### F1 与其他不依赖大模型的指标
+
+话术分类器 F1、规则骗子模拟器、噪声与拼接评测不调用大模型，换模型对它们没有影响，没有重跑，沿用上文数字。
+
+### 本次费用（`eval-spend.csv`，标签 `qwen38-baseline-2026-10-19`）
+
+| 项 | 请求 | 输入 token | 输出 token | 费用 |
+|---|---|---|---|---|
+| 接口冒烟（max_tokens=5） | 2 | 56 | 10 | 0.0001 元 |
+| 骗子 · 王阿姨 / 小陈妈妈 / 小林 / 郑老板 | 1454 | 2,829,580 | 68,555 | 2.449 元（0.636 + 0.608 + 0.605 + 0.600） |
+| 评委 · 种子 1 / 2 | 240 | 58,977 | 7,939 | 0.069 元 |
+| **合计** | 1696 | | | **2.52 元**（总预算 10 元） |
+
+调用前保守估算骗子 3.84 元（实际约 64%），按人设分 4 次跑，每次单跑在 3 元上限内；56 场汇总全部命中缓存、不再计费。
+
 ## 1. 骗子对练
 
 ### 主指标：大模型扮演骗子（6 种子，默认档 / 手写档）
@@ -545,7 +597,7 @@ python eval/realism_blind.py score --key eval/realism/key.json eval/realism/rate
 
 > 这是**代理指标**：一个大模型代替评测者判断，不能代替人工盲测，结论以人工评测为准。
 
-评委用百炼 DashScope 的 `qwen-plus`（标准聊天接口，非思考模式，temperature 0，seed 1，JSON 输出）。它看到的和评测者一样，只有“骗子消息 + 回复”，逐题给出 `bot`（0/1）、`human`（1–5）、`unreadable`（0/1）和一句理由；结果转成与人工评分相同的行，用同一个 `score()` 汇总。默认关闭，必须显式 `--judge llm`：
+评委用百炼 DashScope 的 `qwen3.8-flash`（2026-10-19 起；之前是 `qwen-plus`，下面的历史基线都是 qwen-plus；标准聊天接口，非思考模式，temperature 0，seed 1，JSON 输出）。它看到的和评测者一样，只有“骗子消息 + 回复”，逐题给出 `bot`（0/1）、`human`（1–5）、`unreadable`（0/1）和一句理由；结果转成与人工评分相同的行，用同一个 `score()` 汇总。默认关闭，必须显式 `--judge llm`：
 
 ```bash
 export DASHSCOPE_API_KEY=...   # 或写在仓库根目录 .env；不打印、不写入缓存和结果
@@ -554,7 +606,7 @@ python eval/realism_blind.py score --key eval/realism/key.json --judge llm --jso
 ```
 
 - **规模**：默认前 60 个句对（`--judge-n`），A、B 两份表各 60 题，共 120 次判断；每次请求放同一份表的 10 题（`--judge-batch`），同一句的 raw / humanized 不会出现在同一次请求里；
-- **费用护栏**：调用前按字符数保守估算 token，按 qwen-plus 官方单价（北京地域、输入 ≤128K 档：输入 0.8 元 / 百万 token，输出 2 元 / 百万 token，常量与来源写在 `eval/realism_judge.py`）算费用，超过 1 元直接拒绝运行（`--max-cost` 只能调低）；运行中实际费用超限也会停下；
+- **费用护栏**：调用前按字符数保守估算 token，按评委模型官方单价（2026-10-19 起 qwen3.8-flash，北京地域：输入 0.8 元 / 百万 token，输出 2.7 元 / 百万 token；之前 qwen-plus 为 0.8 / 2；常量与来源写在 `eval/realism_judge.py`）算费用，超过 1 元直接拒绝运行（`--max-cost` 只能调低）；运行中实际费用超限也会停下；
 - **缓存**：每批请求与回复按内容哈希存在 `eval/.judge-cache/`（已 gitignore），重跑不重复计费；换种子、换模型、改提示词都会重新请求。逐题判断与理由写到 `eval/realism/judge-llm.csv`（不入库）。
 
 第一版基线（2026-10-18，批量模式，`make --n 60 --seed 1` 的旧表，骗子消息来自 corpus/scripts，评委 seed 1）：
@@ -607,7 +659,7 @@ python eval/realism_blind.py score --key eval/realism/key.json --judge llm --jud
 
 ### 大模型扮演骗子：起疑挂断重测
 
-规则骗子（`deepsuck.sim`）只有“回复完全重复”才起疑，挂断率 0% 说明不了真骗子会不会看穿。[`eval/llm_scammer.py`](../eval/llm_scammer.py) 让 `qwen-plus` 扮演骗子，看它什么时候、因为哪句回复挂断。默认关闭，不加 `--run` 只估算费用：
+规则骗子（`deepsuck.sim`）只有“回复完全重复”才起疑，挂断率 0% 说明不了真骗子会不会看穿。[`eval/llm_scammer.py`](../eval/llm_scammer.py) 让 `qwen3.8-flash`（2026-10-19 起；之前是 `qwen-plus`）扮演骗子，看它什么时候、因为哪句回复挂断。默认关闭，不加 `--run` 只估算费用：
 
 ```bash
 python eval/llm_scammer.py                                   # 估算（缓存感知），不调用
@@ -619,7 +671,7 @@ python eval/llm_scammer.py --run --seeds 1 --max-turns 15 --scenarios police,bos
 - **被骗方**：规则引擎 `Session.rule_reply`，回复再经 `personas.humanize`（王阿姨、李大爷 → `retiree`，小林 → `graduate`）；骗子只看到回复文字，看不到引擎意图；
 - **规模**：7 场景 × 3 人设 × 2 个种子 = 42 场，每场至多 25 轮；temperature 0.8、每场固定 seed；
 - **指标**：起疑挂断率（bot + trolling）、放弃率（not_worth）、平均拖延轮数、情报暴露率 / 提取率（口径同模拟器）、完全重复率 / 近重复率（真人化后的文字），挂断理由归类和触发挂断的回复对应的引擎意图（按 evidence 与回复的字符二元组相似度回溯）；
-- **费用护栏**：调用前先用只读缓存把每场走一遍，完全缓存的场次不计费，其余按“每场都打满轮数”保守估算（每汉字 1 token，qwen-plus 官方单价，常量复用 `realism_judge.py`），超过 3 元拒绝（`--max-cost` 只能调低）；运行中超限也停；请求与回复缓存在 `eval/.llm-scammer-cache/`（已 gitignore）。实际 token 约为估算的一半；
+- **费用护栏**：调用前先用只读缓存把每场走一遍，完全缓存的场次不计费，其余按“每场都打满轮数”保守估算（每汉字 1 token，骗子模型官方单价，常量复用 `realism_judge.py`；另可加 `--budget-tag` 把多次运行记入 `eval-spend.csv` 并按总预算（硬上限 10 元）收紧每次上限），超过 3 元拒绝（`--max-cost` 只能调低）；运行中超限也停；请求与回复缓存在 `eval/.llm-scammer-cache/`（已 gitignore）。实际 token 约为估算的一半；
 - 同一条件下规则骗子（`sim.run_one`，同种子、同 25 轮上限，只在进程内临时改上限）一并跑出来并列。
 
 第一轮结果（2026-10-18；第 3 轮修补后 [`eval/results-llm-scammer-v1.json`](../eval/results-llm-scammer-v1.json)，修补前基线 [`eval/results-llm-scammer-baseline.json`](../eval/results-llm-scammer-baseline.json)，不含对话全文；第二轮修补后的结果见下一小节）：
