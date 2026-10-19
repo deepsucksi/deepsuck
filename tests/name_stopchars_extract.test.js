@@ -4,6 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const X = require('../site/assets/js/extractors.js');
+const R = require('../site/assets/js/redact.js');
 const E = require('../site/assets/js/engine.js');
 const S = require('../site/assets/core/name_stopchars.json');
 const FX = require('./fixtures/name_stopchars.json');
@@ -35,4 +36,19 @@ test('高压档原句：会话里不记假户名（确认台词的「姓{s}」�
   const s = new E.Session({ scenario: 'pig', persona: 'lin', seed: 1000 });
   for (const t of FX.negatives) s.ingest(t);
   assert.ok(!Object.values(s.intel).some((i) => i.type === 'name'), JSON.stringify(s.intel));
+});
+
+test('#147 输出守卫误打码的 23 条人设原话：脱敏后原样不变', () => {
+  assert.equal(FX.redactKeep.length, 23);
+  for (const t of FX.redactKeep) assert.equal(R.redactText(t, X.extractSensitive(t)), t);
+});
+
+test('真名照常打码（正例不退）', () => {
+  for (const c of FX.redactMask) assert.equal(R.redactText(c.text, X.extractSensitive(c.text)), c.redacted, c.text);
+});
+
+test('words 多字词：名字以这些词开头时不算', () => {
+  for (const r of S.words) for (const t of r.negatives) {
+    assert.ok(!names(t).some((n) => n.startsWith(r.word)), r.word + '：' + t + ' -> ' + names(t));
+  }
 });

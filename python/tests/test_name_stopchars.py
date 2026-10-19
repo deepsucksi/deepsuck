@@ -13,15 +13,19 @@ def test_name_stopchars_format():
         assert len(r["char"]) == 1 and "\u4e00" <= r["char"] <= "\u9fa5"
         assert r["char"] not in surnames
         assert r["negatives"] and all(r["char"] in t for t in r["negatives"])
-    for c in "对是嗯好行哦有没只":
+    for c in "对是嗯好行哦有没只和谁啥":
         assert c in chars
+    words = [r["word"] for r in s.get("words", [])]
+    assert len(words) == len(set(words)) and {"什么", "多少"} <= set(words)
+    for r in s["words"]:
+        assert len(r["word"]) >= 2 and r["negatives"] and all(r["word"] in t for t in r["negatives"])
 
 
 # ---- #185 行为：应答字、虚词不能当成姓（与 tests/name_stopchars_extract.test.js 同一组用例）
 import pytest  # noqa: E402
 
 from conftest import fixture  # noqa: E402
-from deepsuck import extract  # noqa: E402
+from deepsuck import extract, extract_sensitive, redact_text  # noqa: E402
 from deepsuck.engine import Session  # noqa: E402
 from deepsuck.extractors import NAME_STOPCHARS  # noqa: E402
 from deepsuck.rng import mulberry32  # noqa: E402
@@ -58,3 +62,23 @@ def test_session_keeps_no_fake_name():
     for t in FX["negatives"]:
         s.ingest(t)
     assert not any(i["type"] == "name" for i in s.intel.values())
+
+
+@pytest.mark.parametrize("word,text", [(r["word"], t) for r in load("name_stopchars")["words"] for t in r["negatives"]])
+def test_core_word_negatives(word, text):
+    assert not any(n.startswith(word) for n in _names(text)), (text, _names(text))
+
+
+def test_redact_keep_147_count():
+    assert len(FX["redactKeep"]) == 23
+
+
+@pytest.mark.parametrize("text", FX["redactKeep"])
+def test_redact_keep_147(text):
+    """#147 输出守卫误打码的人设原话（「户名没记全」「户名和开户行」「户名到底填谁」「户名是啥」）：脱敏后原样不变。"""
+    assert redact_text(text, extract_sensitive(text)) == text
+
+
+@pytest.mark.parametrize("case", FX["redactMask"], ids=[c["text"] for c in FX["redactMask"]])
+def test_redact_mask_real_names(case):
+    assert redact_text(case["text"], extract_sensitive(case["text"])) == case["redacted"]

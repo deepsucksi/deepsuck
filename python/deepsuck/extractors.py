@@ -47,6 +47,7 @@ _SURNAMES = _C["nameRules"]["surnames"]
 _TITLES = tuple(_C["nameRules"]["titleSuffix"])
 # #185 应答字、虚词共用字表（core/name_stopchars.json）：取到的名字以这些字开头时不算（「户名对得上就行」）
 NAME_STOPCHARS = frozenset(r["char"] for r in load("name_stopchars")["chars"])
+NAME_STOPWORDS = tuple(r["word"] for r in load("name_stopchars").get("words", []))
 
 
 _NAME_DIGITS = "零一二三四五六七八九"
@@ -55,7 +56,7 @@ _NAME_DIGITS = "零一二三四五六七八九"
 def _clean_name(n: str, m=None, start: Optional[int] = None):
     # ASR 数字规整（ITN）会把“张三”转成“张3”：单个阿拉伯数字还原为汉字（等长，脱敏区间不变）
     n = re.sub(r"[0-9]", lambda m: _NAME_DIGITS[int(m.group(0))], n)
-    if _NOT_NAMES.search(n) or n[:1] in NAME_STOPCHARS:
+    if _NOT_NAMES.search(n) or n[:1] in NAME_STOPCHARS or n.startswith(NAME_STOPWORDS):
         return None
     c = re.search(r"[开卡银账的是事在和与就吧了啊呢哦，电手微那呃嗯合你我找他她这打转加对说哈]|然后", n)
     if c and c.start() >= 2:

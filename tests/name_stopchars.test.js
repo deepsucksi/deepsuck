@@ -21,7 +21,15 @@ test('name_stopchars.json：格式、单字、不重复、每个字至少一条�
     assert.ok(Array.isArray(r.negatives) && r.negatives.length >= 1, r.char + ' 至少一条反例');
     for (const t of r.negatives) assert.ok(t.includes(r.char), r.char + ' 的反例要含这个字：' + t);
   }
-  for (const c of ['对', '是', '嗯', '好', '行', '哦', '有', '没', '只']) assert.ok(seen.has(c), '缺 ' + c);
+  for (const c of ['对', '是', '嗯', '好', '行', '哦', '有', '没', '只', '和', '谁', '啥']) assert.ok(seen.has(c), '缺 ' + c);
+  const words = new Set();
+  for (const r of S.words || []) {
+    assert.match(r.word, /^[\u4e00-\u9fa5]{2,}$/, 'words 每项是两个字以上：' + r.word);
+    assert.ok(!words.has(r.word), '重复：' + r.word);
+    words.add(r.word);
+    assert.ok(Array.isArray(r.negatives) && r.negatives.length >= 1 && r.negatives.every((t) => t.includes(r.word)), r.word);
+  }
+  for (const w of ['什么', '多少']) assert.ok(words.has(w), '缺 ' + w);
 });
 
 test('name_stopchars.json：表里的字都不是常见姓氏', () => {
