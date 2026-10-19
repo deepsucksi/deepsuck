@@ -677,6 +677,7 @@
     redactText: redactText,
     findNameSpans: findNameSpans,
     explainUnits: explainUnits,
+    splitHits: splitHits,
     findOtpSpans: findOtpSpans,
     findOtpSpansSegments: findOtpSpansSegments,
     redactOtpSegments: redactOtpSegments,

@@ -102,8 +102,9 @@ def explain_segments(s: str) -> List[List[dict]]:
             break
         cands.append({"start": start, "head": head, "wstart": wstart, "end": end, "x": x})
     heads = {c["head"] for c in cands} | {c["wstart"] for c in cands}
+    # #202：X 后面紧跟确认说法（「伟大的伟对吧」，nameRules.explain.tailWords，#206 共享核心已认）也算段结尾，模型复述原话时不露
     ok = [c for c in cands if c["end"] >= len(s) or not han(s[c["end"]]) or E["particle"].match(s[c["end"]])
-          or c["end"] in heads]
+          or c["end"] in heads or E["tailWords"].match(s, c["end"])]
     units: List[dict] = []
     for c in sorted(ok, key=lambda c: (c["start"], c["end"])):
         if not units or units[-1]["end"] <= c["start"]:

@@ -100,8 +100,22 @@ _SHORT_STARS = re.compile("[*＊]{1,3}(?![*＊])")
 
 
 _NAME_DIGITS = "零一二三四五六七八九"
-_SPLIT_SPELLINGS = frozenset(((_C["nameRules"].get("split") or {}).get("spellings") or [])
-                             + list(((_C["nameRules"].get("split") or {}).get("asrSplit") or {})))  # #163 ASR 同音写法（龚厂长…）与弓长张同一套
+_SPLIT_SPELLINGS = frozenset((_C["nameRules"].get("split") or {}).get("spellings") or [])
+# #163 ASR 同音写法（龚厂长、工长张、宫长张、龚长张、尔东陈）：龚、宫是真姓，拿不准就当姓名打码。只有写法后面紧跟逐字解释
+# （与 redact.split_hits 同一个判断：按 explain.anchorGap）时才不当姓名；「收款人是龚厂长伟大的伟」里的「龚厂长伟」也不取，
+# 解释段整段交给 find_name_spans 打码。与 extractors.js asrSplitExplained 一致。
+_ASR_SPLIT_KEYS = tuple(((_C["nameRules"].get("split") or {}).get("asrSplit") or {}))
+
+
+def _asr_split_explained(n: str, m=None, start: Optional[int] = None) -> bool:
+    """候选姓名从紧跟逐字解释的同音写法开头（「龚厂长伟」），或从写法里带的姓开头（patterns.name 跳过「龚厂长的」取到的「张伟大」）时为 True。
+    只看 asrSplit 写法；spellings（「弓长张伟大的伟」）是 main 上原有的问题，不在这里改。"""
+    if m is None or start is None:
+        return False
+    s = m.string
+    if not any(k in s for k in _ASR_SPLIT_KEYS):
+        return False
+    return any(a <= start < b and s.startswith(_ASR_SPLIT_KEYS, a) for a, b, _sur in R.split_hits(s, R.explain_units(s, [])))
 
 
 def _clean_name(n: str, m=None, start: Optional[int] = None):
@@ -110,6 +124,8 @@ def _clean_name(n: str, m=None, start: Optional[int] = None):
     if _NOT_NAMES.search(n) or _stop_name(n, m, start):
         return None
     if n in _SPLIT_SPELLINGS:  # #206「收款人是弓长张，伟大的伟」：拆字说法本身不是姓名（姓留给拆字报姓规则，只露姓）
+        return None
+    if _asr_split_explained(n, m, start):
         return None
     c = re.search(r"[开卡银账的是事在和与就吧了啊呢哦，电手微那呃嗯合你我找他她这打转加对说哈]|然后", n)
     if c and c.start() >= 2:

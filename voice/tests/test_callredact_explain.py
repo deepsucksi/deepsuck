@@ -175,3 +175,13 @@ def test_pipeline_cross_turn_model_input_and_tts():
         assert "那个名字" in spoken, spoken
     # 反例不误打
     assert asyncio.run(f.filter("东方的东西都是伟大的祖国的")) == "东方的东西都是伟大的祖国的"
+
+
+@pytest.mark.parametrize("t", ["收款人是弓长张，伟大的伟对吧", "户名龚厂长伟大的伟对吧", "伟大的伟是吗", "伟大的伟，明天的明对不对"])
+def test_cross_turn_tail_words(t):
+    """#202：解释段后面紧跟确认说法（nameRules.explain.tailWords，#206）时，模型复述原话进 CallRedactor 也不露解释段。"""
+    r = CallRedactor()
+    r.add("name", "张伟明")
+    out = r.apply(t)
+    assert "伟大的伟" not in out and "明天的明" not in out, (t, out)
+    assert "*" not in unmask(out)

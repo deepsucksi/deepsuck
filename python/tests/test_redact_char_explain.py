@@ -117,3 +117,33 @@ def test_split_explain_tail_parity(case):
 
 def test_p0_206_exact():
     assert red("收款人是弓长张，伟大的伟对吧") == "收款人是弓长张，****对吧"
+
+
+# #202 复审：同音写法没有解释时按姓名打码（必改 1）；带提示词无逗号不露解释里的字（必改 2）；「龚厂长（的）张」+ 名打码（必改 3）。与 JS 同一组
+REVIEW_202 = [
+    ("收款人是龚长张", "收款人是龚**"),
+    ("收款人是宫长张", "收款人是宫**"),
+    ("收款人是龚厂长", "收款人是龚**"),
+    ("收款人是工长张", "收款人是工**"),
+    ("收款人是尔东陈", "收款人是尔**"),
+    ("收款人是龚厂长伟大的伟", "收款人是龚厂长****"),
+    ("收款人龚厂长伟大的伟", "收款人龚厂长****"),
+    ("户名龚厂长伟大的伟对吧", "户名龚厂长****对吧"),
+    ("收款人是工长张伟大的伟", "收款人是工长张****"),
+    ("收款人是龚厂长的张伟", "收款人是龚厂长的张*"),
+    ("收款人是龚厂长张伟", "收款人是龚厂长张*"),
+    ("收款人是龚厂长的张，伟大的伟", "收款人是龚厂长的张，****"),
+    ("收款人是龚厂长的张伟大的伟", "收款人是龚厂长的张****"),
+]
+
+
+@pytest.mark.parametrize("t,want", REVIEW_202, ids=[c[0] for c in REVIEW_202])
+def test_review_202(t, want):
+    assert red(t) == want
+
+
+def test_name_pattern_has_asr_split_prefix():
+    C = load("extractors")
+    sp = C["nameRules"]["split"]
+    for k, sur in sp["asrSplit"].items():
+        assert k + sp["link"] + "(?=" + sur + ")" in C["patterns"]["name"]["source"], k

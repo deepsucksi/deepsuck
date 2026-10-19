@@ -1372,6 +1372,156 @@
    "redacted": "尔东陈，**，****"
   },
   {
+   "text": "收款人是龚长张",
+   "expect": "mask",
+   "spans": [],
+   "redacted": "收款人是龚**"
+  },
+  {
+   "text": "收款人是宫长张",
+   "expect": "mask",
+   "spans": [],
+   "redacted": "收款人是宫**"
+  },
+  {
+   "text": "收款人是龚厂长",
+   "expect": "mask",
+   "spans": [],
+   "redacted": "收款人是龚**"
+  },
+  {
+   "text": "收款人是工长张",
+   "expect": "mask",
+   "spans": [],
+   "redacted": "收款人是工**"
+  },
+  {
+   "text": "收款人是尔东陈",
+   "expect": "mask",
+   "spans": [],
+   "redacted": "收款人是尔**"
+  },
+  {
+   "text": "收款人是龚厂长伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是龚厂长****"
+  },
+  {
+   "text": "收款人龚厂长伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 6,
+     "end": 10,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人龚厂长****"
+  },
+  {
+   "text": "户名龚厂长伟大的伟对吧",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 5,
+     "end": 9,
+     "masked": "****"
+    }
+   ],
+   "redacted": "户名龚厂长****对吧"
+  },
+  {
+   "text": "收款人是工长张伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是工长张****"
+  },
+  {
+   "text": "收款人是宫长张伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是宫长张****"
+  },
+  {
+   "text": "收款人是龚长张伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是龚长张****"
+  },
+  {
+   "text": "收款人是尔东陈东方的东",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 7,
+     "end": 11,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是尔东陈****"
+  },
+  {
+   "text": "收款人是龚厂长的张伟",
+   "expect": "mask",
+   "spans": [],
+   "redacted": "收款人是龚厂长的张*"
+  },
+  {
+   "text": "收款人是龚厂长张伟",
+   "expect": "mask",
+   "spans": [],
+   "redacted": "收款人是龚厂长张*"
+  },
+  {
+   "text": "收款人是龚厂长的张，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 10,
+     "end": 14,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是龚厂长的张，****"
+  },
+  {
+   "text": "收款人是龚厂长的张伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 9,
+     "end": 13,
+     "masked": "****"
+    }
+   ],
+   "redacted": "收款人是龚厂长的张****"
+  },
+  {
    "text": "龚厂长说明天的会别迟到",
    "expect": "keep",
    "spans": [],
