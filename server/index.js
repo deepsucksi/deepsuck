@@ -144,21 +144,33 @@ function handleChat(req, res) {
     var estIn = guard.estimateTokens(messages);
     var resv = budget.reserve(estIn, CFG.maxTokens);
     if (resv === null) return send(res, 429, { error: '今日大模型体验额度已用完，已切换为规则引擎。', code: 'budget' });
-    var used = null;
-    var cfg = Object.assign({}, CFG, { onUsage: function (u) {
-      used = u ? { in: +u.prompt_tokens || 0, out: +u.completion_tokens || 0 } : null;
-    } });
+    var raw = null;
+    // #174：上游 usage 原样记进逐次台账（guard.record），金额按 usage 实算；上游没给时才按字数估算并标 estimated
+    var cfg = Object.assign({}, CFG, { onUsage: function (u) { raw = u || null; } });
+    var meta = { model: CFG.model };
     return llm.chatCompletions(cfg, messages).then(function (reply) {
-      budget.commit(resv, used || { in: estIn, out: guard.estimateTokens([{ content: reply }]) });
-      send(res, 200, { reply: reply, model: CFG.model });
+      var rec = budget.record(resv, raw, { in: estIn, out: guard.estimateTokens([{ content: reply }]) }, meta);
+      send(res, 200, { reply: reply, model: CFG.model, usage: publicUsage(rec) });
     }, function (e) {
-      budget.commit(resv, used); // 失败调用通常不计费；若有 usage 仍按实际记账
+      budget.record(resv, raw, null, Object.assign({ failed: true }, meta)); // 失败调用通常不计费；若有 usage 仍按实际记账
       throw e;
     });
   }).catch(function (e) {
     console.error('[chat]', e.message);
     send(res, 502, { error: '大模型调用失败：' + e.message.slice(0, 160) });
   });
+}
+
+/** /api/chat 响应里带回的用量（#174）：只给 token 计数和是否估算，不给金额、单价、上游地址或原始 usage 里的其他字段 */
+function publicUsage(rec) {
+  if (!rec) return null;
+  var u = guard.normUsage(rec.usage) || { in: 0, out: 0, reasoning: 0, cached: 0 };
+  var out = { prompt_tokens: u.in, completion_tokens: u.out, total_tokens: u.in + u.out, estimated: rec.estimated };
+  if (!rec.estimated) {
+    if (isFinite(+rec.usage.total_tokens)) out.total_tokens = +rec.usage.total_tokens;
+    out.reasoning_tokens = u.reasoning; out.cached_tokens = u.cached;
+  }
+  return out;
 }
 
 function health() {

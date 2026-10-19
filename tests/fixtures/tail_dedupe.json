@@ -1,0 +1,193 @@
+{
+ "comment": "由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。",
+ "window": 3,
+ "cases": [
+  {
+   "text": "我想想。你发来吧。",
+   "recent": [
+    "你发来吧。"
+   ],
+   "persona": null,
+   "expected": "我想想。",
+   "tail": "你发来吧。"
+  },
+  {
+   "text": "我想想。你发来吧。",
+   "recent": [
+    "你发来吧"
+   ],
+   "persona": null,
+   "expected": "我想想。",
+   "tail": "你发来吧。"
+  },
+  {
+   "text": "嗯，你发来吧。",
+   "recent": [
+    "你发来吧。"
+   ],
+   "persona": "chen",
+   "expected": "嗯，你发来吧。",
+   "tail": "嗯，你发来吧。"
+  },
+  {
+   "text": "你发来吧，我看看。",
+   "recent": [
+    "你发来吧，我看看"
+   ],
+   "persona": "lin",
+   "expected": "等下等下，信息量有点大，你能分条再说一遍吗？我做个笔记。",
+   "tail": "你发来吧，我看看。"
+  },
+  {
+   "text": "好的吧",
+   "recent": [
+    "好的吧。"
+   ],
+   "persona": "zheng",
+   "expected": "等一哈，有客人问价，你再说一遍。",
+   "tail": "好的吧"
+  },
+  {
+   "text": "你发来",
+   "recent": [
+    "你发来。"
+   ],
+   "persona": null,
+   "expected": "",
+   "tail": "你发来"
+  },
+  {
+   "text": "你说哪个？",
+   "recent": [
+    "衣服的事。",
+    "你说哪个？"
+   ],
+   "persona": "wang",
+   "expected": "你刚才说的那个是什么？我没记全，你再讲一遍。",
+   "tail": "你说哪个？"
+  },
+  {
+   "text": "嗯…我听着呢",
+   "recent": [
+    "嗯，我听着呢。"
+   ],
+   "persona": "chen",
+   "expected": "你说的是哪个来着？娃把我手机抢过去按了一下，消息没看全。",
+   "tail": "嗯…我听着呢"
+  },
+  {
+   "text": "等一下。你再说一遍。",
+   "recent": [
+    "你再说一遍",
+    "等一下"
+   ],
+   "persona": "zheng",
+   "expected": "你一条一条发嘛，一大段我看不过来。",
+   "tail": "你再说一遍。"
+  },
+  {
+   "text": "你再说一遍。",
+   "recent": [
+    "你再说一遍。",
+    "a",
+    "b",
+    "c"
+   ],
+   "persona": null,
+   "expected": "你再说一遍。",
+   "tail": "你再说一遍。"
+  },
+  {
+   "text": "你再说一遍。",
+   "recent": [
+    "a",
+    "b",
+    "你再说一遍？"
+   ],
+   "persona": "lin",
+   "expected": "我理解的是先登录再填信息，对吗？",
+   "tail": "你再说一遍。"
+  },
+  {
+   "text": "",
+   "recent": [
+    "你说"
+   ],
+   "persona": "chen",
+   "expected": "",
+   "tail": ""
+  },
+  {
+   "text": "你说。",
+   "recent": [],
+   "persona": "chen",
+   "expected": "你说。",
+   "tail": "你说。"
+  },
+  {
+   "text": "哦…行。你发来吧…",
+   "recent": [
+    "你发来吧…"
+   ],
+   "persona": null,
+   "expected": "哦…行。",
+   "tail": "你发来吧…"
+  },
+  {
+   "text": "那个名字我没记全，你再说一遍",
+   "recent": [
+    "那个名字我没记全，你再说一遍。"
+   ],
+   "persona": "wang",
+   "expected": "你刚才说的那个是什么？我没记全，你再讲一遍。",
+   "tail": "那个名字我没记全，你再说一遍"
+  },
+  {
+   "text": "好的。好的。",
+   "recent": [
+    "好的。"
+   ],
+   "persona": "chen",
+   "expected": "你说的是哪个来着？娃把我手机抢过去按了一下，消息没看全。",
+   "tail": "好的。"
+  },
+  {
+   "text": "好的。好的。",
+   "recent": [
+    "好的。"
+   ],
+   "persona": null,
+   "expected": "",
+   "tail": "好的。"
+  },
+  {
+   "text": "稍等哈，娃刚才在叫我，你那句再说一遍？",
+   "recent": [
+    "稍等哈，娃刚才在叫我，你那句再说一遍？",
+    "你说慢点，我一边哄娃一边看，没跟上。",
+    "刚才那段太长了，你分开发我吧。"
+   ],
+   "persona": "chen",
+   "expected": "你说的是哪个来着？娃把我手机抢过去按了一下，消息没看全。",
+   "tail": "稍等哈，娃刚才在叫我，你那句再说一遍？"
+  },
+  {
+   "text": "你说慢点，店里吵，刚才那句没听到。",
+   "recent": [
+    "你说慢点，店里吵，刚才那句没听到。"
+   ],
+   "persona": "zheng",
+   "expected": "等一哈，有客人问价，你再说一遍。",
+   "tail": "你说慢点，店里吵，刚才那句没听到。"
+  },
+  {
+   "text": "行。",
+   "recent": [
+    "行"
+   ],
+   "persona": "mom",
+   "expected": "你说的是哪个来着？娃把我手机抢过去按了一下，消息没看全。",
+   "tail": "行。"
+  }
+ ]
+}
