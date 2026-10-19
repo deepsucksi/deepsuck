@@ -202,11 +202,12 @@ def test_speakable_reads_numbers_digitwise_and_no_stars():
     # #121：语音合成前的数字过滤——号码、开头几位、尾号都不念，只留一个数字
     assert not re.search(r"[0-9零幺一二三四五六七八九]{2,}", s), s
     assert say_digits("幺三零…你说130开头") == "幺三零…你说幺三零开头"  # say_digits 本身不变，过滤在它前面
-    assert re.fullmatch("号码是(?:好像是|像是|记得是)1开头的吧", speakable("号码是130开头的吧", calm_tts=True))
+    # #167：数字串前的“是”并进含糊说法，不说成“号码是好像是1开头的”
+    assert re.fullmatch("号码(?:好像是|像是|记得是)1开头的吧", speakable("号码是130开头的吧", calm_tts=True))
     assert re.search("那么些钱|那笔钱", speakable("要我转300元？", calm_tts=True))
     assert "300" not in speakable("先转300过去？", calm_tts=True)
     assert "2026" not in speakable("2026年的事", calm_tts=True)
-    assert speakable("先转5块？", calm_tts=True) == "先转5块？"  # 单个、两个数字照旧
+    assert speakable("先转5块？", calm_tts=True) == "先转5块？"  # 单个数字照旧（#167：两位起就换成含糊说法）
     assert say_digits("验证码是032") == "验证码是零三二"
     assert say_digits("工号110") == "工号幺幺零"
     # 打码值给模型前改成自然说法
