@@ -1,6 +1,6 @@
 /*!
  * DeepSuck — demo.js：沙盒演示页 UI（访客扮演骗子）。
- * URL 参数（便于截图/自动演示）：?scenario=police&persona=li&autoplay=4&fast=1&summary=1
+ * URL 参数（便于截图/自动演示）：?scenario=police&persona=zheng&autoplay=4&fast=1&summary=1
  * Apache-2.0
  */
 (function () {
