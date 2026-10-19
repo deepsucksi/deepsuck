@@ -25,3 +25,4 @@ time,tag,script,model,requests,prompt_tokens,completion_tokens,cached_tokens,cos
 2026-10-19T15:49:35+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,151,336324,9693,238848,0.128037,profile=hard responder=persona seeds=2 maxTurns=25 personas=zheng scenarios=all cacheHit=71.0% ok
 2026-10-19T15:53:23+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,728956,16824,516608,0.266964,profile=default responder=persona seeds=2 maxTurns=25 personas=wang scenarios=all cacheHit=70.9% ok
 2026-10-19T16:01:20+08:00,qwen38-baseline-2026-10-19,严格评委提示词 token 探测（同步，2+2 次）,qwen3.8-flash,4,4338,122,1024,0.003083,judge-strict-v2 前缀是否过 1024 token 缓存门槛 ok
+2026-10-19T16:10:16+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py judge (sync),qwen3.8-flash,166,39867,5392,0,0.046452,profile=default items=240 cacheHit=0.0% stopped:interrupted（已完成部分已入本地缓存，重跑不重复计费）
