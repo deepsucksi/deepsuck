@@ -491,10 +491,124 @@ def _split_rules():
     }
 
 
+# ---- 逐字解释名字（#158）：规则见 core/extractors.json 的 nameRules.explain，与 redact.js 共用 ----
+@functools.lru_cache(maxsize=None)
+def _explain_rules():
+    ex = (load("extractors").get("nameRules") or {}).get("explain")
+    if not ex or not ex.get("link"):
+        return None
+    return {
+        "ex": ex,
+        "han": compile_js("^" + ex["han"] + "$"),
+        "link": compile_js("(?:" + ex["link"] + ")(" + ex["han"] + ")"),
+        "tail": compile_js("(?:" + (ex.get("tail") or "") + ")"),
+        "stop": compile_js(ex.get("wordStop") or "(?!)"),
+        "particle": compile_js("^(?:" + (ex.get("particle") or "(?!)") + ")$"),
+        "sep": compile_js("^(?:" + (ex.get("sep") or "") + ")$"),
+        "gap": compile_js(ex["anchorGap"]),
+    }
+
+
+def explain_units(s: str, ents: Optional[Iterable[dict]] = None) -> List[dict]:
+    """逐字解释（「伟大的伟，明天的明」「伟是伟大的伟」）：[{start, end, x, keep}]，按 start 升序、互不重叠。
+
+    head：这一段连同前面的「就是」「是」从哪里开始（只用来判断相邻，不打码「就是」本身）；
+    keep：被解释的是姓（相邻拆字报姓的姓或已提取姓名的姓），这一段不打码。与 redact.js 的 explainUnits 等价。"""
+    E = _explain_rules()
+    if not E:
+        return []
+    ex = E["ex"]
+    wmin, wmax = int(ex.get("wordMin") or 2), int(ex.get("wordMax") or 4)
+    leads, strong = ex.get("leads") or [], ex.get("strongLeads") or []
+    han = lambda c: bool(c) and bool(E["han"].match(c))
+    cands = []
+    for i in range(len(s)):
+        m = E["link"].match(s, i)
+        if not m:
+            continue
+        x = m.group(1)
+        wstart = -1
+        for L in range(1, wmax + 1):
+            if i - L < 0:
+                break
+            c = s[i - L]
+            if not han(c) or E["stop"].search(c):
+                break
+            if L >= wmin and x in s[i - L:i]:
+                wstart = i - L
+                break
+        if wstart < 0:
+            continue
+        end = m.end()
+        t = E["tail"].match(s, end)
+        if t:
+            end = t.end()
+        start = head = wstart
+        st = False
+        for ld in leads:
+            if wstart < len(ld) or s[wstart - len(ld):wstart] != ld:
+                continue
+            b = wstart - len(ld)
+            head = b
+            if b >= 1 and s[b - 1] == x:
+                start = head = b - 1
+                st = True
+            elif b >= 2 and s[b - 2:b] == x + "字":
+                start = head = b - 2
+                st = True
+            elif ld in strong:
+                st = True
+            break
+        cands.append({"start": start, "head": head, "wstart": wstart, "end": end, "x": x, "strong": st})
+    heads = {c["head"] for c in cands} | {c["wstart"] for c in cands}
+    ok = [c for c in cands if c["end"] >= len(s) or not han(s[c["end"]]) or E["particle"].match(s[c["end"]])
+          or c["end"] in heads]
+    units: List[dict] = []
+    for c in sorted(ok, key=lambda c: (c["start"], c["end"])):
+        if not units or units[-1]["end"] <= c["start"]:
+            units.append(c)
+    if not units:
+        return []
+    anchors = []
+    R = _split_rules()
+    if R:
+        anchors += [(sm.end(), sm.group(1)[-1]) for sm in R["re"].finditer(s)]
+    sur_all = set()
+    for e in ents or []:
+        if not isinstance(e.get("start"), int) or e.get("type") != "name" or not e.get("value"):
+            continue
+        anchors.append((e["end"], str(e["value"])[0]))
+        sur_all.add(str(e["value"])[0])
+    out: List[dict] = []
+    chain: List[dict] = []
+
+    def flush():
+        if not chain:
+            return
+        first = chain[0]["head"]
+        sur = set(sur_all)
+        anchored = False
+        for a_end, a_sur in anchors:
+            if a_end <= first and E["gap"].search(s[a_end:first]):
+                anchored = True
+                sur.add(a_sur)
+        if len(chain) >= 2 or anchored or any(c["strong"] for c in chain):
+            out.extend({"start": c["start"], "end": c["end"], "x": c["x"], "keep": c["x"] in sur} for c in chain)
+        chain.clear()
+
+    for u in units:
+        if chain and not E["sep"].match(s[chain[-1]["end"]:u["head"]]):
+            flush()
+        chain.append(u)
+    flush()
+    return out
+
+
 def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = None) -> List[dict]:
     """拆字报姓（「弓长张，三丰」「木子李四」）后紧跟的名：[{start, end, masked}]，名换成等长的 *。
 
     entities：extract() 的结果；同姓的已提取姓名决定名的长度，与敏感实体重叠的位置不再重复给出。
+    逐字解释（「伟大的伟，明天的明」，#158）整段一并给出（含被解释的字），见 explain_units。
     拆字说法以外单独出现的名（「三丰」）不在这里处理。"""
     s = str(text or "")
     R = _split_rules()
@@ -504,10 +618,14 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
     claimed = [(e["start"], e["end"]) for e in ents if e.get("sensitive") is not False]
     names = [str(e.get("value") or "") for e in ents if e.get("type") == "name" and len(str(e.get("value") or "")) >= 2]
     sp = R["sp"]
+    # 逐字解释（#158）：拆字报姓后紧跟逐字解释时不再往后数字打码，整段解释由下面统一打码
+    units = explain_units(s, ents)
     out: List[dict] = []
     for m in R["re"].finditer(s):
         sur = m.group(1)[-1]
         pos = m.end() + R["sep"].match(s[m.end():]).end()
+        if any(u["start"] <= pos < u["end"] for u in units):
+            continue
         given = next((n[1:] for n in names if n[0] == sur and s.startswith(n[1:], pos)), "")
         if not given:
             while len(given) < int(sp.get("givenMax", 2)) and pos + len(given) < len(s) \
@@ -520,12 +638,18 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
             continue
         claimed.append((pos, end))
         out.append({"start": pos, "end": end, "masked": _stars(len(given))})
+    for u in units:
+        if u["keep"] or any(a < u["end"] and u["start"] < b for a, b in claimed):
+            continue
+        claimed.append((u["start"], u["end"]))
+        out.append({"start": u["start"], "end": u["end"], "masked": _stars(u["end"] - u["start"])})
+    out.sort(key=lambda e: e["start"])
     return out
 
 
 def redact_text(text: Optional[str], entities: Optional[Iterable[dict]]) -> str:
     """把文本中的敏感片段替换成脱敏结果（entities 来自 extract()）；
-    拆字报姓后的名一并打码（#139，find_name_spans）；
+    拆字报姓后的名与逐字解释一并打码（#139 / #158，find_name_spans）；
     另外按上下文给验证码类短数字打码（与实体重叠的交给实体自己的规则）。"""
     s = str(text or "")
     ents = [e for e in (entities or []) if isinstance(e.get("start"), int)]
