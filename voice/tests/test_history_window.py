@@ -102,7 +102,7 @@ def test_long_call_prompt_after_trim():
         t = msgs[-2]["content"]
         assert "对方已经报过、你这边已经记下的：" in t and "收款银行卡号" in t.split("记下的：")[1].split("。")[0]
         assert "收款人姓名" in t.split("记下的：")[1].split("。")[0]
-        miss = t.split("还没说清楚的：")[1].split("，")[0] if "还没说清楚的：" in t else ""
+        miss = t.split(P.MISS_HEAD)[1].split("，")[0] if P.MISS_HEAD in t else ""
         assert "收款银行卡号" not in miss and "收款人姓名" not in miss
     # 称呼和场景还在（和截断前同一行）
     role = next(x for x in fixed.split("\n") if x.startswith("角色："))

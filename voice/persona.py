@@ -334,6 +334,9 @@ HARD_RULES = (
 )
 
 
+MISS_HEAD = "还没问到的："
+
+
 def said_first_line(said_first: str) -> str:
     return f"你已经先随口应了一声“{said_first}”，直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，也不要重复这句。"
 
@@ -392,7 +395,9 @@ def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: st
     # 称呼只按对方已经说出的场景挑；称呼本身会带出别的场景的（例如“客服”）也不用
     call = next((c for c in (p.get("call", {}).get(x, "") for x in scenes) if c and not (scenes_in(c) - set(scenes))), "")
     who = f"称呼对方为\"{call}\"。" if call else "先不用称呼对方。"
-    miss = "对方已经提到、但还没说清楚的：" + "、".join(missing) + "，可以顺着问一句。" if missing else ""
+    # #169：放到末尾后，“对方已经提到、但还没说清楚的：收款人姓名”被模型读成“对方说过名字”（本地号码探针里说出
+    # “你说的那个名字还没讲完”）；改成只说还没问到，并写明没说过的不要说成说过。
+    miss = MISS_HEAD + "、".join(missing) + "，可以顺着问一句；对方没说过的，不要说成他说过。" if missing else ""
     style, extra = voice_style_parts(p, scenes, topics, first_turn, opener_key)
     fixed = [PROMPT_HEAD, f"角色：{p['name']}，{_AGE.sub('', p['tagline'])}。{who}", NO_LEAK_RULE, *HARD_RULES, RULE_DIGITS,
              style_rule(p)] + style
