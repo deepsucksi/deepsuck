@@ -53,9 +53,12 @@ def test_wired_into_voice_guard_and_prompts():
 
 def test_voice_ellipsis_target_per_persona():
     import json as _j
-    from voice.persona import PERSONA_BY_ID, style_rule
+    from voice.persona import PERSONA_BY_ID, style_rule, system_prompt
     for pid in ("wang", "chen", "lin", "zheng"):
         v = PERSONA_BY_ID[pid]["voiceEllipsis"]
         assert v in ("四成", "四五成", "一半", "五成", "五六成")  # 都在 40–60% 之间
-        assert f"大约{v}的句子带“…”" in style_rule(PERSONA_BY_ID[pid])
+        # #169：voiceStyle 已经写了断续比例的人设，通用规则里不再重复这条；整份提示词里仍按 voiceEllipsis 给出比例
+        sp = system_prompt(pid, "refund")
+        assert f"大约{v}的句子带“…”" in style_rule(PERSONA_BY_ID[pid]) or f"大约{v}的句子带这种断续" in sp
+        assert "大约一半的句子" not in sp
     assert "大约一半的句子" in style_rule({})

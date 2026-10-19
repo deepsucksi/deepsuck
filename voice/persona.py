@@ -50,17 +50,33 @@ FILLERS = load_fillers()
 
 
 # 说话风格（俊杰定的克制标准，四个人设通用；各人设的补充规则在 personas.json 的 voiceStyle）：年龄感只靠节奏和偶尔没听清带出来。
-STYLE_RULE = ("6. 说话平常、克制，像普通人接电话：句子短，不用感叹号，不用“哎哟”“哎呀”开头；想一下、说一半停住的地方用“…”，"
-              "大约一半的句子带“…”，另一半说完整的短句，不要每句都带；可以重复半个词、说了又改口；"
-              "可以反问、含糊一点，但不是每句都问，别把话说完整，也别替对方把话说圆；"
-              "不主动提年龄，不拿听力、眼神、认字慢、手机用不惯说事；不编孙子、玩具、老花镜、药、锅里炖汤这类小道具和段子，"
-              "也不抖机灵。偶尔没听清就说“你再说一遍”。")
+# #169：拆成条目。某条已经被本人设 voiceStyle 说过（右边的关键词出现在 voiceStyle 里）就不再重复拼进提示词；
+# 没写 voiceStyle 的人设（如小林）仍用整条。STYLE_RULE 本身保持原文。
+_STYLE_PARTS = (
+    ("6. 说话平常、克制，像普通人接电话：", ""),
+    ("句子短，", "短句优先"),
+    ("不用感叹号，", "不用感叹号"),
+    ("不用“哎哟”“哎呀”开头；", ""),
+    ("想一下、说一半停住的地方用“…”，大约一半的句子带“…”，另一半说完整的短句，不要每句都带；", "不要每句都有"),
+    ("可以重复半个词、说了又改口；", "自我纠正"),
+    ("可以反问、含糊一点，但不是每句都问，别把话说完整，也别替对方把话说圆；", ""),
+    ("不主动提年龄，", "不提年龄"),
+    ("不拿听力、眼神、认字慢、手机用不惯说事；", ""),
+    ("不编孙子、玩具、老花镜、药、锅里炖汤这类小道具和段子，", ""),  # 具体举例比 voiceStyle 的“不编小道具”多，保留
+    ("也不抖机灵。", "不抖机灵"),
+    ("偶尔没听清就说“你再说一遍”。", ""),
+)
+STYLE_RULE = "".join(x for x, _ in _STYLE_PARTS)
 
 
 def style_rule(p: dict) -> str:
-    """#131：带“…”的句子按人设调（personas.json 的 voiceEllipsis，如“四成”），都在 40–60% 之间；没写的用“一半”。"""
+    """#131：带“…”的句子按人设调（personas.json 的 voiceEllipsis，如“四成”），都在 40–60% 之间；没写的用“一半”。
+    #169：本人设 voiceStyle 已经说过的条目不再重复（只删通用规则里的重复，人设原话不动）。"""
+    own = "\n".join(str(x) for x in (p.get("voiceStyle") or []))
+    out = "".join(x for x, key in _STYLE_PARTS if not (key and key in own))
+    out = re.sub(r"[，；]$", "。", re.sub(r"，(?=偶尔没听清)", "。", out))
     v = str(p.get("voiceEllipsis") or "").strip()
-    return STYLE_RULE.replace("大约一半的句子", f"大约{v}的句子").replace("另一半说完整的短句", "其余的说完整的短句") if v else STYLE_RULE
+    return out.replace("大约一半的句子", f"大约{v}的句子").replace("另一半说完整的短句", "其余的说完整的短句") if v else out
 
 
 _AGE = re.compile(r"^\s*\d+\s*岁\s*")
@@ -137,7 +153,16 @@ def _unheard(text: str, scenes, topics) -> bool:
 
 
 def voice_style(p: dict, scenes, topics=None, first_turn: bool = False, opener_key: str = "") -> list[str]:
-    """语料组给的语音专用风格规则和少样本例句（personas.json 的 voiceStyle / voiceShots，可选字段）。
+    """风格规则 + 例句 + 第一句说法，见 voice_style_parts。"""
+    style, extra = voice_style_parts(p, scenes, topics, first_turn, opener_key)
+    return style + extra
+
+
+def voice_style_parts(p: dict, scenes, topics=None, first_turn: bool = False, opener_key: str = ""):
+    """#169：返回 (风格规则, 例句和第一句说法)。风格规则基本不随轮次变，放提示词固定部分；例句按话题筛、第一句说法只在
+    第一轮，放到每轮可变的末尾。
+
+    语料组给的语音专用风格规则和少样本例句（personas.json 的 voiceStyle / voiceShots，可选字段）。
 
     scenes：对方原话里已经认出的场景（heard_scenes，按出现先后；也接受单个场景 id，离线工具用）。
     #4：例句只从这些场景里挑，而且例句里不能带出别的场景；风格规则里举的例子（“比如‘退…退款？’”）
@@ -146,6 +171,7 @@ def voice_style(p: dict, scenes, topics=None, first_turn: bool = False, opener_k
     免得例句里的链接、加微信、转账把模型往对方还没提的方向带。
     first_turn 时再加几条第一句的说法示例（first_turn_openers，按 opener_key 挑）。"""
     sc = _scene_list(scenes)
+    head: list[str] = []
     out: list[str] = []
     style = []
     for x in (p.get("voiceStyle") or []):
@@ -156,13 +182,10 @@ def voice_style(p: dict, scenes, topics=None, first_turn: bool = False, opener_k
         # #131：风格规则里“大约一半的句子带这种断续”按本人设的 voiceEllipsis 拼（与 style_rule 一致），文字不改
         if p.get("voiceEllipsis"):
             x = x.replace("大约一半的句子", f"大约{p['voiceEllipsis']}的句子")
-        # #132：“多反问：…”后面补一句问法要求，免得模型整条只甩一句短问话
-        if x.startswith("多反问"):
-            x = x.rstrip("。") + FOLLOW_UP_ASK
         style.append(x)
     if style:
-        out.append("说话风格补充：")
-        out += [f"- {x}" for x in style]
+        head.append("说话风格补充：")
+        head += [f"- {x}" for x in style]
     shots = [x for x in (p.get("voiceShots") or []) if isinstance(x, dict) and x.get("scammer") and x.get("reply")]
     pick = [x for x in shots if x.get("scenario") in sc or not x.get("scenario")]
     pick = [x for x in pick if not (scenes_in(x["scammer"] + x["reply"]) - set(sc))]
@@ -182,7 +205,7 @@ def voice_style(p: dict, scenes, topics=None, first_turn: bool = False, opener_k
     if first_turn:  # #95：第一句的几种说法，每通挑的不一样
         out.append("第一句的说法（每通换着说，下面只是几种，不要照抄，也不要套同一个句式）：")
         out += [f"- {x}" for x in first_turn_openers(p.get("id", ""), opener_key)]
-    return out
+    return head, out
 
 
 # ---- 不抢话：人设只接对方已经说过的话（俊杰 10-19：小林在“杀猪盘”里对方没提投资就问“哪个投资平台”）----
@@ -282,29 +305,54 @@ RULE_DIGITS = ("5. 嘴上不说任何数字串：对方报过的验证码、卡�
                "要提就说“你说的那个号”“那张卡”，最多含糊地说“好像是…开头的”“后面几位没听清”，顶多带一个单独的数字。"
                "不要念星号，也不要自己编号码。问到你自己的卡号、尾号、手机号、验证码，就说找不到、记不清、要去翻一下，不报号码。")
 
-NO_LEAK_RULE = ("你不知道对方打电话来干什么，只接对方已经说过的话；对方没提到的事一概不先提，也不要猜对方的目的；"
-                "对方说在哪儿看到你、怎么认识你，也不要追问是从哪儿、在哪儿看到的。")
+# #169：压缩措辞，约束不变（不知道对方目的、只接说过的话、不先提、不猜、不追问从哪儿看到你）。
+NO_LEAK_RULE = ("你不知道对方打电话来干什么：只接对方说过的话，对方没提到的事一概不先提，也不猜对方的目的；"
+                "对方说在哪儿看到你、怎么认识你，也不追问是从哪儿、在哪儿看到的。")
 # #64：每通电话人设的第一条回复不抢着反问（qwen3.7-flash 18 通里 17 通第一句就是问句，林姐还顺嘴问出了对方没提的事）
 # #95：原来的格式示例“嗯，衣服的事啊。”“哦…卡的事啊。”被模型当成模板，几乎每通都是「哦…X的事啊。」；改成只提要求、
 # 不给固定格式，示例放到 voice_style 的第一句说法里（每通挑几条不同句式）。
-FIRST_TURN_HEAD = ("这是对方开口说的第一段话。你这一条的第一句只是应一声、接住对方的话，是陈述句，句尾用句号，"
-                   "不带问号，也不用“啊？”收尾，格式像{examples}（接词的把例子里的词换成对方刚说的）；")
-FIRST_TURN_RULE = ("第一句提到对方的词时，词后面接“…”再说半句，不加问号，也不要把对方的词重复一遍再问（不要“衣服？”“卡？”这种）；每通第一句换着说，"
+# #169：第一句说法只在上面“第一句的说法”里列一次，规则里不再重复那几条。
+FIRST_TURN_HEAD = ("这是对方开口说的第一段话。你第一句只应一声、接住对方的话，是陈述句，句尾用句号，不带问号，也不用“啊？”收尾，"
+                   "说法参考上面“第一句的说法”（接词的把词换成对方刚说的）；")
+FIRST_TURN_RULE = ("提到对方的词时，词后接“…”再说半句，不加问号，也不要把对方的词重复一遍再问（不要“衣服？”“卡？”这种）；每通第一句换着说，"
                    "不要套“哦…某某的事啊。”这种固定句式。"
-                   "第二句可以不说；要问（包括上面建议策略里的追问）都放到第二句，第一句说完先用句号断开再问，只问对方刚才那段话里亲口说过的词，"
+                   "第二句可以不说；要问（包括建议策略里的追问）都放第二句，第一句先用句号断开再问，只问对方刚才亲口说过的词，"
                    "不问对方是从哪儿、在什么网上、怎么找到你的。")
 
 # #132：后续回复（第一轮以后）第一句也不用快速反问（抽检 48 条里 25–33 条是“衣服？…哪件啊”“两千？…哪笔钱啊”）
+# #169：原来 voiceStyle 的“多反问”后面还补了一句 FOLLOW_UP_ASK，和这里重复，去掉那句，只留这条。
 FOLLOW_UP_RULE = ("这一条的第一句不要拿对方的词加问号反问（不要“报纸？”“会员？”“哪个？”这种开头）：先接对方一个词，"
-                  "词后面用逗号或“…”接半句陈述；要问的放到第二句。整条回复也不要只有一句短问话（不要“哪家？”“同学…哪个班的？”这种），先说半句自己的话，再问。")
+                  "后面用逗号或“…”接半句陈述，要问的放第二句；整条也不要只有一句短问话（不要“哪家？”这种），先说半句自己的话再问。")
 
-FOLLOW_UP_ASK = "（问的放在半句陈述后面，不要整条只甩一句短问话）。"
+PROMPT_HEAD = '你在反诈骗研究项目中扮演"潜在受害人"，接到一个陌生电话。目标：尽量拖延对方时间；对方自己报出来的东西，顺着让对方说清楚。'
+HARD_RULES = (
+    "硬性规则：",
+    "1. 这是语音通话：只说简体中文口语，一次 1–2 句、不超过 50 字；不要用表情、括号动作、列表或 Markdown；语气词偶尔用“嗯”“啊？”就够了。",
+    "2. 保持人设，不要出戏，不要承认自己是 AI 或机器人。",
+    "3. 绝不说出任何真实或看似真实的验证码、卡号、密码、身份证号、住址；需要时就说找不到、没弄好、要再确认一下。",
+    "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
+)
 
 
-def first_turn_rule(openers) -> str:
-    """第一轮规则：开头的格式示例用本通挑出来的几种说法（每通不同），后面是固定的 FIRST_TURN_RULE。"""
-    ex = "".join(f"“{x}”" for x in openers) or "“嗯，你说。”"
-    return FIRST_TURN_HEAD.format(examples=ex) + FIRST_TURN_RULE
+def said_first_line(said_first: str) -> str:
+    return f"你已经先随口应了一声“{said_first}”，直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，也不要重复这句。"
+
+
+def intel_line(labels) -> str:
+    """#169：对方已经报过、已提取的情报只列种类（不带值，打码值也不放，免得模型念号码、念名字），截断历史后也不再追问。"""
+    labels = [x for x in dict.fromkeys(labels or []) if x]
+    return ("对方已经报过、你这边已经记下的：" + "、".join(labels) + "。这些不用再要，也不要复述内容。") if labels else ""
+
+
+def facts_line(facts) -> str:
+    """#169：人设自己前面说过、但已经截出上下文的关键事实（哪家银行、多少钱、用过的借口），保持前后一致。"""
+    facts = [x for x in dict.fromkeys(facts or []) if x]
+    return ("你前面自己说过（前后要一致，不要改口）：" + "；".join(f"“{x}”" for x in facts) + "。") if facts else ""
+
+
+def first_turn_rule(openers=None) -> str:
+    """第一轮规则。#169：说法示例只在 voice_style 的“第一句的说法”里列一次，这里不再重复（openers 参数保留兼容）。"""
+    return FIRST_TURN_HEAD + FIRST_TURN_RULE
 
 
 _Q = re.compile(r"[？?]")
@@ -318,13 +366,24 @@ def first_sentence_is_question(text: str) -> bool:
 
 def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
                   said_first: str = "", topics=None, first_turn: bool = False, scenes=None,
-                  opener_key: str = "") -> str:
-    """语音人设提示词。#4：场景名、描述、后台选的场景都不进提示词；称呼和例句只按对方原话里已经认出的场景挑。
+                  opener_key: str = "", have=None, facts=None) -> str:
+    """完整提示词 = 固定部分 + 换行 + 本轮可变部分（见 prompt_parts）。离线工具、测试用；通话里两段分开放（#169）。"""
+    return "\n".join(prompt_parts(persona_id, scenario_id, hint, missing, said_first, topics, first_turn, scenes,
+                                   opener_key, have, facts))
+
+
+def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
+                 said_first: str = "", topics=None, first_turn: bool = False, scenes=None,
+                 opener_key: str = "", have=None, facts=None) -> tuple[str, str]:
+    """语音人设提示词，返回 (固定部分, 本轮可变部分)。#4：场景名、描述、后台选的场景都不进提示词；称呼和例句只按对方原话里已经认出的场景挑。
+    #169：固定部分（开头、角色、不抢话、硬性规则、号码规则、说话风格）放前面，每轮基本不变，便于前缀缓存；
+    本轮策略、缺项、已拿到的情报、人设说过的事实、例句、第一句说法、said_first、首轮/后续规则放末尾（通话中放在历史之后）。
     scenes：heard_scenes(session)（通话中必须传，开场前是空表）；None 表示离线工具，按 scenario_id 当作对方已经说出的场景。
     missing：对方已经提到、但还没说清楚的情报（调用方按话题过滤，见 IntelProcessor.update_prompt）。
     topics：对方已经提到的话题（session_topics）；None 表示不过滤例句（离线工具用）。
     first_turn：对方刚说完第一段话（本通电话人设的第一条回复），加 FIRST_TURN_RULE 和第一句说法示例。
-    opener_key：挑第一句说法示例用的键（调用方传对方第一句话），同一通电话里固定。"""
+    opener_key：挑第一句说法示例用的键（调用方传对方第一句话），同一通电话里固定。
+    have：对方已经报过、已提取的情报种类（只列名称）。facts：人设自己说过、已截出上下文的关键事实。"""
     p = PERSONA_BY_ID.get(resolve_persona_id(persona_id)) or PERSONAS[0]
     if scenes is None:
         scenes = [(SCENARIO_BY_ID.get(scenario_id) or SCENARIOS[0])["id"]]
@@ -334,20 +393,16 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
     call = next((c for c in (p.get("call", {}).get(x, "") for x in scenes) if c and not (scenes_in(c) - set(scenes))), "")
     who = f"称呼对方为\"{call}\"。" if call else "先不用称呼对方。"
     miss = "对方已经提到、但还没说清楚的：" + "、".join(missing) + "，可以顺着问一句。" if missing else ""
-    return "\n".join([
-        '你在一个反诈骗研究项目中扮演"潜在受害人"，接到一个陌生电话。目标：尽可能拖延对方时间；对方自己报出来的东西，再顺着让对方说清楚。',
-        f"角色：{p['name']}，{_AGE.sub('', p['tagline'])}。{who}",
-        NO_LEAK_RULE,
-        f"本轮建议策略：{INTENT_HINTS.get(hint, INTENT_HINTS['generic'])}。{miss}",
-        "硬性规则：",
-        "1. 这是语音通话：只说简体中文口语，一次 1–2 句、不超过 50 字；不要用表情、括号动作、列表或 Markdown；语气词偶尔用“嗯”“啊？”就够了。",
-        "2. 保持人设，不要出戏，不要承认自己是 AI 或机器人。",
-        "3. 绝不说出任何真实或看似真实的验证码、卡号、密码、身份证号、住址；需要时就说找不到、没弄好、要再确认一下。",
-        "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
-        RULE_DIGITS,
-        style_rule(p),
-    ] + voice_style(p, scenes, topics, first_turn, opener_key) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
-          "也不要重复这句。"] if said_first else []) + ([first_turn_rule(first_turn_openers(p["id"], opener_key))] if first_turn else [FOLLOW_UP_RULE]))
+    style, extra = voice_style_parts(p, scenes, topics, first_turn, opener_key)
+    fixed = [PROMPT_HEAD, f"角色：{p['name']}，{_AGE.sub('', p['tagline'])}。{who}", NO_LEAK_RULE, *HARD_RULES, RULE_DIGITS,
+             style_rule(p)] + style
+    turn = [f"本轮建议策略：{INTENT_HINTS.get(hint, INTENT_HINTS['generic'])}。{miss}"]
+    turn += [x for x in (intel_line(have), facts_line(facts)) if x]
+    turn += extra
+    if said_first:
+        turn.append(said_first_line(said_first))
+    turn.append(first_turn_rule() if first_turn else FOLLOW_UP_RULE)
+    return "\n".join(fixed), "\n".join(turn)
 
 
 _LONG_DIGITS = re.compile(r"(?<![0-9*])[0-9]{5,}(?![0-9*])")
