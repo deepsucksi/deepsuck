@@ -1,10 +1,11 @@
 {
-  "schema": "deepsuck.core.name_stopchars/v1",
-  "comment": "用途：应答字、语气词、常见动词和虚词，不能当成姓，也不能当成名字的第一个字。提取器（extractors.py / extractors.js）在「户名、收款人」后面取到的名字以这些字开头时不算姓名（「户名对得上就行」不是户名「对得上就」）；人设和语音侧复述打码片段时，星号前面紧挨着的是这些字的，不当成姓（「我只有****块钱」不念成「那个名字」）。Py、JS 和语音侧都读这份文件，不要另写一份。chars 里每个字至少配一条 negatives：这些文本里不能提取出以该字开头的姓名，也不能把该字当成姓复述（tests/name_stopchars.test.js 和 python/tests/test_name_stopchars.py 共用）。表里的字都不在 extractors.json 的 nameRules.surnames 里。",
+  "schema": "deepsuck.core.name_stopchars/v2",
+  "comment": "用途：判断「户名、收款人、姓、叫」后面取到的字是不是名字，防止把应答字、虚词、疑问词和字段名当成姓（「户名对得上就行」不是户名「对得上就」，「户名没记全」不能打成「户名没**」）。Py、JS 和语音侧都读这份文件，不要另写一份。chars 每项：surname=false 的字不当姓用，名字以它开头时一律不算；surname=true 的字本身可能是真姓（和、有、是、都、信、谁……），只有紧跟在它后面的文字匹配 after（JS 正则源码，从该字后一个字符起匹配开头）时才放行（「户名和开户行」「收款人信息」），否则照常当姓名打码（「户名和平」「收款人姓和」「户名有志强」）。拿不准就不放行：漏打码比误打码严重。words 是多字词，名字以这些词开头时一律不算。negatives：不能提取出以该字或该词开头的姓名，脱敏也不能在这里打码；positives：仍要当姓名打码。tests/name_stopchars.test.js、tests/name_stopchars_extract.test.js、python/tests/test_name_stopchars.py、voice/tests/test_name_stopchars_guard.py 共用。surname=false 的字都不在 extractors.json 的 nameRules.surnames 里。nameRules.notNames 里本身可能是真姓的单字（都、还、那）已经移到本表按上下文判断；notNames 里剩下的单字（只、不、要、也、我、你、他、她、这等）仍然一律不当名字开头。",
   "chars": [
     {
       "char": "对",
       "kind": "应答字",
+      "surname": false,
       "negatives": [
         "户名对得上就行",
         "姓对"
@@ -13,14 +14,20 @@
     {
       "char": "是",
       "kind": "应答字",
+      "surname": true,
+      "after": "啥|谁|什么|多少|哪|不是|吗|的|对|[\\u4e00-\\u9fa5]?[*＊]",
       "negatives": [
-        "户名是冯**",
-        "姓是"
+        "你那边户名是啥",
+        "户名是冯**"
+      ],
+      "positives": [
+        "户名是非"
       ]
     },
     {
       "char": "嗯",
       "kind": "应答字",
+      "surname": false,
       "negatives": [
         "户名嗯对就这个",
         "姓嗯"
@@ -29,22 +36,33 @@
     {
       "char": "好",
       "kind": "应答字",
+      "surname": true,
+      "after": "的|了|吧|啊|嘛|呀|像|几|多",
       "negatives": [
         "户名好的我记下了",
         "姓好"
+      ],
+      "positives": [
+        "户名好大伟"
       ]
     },
     {
       "char": "行",
       "kind": "应答字",
+      "surname": true,
+      "after": "了|吧|的|啊|不|吗|[，,。？?！!…、；;：:\\s]|$",
       "negatives": [
         "户名行了你转吧",
         "户名对***行"
+      ],
+      "positives": [
+        "户名行建国"
       ]
     },
     {
       "char": "哦",
       "kind": "应答字",
+      "surname": false,
       "negatives": [
         "户名哦知道了",
         "姓哦"
@@ -53,6 +71,7 @@
     {
       "char": "噢",
       "kind": "应答字",
+      "surname": false,
       "negatives": [
         "收款人噢我看看"
       ]
@@ -60,6 +79,7 @@
     {
       "char": "啊",
       "kind": "语气词",
+      "surname": false,
       "negatives": [
         "收款人啊就那个"
       ]
@@ -67,6 +87,7 @@
     {
       "char": "呃",
       "kind": "语气词",
+      "surname": false,
       "negatives": [
         "户名呃稍等一下"
       ]
@@ -74,6 +95,7 @@
     {
       "char": "诶",
       "kind": "语气词",
+      "surname": false,
       "negatives": [
         "户名诶等一下"
       ]
@@ -81,6 +103,7 @@
     {
       "char": "哎",
       "kind": "语气词",
+      "surname": false,
       "negatives": [
         "户名哎你先别管"
       ]
@@ -88,6 +111,7 @@
     {
       "char": "呢",
       "kind": "语气词",
+      "surname": false,
       "negatives": [
         "户名呢你记下没"
       ]
@@ -95,6 +119,7 @@
     {
       "char": "吧",
       "kind": "语气词",
+      "surname": false,
       "negatives": [
         "户名吧应该没问题"
       ]
@@ -102,6 +127,7 @@
     {
       "char": "了",
       "kind": "虚词",
+      "surname": false,
       "negatives": [
         "户名了解一下"
       ]
@@ -109,6 +135,7 @@
     {
       "char": "的",
       "kind": "虚词",
+      "surname": false,
       "negatives": [
         "户名的事你别管"
       ]
@@ -116,14 +143,20 @@
     {
       "char": "有",
       "kind": "常见动词",
+      "surname": true,
+      "after": "了|没|吗|啥|什么|误|错|问题|点|些|个|的|人|[*＊]{2,}",
       "negatives": [
         "户名有了吗",
         "我只有****块钱"
+      ],
+      "positives": [
+        "户名有志强"
       ]
     },
     {
       "char": "没",
       "kind": "常见动词",
+      "surname": false,
       "negatives": [
         "户名没错就行",
         "收款人没问题"
@@ -132,6 +165,7 @@
     {
       "char": "只",
       "kind": "副词",
+      "surname": false,
       "negatives": [
         "户名只写了一半",
         "我只有****块钱"
@@ -140,6 +174,7 @@
     {
       "char": "就",
       "kind": "副词",
+      "surname": false,
       "negatives": [
         "户名就是冯**"
       ]
@@ -147,13 +182,19 @@
     {
       "char": "都",
       "kind": "副词",
+      "surname": true,
+      "after": "对|是|行|可以|没|不|写|填|一样|知道|有|记",
       "negatives": [
         "户名都对上了"
+      ],
+      "positives": [
+        "户名都敏俊"
       ]
     },
     {
       "char": "也",
       "kind": "副词",
+      "surname": false,
       "negatives": [
         "户名也一样"
       ]
@@ -161,20 +202,31 @@
     {
       "char": "还",
       "kind": "副词",
+      "surname": true,
+      "after": "没|是|要|有|不|得|在|对",
       "negatives": [
         "户名还没出来"
+      ],
+      "positives": [
+        "户名还小军"
       ]
     },
     {
       "char": "在",
       "kind": "常见动词",
+      "surname": true,
+      "after": "核对|哪|这|那|查|确认|系统|上面|里|办",
       "negatives": [
         "收款人在核对"
+      ],
+      "positives": [
+        "户名在志明"
       ]
     },
     {
       "char": "不",
       "kind": "副词",
+      "surname": false,
       "negatives": [
         "户名不用管"
       ]
@@ -182,6 +234,8 @@
     {
       "char": "要",
       "kind": "常见动词",
+      "surname": true,
+      "after": "写|填|全|对|求|不|是|和|跟|一致|核对",
       "negatives": [
         "户名要写全"
       ]
@@ -189,6 +243,7 @@
     {
       "char": "这",
       "kind": "代词",
+      "surname": false,
       "negatives": [
         "户名这个先不填"
       ]
@@ -196,13 +251,19 @@
     {
       "char": "那",
       "kind": "代词",
+      "surname": true,
+      "after": "边|个|里|天|就|你|我|么|样|位|行",
       "negatives": [
         "收款人那边会核对"
+      ],
+      "positives": [
+        "户名那英"
       ]
     },
     {
       "char": "我",
       "kind": "代词",
+      "surname": false,
       "negatives": [
         "收款人我来填"
       ]
@@ -210,6 +271,7 @@
     {
       "char": "你",
       "kind": "代词",
+      "surname": false,
       "negatives": [
         "户名你照着写"
       ]
@@ -217,6 +279,7 @@
     {
       "char": "他",
       "kind": "代词",
+      "surname": false,
       "negatives": [
         "收款人他会确认"
       ]
@@ -224,8 +287,187 @@
     {
       "char": "她",
       "kind": "代词",
+      "surname": false,
       "negatives": [
         "收款人她会确认"
+      ]
+    },
+    {
+      "char": "姓",
+      "kind": "提示词",
+      "surname": true,
+      "after": "啥|什么|谁|名|哪|多少|[，,。？?！!…、；;：:\\s]|$",
+      "negatives": [
+        "户名姓啥",
+        "收款人姓什么"
+      ],
+      "positives": [
+        "收款人姓和",
+        "收款人姓张"
+      ]
+    },
+    {
+      "char": "和",
+      "kind": "连词",
+      "surname": true,
+      "after": "账号|账户|卡号|开户行|开户|银行|电话|手机|号码|信息|地址|身份证|金额|备注|名字|姓名|户名|收款|微信|支付宝|二维码|你|我|他|她|那|这|上面|之前|刚才",
+      "negatives": [
+        "户名和账号",
+        "户名和开户行",
+        "收款户名和卡号是多少",
+        "户名和电话"
+      ],
+      "positives": [
+        "户名和平",
+        "收款人姓和",
+        "收款人和志强"
+      ]
+    },
+    {
+      "char": "到",
+      "kind": "副词",
+      "surname": true,
+      "after": "底|时候|账|了|位",
+      "negatives": [
+        "户名到底填谁"
+      ],
+      "positives": [
+        "户名到建华"
+      ]
+    },
+    {
+      "char": "谁",
+      "kind": "疑问词",
+      "surname": true,
+      "after": "呀|啊|呢|吗|都|也|的|来|写|填|[，,。？?！!…、；;：:\\s]|$",
+      "negatives": [
+        "收款人叫谁",
+        "户名填谁"
+      ]
+    },
+    {
+      "char": "啥",
+      "kind": "疑问词",
+      "surname": false,
+      "negatives": [
+        "你那边户名是啥",
+        "收款人叫啥"
+      ]
+    },
+    {
+      "char": "咋",
+      "kind": "疑问词",
+      "surname": false,
+      "negatives": [
+        "户名咋写"
+      ]
+    },
+    {
+      "char": "怎",
+      "kind": "疑问词",
+      "surname": false,
+      "negatives": [
+        "户名怎么写"
+      ]
+    },
+    {
+      "char": "哪",
+      "kind": "疑问词",
+      "surname": false,
+      "negatives": [
+        "收款人哪位"
+      ]
+    },
+    {
+      "char": "什",
+      "kind": "疑问词",
+      "surname": true,
+      "after": "么",
+      "negatives": [
+        "户名什么都没说"
+      ]
+    },
+    {
+      "char": "叫",
+      "kind": "提示词",
+      "surname": true,
+      "after": "谁|啥|什么|哪|多少|[，,。？?！!…、；;：:\\s]|$",
+      "negatives": [
+        "收款人叫谁",
+        "你叫啥"
+      ],
+      "positives": [
+        "收款人叫和平"
+      ]
+    },
+    {
+      "char": "信",
+      "kind": "字段名",
+      "surname": true,
+      "after": "息",
+      "negatives": [
+        "收款人信息",
+        "户名信息你再发一遍"
+      ],
+      "positives": [
+        "收款人信建国"
+      ]
+    },
+    {
+      "char": "填",
+      "kind": "提示词",
+      "surname": false,
+      "negatives": [
+        "户名填谁",
+        "户名填啥"
+      ]
+    },
+    {
+      "char": "写",
+      "kind": "提示词",
+      "surname": false,
+      "negatives": [
+        "户名写啥",
+        "收款人写谁"
+      ]
+    }
+  ],
+  "words": [
+    {
+      "word": "什么",
+      "kind": "疑问词",
+      "negatives": [
+        "收款人叫什么",
+        "户名是什么"
+      ]
+    },
+    {
+      "word": "多少",
+      "kind": "疑问词",
+      "negatives": [
+        "收款户名和卡号是多少",
+        "户名多少字"
+      ]
+    },
+    {
+      "word": "到底",
+      "kind": "副词",
+      "negatives": [
+        "户名到底填谁"
+      ]
+    },
+    {
+      "word": "开户行",
+      "kind": "字段名",
+      "negatives": [
+        "户名开户行都报一下"
+      ]
+    },
+    {
+      "word": "卡号",
+      "kind": "字段名",
+      "negatives": [
+        "户名卡号你直接报"
       ]
     }
   ]

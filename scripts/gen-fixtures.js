@@ -101,7 +101,18 @@ const CHAR_EXPLAIN_CASES = [
   ['木子李，就是李子的李', 'keep'],
   ['立早章，文章的章', 'keep'],
   ['李子的李', 'keep'],
-  ['伟大的那个伟字', 'keep']
+  ['伟大的那个伟字', 'keep'],
+  // #185 拆字探针原句（asr-compat，四人设两种 ASR）：曾打成「**的伟」露出单字「伟」，人设念成「那个号的伟」
+  ['收款人叫张伟明，弓长张，伟大的伟，明天的明。', 'mask'],
+  ['收款人叫张伟明，弓长张，伟大的伟。', 'mask'],
+  // #185 ASR 把「弓长张」识别成「龚厂长」：「龚厂长」本身照原样留（与拆字报姓「弓长张」一样只露姓的说法），后面的逐字解释要打码
+  ['收款人叫张伟明，龚厂长，伟大的伟，明天的明。', 'mask'],
+  ['好的，龚厂长，伟大的伟，明天的明，我记下了', 'mask'], // 人设复述
+  // 已知缺陷（xfail）：只有一段解释时，「龚厂长」不在 nameRules.split.spellings 里，认不出是拆字报姓，解释段不打码、露出「伟」。
+  // 修复归语音工程师（ASR 拆字变体，见 #163 第二条）；修好后去掉第三项，fixtures 会按新结果重新生成。
+  // 第四项 leak 是现在还露出来的片段：打码结果里还有它就算缺陷仍在。
+  ['收款人叫张伟明，龚厂长，伟大的伟。', 'mask', 'ASR 拆字变体「龚厂长」认不出，单段解释露「伟」（#163，归语音）', '伟大的伟'],
+  ['好的，龚厂长，伟大的伟', 'mask', '人设复述 ASR 拆字变体「龚厂长」+ 单段解释，露「伟」（#163，归语音）', '伟大的伟']
 ];
 
 // 验证码按上下文打码（#33）：[文本, 'mask' 应打码 | 'keep' 原样（卡号 / 手机号仍由实体规则打码）]，号码均为虚构
@@ -352,10 +363,16 @@ function build() {
       if ((expect === 'mask') !== (redacted !== text)) throw new Error('拆字报姓用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
     }),
-    charExplain: CHAR_EXPLAIN_CASES.map(([text, expect]) => {
+    // xfail：已知缺陷，spans / redacted 记的是当前实现的结果（两端逐字一致），expect 是应有的结果，leak 是现在还露出来的片段；
+    // 缺陷修好（redacted 里不再有 leak）时这里会报错，提醒去掉 xfail
+    charExplain: CHAR_EXPLAIN_CASES.map(([text, expect, xfail, leak]) => {
       const ents = X.extractSensitive(text);
       const spans = R.findNameSpans(text, ents);
       const redacted = R.redactText(text, ents);
+      if (xfail) {
+        if (!redacted.includes(leak)) throw new Error('已知缺陷用例已经不露「' + leak + '」，请去掉 xfail：' + text + ' -> ' + redacted);
+        return { text, expect, spans, redacted, xfail, leak };
+      }
       if ((expect === 'mask') !== (redacted !== text)) throw new Error('逐字解释用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
     }),
