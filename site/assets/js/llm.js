@@ -14,7 +14,8 @@
   var isNode = typeof module === 'object' && module.exports;
   var deps = isNode ? {
     redact: require('./redact.js'), extractors: require('./extractors.js'),
-    personas: require('./personas.js'), scenarios: require('./scenarios.js')
+    personas: require('./personas.js'), scenarios: require('./scenarios.js'),
+    llmQuirks: require('./llm-quirks.js')
   } : root.DeepSuck;
   var mod = factory(deps);
   if (isNode) module.exports = mod;
@@ -250,7 +251,26 @@
     return { signal: c.signal };
   }
 
-  /** 调用 OpenAI 兼容接口（浏览器 direct 模式与 Node 服务端共用） */
+  /**
+   * 聊天接口请求体（#166）。思考开关 enable_thinking：
+   *  - cfg.enableThinking 是布尔值（服务端代理固定传，默认 false）时原样带上；
+   *  - 否则（浏览器直连）只在 llm-quirks.js 认出的服务商（默认开思考的那家）时带 false，其他接口不带，免得被拒绝。
+   */
+  function requestBody(cfg, messages, base) {
+    var model = cfg.model || DEFAULTS.model;
+    var body = {
+      model: model,
+      messages: messages,
+      temperature: cfg.temperature != null ? cfg.temperature : DEFAULTS.temperature,
+      max_tokens: cfg.maxTokens || DEFAULTS.maxTokens
+    };
+    var q = D && D.llmQuirks;
+    if (typeof cfg.enableThinking === 'boolean') body.enable_thinking = cfg.enableThinking;
+    else if (q && q.thinkingOff(model, base)) body.enable_thinking = false;
+    return body;
+  }
+
+  /** 调用兼容标准聊天接口的大模型（浏览器 direct 模式与 Node 服务端共用） */
   function chatCompletions(cfg, messages) {
     var missing = missingDirectConfig(cfg, { apiKey: false });
     if (missing.length) return Promise.reject(new Error('未配置 ' + missing.join('、') + '（见 docs/QUICKSTART.md）'));
@@ -259,12 +279,7 @@
     return fetch(base + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.apiKey },
-      body: JSON.stringify({
-        model: cfg.model || DEFAULTS.model,
-        messages: messages,
-        temperature: cfg.temperature != null ? cfg.temperature : DEFAULTS.temperature,
-        max_tokens: cfg.maxTokens || DEFAULTS.maxTokens
-      }),
+      body: JSON.stringify(requestBody(cfg, messages, base)),
       signal: opt.signal
     }).then(function (r) {
       if (!r.ok) return r.text().then(function (t) { throw new Error('LLM HTTP ' + r.status + ': ' + t.slice(0, 200)); });
@@ -323,6 +338,6 @@
     missingDirectConfig: missingDirectConfig, restoreDirectConfig: restoreDirectConfig,
     systemPrompt: systemPrompt, heardScenes: heardScenes, buildMessages: buildMessages, sanitizeReply: sanitizeReply, polishReply: polishReply,
     speakMasked: speakMasked, fixQuotes: fixQuotes,
-    chatCompletions: chatCompletions, viaProxy: viaProxy
+    chatCompletions: chatCompletions, requestBody: requestBody, viaProxy: viaProxy
   };
 });
