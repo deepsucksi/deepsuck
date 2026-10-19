@@ -179,10 +179,10 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
     if tts is None:
         vs = persona_voice(pid, TTS_MODEL)
         if os.environ.get("DEEPSUCK_TTS_STREAM", "1") == "0":  # 回退：每句一连接的旧实现
-            tts = CosyVoiceTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction,
+            tts = CosyVoiceTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction, rate=vs.rate,
                                       text_filters=[GuardTextFilter()], meter=meter)
         else:
-            tts = CosyVoiceStreamTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction,
+            tts = CosyVoiceStreamTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction, rate=vs.rate,
                                             text_filters=[GuardTextFilter()],
                                             meter=meter, clause_min_chars=prof.tts_clause_min_chars)
     fillers = {} if fillers is None else fillers
@@ -223,7 +223,7 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         llm = QwenLLMService(api_key=os.environ.get("DASHSCOPE_API_KEY"), base_url=LLM_BASE_URL,
                              settings=QwenLLMService.Settings(model=LLM_MODEL, temperature=0.8, max_tokens=120,
                                                               extra=llm_settings_extra()))
-    context = LLMContext([{"role": "system", "content": system_prompt(pid, session.scenario["id"], "opening")}])
+    context = LLMContext([{"role": "system", "content": system_prompt(pid, session.scenario["id"], "opening", topics=set(), scenes=[])}])
     agg = LLMContextAggregatorPair(context, user_params=LLMUserAggregatorParams(
         vad_analyzer=vad_analyzer, user_turn_strategies=strategies))
     # 填充音改由 FillerProcessor 按延迟触发，IntelProcessor 不再随机插播

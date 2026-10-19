@@ -1,0 +1,9 @@
+[Unit]
+Description=DeepSuck daily trace re-redaction at 20:30 +08:00 (GitHub #107)
+
+[Timer]
+OnCalendar=*-*-* 20:30:00 Asia/Shanghai
+Persistent=true
+
+[Install]
+WantedBy=timers.target

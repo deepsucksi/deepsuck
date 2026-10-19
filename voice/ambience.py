@@ -1,11 +1,11 @@
-"""通话环境底噪：按人设给输出音频混一层低音量的家庭/街道环境声，整通电话循环播放。
+"""通话环境底噪：按人设给输出音频混一层低音量的家庭/街道/店铺环境声，整通电话循环播放。
 
 用 Pipecat 自带的 SoundfileMixer（输出传输层在没有语音时也会把底噪单独推出去），
 只作用于发给对方的音频，不进 ASR，也不影响打断判断（打断看的是对方的麦克风）。
 素材和授权见 voice/assets/ambience/SOURCES.md。
 
 环境变量：
-- DEEPSUCK_AMBIENCE：默认 1（按人设选）；0/off 关闭；kitchen/street/tv 强制用某一段。
+- DEEPSUCK_AMBIENCE：默认 1（按人设选）；0/off 关闭；kitchen/street/living_room/shop 强制用某一段。
 - DEEPSUCK_AMBIENCE_VOLUME：混音系数，默认 0.2（素材 -26 dBFS，混进去约 -40 dBFS）。
 """
 from __future__ import annotations
@@ -17,23 +17,28 @@ from typing import Optional
 import numpy as np
 
 DIR = Path(__file__).resolve().parent / "assets" / "ambience"
-SOUNDS = {"kitchen": DIR / "kitchen.ogg", "street": DIR / "street.ogg", "tv": DIR / "tv.ogg"}
+SOUNDS = {name: DIR / f"{name}.ogg" for name in ("kitchen", "street", "living_room", "shop")}
 DEFAULT_SOUND = "kitchen"
 
 
-def _suggested() -> dict:
-    """personas.json 每个人设的 ambience（建议底噪名）。只采用 SOUNDS 里已有素材的名字：
-    小陈妈妈 living_room、郑老板 shop 的素材要等负责人试听通过后由语音工程师加进 SOUNDS，在此之前退回默认底噪。"""
+def _load_core() -> dict:
     import json
     try:
         core = Path(__file__).resolve().parents[1] / "site" / "assets" / "core" / "personas.json"
-        data = json.loads(core.read_text(encoding="utf-8"))
+        return json.loads(core.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001
         return {}
+
+
+def _suggested(data: dict) -> dict:
+    """personas.json 每个人设的 ambience（底噪名）。只采用 SOUNDS 里有素材的名字，其余退回默认底噪。"""
     return {p["id"]: p["ambience"] for p in data.get("personas", []) if p.get("ambience") in SOUNDS}
 
 
-BY_PERSONA = _suggested()  # 现为 {"wang": "kitchen", "lin": "street"}；王阿姨的厨房底噪是已批准的质量线，不要改
+_CORE = _load_core()
+# 现为 wang → kitchen、chen → living_room、lin → street、zheng → shop；王阿姨的厨房底噪是已批准的质量线，不要改
+BY_PERSONA = _suggested(_CORE)
+ALIASES = dict(_CORE.get("aliases") or {})  # personas.json 的 aliases（xiaochen / mom → chen，shop_owner → zheng）
 DEFAULT_VOLUME = 0.2
 _OFF = ("0", "off", "false", "no", "none", "")
 
@@ -45,7 +50,8 @@ def choose(persona_id: str, env: Optional[str] = None) -> Optional[str]:
         return None
     if v in SOUNDS:
         return v
-    return BY_PERSONA.get(persona_id, DEFAULT_SOUND)
+    pid = str(persona_id or "")
+    return BY_PERSONA.get(ALIASES.get(pid, pid), DEFAULT_SOUND)
 
 
 def volume() -> float:

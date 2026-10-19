@@ -20,11 +20,12 @@ from typing import AsyncIterator, Awaitable, Callable, Optional
 WS_URL = os.environ.get("DASHSCOPE_WS_URL", "wss://dashscope.aliyuncs.com/api-ws/v1/inference")
 
 # 人设 → CosyVoice 系统音色（cosyvoice-v3-flash；均为北京地域）。开箱即用，任何百炼账号都能合成。
-# 小陈妈妈（chen）、郑老板（zheng）暂不配音色：负责人试听通过前退回默认音色（下面 persona_voice 的 longlaoyi_v3），
-# 也可以先用 DEEPSUCK_VOICE_CHEN / DEEPSUCK_VOICE_ZHENG 在测试环境试听。建议见 personas.json 的 voiceHint。
+# 小陈妈妈（chen）用设计音色（只属于创建它的账号，见下文），线上在 .env 里配 DEEPSUCK_VOICE_CHEN；
+# 没配时（自托管）退回 DEFAULT_VOICE，照样能通话。
 PERSONA_VOICES = {
-    "wang": "longlaoyi_v3",   # 龙老姨：烟火从容阿姨，60 岁以上
-    "lin": "longanyang",       # 龙安洋：阳光大男孩
+    "wang": "longlaoyi_v3",    # 龙老姨：烟火从容阿姨，60 岁以上
+    "lin": "longanyang",        # 龙安洋：阳光大男孩
+    "zheng": "longsanshu_v3",   # 龙三叔：沉稳质感男（郑老板）
 }
 DEFAULT_VOICE = "longlaoyi_v3"
 
@@ -34,8 +35,34 @@ DEFAULT_VOICE = "longlaoyi_v3"
 #   DEEPSUCK_VOICE_<人设>_MODEL        模型；不设时设计音色按 ID 前缀推断（设计音色绑定创建时的模型）
 #   DEEPSUCK_VOICE_<人设>_INSTRUCTION  合成指令，例如「请用东北话表达。」；0/off/空 表示不加。
 #                                      系统音色 longlaoyi 等不支持指令，只有设计音色才发送。
+#   DEEPSUCK_VOICE_<人设>_RATE         语速倍率（0.5–2.0）；不设时设计音色用 DESIGNED_RATES，系统音色 1.0。
 DEFAULT_INSTRUCTIONS: dict = {}  # 人设 → 默认指令（只对设计音色生效）。王阿姨对比过开/关东北话指令，盲评无差别，默认不加：少一个参数、首包快约 50 ms
+# 设计音色的默认语速倍率（只对设计音色生效：倍率是按 design_voice.py 里那条描述生成的音色实测定的，
+# 退回系统音色时不套用）。小陈妈妈 chenc 原速约 5.5 字/秒（去掉 200 ms 以上停顿），0.75 实测约 4.8 字/秒。
+DESIGNED_RATES: dict = {"chen": 0.75}
 _OFF = {"", "0", "off", "none", "false", "no"}
+
+
+def _resolve(pid: str) -> str:
+    """别名 → 人设 id，用 personas.json 的 aliases（python/deepsuck/personas.py），不另起一套。"""
+    try:
+        import sys
+        from pathlib import Path
+        py = str(Path(__file__).resolve().parents[1] / "python")
+        if py not in sys.path:
+            sys.path.insert(0, py)
+        from deepsuck.personas import resolve_persona_id
+        return resolve_persona_id(pid)
+    except Exception:  # noqa: BLE001  独立使用本模块时没有 python/ 目录也照常工作
+        return pid
+
+
+def _rate(raw, default: float) -> float:
+    try:
+        r = float(raw)
+    except (TypeError, ValueError):
+        return default
+    return min(2.0, max(0.5, r))
 
 
 @dataclass(frozen=True)
@@ -43,13 +70,17 @@ class VoiceSpec:
     voice: str
     model: str
     instruction: Optional[str] = None
+    rate: float = 1.0
 
     @property
     def cache_tag(self) -> str:
-        """填充音缓存键：同一音色开/关指令合成出来的声音不同，要分开缓存。"""
-        if not self.instruction:
-            return self.voice
-        return f"{self.voice}-i{hashlib.sha1(self.instruction.encode()).hexdigest()[:8]}"
+        """填充音缓存键：同一音色开/关指令、不同语速合成出来的声音不同，要分开缓存。"""
+        tag = self.voice
+        if self.instruction:
+            tag += f"-i{hashlib.sha1(self.instruction.encode()).hexdigest()[:8]}"
+        if self.rate != 1.0:
+            tag += f"-r{self.rate:g}"
+        return tag
 
 
 def designed_model(voice: str) -> Optional[str]:
@@ -62,6 +93,7 @@ def designed_model(voice: str) -> Optional[str]:
 
 def persona_voice(pid: str, default_model: Optional[str] = None, env=None) -> VoiceSpec:
     env = os.environ if env is None else env
+    pid = _resolve(pid)
     up = pid.upper()
     default_model = default_model or env.get("DEEPSUCK_TTS_MODEL", "cosyvoice-v3-flash")
     voice = (env.get(f"DEEPSUCK_VOICE_{up}") or "").strip() or PERSONA_VOICES.get(pid, DEFAULT_VOICE)
@@ -71,7 +103,8 @@ def persona_voice(pid: str, default_model: Optional[str] = None, env=None) -> Vo
         raw = env.get(f"DEEPSUCK_VOICE_{up}_INSTRUCTION")
         raw = DEFAULT_INSTRUCTIONS.get(pid) if raw is None else raw
         instruction = None if raw is None or raw.strip().lower() in _OFF else raw.strip()
-    return VoiceSpec(voice=voice, model=model, instruction=instruction)
+    rate = _rate(env.get(f"DEEPSUCK_VOICE_{up}_RATE"), DESIGNED_RATES.get(pid, 1.0) if designed_model(voice) else 1.0)
+    return VoiceSpec(voice=voice, model=model, instruction=instruction, rate=rate)
 
 
 class DashScopeError(RuntimeError):

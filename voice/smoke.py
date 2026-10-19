@@ -17,13 +17,14 @@ import urllib.request
 import wave
 
 from .dashscope_ws import persona_voice, synthesize, transcribe_pcm
-from .persona import system_prompt
+from .persona import scenes_in, system_prompt, topics_in
 
 
 def chat(prompt: str, persona: str = "wang", scenario: str = "refund") -> str:
     base = os.environ.get("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
     body = {"model": os.environ.get("LLM_MODEL", "qwen-plus"), "max_tokens": 80, "temperature": 0.8,
-            "messages": [{"role": "system", "content": system_prompt(persona, scenario)},
+            "messages": [{"role": "system", "content": system_prompt(persona, scenario, topics=topics_in(prompt),
+                                                                    scenes=sorted(scenes_in(prompt)))},
                          {"role": "user", "content": prompt}]}
     req = urllib.request.Request(base + "/chat/completions", data=json.dumps(body).encode(),
                                  headers={"Authorization": "Bearer " + os.environ["DASHSCOPE_API_KEY"],

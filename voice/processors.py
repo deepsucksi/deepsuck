@@ -42,7 +42,8 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
-from .persona import FILLERS, GOAL_TOPIC, gate_intent, guard_output, session_topics, speakable, system_prompt, unmask
+from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_scenes, session_topics, speakable, system_prompt,
+                      unmask)
 
 Notify = Callable[[dict], Awaitable[None]]
 
@@ -252,7 +253,8 @@ class IntelProcessor(FrameProcessor):
         missing = [GOAL_LABEL.get(g, g) for g in self.session.missing_goals() if GOAL_TOPIC.get(g) in topics]
         first = sum(1 for m in getattr(self.session, "messages", []) if m.get("role") == "scammer") <= 1
         sp = system_prompt(self.session.persona["id"], self.session.scenario["id"], self.intent, missing,
-                           said_first=self.said_first, topics=topics, first_turn=first)
+                           said_first=self.said_first, topics=topics, first_turn=first,
+                           scenes=heard_scenes(self.session))
         self.prompt_sha = hashlib.sha1(sp.encode("utf-8")).hexdigest()[:8]
         if self.context is not None:
             msgs = list(self.context.get_messages())
@@ -372,6 +374,8 @@ async def synth_fillers(persona_id: str, voice, sample_rate: int, synth=None, ca
         extra = {"model": voice.model}
         if voice.instruction:
             extra["instruction"] = voice.instruction
+        if voice.rate != 1.0:
+            extra["rate"] = voice.rate
         voice_name, voice = voice.voice, voice.cache_tag
     else:
         voice_name = voice
