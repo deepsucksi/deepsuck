@@ -629,7 +629,8 @@ def speakable(text: str, calm_tts: bool | None = None) -> str:
 
     数字过滤（engine.vague_digits）在语音合成前最后一道：连续 2 位及以上的数字（#167 从 3 位收紧；含中文数字）换成“好像是6开头的”“后面几位没听清”这类说法。
     """
-    s = unmask(guard_output(_unmask_names(str(text or ""))))  # #136：姓名打码先换说法，免得守卫把“是张**”再打成“***”
+    # #214 语料复审：号码词 / 姓名锚后的打码星号先换成代称（_proxy_masked），再换姓名打码、过守卫（去 Markdown 粗体）
+    s = unmask(guard_output(_unmask_names(_proxy_masked(str(text or "")))))  # #136：姓名打码先换说法，免得守卫把“是张**”再打成“***”
     if _CALM if calm_tts is None else calm_tts:
         s = calm(s)
     s = vague_digits(s)
@@ -733,9 +734,21 @@ def drop_name_explain(text: str) -> str:
     return _NAME_RUN.sub(NAME_PHRASE, s)
 
 
+# #214 语料复审：号码词 / 姓名锚后面紧跟的打码星号（不带数字）在去 Markdown 粗体之前先换成代称，号码念「那个号」（尾号后念
+# 「那几位」，与 unmask 一致），姓名锚念「那个名字」（_unmask_names）。否则「验证码是**，密码是**」「卡号是**，户名**」两段 **
+# 会被 _BOLD 当成粗体删掉星号，念成「验证码是，密码是」。真正的 Markdown 粗体（「**重点**」）前面不是号码词，不受影响。
+_NUMBER_STARS = re.compile(_PREV_NUMBER_END.pattern[:-1] + r"([*＊]+)(?![*＊0-9A-Za-z０-９\u4e00-\u9fff])")  # 星号后跟字（「卡号是*华」）不在这里换，按姓名多遮
+
+
+def _proxy_masked(s: str) -> str:
+    s = _NAME_ANCHOR.sub(lambda m: m.group(1) + m.group(2) + NAME_PHRASE + ((m.group(3) or "") if (m.group(3) or "") in _NAME_ANCHOR_KEEP else ""), s)
+    return _NUMBER_STARS.sub(lambda m: m.group(0)[:m.start(1) - m.start()] + ("那几位" if _TAIL_WORD.search(m.group(0)[:m.start(1) - m.start()]) else "那个号"), s)
+
+
 def guard_output(text: str) -> str:
     """输出守卫（PolicyGuard）：去掉括号动作/Markdown、不说成已经转账或答应去转（#187）、数字过滤（#121、#167：连续 2 位及以上的数字含中文数字换成含糊说法）、口语化（#132、#134）、脱敏、抹掉 5 位以上数字串。"""
     s = re.sub(r"<think>.*?</think>", "", str(text or ""), flags=re.S)
+    s = _proxy_masked(s)  # #214 语料复审：打码星号先换成代称，再去 Markdown 粗体（「验证码是**，密码是**」两段 ** 不当粗体删掉）
     s = _BOLD.sub(r"\1", s)
     s = drop_name_explain(s)  # #215：拆字报姓 / 逐字解释整体换成「那个名字」（在脱敏、数字过滤之前，免得被打成星号再念成「那个号」）
     s = hold_transfer(s)  # #187：说成已经转了 / 答应去转的分句换成“还在弄，没弄好”（在数字过滤、姓名替换、TTS 之前）

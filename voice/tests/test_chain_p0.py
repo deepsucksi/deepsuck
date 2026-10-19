@@ -107,7 +107,7 @@ def problems(segs, expect, leak=(), keep=None):
                 why.append(f"户名没念成那个名字：{o}")
             if not (any(k in head for k in NUM_SAY) and P.NAME_PHRASE not in head):
                 why.append(f"卡号没念成那个号：{o}")
-        if len(segs) == 1 and r["model"] != "卡号是那个号，户名那个名字":
+        if len(segs) == 1 and r["model"] != segs[0].replace("***", "那个号", 1).replace("**", "那个号", 1).replace("户名***", "户名那个名字").replace("户名**", "户名那个名字"):
             why.append(f"给模型的不是「卡号是那个号，户名那个名字」：{r['model']}")
     elif expect == "keep":
         if any(o.replace("。", "") != keep for o in said):
@@ -164,6 +164,9 @@ def _cases():
         add("号码+户名 分段", ["卡号是***，", "户名***"], "both")
         add("号码+户名 分段", ["卡号是", "***，户名***"], "both")  # #214 复审第 2 条：分段开头的星号按上一段「卡号是」算号码
         add("号码+户名 分段", ["卡号是", "***，户名", "***"], "both")
+    # #214 语料复审：一句里两段 **，不能被当成 Markdown 粗体删掉星号
+    add("两段星号", ["验证码是**，密码是**"], "number")
+    add("两段星号", ["卡号是**，户名**"], "both")
     # 户名 / 收款人 / 名下 / 对方叫 紧跟星号（#215 人设侧）
     for t in ("户名***", "户名**", "户名*", "收款人***", "收款人**", "对方叫***", "他名下**", "户名：**", "户名为***"):
         add("姓名锚", [t], "name")
@@ -252,3 +255,33 @@ def test_lead_stars_by_prev_segment(text, prev, refs, want):
 def test_heard_refs_split_segments(segs, want):
     _, r = problems(segs, "none")
     assert want <= r["refs"], (segs, r)
+
+
+@pytest.mark.parametrize("text,want", [
+    # #214 语料复审：两段 ** 先换代称再去 Markdown 粗体，念法与网页 / Python（#214 后）一致
+    ("验证码是**，密码是**", "验证码是那个号，密码是那个号"),
+    ("卡号是**，户名**", "卡号是那个号，户名那个名字"),
+    ("卡号是**，尾号是**", "卡号是那个号，尾号是那几位"),
+    ("账号是***，户名***", "账号是那个号，户名那个名字"),
+])
+def test_two_star_pairs_not_bold(text, want):
+    assert P.speakable(text, calm_tts=False) == want
+    assert P.guard_output(text) == want
+    for step in (1, 3, len(text)):  # TTS 流式（ClauseTextAggregator + GuardTextFilter）
+        agg_out = asyncio.run(_tts_step(text, step))
+        assert agg_out.replace("，", "") == want.replace("，", ""), (step, agg_out)
+
+
+def test_markdown_bold_still_stripped():
+    assert P.guard_output("这个**很重要**，你记一下") == "这个很重要，你记一下"
+
+
+async def _tts_step(text, step):
+    agg, flt, out = ClauseTextAggregator(min_clause_chars=6), GuardTextFilter(CallRedactor()), []
+    for i in range(0, len(text), step):
+        async for a in agg.aggregate(text[i:i + step]):
+            out.append(await flt.filter(a.text))
+    r = await agg.flush()
+    if r:
+        out.append(await flt.filter(r.text))
+    return "".join(out)
