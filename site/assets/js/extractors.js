@@ -73,8 +73,17 @@
    *  拿不准就当姓名：可能是真姓的字（surname=true）后面只跟 1–3 个星号时，正好是脱敏后的 2–4 字姓名（「户名有志强」→「户名有**」），
    *  不放行；4 个及以上星号（「我只有****块钱」）才按字表的 after 放行。 */
   var SHORT_STARS = /^[*＊]{1,3}(?![*＊])/;
+  var MC = STOP.maskContext || {};
+  var NUMBER_BEFORE = new RegExp(MC.numberBefore || '(?!)');
+  var NOT_NAME_AFTER = new RegExp('^(?:' + (MC.notNameAfter || '(?!)') + ')');
+  /** #206 第六条探针：str 里 pos 处开始的星号按上下文不当姓名（号码语境「验证码是***」「转到**」，或「我在***上班」）。与 Python stars_not_name 一致。 */
+  function starsNotName(str, pos) {
+    str = String(str);
+    return NUMBER_BEFORE.test(str.slice(0, pos)) || NOT_NAME_AFTER.test(str.slice(pos));
+  }
   function maskedLeadNotSurname(m, sur, off, str, fallback) {
     if (sur.length !== 1) return false;
+    if (starsNotName(str, off + Math.max(m.search(/[*＊]/), 0))) return true; // #206 第六条探针：号码语境 / 「我在***上班」不当姓名，先于下面两条兜底
     if (/[*＊][\u4e00-\u9fff]/.test(m)) return false; // #206 星号后面还跟着一个字（「对*明」「王*明」）：一律当姓名（宁可多遮）
     var star = m.search(/[*＊]/);
     var rest = String(str).slice(off + (star < 0 ? m.length : star));
@@ -473,5 +482,5 @@
     return extract(text).filter(function (e) { return e.sensitive; });
   }
 
-  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
+  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
 });

@@ -151,7 +151,8 @@
       .replace(SPLIT_BEFORE_NAME, '')
       .replace(NAME_TAIL_RE, '$1')
       .replace(EXPLAIN_NAME_RE, w); // #172
-    if (!NUMBER_CUE.test(s)) s = s.replace(BARE_STARS_RE, w); // #172：整句没有数字和号码字样时，单独的纯星号串也是逐字解释的名字
+    // #172：整句没有数字和号码字样时，单独的纯星号串也是逐字解释的名字；#206 第六条探针：号码语境（「转到***」）和「我在***上班」除外
+    if (!NUMBER_CUE.test(s)) s = s.replace(BARE_STARS_RE, function (m, off, str) { return D.extractors.starsNotName(str, off) ? m : w; });
     return s.replace(NAME_TAIL_RE, '$1').replace(NAME_DUP_RE, '$1');
   }
   /** 把文本里的打码值换成自然说法；bracket=true 时加〔〕（给模型看的代称） */

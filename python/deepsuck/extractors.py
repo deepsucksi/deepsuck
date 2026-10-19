@@ -84,6 +84,9 @@ def masked_lead_not_surname(m, sur: str, fallback: str) -> bool:
     不放行；4 个及以上星号（「我只有****块钱」）才按字表的 after 放行。"""
     if len(sur) != 1:
         return False
+    star0 = re.search("[*＊]", m.group(0))
+    if stars_not_name(m.string, m.start() + (star0.start() if star0 else 0)):  # #206 第六条探针：号码语境 / 「我在***上班」不当姓名，先于下面两条兜底（含 _SHORT_STARS）
+        return True
     if re.search("[*＊][\u4e00-\u9fff]", m.group(0)):  # #206 星号后面还跟着一个字（「对*明」「王*明」）：一律当姓名（宁可多遮）
         return False
     star = re.search("[*＊]", m.group(0))
@@ -97,6 +100,17 @@ def masked_lead_not_surname(m, sur: str, fallback: str) -> bool:
 
 
 _SHORT_STARS = re.compile("[*＊]{1,3}(?![*＊])")
+_MC = load("name_stopchars").get("maskContext") or {}
+_NUMBER_BEFORE = compile_js(_MC.get("numberBefore") or "(?!)")
+_NOT_NAME_AFTER = compile_js(_MC.get("notNameAfter") or "(?!)")
+
+
+def stars_not_name(s: str, pos: int) -> bool:
+    """#206 第六条探针：s 里 pos 处开始的星号按上下文不当姓名（号码语境「验证码是***」「转到**」，或「我在***上班」）。与 JS starsNotName 一致。"""
+    s = str(s)
+    return bool(_NUMBER_BEFORE.search(s[:pos]) or _NOT_NAME_AFTER.match(s, pos))
+
+
 
 
 _NAME_DIGITS = "零一二三四五六七八九"

@@ -1,0 +1,186 @@
+{
+  "schema": "deepsuck.fixture.heard_refs_p0/v1",
+  "comment": "#206 第六条探针（语音 P0）：对方的话（已脱敏）里的星号，heard_refs 判成哪类代称。expect=number：必须记 number、不能记 name（念「那个号」）；name：必须记 name（防回归，宁可多遮）；not_name：不能记 name。前 37 条逐字取自语音组 p0-cases.json（以该文件为准），后面是补充的防回归。speak：明文打码后念出来的话。tests/heard_refs_p0.test.js（llm.heardRefs / speakMasked）、python/tests/test_heard_refs_p0.py（deepsuck.refs）、voice/tests/test_heard_refs_p0.py（voice.persona.heard_refs）三端共用。",
+  "source": "p0-cases.json：P0 cases: number words + 1-3 stars must be number; name anchors stay name",
+  "cases": [
+    {
+      "text": "验证码是*",
+      "expect": "number"
+    },
+    {
+      "text": "卡号是*",
+      "expect": "number"
+    },
+    {
+      "text": "尾号是*",
+      "expect": "number"
+    },
+    {
+      "text": "密码是*",
+      "expect": "number"
+    },
+    {
+      "text": "账号是*",
+      "expect": "number"
+    },
+    {
+      "text": "转到*",
+      "expect": "number"
+    },
+    {
+      "text": "手机号是*",
+      "expect": "number"
+    },
+    {
+      "text": "收款人是*",
+      "expect": "name"
+    },
+    {
+      "text": "户名是*",
+      "expect": "name"
+    },
+    {
+      "text": "收款人姓和*",
+      "expect": "name"
+    },
+    {
+      "text": "对方叫*",
+      "expect": "name"
+    },
+    {
+      "text": "我在*上班",
+      "expect": "not_name"
+    },
+    {
+      "text": "验证码是**",
+      "expect": "number"
+    },
+    {
+      "text": "卡号是**",
+      "expect": "number"
+    },
+    {
+      "text": "尾号是**",
+      "expect": "number"
+    },
+    {
+      "text": "密码是**",
+      "expect": "number"
+    },
+    {
+      "text": "账号是**",
+      "expect": "number"
+    },
+    {
+      "text": "转到**",
+      "expect": "number"
+    },
+    {
+      "text": "手机号是**",
+      "expect": "number"
+    },
+    {
+      "text": "收款人是**",
+      "expect": "name"
+    },
+    {
+      "text": "户名是**",
+      "expect": "name"
+    },
+    {
+      "text": "收款人姓和**",
+      "expect": "name"
+    },
+    {
+      "text": "对方叫**",
+      "expect": "name"
+    },
+    {
+      "text": "我在**上班",
+      "expect": "not_name"
+    },
+    {
+      "text": "验证码是***",
+      "expect": "number"
+    },
+    {
+      "text": "卡号是***",
+      "expect": "number"
+    },
+    {
+      "text": "尾号是***",
+      "expect": "number"
+    },
+    {
+      "text": "密码是***",
+      "expect": "number"
+    },
+    {
+      "text": "账号是***",
+      "expect": "number"
+    },
+    {
+      "text": "转到***",
+      "expect": "number"
+    },
+    {
+      "text": "手机号是***",
+      "expect": "number"
+    },
+    {
+      "text": "收款人是***",
+      "expect": "name"
+    },
+    {
+      "text": "户名是***",
+      "expect": "name"
+    },
+    {
+      "text": "收款人姓和***",
+      "expect": "name"
+    },
+    {
+      "text": "对方叫***",
+      "expect": "name"
+    },
+    {
+      "text": "我在***上班",
+      "expect": "not_name"
+    },
+    {
+      "text": "户名和平",
+      "expect": "name",
+      "note": "raw text; 和平 must be masked"
+    },
+    {
+      "text": "户名是**，卡号是****",
+      "expect": "name"
+    },
+    {
+      "text": "收款人是***，转到****",
+      "expect": "name"
+    },
+    {
+      "text": "我只有****块钱",
+      "expect": "not_name"
+    }
+  ],
+  "speak": [
+    {
+      "text": "验证码是123",
+      "redacted": "验证码是***",
+      "spoken": "验证码是你发的那个号",
+      "heard": [
+        "number"
+      ]
+    },
+    {
+      "text": "验证码是123456",
+      "redacted": "验证码是******",
+      "spoken": "验证码是你发的那个号",
+      "heard": [
+        "number"
+      ]
+    }
+  ]
+}

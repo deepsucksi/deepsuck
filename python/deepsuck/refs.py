@@ -10,7 +10,7 @@ import re
 from typing import Iterable
 
 from .core import load
-from .extractors import extract_sensitive, masked_lead_not_surname
+from .extractors import extract_sensitive, masked_lead_not_surname, stars_not_name
 from .redact import redact_text
 
 _P = load("personas")
@@ -55,7 +55,8 @@ def mask_names(text: str, bracket: bool = False) -> str:
     s = _NAME_TAIL.sub(r"\1", s)
     s = _EXPLAIN_NAME.sub(lambda _m: w, s)
     if not _NUMBER_CUE.search(s):
-        s = _BARE_STARS.sub(lambda _m: w, s)
+        # #206 第六条探针：号码语境（「转到***」）和「我在***上班」除外
+        s = _BARE_STARS.sub(lambda m: m.group(0) if stars_not_name(m.string, m.start()) else w, s)
     return _NAME_DUP.sub(r"\1", _NAME_TAIL.sub(r"\1", s))
 
 

@@ -470,5 +470,10 @@
         "户名卡号你直接报"
       ]
     }
-  ]
+  ],
+  "maskContext": {
+    "comment": "#206 第六条探针 / 语音 P0：人设侧判断已打码的星号是不是姓名时看上下文。numberBefore 匹配星号前面的文字结尾（含星号前那个字）时，这是号码（「验证码是***」「卡号是**」「转到***」），不当姓名，念「那个号」；notNameAfter 从星号处开始匹配时（不写 ^，Python 用 match(s, pos)）也不当姓名（「我在***上班」）。星号后面紧跟一个字（「对*明」）时仍一律当姓名。extractors.js starsNotName / maskedLeadNotSurname、extractors.py stars_not_name / masked_lead_not_surname 共用，llm.js maskNames、refs.mask_names 的纯星号规则也先查这里。",
+    "numberBefore": "(?:验证码|校验码|动态码|确认码|短信码|卡号|银行卡号?|尾号|密码|账号|帐号|手机号码?|手机|电话号码?|电话|号码|QQ号?|微信号|支付宝账?号?|身份证号?|转到|转入|转给|打到|汇到|汇给|存到)(?:是|为|写|填)?[:：]?$",
+    "notNameAfter": "[*＊]+(?:上班|工作|上学|读书|住|那边|这边|附近|开店|打工)"
+  }
 }
