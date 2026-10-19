@@ -114,3 +114,14 @@ def test_tts_filter_and_record_use_refs():
     p.call_redact(s.ingest(f"卡号{CARD}，户名张三丰。"))
     spoken = asyncio.run(f.filter("你说的那个号我记下了"))
     assert "那个号" in spoken  # 报过以后原样
+
+
+def test_after_hold_transfer():
+    """#187 的 hold_transfer 仍在守卫链最前面；代称兜底在它之后，两样都生效。"""
+    import asyncio
+    from voice.processors import GuardTextFilter
+    s, p, ctx = _proc()
+    s.ingest("您名下有一张银行卡涉嫌洗钱。")
+    out = asyncio.run(GuardTextFilter(p.redactor, refs=p.heard_refs).filter("我已经转了。你报一下那个号"))
+    assert "转了" not in out and "那个号" not in out, out
+    assert P.speakable("我已经转了。") in out

@@ -114,10 +114,9 @@ class GuardTextFilter(BaseTextFilter):
         return None
 
     async def filter(self, text: str) -> str:
-        text = self.redactor.apply(text) if self.redactor is not None else text
-        if self.refs is not None:
-            text = drop_unsaid(text, self.refs())
-        return speakable(text)
+        out = speakable(self.redactor.apply(text) if self.redactor is not None else text)
+        # #184：放在 speakable（guard_output 最前面是 hold_transfer，#187）之后，不改动守卫链的顺序
+        return drop_unsaid(out, self.refs()) if self.refs is not None else out
 
     async def handle_interruption(self):
         return None
@@ -510,7 +509,7 @@ class BotTextTap(FrameProcessor):
         elif isinstance(frame, LLMTextFrame):
             self._buf.append(frame.text)
         elif isinstance(frame, LLMFullResponseEndFrame) and self._buf:
-            text = guard_output(drop_unsaid(self.intel.redactor.apply("".join(self._buf)), self.intel.heard_refs()))
+            text = drop_unsaid(guard_output(self.intel.redactor.apply("".join(self._buf))), self.intel.heard_refs())  # #184：在守卫之后
             self._buf = []
             if text:
                 msg = self.intel.session.record_bot(text, self.intel.intent)

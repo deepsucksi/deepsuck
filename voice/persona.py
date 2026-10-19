@@ -394,7 +394,7 @@ def unsaid_line(refs, topics=None) -> str:
     if not hit:
         return ""
     return ("对方到现在还没报过" + "、".join(x[2] for x in hit) + "：别用指代的说法，说得像他已经报过、你已经记下了都不行；"
-            "要问就直接问（比如" + "".join(x[3] for x in hit) + "），不用每句都问，上一句问过的这句别再问。")
+            "要问就直接问（比如" + "".join(x[3] for x in hit) + "）。")
 
 
 def said_first_line(said_first: str) -> str:
