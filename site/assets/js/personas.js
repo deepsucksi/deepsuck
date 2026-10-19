@@ -34,6 +34,7 @@
   // 复述情报给骗子听的说法（不念星号）；engine.js speakIntel 使用
   var SPEAK_INTEL = C.speakIntel;
   var NAME_RULE = C.nameRule; // 人设侧姓名规则（#130），llm.js 硬性规则 7 使用
+  var REPLY_POLISH = C.replyPolish; // 大模型回复口语化（#132、#134），llm.js polishReply 使用
   var DIGIT_ECHO = C.digitEcho; // 人设回复发出前的数字过滤配置（issue #121），engine.vagueDigits 使用
-  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL, DIGIT_ECHO: DIGIT_ECHO, NAME_RULE: NAME_RULE };
+  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL, DIGIT_ECHO: DIGIT_ECHO, NAME_RULE: NAME_RULE, REPLY_POLISH: REPLY_POLISH };
 });

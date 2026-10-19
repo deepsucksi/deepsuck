@@ -89,7 +89,8 @@
       '4. 对话里〔〕括起来的是对方发过的号码、网址等信息的代称（原文已隐去）。提到它们时用自然说法，比如“你发的那个网址”“你发的那个号”“那个名字”，不要照抄〔〕，不要写星号，名字、号码里没看到的部分不要补也不要照念，也不要自己编号码。',
       '6. 嘴上不说任何数字串：对方报过的验证码、卡号、电话也不重复，开头几位、尾号、汉字写的数字都算；最多含糊地说“好像是…开头的”“后面几位没听清”，顶多带一个单独的数字。',
       '5. 复述对方的话只说两三个字的关键短语，不要整句或半句引用对方原话。',
-      '7. ' + D.personas.NAME_RULE
+      '7. ' + D.personas.NAME_RULE,
+      '8. 每条回复的第一句不要拿对方的词加问号反问（不要“报纸？”“会员？”“哪个？”这种开头）：先接对方一个词，词后面用逗号或“…”接半句陈述；要问的放到第二句。整条回复也不要只有一句短问话（不要“哪家？”“同学…哪个班的？”这种），先说半句自己的话，再问。'
     ].join('\n');
   }
 
@@ -171,6 +172,46 @@
   }
 
   /** 模型输出安全过滤：去掉长数字串（防止"编造验证码/卡号"）、脱敏、截断 */
+  /* ---------- 口语化（#132、#134，配置在 personas.json 的 replyPolish；与 Python deepsuck.engine.polish_reply 逐字一致）----------
+   * 书面词换成口语说法；第一句是快速反问（去标点不超过 quickQuestionMax 个字）且后面还有话时，问号换成逗号。 */
+  var RP = D.personas.REPLY_POLISH;
+  var RP_FIRST = /^(\s*)([^。？?！!；;\n]*?)([？?]+)/;
+  var RP_PUNCT = /[…。？?！!，,、；;.\s~～]/g;
+  function polishReply(text) {
+    var s = String(text || '');
+    RP.formal.forEach(function (p) { s = s.split(p[0]).join(p[1]); });
+    for (var i = 0; i < 3; i++) { // “啊？衣服？我好像没收到”：换掉一个，第一句可能还是快速反问
+      var m = s.match(RP_FIRST);
+      if (!m) break;
+      var core = m[2].replace(RP_PUNCT, ''), rest = s.slice(m[0].length);
+      var n = Array.from(core).length;
+      if (!(n > 0 && n <= RP.quickQuestionMax && rest.replace(RP_PUNCT, ''))) break;
+      s = m[1] + m[2].replace(/…+$/, '') + '，' + rest.replace(/^[…，,]+/, '').replace(/^\s+/, '');
+    }
+    return thinEllipsis(s);
+  }
+  // FNV-1a 32 位（按 UTF-16 码元，与 Python _fnv 一致）
+  function fnv(t) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h >>> 0;
+  }
+  // #131：带“…”的句子按 ellipsisKeepPct 确定性地留一部分，其余句子的“…”换成逗号（句首去掉、句尾换句号），结巴不动
+  var RP_SENT = /[^。？！?!；;\n]+[。？！?!；;]*|\n+/g;
+  function thinEllipsis(s) {
+    return (s.match(RP_SENT) || []).map(function (sent) {
+      if (!/…+|\.{3,}/.test(sent) || fnv(sent) % 100 < RP.ellipsisKeepPct) return sent;
+      return sent.replace(/…+|\.{3,}/g, function (g, a) {
+        var b = a + g.length, prev = a ? sent[a - 1] : '', nxt = b < sent.length ? sent[b] : '';
+        if (prev && prev === nxt) return g;
+        if (!prev.trim() || '，,、'.indexOf(prev) >= 0) return '';
+        if (!nxt) return '。';
+        if ('。？！?!；;，,、'.indexOf(nxt) >= 0) return '';
+        return '，';
+      });
+    }).join('');
+  }
+
   function sanitizeReply(text) {
     var s = String(text || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
     // 整句被一对引号包住时才去掉这对引号（原来无条件去掉开头的“，句首是引用时会留下单边的”）
@@ -181,6 +222,7 @@
     s = s.replace(/(?<![\d*])\d{5,}(?![\d*])/g, '……');
     if (Array.from(s).length > 160) s = Array.from(s).slice(0, 160).join('') + '……';
     s = fixQuotes(s);
+    s = polishReply(s); // #132、#134
     return s.trim();
   }
 
@@ -263,7 +305,7 @@
   return {
     DEFAULTS: DEFAULTS, INTENT_HINTS: INTENT_HINTS,
     missingDirectConfig: missingDirectConfig, restoreDirectConfig: restoreDirectConfig,
-    systemPrompt: systemPrompt, heardScenes: heardScenes, buildMessages: buildMessages, sanitizeReply: sanitizeReply,
+    systemPrompt: systemPrompt, heardScenes: heardScenes, buildMessages: buildMessages, sanitizeReply: sanitizeReply, polishReply: polishReply,
     speakMasked: speakMasked, fixQuotes: fixQuotes,
     chatCompletions: chatCompletions, viaProxy: viaProxy
   };

@@ -13,7 +13,7 @@ if str(_PY) not in sys.path:
 
 from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
-from deepsuck.engine import vague_digits  # noqa: E402
+from deepsuck.engine import polish_reply, vague_digits  # noqa: E402
 from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, resolve_persona_id  # noqa: E402
 
 INTENT_HINTS: dict = load("personas")["intentHints"]
@@ -55,6 +55,14 @@ STYLE_RULE = ("6. 说话平常、克制，像普通人接电话：句子短，�
               "可以反问、含糊一点，但不是每句都问，别把话说完整，也别替对方把话说圆；"
               "不主动提年龄，不拿听力、眼神、认字慢、手机用不惯说事；不编孙子、玩具、老花镜、药、锅里炖汤这类小道具和段子，"
               "也不抖机灵。偶尔没听清就说“你再说一遍”。")
+
+
+def style_rule(p: dict) -> str:
+    """#131：带“…”的句子按人设调（personas.json 的 voiceEllipsis，如“四成”），都在 40–60% 之间；没写的用“一半”。"""
+    v = str(p.get("voiceEllipsis") or "").strip()
+    return STYLE_RULE.replace("大约一半的句子", f"大约{v}的句子").replace("另一半说完整的短句", "其余的说完整的短句") if v else STYLE_RULE
+
+
 _AGE = re.compile(r"^\s*\d+\s*岁\s*")
 _SHOTS_MAX = 5
 
@@ -145,6 +153,12 @@ def voice_style(p: dict, scenes, topics=None, first_turn: bool = False, opener_k
         if not x:
             continue
         x = _EXAMPLE.sub(lambda m: "" if _unheard(m.group(1), sc, topics) else m.group(0), x)
+        # #131：风格规则里“大约一半的句子带这种断续”按本人设的 voiceEllipsis 拼（与 style_rule 一致），文字不改
+        if p.get("voiceEllipsis"):
+            x = x.replace("大约一半的句子", f"大约{p['voiceEllipsis']}的句子")
+        # #132：“多反问：…”后面补一句问法要求，免得模型整条只甩一句短问话
+        if x.startswith("多反问"):
+            x = x.rstrip("。") + FOLLOW_UP_ASK
         style.append(x)
     if style:
         out.append("说话风格补充：")
@@ -154,8 +168,10 @@ def voice_style(p: dict, scenes, topics=None, first_turn: bool = False, opener_k
     pick = [x for x in pick if not (scenes_in(x["scammer"] + x["reply"]) - set(sc))]
     if topics is not None:
         pick = [x for x in pick if topics_in(x["scammer"] + x["reply"]) <= set(topics)]
-    if first_turn:  # 第一轮：开口就反问的例句改成“接词 + 半句陈述，问题放第二句”的示范（#64 / #95）
-        pick = [dict(x, reply=first_turn_shot(x["reply"], i)) for i, x in enumerate(pick[:_SHOTS_MAX])]
+    # 开口就反问的例句改成“接词 + 半句陈述，问题放第二句”的示范：#64 / #95 只在第一轮改，#132 每轮都改
+    # （后续回复第一句快速反问“衣服？…哪件啊”多数是照着例句学的）；例句文字不改，只改拼进提示词的样子。
+    pick = [dict(x, reply=first_turn_shot(x["reply"], i)) for i, x in enumerate(pick[:_SHOTS_MAX])]
+    if first_turn:
         if sc and len(pick) < 2:  # 还没认出场景时不放例句（#4），补充示范也不放
             k = int(hashlib.sha1(opener_key.encode("utf-8")).hexdigest()[:8], 16)
             demos = [FIRST_TURN_DEMOS[(k + j) % len(FIRST_TURN_DEMOS)] for j in range(2 - len(pick))]
@@ -278,6 +294,12 @@ FIRST_TURN_RULE = ("第一句提到对方的词时，词后面接“…”再说
                    "第二句可以不说；要问（包括上面建议策略里的追问）都放到第二句，第一句说完先用句号断开再问，只问对方刚才那段话里亲口说过的词，"
                    "不问对方是从哪儿、在什么网上、怎么找到你的。")
 
+# #132：后续回复（第一轮以后）第一句也不用快速反问（抽检 48 条里 25–33 条是“衣服？…哪件啊”“两千？…哪笔钱啊”）
+FOLLOW_UP_RULE = ("这一条的第一句不要拿对方的词加问号反问（不要“报纸？”“会员？”“哪个？”这种开头）：先接对方一个词，"
+                  "词后面用逗号或“…”接半句陈述；要问的放到第二句。整条回复也不要只有一句短问话（不要“哪家？”“同学…哪个班的？”这种），先说半句自己的话，再问。")
+
+FOLLOW_UP_ASK = "（问的放在半句陈述后面，不要整条只甩一句短问话）。"
+
 
 def first_turn_rule(openers) -> str:
     """第一轮规则：开头的格式示例用本通挑出来的几种说法（每通不同），后面是固定的 FIRST_TURN_RULE。"""
@@ -323,9 +345,9 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
         "3. 绝不说出任何真实或看似真实的验证码、卡号、密码、身份证号、住址；需要时就说找不到、没弄好、要再确认一下。",
         "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
         RULE_DIGITS,
-        STYLE_RULE,
+        style_rule(p),
     ] + voice_style(p, scenes, topics, first_turn, opener_key) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
-          "也不要重复这句。"] if said_first else []) + ([first_turn_rule(first_turn_openers(p["id"], opener_key))] if first_turn else []))
+          "也不要重复这句。"] if said_first else []) + ([first_turn_rule(first_turn_openers(p["id"], opener_key))] if first_turn else [FOLLOW_UP_RULE]))
 
 
 _LONG_DIGITS = re.compile(r"(?<![0-9*])[0-9]{5,}(?![0-9*])")
@@ -455,10 +477,11 @@ def speakable(text: str, calm_tts: bool | None = None) -> str:
 
 
 def guard_output(text: str) -> str:
-    """输出守卫（PolicyGuard）：去掉括号动作/Markdown、数字过滤（#121：连续 3 位以上的数字含中文数字换成含糊说法）、脱敏、抹掉 5 位以上数字串。"""
+    """输出守卫（PolicyGuard）：去掉括号动作/Markdown、数字过滤（#121：连续 3 位以上的数字含中文数字换成含糊说法）、口语化（#132、#134）、脱敏、抹掉 5 位以上数字串。"""
     s = re.sub(r"<think>.*?</think>", "", str(text or ""), flags=re.S)
     s = _BOLD.sub(r"\1", s)
     s = vague_digits(s)
+    s = polish_reply(s)  # #132、#134：书面词换口语，第一句快速反问的问号换成“…”
     s = redact_text(s, extract_sensitive(s))
     s = _LONG_DIGITS.sub("……", s)
     s = _STRIP.sub("", s).strip()
