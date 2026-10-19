@@ -454,6 +454,132 @@ class BotTextTap(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
+# ---- #175：跨轮尾句去重（#153 的 dedupe_tail 接到语音链路）----
+import re  # noqa: E402
+
+from deepsuck.engine import _td_norm, dedupe_tail, tail_sentence  # noqa: E402  （.persona 已把 python/ 放进 sys.path）
+
+
+class TailHistory:
+    """每通电话一份（同 CallRedactor）：本通最近 window 轮人设实际说出口（按通话打码后）的尾句。"""
+
+    def __init__(self, window: int = 3):
+        self.window = max(1, int(window))
+        self._tails: List[str] = []
+
+    def recent(self) -> List[str]:
+        return list(self._tails[-self.window:])
+
+    def seen(self) -> set:
+        return {_td_norm(x) for x in self.recent()} - {""}
+
+    def push(self, text: str) -> None:
+        t = tail_sentence(text)
+        if t:
+            self._tails = (self._tails + [t])[-self.window:]
+
+    def __len__(self) -> int:
+        return len(self._tails)
+
+
+class TailDedupeProcessor(FrameProcessor):
+    """放在 LLM 之后、FillerProcessor / BotTextTap / TTS 之前：大模型这一轮回复的尾句和本通最近 3 轮的尾句重复就整句删掉，
+    删空后用该人设 ask_repeat 里最近没说过的一句兜底（deepsuck.engine.dedupe_tail，persona_id 必传）。
+
+    顺序：先按通话打码（CallRedactor.apply，与 BotTextTap / GuardTextFilter 同一份），再去重；speakable 守卫仍在 TTS 的
+    GuardTextFilter 里做（只做一次，避免对已经过滤的文本二次过滤）。尾句历史记的是实际放出去的（打码后）文本。
+
+    流式：不等整段收齐。当前这句（可能还没说完）去标点后已经不是任何最近尾句的前缀，就不可能被删，连同前面压着的
+    一起放行；否则先压着，等这句说完或回复结束再定。所以只有疑似重复的那几句会多等。回复结束时以 dedupe_tail 的结果为准。
+
+    dedupe_tail 返回空串（人设没有可用的 ask_repeat，或没有 persona_id）：这一轮当作没有回复——
+    LLMFullResponseStart/End 和文本都不往下发（TTS、会话记录、模型上下文都看不到这一轮），FillerProcessor 也不会被取消，
+    由填充音或下一轮接上；尾句历史不变。"""
+
+    def __init__(self, persona_id: Optional[str], *, redactor: Optional[CallRedactor] = None,
+                 history: Optional[TailHistory] = None, **kwargs):
+        super().__init__(**kwargs)
+        self.persona_id = persona_id
+        self.redactor = redactor if redactor is not None else CallRedactor()
+        self.history = history if history is not None else TailHistory()
+        self.dropped = 0    # 删空、整轮不出声的次数（追踪用）
+        self.rewritten = 0  # 删过尾句（含兜底换句）的次数
+        self._reset()
+
+    def _reset(self):
+        self._active = False    # 在一段 LLMFullResponseStart…End 之间
+        self._started = False   # Start 帧是否已经放行（第一次放出文字时才放）
+        self._full = ""         # 本轮大模型原文
+        self._sent = 0          # 已放行的字符数（_full 的前缀）
+        self._seen: set = set()
+
+    def _red(self, text: str) -> str:
+        return self.redactor.apply(text)
+
+    def _safe(self) -> bool:
+        """当前最后一句（打码、去标点后）不是任何最近尾句的前缀 → 这一句最终不可能和最近尾句相同。"""
+        parts = [x for x in self._sentences(self._red(self._full)) if _td_norm(x)]
+        if not parts:
+            return False
+        k = _td_norm(parts[-1])
+        return not any(s.startswith(k) for s in self._seen)
+
+    @staticmethod
+    def _sentences(text: str) -> List[str]:
+        return [x for x in re.split(r"(?<=[。？！?!；;\n])(?=[^。？！?!；;\n])", text) if x]
+
+    async def _emit(self, text: str):
+        if not text:
+            return
+        if not self._started:
+            self._started = True
+            await self.push_frame(LLMFullResponseStartFrame())
+        await self.push_frame(LLMTextFrame(text))
+
+    async def _finish(self):
+        full = self._red(self._full)
+        final = dedupe_tail(full, self.history.recent(), self.persona_id)
+        if self._sent == 0:
+            out, spoken = final, final
+        else:  # 前面已放行的部分一定保留（见 _safe），剩下压着的那段单独过一遍
+            rest = self._full[self._sent:]
+            out = dedupe_tail(self._red(rest), self.history.recent(), None) if rest else ""
+            spoken = self._red(self._full[:self._sent]) + out
+        if _td_norm(full) and _td_norm(final) != _td_norm(full):
+            self.rewritten += 1
+        await self._emit(out)
+        if self._started:
+            self.history.push(spoken)
+            await self.push_frame(LLMFullResponseEndFrame())
+        elif _td_norm(full):
+            self.dropped += 1
+            logger.debug("tail dedupe: 本轮删空且无兜底，当作没有回复")
+        self._reset()
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        if direction != FrameDirection.DOWNSTREAM:
+            await self.push_frame(frame, direction)
+            return
+        if isinstance(frame, LLMFullResponseStartFrame):
+            self._reset()
+            self._active = True
+            self._seen = self.history.seen()
+            return
+        if isinstance(frame, LLMTextFrame) and self._active:
+            self._full += frame.text or ""
+            if not self._seen or self._safe():
+                await self._emit(self._full[self._sent:])
+                self._sent = len(self._full)
+            return
+        if isinstance(frame, LLMFullResponseEndFrame) and self._active:
+            await self._finish()
+            return
+        if isinstance(frame, InterruptionFrame):
+            self._reset()  # 被打断：没放出去的丢掉，历史不记
+        await self.push_frame(frame, direction)
+
+
 _MEM: Dict[tuple, bytes] = {}  # (缓存目录, 音色, 采样率, 文本) -> 已裁静音的 PCM，进程内共享
 
 
