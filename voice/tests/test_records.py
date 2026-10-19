@@ -69,11 +69,11 @@ def test_transcript_is_redacted_by_shared_module(tmp_path):
     assert d["channel"] == "web" and [m["role"] for m in d["transcript"]] == ["scammer", "bot"]
     # 与共享脱敏模块的结果一致（voice/ 不另写规则）
     from deepsuck import extract_sensitive, redact_text
-    text = f"好的，卡号是{CARD}对吧"
-    # #120：人设侧再过连续数字兜底，卡号打码值里留下的前 6 后 4 位也换成 *
+    from deepsuck.engine import vague_digits
     from deepsuck.redact import redact_persona
-    assert d["transcript"][1]["text"] == redact_persona(redact_text(text, extract_sensitive(text)))
-    assert d["transcript"][1]["text"] == "好的，卡号是" + "*" * 19 + "对吧"
+    text = vague_digits(f"好的，卡号是{CARD}对吧")  # #121：record_bot 先过数字过滤再脱敏
+    # #120：存储时人设侧再过连续数字兜底（这里过滤后已没有数字）
+    assert d["transcript"][1]["text"] == redact_persona(redact_text(text, extract_sensitive(text))) == "好的，卡号是那几个数没听清对吧"
     assert oct(os.stat(p).st_mode & 0o777) == "0o600"
 
 

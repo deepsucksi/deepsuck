@@ -16,7 +16,7 @@ from .core import load, utf16_len
 from . import extractors as X
 from . import redact as R
 from . import tactics as T
-from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, resolve_persona_id
+from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, DIGIT_ECHO, resolve_persona_id
 
 REPORT_SCHEMA = "deepsuck.intel-report/v0.1"
 VERSION = "0.4.0"
@@ -59,6 +59,36 @@ def heard_scenes(texts) -> list:
 
 
 _DIGIT_TYPES = ("bank_card", "phone", "alipay", "qq")
+
+
+_DE = DIGIT_ECHO
+_DD = "[" + _DE["digits"] + "]"
+_DJ = "[" + _DE["joiners"] + "]{0,2}"
+_DM = "[" + _DE["digits"] + re.escape(_DE["masks"]) + "]"  # 数字或打码星号
+_DRUN = "(?=" + _DM + "*" + _DD + ")" + _DM + "(?:" + _DJ + _DM + "){%d,}" % (_DE["minRun"] - 1)
+_TAILW = "(?:" + "|".join(map(re.escape, _DE["tailWords"])) + ")"
+_MONEYW = "(?:" + "|".join(map(re.escape, _DE["moneyUnits"])) + ")"
+_DIGIT_LEAD = re.compile("(" + _DD + "(?:" + _DJ + _DM + "){%d,})" % (_DE["minRun"] - 1) + _DJ + "开头(?:的)?")
+_DIGIT_MONEY = re.compile(_DRUN + _DJ + _MONEYW)
+_DIGIT_TAIL = re.compile(_TAILW + "(?:是|为)?" + _DJ + _DRUN)
+_DIGIT_RUN = re.compile(_DRUN)
+
+
+def vague_digits(text: str) -> str:
+    """人设回复发出前的数字过滤（issue #121，与 engine.js 的 vagueDigits 一致）。
+
+    连续 3 位及以上的数字（阿拉伯、全角、中文数字，混写、中间夹空格顿号短横也算）一律换成含糊说法：
+    “6222开头” → “好像是6开头的”（只留第一位）；“尾号0123”“后面是零零幺三” → “后面几位没听清”；“2000块” → “那么些钱”；其余 → “那几个数没听清”。
+    夹在数字里的打码星号（“6222 **** 3456”）算同一串。
+    放在错别字扰动之后、语音合成之前；单个、两个数字不动（“好像是6开头的”“12期”照常）。
+    """
+    if not text:
+        return text
+    s = _DIGIT_LEAD.sub(lambda m: _DE["lead"].replace("{d}", m.group(1)[0]) + "的", str(text))
+    s = _DIGIT_TAIL.sub(_DE["tail"], s)
+    s = _DIGIT_MONEY.sub(_DE["money"], s)
+    s = _DIGIT_RUN.sub(_DE["other"], s)
+    return s
 
 
 def _wrong_digit(t: str) -> str:
@@ -369,9 +399,9 @@ class Session:
         return stalls[math.floor(r * len(stalls))]
 
     def speak_intel(self, item: dict, raw) -> str:
-        """对骗子复述情报的说法：不念打码星号，只说尾号 / 姓氏 /“你发的那个网址”，或把尾号报错一位让对方纠正。
+        """对骗子复述情报的说法：不念打码星号，只说姓氏 /“你说的那张卡”/“你发的那个网址”。
 
-        说出来的只是打码值里本来就公开的部分（尾号、姓氏），所以对外的 transcript 不需要再打码。
+        #121 起号码类一个数字都不复述（尾号、开头几位都不说）；说出来的最多是姓氏，对外的 transcript 不需要再打码。
         """
         typ = item["type"]
         forms = SPEAK_INTEL.get("crypto" if typ.startswith("crypto_") else typ) or SPEAK_INTEL["default"]
@@ -380,6 +410,8 @@ class Session:
         raw = "" if raw is None else str(raw)
         d = re.sub(r"[^0-9]", "", raw) if typ in _DIGIT_TYPES else raw
         t = next((d[-k:] for k in (4, 2) if len(d) > k and masked.endswith(d[-k:])), "")
+        if re.search(r"[0-9]", t):
+            t = ""  # #121：号码一个数字都不复述（尾号也不说），带 {t}/{x} 的说法退回“你说的那个…”
         s = raw[:1] if typ == "name" and raw[:1] and masked.startswith(raw[:1]) else ""
         if (("{t}" in f or "{x}" in f) and not t) or ("{x}" in f and not t.isdigit()) or ("{s}" in f and not s):
             f = SPEAK_INTEL["default"][0]
@@ -426,6 +458,7 @@ class Session:
         return self.rule_reply(self.ingest(raw_text))
 
     def record_bot(self, text: str, intent: str) -> dict:
+        text = vague_digits(text)  # #121：规则和大模型的回复都不带连续 3 位以上的数字
         safe = R.redact_text(text, X.extract_sensitive(text))
         stall = STALL_SECONDS.get(intent) or 30
         self.est_seconds += stall + _round(utf16_len(safe) * 0.12)

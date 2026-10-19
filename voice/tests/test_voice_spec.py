@@ -1,3 +1,4 @@
+import re
 import asyncio
 import json
 from pathlib import Path
@@ -104,7 +105,7 @@ def test_calm_tts_text():
     assert calm("嗯……", pauses=False) == "嗯"
     assert calm("退…退款？哪…哪个啊。。。") == "退…退款？哪…哪个啊…"
     assert speakable("好的！", calm_tts=False) == "好的！"
-    assert speakable("卡号是 6222 **** 3456！") == "卡号是 尾号三四五六。"
+    assert speakable("卡号是 6222 **** 3456！") == "卡号是 那几个数没听清。"  # #121：号码整串换成含糊说法
 
 
 def test_voice_prompt_is_restrained():
@@ -198,19 +199,20 @@ def test_speakable_reads_numbers_digitwise_and_no_stars():
 
     s = speakable("130****8600？尾号是8600？你再说一遍。", calm_tts=True)
     assert "*" not in s and "＊" not in s
-    assert "尾号八六零零" in s
-    assert say_digits("幺三零…你说130开头") == "幺三零…你说幺三零开头"
-    assert "幺三零" in speakable("号码是130开头的吧", calm_tts=True)
-    assert "一百三十" not in speakable("号码是130开头的吧", calm_tts=True)
-    # 金额、日期照旧
-    assert "300" in speakable("要我转300元？", calm_tts=True)
-    assert "300" in speakable("先转300过去？", calm_tts=True)
-    assert "2026年" in speakable("2026年的事", calm_tts=True)
+    # #121：语音合成前的数字过滤——号码、开头几位、尾号都不念，只留一个数字
+    assert not re.search(r"[0-9零幺一二三四五六七八九]{2,}", s), s
+    assert say_digits("幺三零…你说130开头") == "幺三零…你说幺三零开头"  # say_digits 本身不变，过滤在它前面
+    assert speakable("号码是130开头的吧", calm_tts=True) == "号码是好像是1开头的吧"
+    assert "那么些钱" in speakable("要我转300元？", calm_tts=True)
+    assert "300" not in speakable("先转300过去？", calm_tts=True)
+    assert "2026" not in speakable("2026年的事", calm_tts=True)
+    assert speakable("先转5块？", calm_tts=True) == "先转5块？"  # 单个、两个数字照旧
     assert say_digits("验证码是032") == "验证码是零三二"
     assert say_digits("工号110") == "工号幺幺零"
     # 打码值给模型前改成自然说法
-    assert unmask("我的号是130****8600") == "我的号是尾号8600"
-    assert unmask("卡号622202*********3445") == "卡号尾号3445"
-    assert unmask("尾号是130-***-8600") == "尾号是8600"
+    # #121：打码值给模型、给 TTS 前一律改成“那个号”，不带出可见尾号
+    assert unmask("我的号是130****8600") == "我的号是那个号"
+    assert unmask("卡号622202*********3445") == "卡号那个号"
+    assert unmask("尾号是130-***-8600") == "尾号是那几位"
     assert unmask("号码 ****") == "号码那个号"
-    assert unmask("*0123。") == "尾号0123。"  # 跨回合报号时上一段被打码，只剩一个星号
+    assert unmask("*0123。") == "那个号。"  # 跨回合报号时上一段被打码，只剩一个星号

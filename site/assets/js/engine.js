@@ -128,6 +128,30 @@
   var PURE_STALL = ['otp_stall', 'urgency_stall', 'tech_trouble', 'slow_walk', 'ask_repeat', 'misunderstand', 'info_stall', 'generic'];
   var DIGIT_TYPES = ['bank_card', 'phone', 'alipay', 'qq'];
   /** 把尾号报错一位（让对方纠正）：末两位不同则对调，否则末位 +1 */
+  // 人设回复发出前的数字过滤（issue #121，与 python/deepsuck/engine.py 的 vague_digits 一致）
+  var DE = D.personas.DIGIT_ECHO;
+  function reEsc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  var DD = '[' + DE.digits + ']';
+  var DJ = '[' + DE.joiners + ']{0,2}';
+  var DM = '[' + DE.digits + reEsc(DE.masks) + ']'; // 数字或打码星号
+  var DRUN = '(?=' + DM + '*' + DD + ')' + DM + '(?:' + DJ + DM + '){' + (DE.minRun - 1) + ',}';
+  var TAILW = '(?:' + DE.tailWords.map(reEsc).join('|') + ')';
+  var MONEYW = '(?:' + DE.moneyUnits.map(reEsc).join('|') + ')';
+  var DIGIT_LEAD = new RegExp('(' + DD + '(?:' + DJ + DM + '){' + (DE.minRun - 1) + ',})' + DJ + '开头(?:的)?', 'g');
+  var DIGIT_MONEY = new RegExp(DRUN + DJ + MONEYW, 'g');
+  var DIGIT_TAIL = new RegExp(TAILW + '(?:是|为)?' + DJ + DRUN, 'g');
+  var DIGIT_RUN = new RegExp(DRUN, 'g');
+  /** 连续 3 位及以上的数字（阿拉伯、全角、中文数字，混写也算）换成含糊说法；只留“好像是6开头的”这样的单个数字。
+   *  放在错别字扰动之后、语音合成之前。 */
+  function vagueDigits(text) {
+    if (!text) return text;
+    return String(text)
+      .replace(DIGIT_LEAD, function (m, run) { return DE.lead.split('{d}').join(run.charAt(0)) + '的'; })
+      .replace(DIGIT_TAIL, DE.tail)
+      .replace(DIGIT_MONEY, DE.money)
+      .replace(DIGIT_RUN, DE.other);
+  }
+
   function wrongDigit(t) {
     var n = t.length;
     if (n >= 2 && t[n - 1] !== t[n - 2]) return t.slice(0, n - 2) + t[n - 1] + t[n - 2];
@@ -345,8 +369,8 @@
   };
 
   /**
-   * 对骗子复述情报的说法：不念打码星号，只说尾号 / 姓氏 /“你发的那个网址”，或把尾号报错一位让对方纠正。
-   * 说出来的只是打码值里本来就公开的部分（尾号、姓氏），所以对外的 transcript 不需要再打码。
+   * 对骗子复述情报的说法：不念打码星号，只说姓氏 /“你说的那张卡”/“你发的那个网址”。
+   * #121 起号码类一个数字都不复述（尾号、开头几位都不说）；说出来的最多是姓氏，对外的 transcript 不需要再打码。
    */
   Session.prototype.speakIntel = function (item) {
     var SP = D.personas.SPEAK_INTEL;
@@ -358,6 +382,7 @@
     var d = DIGIT_TYPES.indexOf(typ) >= 0 ? raw.replace(/[^0-9]/g, '') : raw;
     var t = '';
     [4, 2].some(function (k) { if (d.length > k && masked.slice(-k) === d.slice(-k) && masked.length >= k) { t = d.slice(-k); return true; } return false; });
+    if (/[0-9]/.test(t)) t = ''; // #121：号码一个数字都不复述（尾号也不说），带 {t}/{x} 的说法退回“你说的那个…”
     var s = typ === 'name' && raw.slice(0, 1) && masked.indexOf(raw.slice(0, 1)) === 0 ? raw.slice(0, 1) : '';
     var isNum = /^[0-9]+$/.test(t);
     if (((f.indexOf('{t}') >= 0 || f.indexOf('{x}') >= 0) && !t) || (f.indexOf('{x}') >= 0 && !isNum) || (f.indexOf('{s}') >= 0 && !s)) f = SP['default'][0];
@@ -397,6 +422,7 @@
 
   /** 记录机器人回复（规则或 LLM 生成），返回消息对象 */
   Session.prototype.recordBot = function (text, intent) {
+    text = vagueDigits(text); // #121：规则和大模型的回复都不带连续 3 位以上的数字
     var safe = D.redact.redactText(text, D.extractors.extractSensitive(text)); // 机器人输出同样脱敏
     var stall = D.personas.STALL_SECONDS[intent] || 30;
     this.estSeconds += stall + Math.round(safe.length * 0.12);
@@ -503,5 +529,5 @@
     });
   };
 
-  return { Session: Session, goalOf: goalOf, scenesIn: scenesIn, heardScenes: heardScenes, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION };
+  return { Session: Session, goalOf: goalOf, scenesIn: scenesIn, heardScenes: heardScenes, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION, vagueDigits: vagueDigits };
 });

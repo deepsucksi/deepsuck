@@ -74,7 +74,7 @@ def _all_prompts():
 def test_prompts_have_no_literal_number_examples():
     from voice import persona as P
     assert "8600" not in P.RULE_DIGITS and not AB.prompt_digits(P.RULE_DIGITS)
-    assert "后四位" in P.RULE_DIGITS and "不要自己编号码" in P.RULE_DIGITS
+    assert "尾号" in P.RULE_DIGITS and "不要自己编号码" in P.RULE_DIGITS and "后四位" not in P.RULE_DIGITS  # #121：不再允许复述后四位
     for sp in _all_prompts():
         assert not AB.prompt_digits(sp), AB.prompt_digits(sp)
         assert P.RULE_DIGITS in sp

@@ -33,5 +33,6 @@
   var INTENT_HINTS = C.intentHints;
   // 复述情报给骗子听的说法（不念星号）；engine.js speakIntel 使用
   var SPEAK_INTEL = C.speakIntel;
-  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL };
+  var DIGIT_ECHO = C.digitEcho; // 人设回复发出前的数字过滤配置（issue #121），engine.vagueDigits 使用
+  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL, DIGIT_ECHO: DIGIT_ECHO };
 });
