@@ -37,10 +37,11 @@
   var NAME_RULE = C.nameRule; // 人设侧姓名规则（#130），llm.js 硬性规则 7 使用
   var REPLY_POLISH = C.replyPolish; // 大模型回复口语化（#132、#134），llm.js polishReply 使用
   var TAIL_DEDUPE = C.tailDedupe; // 跨轮去重（#153），engine.dedupeTail 使用
+  var EAGER_ASK = C.eagerAsk; // #194：不一口答应就紧跟着要号码、户名（llm.js 规则 8、语音 FOLLOW_UP_RULE 同一句）
   var TRANSFER_CLAIM = C.transferClaim; // #187：不说成已经转账或答应去转（llm.js 规则句、engine.holdTransfer）
   var SPLIT_NAME = X.nameRules.split; // 拆字报姓说法（#157，只读 extractors.json），engine.vagueDigits / llm.js 打码姓名替换用
   var DIGIT_ECHO = C.digitEcho; // 人设回复发出前的数字过滤配置（issue #121），engine.vagueDigits 使用
   var UNSAID_REFS = C.unsaidRefs; // #173：对方没报过的号码、户名不提（llm.js heardRefs / dropUnheard），#172 纯星号逐字解释念成“那个名字”
   var CHAR_EXPLAIN = X.nameRules.explain; // 逐字解释说法（#158，只读 extractors.json），llm.js 认纯星号的名字（#172）用
-  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL, DIGIT_ECHO: DIGIT_ECHO, NAME_RULE: NAME_RULE, REPLY_POLISH: REPLY_POLISH, SPLIT_NAME: SPLIT_NAME, TAIL_DEDUPE: TAIL_DEDUPE, TRANSFER_CLAIM: TRANSFER_CLAIM, UNSAID_REFS: UNSAID_REFS, CHAR_EXPLAIN: CHAR_EXPLAIN };
+  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL, DIGIT_ECHO: DIGIT_ECHO, NAME_RULE: NAME_RULE, REPLY_POLISH: REPLY_POLISH, SPLIT_NAME: SPLIT_NAME, TAIL_DEDUPE: TAIL_DEDUPE, TRANSFER_CLAIM: TRANSFER_CLAIM, EAGER_ASK: EAGER_ASK, UNSAID_REFS: UNSAID_REFS, CHAR_EXPLAIN: CHAR_EXPLAIN };
 });

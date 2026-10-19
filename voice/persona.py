@@ -14,7 +14,7 @@ if str(_PY) not in sys.path:
 from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
 from deepsuck.engine import hold_transfer, polish_reply, vague_digits  # noqa: E402
-from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, TRANSFER_CLAIM, resolve_persona_id  # noqa: E402
+from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, TRANSFER_CLAIM, EAGER_ASK, resolve_persona_id  # noqa: E402
 from deepsuck.refs import UR as _UR, drop_unheard, heard_refs  # noqa: E402,F401  #173
 
 INTENT_HINTS: dict = load("personas")["intentHints"]
@@ -339,8 +339,9 @@ FIRST_TURN_RULE = ("提到对方的词时，词后接“…”再说半句，不
 
 # #132：后续回复（第一轮以后）第一句也不用快速反问（抽检 48 条里 25–33 条是“衣服？…哪件啊”“两千？…哪笔钱啊”）
 # #169：原来 voiceStyle 的“多反问”后面还补了一句 FOLLOW_UP_ASK，和这里重复，去掉那句，只留这条。
+# #194：不一口答应就要号码、户名，与 llm.js 硬性规则 8 同一句（personas.json eagerAsk.rule），只在每轮变化的部分。
 FOLLOW_UP_RULE = ("这一条的第一句不要拿对方的词加问号反问（不要“报纸？”“会员？”“哪个？”这种开头）：先接对方一个词，"
-                  "后面用“…”或逗号接半句就停；要问就补一句短的，不问也行，不要两句都说满；不要一口应下“行”“好”就紧跟着要号码、户名，先含糊或疑惑半句；整条也不要只有一句短问话（不要“哪家？”这种）。")
+                  "后面用“…”或逗号接半句就停；要问就补一句短的，不问也行，不要两句都说满；" + EAGER_ASK["rule"] + "；整条也不要只有一句短问话（不要“哪家？”这种）。")
 
 PROMPT_HEAD = '你在反诈骗研究项目中扮演"潜在受害人"，接到一个陌生电话。目标：尽量拖延对方时间；对方自己报出来的东西，顺着让对方说清楚。'
 HARD_RULES = (

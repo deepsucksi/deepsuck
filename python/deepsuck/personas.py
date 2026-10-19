@@ -25,6 +25,7 @@ DIGIT_ECHO: dict = _P["digitEcho"]
 REPLY_POLISH: dict = _P["replyPolish"]  # 大模型回复口语化后处理（#132、#134），engine.polish_reply 使用
 TAIL_DEDUPE: dict = _P["tailDedupe"]  # 跨轮去重（#153），engine.dedupe_tail 使用
 TRANSFER_CLAIM: dict = _P["transferClaim"]  # #187：不说成已经转账或答应去转（规则句 + engine.hold_transfer 过滤）
+EAGER_ASK: dict = _P["eagerAsk"]  # #194：不一口答应就紧跟着要号码、户名（llm.js 规则 8、语音 FOLLOW_UP_RULE 同一句）
 
 SCENARIOS = _S["scenarios"]
 SCENARIO_BY_ID = {s["id"]: s for s in SCENARIOS}
