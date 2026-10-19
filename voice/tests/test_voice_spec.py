@@ -1,3 +1,4 @@
+import re
 import asyncio
 import json
 from pathlib import Path
@@ -40,10 +41,11 @@ def test_explicit_model_wins_and_global_default():
     assert vs.model == "x"
 
 
-def test_new_personas_fall_back_to_default_voice_until_approved():
-    """小陈妈妈、郑老板的音色等负责人试听：没设环境变量时用默认音色；语音工程师用 DEEPSUCK_VOICE_CHEN / _ZHENG 试听。"""
+def test_new_persona_voices():
+    """#95：小陈妈妈用设计音色（只认环境变量，没配退回默认音色，自托管能用），郑老板 longsanshu_v3。"""
+    assert ds.persona_voice("chen", env={}) == ds.VoiceSpec(ds.DEFAULT_VOICE, "cosyvoice-v3-flash", None, 1.0)
+    assert ds.persona_voice("zheng", env={}) == ds.VoiceSpec("longsanshu_v3", "cosyvoice-v3-flash", None, 1.0)
     for pid in ("chen", "zheng"):
-        assert ds.persona_voice(pid, env={}).voice == ds.DEFAULT_VOICE
         assert ds.persona_voice(pid, env={f"DEEPSUCK_VOICE_{pid.upper()}": "longxx_v3"}).voice == "longxx_v3"
     assert ds.persona_voice("wang", env={}).voice == "longlaoyi_v3"
 
@@ -103,7 +105,7 @@ def test_calm_tts_text():
     assert calm("嗯……", pauses=False) == "嗯"
     assert calm("退…退款？哪…哪个啊。。。") == "退…退款？哪…哪个啊…"
     assert speakable("好的！", calm_tts=False) == "好的！"
-    assert speakable("卡号是 6222 **** 3456！") == "卡号是 尾号三四五六。"
+    assert speakable("卡号是 6222 **** 3456！") == "卡号是 那几个数没听清。"  # #121：号码整串换成含糊说法
 
 
 def test_voice_prompt_is_restrained():
@@ -159,8 +161,7 @@ def test_ambience_choice_and_mixer(monkeypatch):
     import numpy as np
     from voice import ambience as A
     assert A.choose("wang", "1") == "kitchen" and A.choose("lin", "1") == "street"
-    # 小陈妈妈 living_room、郑老板 shop 的素材未批准前退回默认底噪（厨房）
-    assert A.choose("chen", "1") == A.choose("zheng", "1") == A.DEFAULT_SOUND == "kitchen"
+    assert A.choose("chen", "1") == "living_room" and A.choose("zheng", "1") == "shop"
     import json
     core = json.loads((Path(A.__file__).resolve().parents[1] / "site/assets/core/personas.json").read_text(encoding="utf-8"))
     assert {p["id"]: p["ambience"] for p in core["personas"]} == {
@@ -198,19 +199,60 @@ def test_speakable_reads_numbers_digitwise_and_no_stars():
 
     s = speakable("130****8600？尾号是8600？你再说一遍。", calm_tts=True)
     assert "*" not in s and "＊" not in s
-    assert "尾号八六零零" in s
-    assert say_digits("幺三零…你说130开头") == "幺三零…你说幺三零开头"
-    assert "幺三零" in speakable("号码是130开头的吧", calm_tts=True)
-    assert "一百三十" not in speakable("号码是130开头的吧", calm_tts=True)
-    # 金额、日期照旧
-    assert "300" in speakable("要我转300元？", calm_tts=True)
-    assert "300" in speakable("先转300过去？", calm_tts=True)
-    assert "2026年" in speakable("2026年的事", calm_tts=True)
+    # #121：语音合成前的数字过滤——号码、开头几位、尾号都不念，只留一个数字
+    assert not re.search(r"[0-9零幺一二三四五六七八九]{2,}", s), s
+    assert say_digits("幺三零…你说130开头") == "幺三零…你说幺三零开头"  # say_digits 本身不变，过滤在它前面
+    assert speakable("号码是130开头的吧", calm_tts=True) == "号码是好像是1开头的吧"
+    assert "那么些钱" in speakable("要我转300元？", calm_tts=True)
+    assert "300" not in speakable("先转300过去？", calm_tts=True)
+    assert "2026" not in speakable("2026年的事", calm_tts=True)
+    assert speakable("先转5块？", calm_tts=True) == "先转5块？"  # 单个、两个数字照旧
     assert say_digits("验证码是032") == "验证码是零三二"
     assert say_digits("工号110") == "工号幺幺零"
     # 打码值给模型前改成自然说法
-    assert unmask("我的号是130****8600") == "我的号是尾号8600"
-    assert unmask("卡号622202*********3445") == "卡号尾号3445"
-    assert unmask("尾号是130-***-8600") == "尾号是8600"
+    # #121：打码值给模型、给 TTS 前一律改成“那个号”，不带出可见尾号
+    assert unmask("我的号是130****8600") == "我的号是那个号"
+    assert unmask("卡号622202*********3445") == "卡号那个号"
+    assert unmask("尾号是130-***-8600") == "尾号是那几位"
     assert unmask("号码 ****") == "号码那个号"
-    assert unmask("*0123。") == "尾号0123。"  # 跨回合报号时上一段被打码，只剩一个星号
+    assert unmask("*0123。") == "那个号。"  # 跨回合报号时上一段被打码，只剩一个星号
+
+
+def test_unmask_masked_names_say_that_name_not_number_phrase():
+    """#136：姓名类打码（汉字姓 + 星号）与语料、人设统一换成“那个名字”（不保留姓氏），不念成“张那个号”；
+    不留星号、不带数字。号码类仍是“那个号”。"""
+    from voice.persona import guard_output, speakable, unmask
+
+    assert unmask("户名张**") == "户名那个名字"
+    assert unmask("你转到这张卡，户名张**") == "你转到这张卡，户名那个名字"
+    assert unmask("户名是：李**。") == "户名是：那个名字。"
+    # 中间打码：王*明 整个换掉，末字也不念
+    assert unmask("收款人王*明") == "收款人那个名字"
+    assert unmask("找王*明办") == "找那个名字办"
+    # 复姓：常见复姓整体当姓（欧阳** → 那个名字，不会剩下“欧”）；脱敏只留首字时（mask_name("欧阳娜娜") == "欧***"）按首字处理，结果相同
+    assert unmask("户名欧阳**") == "户名那个名字"
+    assert unmask("欧阳*锋说的") == "那个名字说的"
+    assert unmask("户名欧***") == "户名那个名字"
+    assert unmask("李*") == "那个名字"
+    assert unmask("他姓张**") == "他那个名字"  # 前面的“姓”一并换掉，不说“姓那个名字”
+    for t in ("户名张**", "收款人王*明", "户名欧阳**", "李*", "户名是张**对吧？", "他叫张**"):
+        for out in (unmask(t), speakable(t, calm_tts=True)):
+            assert "那个名字" in out and "那个号" not in out, (t, out)
+            assert "*" not in out and "＊" not in out and not any(c.isdigit() for c in out), (t, out)
+            assert not any(x in out for x in "张王李欧阳"), (t, out)  # 不保留姓氏
+        assert guard_output(unmask(t)) == unmask(t), t  # 换完的说法过输出守卫不会再被打码
+    # 送 TTS：模型照抄“户名是张**”时，守卫的户名规则会把“是张**”打成“***”，所以先换说法
+    assert speakable("户名是张**对吧？", calm_tts=True) == "户名是那个名字对吧？"
+    assert speakable("户名张**", calm_tts=True) == "户名那个名字"
+    # 号码 / 卡号类回归不变（星号前是数字或“号/码/卡/是”等字）
+    assert unmask("我的号是130****8600") == "我的号是那个号"
+    assert unmask("卡号622202*********3445") == "卡号那个号"
+    assert unmask("尾号是130-***-8600") == "尾号是那几位"
+    assert unmask("尾号是****") == "尾号是那几位"
+    assert unmask("号码 ****") == "号码那个号"
+    assert unmask("号码****") == "号码那个号"
+    assert unmask("卡号****3445") == "卡号那个号"
+    assert unmask("QQ 28******10") == "QQ 那个号"
+    assert unmask("张**1234") == "张那个号"  # 星号后跟数字是号码，不是姓名
+    assert unmask("转到 621700*********0123，户名李**") == "转到 那个号，户名那个名字"
+    assert speakable("卡号622202*********3445", calm_tts=True) == "卡号那几个数没听清"

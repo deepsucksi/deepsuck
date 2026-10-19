@@ -423,7 +423,27 @@ def test_split_otp_without_session_uses_trace_history(tmp_path):
     t.end("client_hangup")
     turns = [r for r in _lines(t.path) if r["type"] == "turn"]
     assert [r["asr"] for r in turns] == ["你的校验码是**", "**", "**"]
-    assert [r["reply"] for r in turns] == ["验证码是", "我看看", "好"]   # 不跨说话方拼接
+    assert [r["reply"] for r in turns] == ["验证码是", "我看看", "好"]   # 人设侧没有数字，不受影响
+
+
+def test_persona_digits_redacted_on_disk(tmp_path):
+    """#120：人设复述的半截验证码、卡号片段、手机号前缀在 trace 里都打码；骗子侧手机号前缀照留；
+    骗子问验证码、人设下一句报数字（跨说话方）也打码。"""
+    env = _env(tmp_path)
+    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="refund", model="m", env=env)
+    script = [("验证码收到没有", "嗯…验证码是472？"), ("卡号 6222 开头", "6222开头…尾号0123对吧"),
+              ("我是 138 开头的号码", "138开头…后面是零零幺三"), ("把验证码念一下", "四七…二九"), ("快点", "我只有五百块，三点半到")]
+    for n, (sc, bot) in enumerate(script, 1):
+        t.observe({"type": "scammer", "text": sc, "turn": n, "intent": "generic", "tactics": [], "newIntel": []})
+        t.observe({"type": "bot", "text": bot, "intent": "generic"})
+    t.observe({"type": "bot", "text": "好的我记下了 0123", "intent": "hangup"})
+    t.end("client_hangup")
+    rows = _lines(t.path)
+    turns = [r for r in rows if r["type"] == "turn"]
+    assert [r["reply"] for r in turns] == ["嗯…验证码是***？", "****开头…尾号****对吧", "***开头…后面是****", "**…**",
+                                           "我只有五百块，三点半到"]
+    assert [r["asr"] for r in turns] == ["验证码收到没有", "卡号 **** 开头", "我是 138 开头的号码", "把验证码念一下", "快点"]
+    assert [r["text"] for r in rows if r["type"] == "bot"] == ["好的我记下了 ****"]
 
 
 def test_seg_redact_slice_matches_whole_call():

@@ -46,7 +46,7 @@ for _p in (ROOT, ROOT / "python"):
 
 from deepsuck import extractors as X  # noqa: E402
 from deepsuck import sim as SIM  # noqa: E402
-from deepsuck.engine import Session  # noqa: E402
+from deepsuck.engine import Session, vague_digits  # noqa: E402
 from deepsuck.personas import PERSONAS, SCENARIOS  # noqa: E402
 from deepsuck.rng import mulberry32  # noqa: E402
 from personas.humanize import Humanizer  # noqa: E402
@@ -343,7 +343,8 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
     hum = (Humanizer(profile=HUMANIZE_PROFILE.get(persona, persona), seed=seed ^ 0x4855, **HUMANIZE_OVERRIDES.get(persona, {}))
            if humanize else None)
     first = s.opening()
-    bot_text = hum.apply(first["text"]).text if hum else first["text"]
+    # #121：数字过滤在错别字扰动之后、发出去之前（与线上一致；record_bot 已过一遍，这里是扰动后的最后一道）
+    bot_text = vague_digits(hum.apply(first["text"]).text) if hum else first["text"]
     messages = [{"role": "system", "content": sysmsg}, {"role": "user", "content": bot_text}]
     log = [{"role": "bot", "text": bot_text, "raw": first["text"], "intent": "opening", "ops": []}]
     seen, seen_raw, grams = {bot_text}, {first["text"]}, [SIM._bigrams(bot_text)]
@@ -379,7 +380,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
         scam_said += say + "\n"
         r = s.rule_reply(s.ingest(say))
         h = hum.apply(r["text"], context=say, intent=r["intent"]) if hum else None
-        text = h.text if h else r["text"]
+        text = vague_digits(h.text) if h else r["text"]
         is_dup, g = text in seen, SIM._bigrams(text)
         dup += is_dup
         dup_raw += r["text"] in seen_raw

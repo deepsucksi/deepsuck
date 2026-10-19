@@ -55,8 +55,16 @@ const OTP_CASES = [
   ['验证码是六位数还是四位数？', 'keep'],
   ['我家门牌号 2046，下午三点到', 'keep'],
   ['尾号1234', 'keep'],
-  ['验证码是4位的，卡号后四位是8888', 'keep'],
-  ['验证码是多少？我念一下：一二三', 'keep']
+  ['验证码是4位的，卡号后四位是8888', 'keep'], // 卡号片段只在存储侧按 redact.card 打码（redactDialogSegments），redactText 不变
+  ['验证码是多少？我念一下：一二三', 'mask'], // #120：半截 3 位也算
+  ['嗯…验证码是472？', 'mask'],
+  ['验证码前三位是 472', 'mask'],
+  ['验证码是四七二', 'mask'],
+  ['验证码幺二三', 'mask'],
+  ['验证码5分钟内有效，工号 203', 'keep'],
+  ['验证码发过来了，转 300 元', 'keep'],
+  ['验证码过 30 秒再发', 'keep'],
+  ['验证码发到 138 开头那个手机了', 'keep']
 ];
 
 // #92：同一说话方连续的 ASR 分段（验证码被切成两三段）；mask = 跨段判断后比逐段脱敏多打了码
@@ -80,10 +88,34 @@ const OTP_SEG_CASES = [
   [['验证码已发送', '下午 3 点', '15 分到'], 'keep'],
   [['38 27', '15'], 'keep'],
   [['验证码发到你手机了', '138 0000', '1111'], 'keep'],
-  [['验证码是多少', '我数一下', '一二三'], 'keep'],
+  [['验证码是多少', '我数一下', '一二三'], 'mask'], // #120：半截 3 位也算
   [['验证码收到了', '订单号 A3827', '15'], 'keep'],
   [['验证码是六位的', '这个月花了 3800', '27 块'], 'keep'],
   [['验证码不能说', '我先挂了'], 'keep']
+];
+
+// #120：两边说话人（scammer / bot）按时间排的分段，redactDialogSegments；mask = 比逐段脱敏多打了码，keep = 原样。
+// 人设侧兜底：连续 3 位及以上逐位数字一律打码（「1000 块」也打）；带位值的「五百块」「三点半」、不足 3 位的不打。
+const DIALOG_CASES = [
+  [[['bot', '嗯…验证码是472？']], 'mask'],
+  [[['bot', '6222开头…尾号0123对吧']], 'mask'],
+  [[['bot', '138开头…后面是零零幺三']], 'mask'],
+  [[['scammer', '你把验证码念一下'], ['bot', '四七'], ['bot', '二九']], 'mask'],
+  [[['bot', '验证码收到了吗？'], ['scammer', '收到了'], ['scammer', '47 29']], 'mask'],
+  [[['scammer', '验证码多少'], ['bot', '是…47'], ['scammer', '后面呢'], ['bot', '29']], 'mask'],
+  [[['scammer', '卡号 6222 开头的是吧'], ['scammer', '尾号 0123']], 'mask'],
+  [[['scammer', '你那张卡'], ['scammer', '尾号多少'], ['bot', '尾号…零一二三']], 'mask'],
+  [[['bot', '我只有1000块']], 'mask'],
+  [[['bot', '我只有五百块，下午三点半到']], 'keep'],
+  [[['bot', '你说十八号是吧，我七十二了']], 'keep'],
+  [[['bot', '10:30 到，就 20 块钱']], 'keep'],
+  [[['scammer', '我是 138 开头的号码，工号 203'], ['bot', '哦好']], 'keep'],
+  [[['scammer', '先转 300 元，下午 3 点前'], ['bot', '验证码？']], 'keep'],
+  [[['scammer', '你手机尾号 0123 是吧'], ['bot', '对']], 'keep'],
+  [[['scammer', '打 400 开头的客服电话'], ['bot', '好的']], 'keep'],
+  [[['scammer', '卡号 6222 开头'], ['scammer', '我是 138 开头的号码']], 'mask'],
+  [[['scammer', '银行卡的事等会说'], ['scammer', '你打 400 开头那个']], 'keep'],
+  [[['scammer', '验证码发你了'], ['bot', '嗯'], ['scammer', '一共 5000 元']], 'keep']
 ];
 
 // ---- 输入用例（全部为虚构测试数据）----
@@ -240,6 +272,15 @@ function build() {
         throw new Error('跨分段 OTP 用例与预期不符：' + segments.join(' | ') + ' -> ' + redacted.join(' | '));
       }
       return { segments, expect, spans, redacted };
+    }),
+    dialog: DIALOG_CASES.map(([turns, expect]) => {
+      const roles = turns.map((x) => x[0]);
+      const each = turns.map((x) => R.redactText(x[1], X.extractSensitive(x[1])));
+      const redacted = R.redactDialogSegments(each, roles);
+      if ((expect === 'mask') !== (JSON.stringify(redacted) !== JSON.stringify(turns.map((x) => x[1])))) {
+        throw new Error('两边说话人用例与预期不符：' + turns.map((x) => x.join(':')).join(' | ') + ' -> ' + redacted.join(' | '));
+      }
+      return { roles, segments: turns.map((x) => x[1]), expect, redacted };
     }) };
   out.normalize = { comment: HEADER, cases: TEXTS.map((text) => { const n = N.normalize(text); return { text, expected: n.text, changed: n.changed }; }) };
   out.extract = {

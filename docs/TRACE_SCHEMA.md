@@ -1,6 +1,6 @@
-# 通话追踪 schema（v2）
+# 通话追踪 schema（v3）
 
-当前版本：`schema_version = 2`。代码在 `voice/trace.py`（`SCHEMA_VERSION`），测试在 `voice/tests/test_trace_schema.py`，
+当前版本：`schema_version = 3`。字段名按 10-19 与情报分析师、负责人定稿的名字（`docs/` 以外的原始记录见 #94）。代码在 `voice/trace.py`（`SCHEMA_VERSION`），测试在 `voice/tests/test_trace_schema.py`，
 测试会检查本文档列全了下面的字段。语音工程（#5）、磁盘监控（#18）、成本监控（#20）共用这一份。
 
 - 每通电话一个文件 `<TRACE_DIR>/<call_id>.jsonl`，每行一个 JSON 对象，`type` 区分行的种类。
@@ -25,7 +25,8 @@
 | `feedback` | `note`、`turn`（只留编号和 `flagged`） |
 | `client_error` / `client_connected` | `reason`；`detail` 里的字符串只留 `ice`、`conn`、`gather`、`path` 这几个枚举 |
 
-用量字段（token、ASR 秒数、TTS 字数、模型、音色、延迟、是否打断、`usage_total`、`cost_cny`）照留，`--usage` 照常汇总。
+用量字段（token、ASR 秒数、TTS 字数、模型、音色、延迟、是否打断、`usage_total`、`cost_cny`、v3 的 call 行）照留，`--usage` 照常汇总。
+这些 trace 和同意的通话一样按 `TRACE_DAYS` 保留、按修改时间清理，`--usage --since` 能跨天查到，所以不单独做 `voice-usage.jsonl`。
 不录音。电话线路（`sip-text-only`）行为不变。上线前写下的旧记录用
 `python -m voice.trace_cli --scrub-no-consent`（dry-run）/ `--apply` 清理：只命中没同意且没有录音的通话，已同意的一律跳过。
 
@@ -35,7 +36,7 @@
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `schema_version` | 整数 | 2 |
+| `schema_version` | 整数 | 3（v2 的记录为 2） |
 | `call_id` | 字符串 | 通话编号 |
 | `turn` | 整数 | 轮次，从 1 开始（旧字段 `n` 同值，保留兼容） |
 | `ts` | 字符串 | 本轮开始时间（对方这一段的转写到达时刻；旧字段 `t` 同值） |
@@ -49,6 +50,7 @@
 | `e2e_reply_ms` | 整数或 null | 对方说完 → 正式回复首包 |
 | `asr_audio_sec` | 小数 | 本轮送去识别的音频秒数（按发送的音频时长计，与计费口径一致） |
 | `tts_chars` | 整数 | 本轮合成的字数（含口头语、填充音的合成） |
+| `tts_billed_chars` | 整数 | v3：本轮 TTS 计费字符数（汉字算 2，其他算 1，见「调用行」） |
 | `tts_voice` | 字符串 | 本通人设使用的音色 id |
 | `interrupted` | 布尔 | 人设在说话时对方开口（打断）为 `true` |
 | `asr` | 字符串 | 对方这一段的识别文字（已脱敏） |
@@ -68,7 +70,7 @@
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `schema_version` | 整数 | 2 |
+| `schema_version` | 整数 | 3（v2 的记录为 2） |
 | `call_id` | 字符串 | 通话编号 |
 | `started_at` | 字符串 | 开始时间（与 start 行一致） |
 | `ended_at` | 字符串 | 结束时间 |
@@ -78,10 +80,56 @@
 | `audio` | 布尔 | 这通是否录了音 |
 | `turns` | 整数 | 轮数 |
 | `interrupted_turns` | 整数 | 被打断的轮数 |
-| `usage_total` | 对象 | 各项用量合计：`llm_in_tokens`、`llm_out_tokens`、`asr_audio_sec`、`tts_chars` |
+| `usage_total` | 对象 | 各项用量合计：`llm_in_tokens`、`llm_out_tokens`、`asr_audio_sec`、`tts_chars`；v3 加 `tts_billed_chars` 和定稿名 `prompt_tokens`、`completion_tokens`、`asr_seconds`（与前面同值） |
 | `cost_cny` | 小数 | 按 `VOICE_PRICE_*` 单价估算的本通花费（元），没有计量时不写 |
 | `persona_id` / `model` / `tts_voice` | 字符串 | 同每轮，便于只读 end 行做汇总 |
+| `persona` | 字符串 | v3：同 `persona_id` |
+| `channel` | 字符串 | v3：`web`（网页）/ `phone`（电话线路，即 SIP；沿用 start 行已有的取值，不改含义） |
+| `asr_model` / `tts_model` | 字符串 | v3：语音识别模型、实际合成用的模型（设计音色走它自己的模型，例如 `cosyvoice-v3.5-flash`） |
 | `stats` / `latency` / `usage` | 对象 | 会话统计、延迟分位、计量原样（旧字段） |
+
+## 调用行（`type = "call"`，v3）
+
+每轮按调用用途各写一行，只有用量、模型和音色，**没有任何文字**（没同意的通话也一样写）。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `schema_version` / `call_id` / `t` | | 同上 |
+| `turn` | 整数 | 记在第几轮（与 turn 行同一个切点）；开场白算第 1 轮 |
+| `kind` | 字符串 | `reply`（正式回复：大模型 + 合成）、`filler`（口头语 / 填充音合成）、`opening`（开场白）、`disclosure`（开头的说明）、`farewell`（挂断前的告别语）、`asr`（对方语音识别）；`intent`、`guard` 预留（现在意图判断和输出守卫都是规则，不调接口，不会出现） |
+| `llm_model` | 字符串或 null | 有大模型 token 时为模型名，否则 null |
+| `prompt_tokens` / `completion_tokens` | 整数 | 大模型接口返回的 usage，不估算 |
+| `asr_seconds` | 小数 | 送去识别的音频秒数 |
+| `tts_chars` | 整数 | 送去合成的字数（`len`） |
+| `tts_billed_chars` | 整数 | CosyVoice 计费字符数：汉字（含繁体、日文汉字、韩文汉字）算 2 个，标点、字母、数字、空格、假名、谚文算 1 个；用实际送去合成的原文在脱敏前算好（`voice/guard.py` 的 `tts_billed_chars`，注释里有官方文档出处） |
+| `tts_voice` | 字符串或 null | 有合成时为音色 id，否则 null |
+| `tail` | 布尔 | 只在最后一轮之后的用量（告别语、挂断前的尾音识别）上出现，`true`，`turn` 记最后一轮的编号 |
+
+- 同一轮同一 `kind` 只有一行（这一轮该用途的所有调用合计）；某个 `kind` 这一轮没有用量就不写。
+- 一通里所有 call 行相加 = end 行的 `usage_total`（`prompt_tokens`、`completion_tokens`、`asr_seconds`、`tts_chars`、`tts_billed_chars`）；
+  同一 `turn` 不带 `tail` 的 call 行相加 = 这一轮 turn 行的用量。
+- 规则模式、没有计量（没有预算票据）的通话不写 call 行。
+
+## v2 → v3 字段对照
+
+只加不改：v2 的字段全部保留、含义不变，v3 新增的是下表右列。
+
+| 位置 | v2 字段 | v3 定稿字段 | 说明 |
+|---|---|---|---|
+| end 行 | `persona_id` | `persona` | 同值；start 行本来就有 `persona` |
+| end 行 | （仅 start 行有 `channel`） | `channel` | `web` / `phone`（SIP） |
+| end 行 | （仅 start 行有） | `asr_model`、`tts_model` | `tts_model` 现在记实际合成用的模型 |
+| end 行 | `tts_voice` | `tts_voice` | 不变 |
+| end.`usage_total` | `llm_in_tokens` | `prompt_tokens` | 同值 |
+| end.`usage_total` | `llm_out_tokens` | `completion_tokens` | 同值 |
+| end.`usage_total` | `asr_audio_sec` | `asr_seconds` | 同值 |
+| end.`usage_total` | `tts_chars` | `tts_chars` | 不变 |
+| end.`usage_total` / turn 行 | — | `tts_billed_chars` | 新增 |
+| turn 行 | `turn` / `model` / `tts_voice` | — | 不变（call 行里对应 `turn`、`llm_model`、`tts_voice`） |
+| — | — | call 行：`turn`、`kind`、`llm_model`、`prompt_tokens`、`completion_tokens`、`asr_seconds`、`tts_chars`、`tts_billed_chars`、`tts_voice` | 新增行类型 |
+| end.`usage`（计量原样） | `asr_sec`、`tts_chars`、`llm_in`、`llm_out` | + `tts_billed_chars` | 新增一项 |
+
+读 v2 / v3 的程序：优先读 v3 名字，没有再退回 v2 名字（`voice/cost.py` 就是这么读的）；`tts_billed_chars` 缺失时只能按 `tts_chars × 2` 估算。
 
 ## 其他行
 
@@ -106,6 +154,10 @@
 2. 自报 / 转述姓名补充规则（`voice/trace.py`）：「我叫张伟」「我是李明警官」「他叫王强」「姓名是王小红」，
    姓氏表、称呼表复用 `extractors.json` 的 `nameRules`，打码用共享的 `mask_name`（`张*`）。「王经理」「李总」这类称呼不打码。
 3. 跨分段验证码（#92）：同一说话方（对方：`asr`；人设：`reply`、`filler`）的相邻分段连起来再判断一次（共享 `deepsuck.redact.redact_otp_segments`，前后各 2 段），「验证码是 38」「27 15」两段都打码。历史文件用 `docker exec deepsuck-voice-1 python -m voice.redact_backfill --dry-run`（只统计）/ 不带 `--dry-run`（改写）重跑：只改 start 行 `consent` 为 `true` 的通话，只把命中的数字换成 `*`，保留修改时间，输出只有计数。
+   线上由 `deepsuck-redact.timer` 每天 20:30（+08:00）自动跑一次兜底（`deploy/redact-backfill.sh`，不留备份，`journalctl -t deepsuck-redact`：改动 0 条 INFO，>0 条 WARN，失败 ERROR；见 docs/DEPLOY.md 第 8 节）。
+4. 两边说话人、卡号片段、人设侧兜底（#120）：落盘时两边的分段按时间连起来再判断一次（共享 `deepsuck.redact.redact_dialog_segments`）：骗子问验证码、人设下一句报数字也打码；卡号语境下的「6222开头」「尾号0123」全部换成 `*`；人设侧（`reply`、`filler`、`bot` 行 `text`）连续 3 位及以上逐位数字一律换成 `*`（含「138开头」「零零幺三」）。对方说的电话号码等情报仍按实体规则公开。开场白 / 告别语 `bot` 行即时写入，只过人设兜底，跨说话方的补打码由每日回填完成。
+
+**残留风险（跨分段验证码）**：脱敏是逐段实时做的。验证码的前半段（如「验证码是 38」）单独看不够长、判断不了时，这一段已经按原样实时发给大模型（作为对方的话）和看板；等后面的分段到了，`Session.ingest` 只能回头修正会话里的文字，trace / 文字记录落盘前再按相邻分段补打码，**已经发出去的部分收不回，只能事后修正存储**。trace 每轮晚 3 段落盘，看得到后面 2 段；关键词在更后面才出现、或规则以后再收紧时，已落盘的记录靠上面的每日重跑事后修正。打码规则本身的局限（关键词附近不带单位的普通数字会被多打、分段报的手机号不按验证码处理）见 docs/INTEL.md「脱敏接口」。
 
 卡号等原值只在进程内存里，不进文件。
 
@@ -151,17 +203,21 @@
 - `--usage`：按天汇总用量，输出 JSON（同 `GET /api/traces-usage?since=&until=`），#20 直接用：
 
 ```json
-{"schema_version": 2, "generated_at": "2026-10-19T12:00:00.000+08:00", "tz": "+08:00",
+{"schema_version": 3, "generated_at": "2026-10-19T12:00:00.000+08:00", "tz": "+08:00",
  "days": [{"date": "2026-10-19", "calls": 12, "consent_calls": 9, "audio_calls": 9, "sip_calls": 0,
            "flagged_calls": 1, "turns": 85, "interrupted_turns": 7, "duration_sec": 1830.5, "cost_cny": 0.42,
-           "llm_in_tokens": 152000, "llm_out_tokens": 4100, "asr_audio_sec": 1790.2, "tts_chars": 5200,
+           "llm_in_tokens": 152000, "llm_out_tokens": 4100, "asr_audio_sec": 1790.2, "tts_chars": 5200, "tts_billed_chars": 9800,
            "by_model": {"qwen-flash": {"calls": 12, "llm_in_tokens": 152000, "llm_out_tokens": 4100}},
            "by_persona": {"wang": 5, "lin": 7}, "exit_reasons": {"client_hangup": 10, "idle": 2}}]}
 ```
 
 没有 end 行的通话（进行中或异常退出）用各轮相加，`exit_reasons` 记为 `unfinished`。
+v3 起每天另有 `by_kind`：call 行按 `kind` 汇总（`rows`、`prompt_tokens`、`completion_tokens`、`asr_seconds`、`tts_chars`、`tts_billed_chars`），v2 记录没有 call 行，不计入。
 
 ## 版本记录
+
+- v3（#94）：只加字段。新增 `type="call"` 调用行；end 行加 `persona`、`channel`、`asr_model`、`tts_model`；
+  `usage_total` 加 `tts_billed_chars` 和定稿名 `prompt_tokens`、`completion_tokens`、`asr_seconds`；turn 行加 `tts_billed_chars`。对照见上表。
 
 - v2 补丁（#96）：没同意的网页通话不存文字（见上），start 行加 `text_stored`，清理过的旧记录 start 行有 `scrubbed_at`。字段名不变，`schema_version` 仍为 2。
 - v2（#5）：每行加 `schema_version`、`call_id`；每轮加 token、ASR 秒数、TTS 字数和音色、首字 / 整句延迟、是否打断；

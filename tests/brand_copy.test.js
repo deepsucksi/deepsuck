@@ -45,11 +45,13 @@ test('首页「零成本」段落用中性说法', () => {
 });
 
 // 首页、i18n 词条、README 不点名具体商业模型或云服务；具体配置写在 docs/QUICKSTART.md（#100）
-test('首页、i18n、README 不点名具体商业模型或云服务', () => {
+test('首页、沙盒、llm.js、i18n、README 不点名具体商业模型或云服务', () => {
   const MODEL = /qwen|百炼|通义|千问|阿里云|aliyun|alibaba|bailian|dashscope|paraformer|cosyvoice/i;
   const pub = [
     path.join(ROOT, 'site/index.html'),
     path.join(ROOT, 'site/assets/js/i18n.js'),
+    path.join(ROOT, 'site/demo.html'), // #108：直连模式默认值留空
+    path.join(ROOT, 'site/assets/js/llm.js'),
     ...fs.readdirSync(ROOT).filter((f) => /^README/i.test(f)).map((f) => path.join(ROOT, f)),
   ];
   const hits = [];

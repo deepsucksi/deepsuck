@@ -307,6 +307,172 @@ def redact_otp_segments(texts: Optional[Iterable[Optional[str]]], window: Option
     return out
 
 
+# ---- 卡号片段、人设侧兜底、两边说话人（#120）：规则见 core/extractors.json 的 redact.card / redact.persona ----
+_CN_DIGIT = {"零": "0", "〇": "0", "一": "1", "幺": "1", "二": "2", "两": "2", "三": "3", "四": "4", "五": "5",
+             "六": "6", "七": "7", "八": "8", "九": "9"}
+
+
+def _ascii_digits(s: str) -> str:
+    out = []
+    for ch in s:
+        if "０" <= ch <= "９":
+            out.append(chr(ord(ch) - 0xFEE0))
+        elif ch in _CN_DIGIT:
+            out.append(_CN_DIGIT[ch])
+        elif "0" <= ch <= "9":
+            out.append(ch)
+    return "".join(out)
+
+
+@functools.lru_cache(maxsize=None)
+def _card_rules():
+    red = load("extractors").get("redact") or {}
+    c, o = red.get("card"), red.get("otp")
+    if not c or not o:
+        return None
+    d, sep = o["digit"], o["sep"]
+    return {
+        "c": c,
+        "kw": compile_js(c["keyword"]),
+        "run": compile_js(d + "(?:" + sep + "{0," + str(o["maxSep"]) + "}" + d + ")*"),
+        "digit": compile_js(d),
+        "edge": compile_js(o["edge"]),
+        "prefixAfter": compile_js(c["prefixAfter"]),
+        "strongBin": compile_js(c["strongBin"]),
+        "notCard": compile_js(c.get("notCard") or "(?!)"),
+        "tailBefore": compile_js(c["tailBefore"]),
+        "tailBlock": compile_js(c["tailBlock"]),
+    }
+
+
+def find_card_spans(text: Optional[str]) -> List[dict]:
+    """卡号片段（「6222开头」「尾号0123」，卡号语境下）：[{start, end, masked}]，数字全部换成 *。"""
+    R = _card_rules()
+    if not R:
+        return []
+    s = str(text or "")
+    c = R["c"]
+    kws = [(m.start(), m.end()) for m in R["kw"].finditer(s)]
+
+    def kw_near(a, b):
+        return any(k1 <= a and a - k1 <= c["window"] or k0 >= b and k0 - b <= c["window"] or (k0 < b and a < k1)
+                   for k0, k1 in kws)
+
+    runs = []
+    for m in R["run"].finditer(s):
+        a, b = m.start(), m.end()
+        n = len(R["digit"].findall(m.group(0)))
+        if (a > 0 and R["edge"].match(s[a - 1])) or (b < len(s) and R["edge"].match(s[b])):
+            continue
+        runs.append((a, b, n))
+    prefixes = []
+    for a, b, n in runs:
+        if c["minLen"] <= n <= c["maxLen"] and R["prefixAfter"].search(s[b:]) \
+                and not R["notCard"].search(_ascii_digits(s[a:b])):
+            strong = n >= c["strongMinLen"] and R["strongBin"].search(_ascii_digits(s[a:b]))
+            if strong or kw_near(a, b):
+                prefixes.append((a, b))
+    tails = []
+    for a, b, n in runs:
+        if not (c["minLen"] <= n <= c["tailMaxLen"]):
+            continue
+        m = R["tailBefore"].search(s[max(0, a - c["tailBeforeChars"]):a])
+        if not m:
+            continue
+        t0 = max(0, a - c["tailBeforeChars"]) + m.start()
+        if R["tailBlock"].search(s[max(0, t0 - c["tailBlockChars"]):t0]):
+            continue
+        if kw_near(a, b) or any(abs(a - pb) <= c["window"] or abs(pa - b) <= c["window"] for pa, pb in prefixes):
+            tails.append((a, b))
+    return [{"start": a, "end": b, "masked": R["digit"].sub("*", s[a:b])} for a, b in sorted(set(prefixes + tails))]
+
+
+def _apply(s: str, spans) -> str:
+    for p in sorted(spans, key=lambda x: x["start"], reverse=True):
+        s = s[: p["start"]] + p["masked"] + s[p["end"]:]
+    return s
+
+
+def redact_card_segments(texts: Optional[Iterable[Optional[str]]], window: Optional[int] = None) -> List[str]:
+    """卡号片段跨分段打码（窗口同 redact.otp.segWindow）：每段与前后各 window 段拼接后找 find_card_spans，映射回各段。"""
+    segs = ["" if t is None else str(t) for t in (texts or [])]
+    R, O = _card_rules(), _otp_rules()
+    if not R or not segs:
+        return segs
+    w = max(0, int(O["o"].get("segWindow", 2) if window is None else window))
+    joiner = O["o"].get("segJoiner", " ")
+    hits: List[List[dict]] = [[] for _ in segs]
+    for cidx in range(len(segs)):
+        idx = list(range(max(0, cidx - w), min(len(segs), cidx + w + 1)))
+        offs, pos = [], 0
+        for k, i in enumerate(idx):
+            pos += len(joiner) if k else 0
+            offs.append(pos)
+            pos += len(segs[i])
+        for sp in find_card_spans(joiner.join(segs[i] for i in idx)):
+            for k, i in enumerate(idx):
+                a, b = max(sp["start"], offs[k]), min(sp["end"], offs[k] + len(segs[i]))
+                if a < b:
+                    hits[i].append({"start": a - offs[k], "end": b - offs[k],
+                                    "masked": R["digit"].sub("*", segs[i][a - offs[k]:b - offs[k]])})
+    out = []
+    for s, hs in zip(segs, hits):
+        uniq = {(h["start"], h["end"]): h for h in hs}
+        cur = s
+        # 重叠的区间逐个替换也安全：只把数字换成 *，长度不变
+        for h in sorted(uniq.values(), key=lambda x: x["start"], reverse=True):
+            cur = cur[: h["start"]] + R["digit"].sub("*", cur[h["start"]:h["end"]]) + cur[h["end"]:]
+        out.append(cur)
+    return out
+
+
+@functools.lru_cache(maxsize=None)
+def _persona_rules():
+    red = load("extractors").get("redact") or {}
+    p, o = red.get("persona"), red.get("otp")
+    if not p or not o:
+        return None
+    d = o["digit"]
+    return {"p": p, "digit": compile_js(d),
+            "run": compile_js(d + "(?:" + p["sep"] + "{0," + str(p["maxSep"]) + "}" + d + ")*")}
+
+
+def redact_persona(text: Optional[str]) -> str:
+    """人设侧兜底（redact.persona）：连续 minRun 位及以上的逐位数字换成 *（长度不变，可重复执行）。"""
+    s = "" if text is None else str(text)
+    R = _persona_rules()
+    if not R:
+        return s
+    return R["run"].sub(lambda m: R["digit"].sub("*", m.group(0))
+                        if len(R["digit"].findall(m.group(0))) >= R["p"]["minRun"] else m.group(0), s)
+
+
+def redact_dialog_segments(texts: Optional[Iterable[Optional[str]]], roles: Optional[Iterable[Optional[str]]],
+                           window: Optional[int] = None) -> List[str]:
+    """两边说话人合在一起打码（#120，见 redact.dialogComment）：texts 与 roles 等长、按时间排；role 为 "scammer"
+    的是骗子侧，其余都算人设侧。建议对逐段 redact_text 之后的文本调用；只把数字换成 *，可重复执行。"""
+    out = ["" if t is None else str(t) for t in (texts or [])]
+    rs = list(roles or [])
+    rs += [None] * (len(out) - len(rs))
+    side = ["scammer" if r == "scammer" else "persona" for r in rs[: len(out)]]
+    for who in ("scammer", "persona"):
+        idx = [i for i, x in enumerate(side) if x == who]
+        for i, t in zip(idx, redact_otp_segments([out[i] for i in idx], window)):
+            out[i] = t
+    out = redact_otp_segments(out, window)
+    # 一方报数字、另一方说验证码且中间隔着别的话（「验证码多少」「是…47」「后面呢」「29」）：另一方的分段只留验证码关键词
+    R = _otp_rules()
+    if R:
+        for who in ("scammer", "persona"):
+            view = [t if side[i] == who else " ".join(m.group(0) for m in R["kw"].finditer(t))
+                    for i, t in enumerate(out)]
+            for i, t in enumerate(redact_otp_segments(view, window)):
+                if side[i] == who:
+                    out[i] = t
+    out = redact_card_segments(out, window)
+    return [redact_persona(t) if side[i] == "persona" else t for i, t in enumerate(out)]
+
+
 def redact_text(text: Optional[str], entities: Optional[Iterable[dict]]) -> str:
     """把文本中的敏感片段替换成脱敏结果（entities 来自 extract()）；
     另外按上下文给验证码类短数字打码（与实体重叠的交给实体自己的规则）。"""

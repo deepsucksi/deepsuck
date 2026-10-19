@@ -241,9 +241,23 @@ TTS（字符计费）是语音的大头，ASR 次之，大模型最便宜。
 | `WITH_SIP=1` 重跑 bootstrap 在第 6 步后无输出退出 | 旧版 bootstrap 在 `.env` 缺少 `SIP_LOG_DIR` 等变量时会被 `set -e` 打断，更新到最新代码后重跑即可 |
 | 容器被 OOM 杀 | 1 GB 机器：确认 swap 已开（`swapon --show`），或把 `VOICE_MAX_SESSIONS=1` |
 
-## 8. 磁盘、录音容量与定时任务（#18、#20）
+### 查看 compose 配置：不展开密钥（#119）
 
-三个 systemd timer 由一个幂等脚本安装，脚本和单元文件都在仓库里（`deploy/install-timers.sh`、`deploy/systemd/`），不改 crontab、不重启容器：
+- 查看 compose 配置一律用 `docker compose --profile sip config --no-interpolate`（在 `deploy/` 目录下）。
+- **不要**运行不带 `--no-interpolate` 的 `docker compose config`：它会把 `.env` 里的密钥（`SIP_PASSWORD`、`DASHSCOPE_API_KEY`、`TRACE_ADMIN_TOKEN`、`TURN_SECRET` 等）原样展开成明文打到终端和日志里。
+- 要确认某个变量设没设，只看变量名、不看值：
+
+  ```bash
+  grep -o '^[A-Z_]*=' .env                                                    # .env 里设了哪些变量
+  docker compose --profile sip config --no-interpolate | grep -o '\${[A-Z_]*' | sort -u   # compose 引用了哪些变量
+  ```
+
+- 不要 `cat .env`、`printenv`、`docker compose exec <服务> env`，也不要把这些输出贴进 issue、PR 或聊天。
+- 万一已经打出来了：当作泄露处理，告诉负责人安排轮换对应的密钥。
+
+## 8. 磁盘、录音容量与定时任务（#18、#20、#107）
+
+四个 systemd timer 由一个幂等脚本安装，脚本和单元文件都在仓库里（`deploy/install-timers.sh`、`deploy/systemd/`），不改 crontab、不重启容器：
 
 ```bash
 cd /opt/deepsuck && git pull --ff-only
@@ -256,13 +270,14 @@ systemctl list-timers 'deepsuck-*'
 |---|---|---|---|
 | `deepsuck-diskwatch.timer` | 每 15 分钟 | `deploy/diskwatch.sh run`：根分区和 docker 数据目录（`/var/lib/docker`、`/var/lib/containerd`，同分区只报一次）使用率 >80% 记 WARN、>90% 记 ERROR；再记 voice-traces 卷（文字 + 录音）和 voice-data 卷大小，trace 卷超过 `TRACE_MAX_MB` 的 80%/90% 同样 WARN/ERROR。只读，不删任何文件 | `journalctl -t deepsuck-diskwatch` |
 | `deepsuck-docker-prune.timer` | 每周日 04:30 | `deploy/diskwatch.sh docker-prune`：先确认 `ROLLBACK_TAGS`（默认 `deepsuck-caddy:rollback-887ac0`）都在，缺一个就跳过并记 ERROR（单元失败）；再 `docker builder prune -f --filter until=168h` 和 `docker image prune -f`，记录前后 `df` 差值 | 同上 |
+| `deepsuck-redact.timer` | 每天 20:30 | `deploy/redact-backfill.sh`：`docker exec deepsuck-voice-1 python -m voice.redact_backfill`，按镜像里的当前共享脱敏规则重扫 voice-traces 卷和 voice-data 卷里的文字记录 `voice/transcripts`（#125），只改已同意通话、只把新命中的数字换成 `*`（如跨 ASR 分段的验证码，#92），保留修改时间；不加 `--backup`，不留备份。只记计数，不记原文和通话编号：改动 0 条 INFO，>0 条 WARN（说明实时脱敏漏过、已事后补打码，值得看一眼），容器不在 / 脚本报错 / 输出不对记 ERROR（单元失败）。放在成本汇总之前 | `journalctl -t deepsuck-redact` |
 | `deepsuck-cost.timer` | 每天 20:40 | `deploy/cost-report.sh`：宿主机 `python3 -m voice.cost --json`，写 `/var/log/deepsuck/cost-YYYY-MM-DD.json`，`cost-latest.json` 符号链接原子指向当天（`rename(2)`），保留 180 天；券额占比 ≥50% 记 WARN | `journalctl -t deepsuck-cost` |
 
-- 只写 journald，不开 issue，VPS 上不放 GitHub token。过滤告警：`journalctl -t deepsuck-diskwatch -p warning --since today`。
+- 只写 journald，不开 issue，VPS 上不放 GitHub token。过滤告警：`journalctl -t deepsuck-diskwatch -p warning --since today`、`journalctl -t deepsuck-redact -p warning --since today`。
 - 配置：`/etc/default/deepsuck-maint`（首次安装从 `deploy/maint.env.example` 复制），阈值、检查目录、回滚标签、成本输出目录都在这里改，下次触发生效。
-- 手动验证：`deploy/diskwatch.sh --dry-run run`、`deploy/diskwatch.sh --dry-run docker-prune`（只列出将执行的命令和可回收空间）、`systemctl start deepsuck-cost.service && cat /var/log/deepsuck/cost-latest.json`、`deploy/cost-report.sh --dry-run --day 2026-10-19`（只打印不写）。
+- 手动验证：`deploy/diskwatch.sh --dry-run run`、`deploy/diskwatch.sh --dry-run docker-prune`（只列出将执行的命令和可回收空间）、`systemctl start deepsuck-cost.service && cat /var/log/deepsuck/cost-latest.json`、`deploy/cost-report.sh --dry-run --day 2026-10-19`（只打印不写）、`deploy/redact-backfill.sh --dry-run`（只统计会改多少）或 `systemctl start deepsuck-redact.service && journalctl -t deepsuck-redact -n 5`。
 - 成本任务不进容器：`voice/cost.py` 只用标准库，宿主机 `python3` 直接读命名卷的 Mountpoint（`docker volume inspect -f "{{.Mountpoint}}" deepsuck_voice-traces`，每通一个 `<call_id>.jsonl`，同意与否都有；`deepsuck_voice-data`、`deepsuck_proxy-data` 同理），容器停着也能出报表、不用重建镜像。单价从 `deploy/.env` 按名取 `PRICE_*`、`*_LLM_MODEL`（不 source 整个 `.env`，Key 不进环境）。优惠券基准 `cost-baseline.json` 放在 voice-data 卷根目录，安装脚本在缺失时从 `deploy/cost-baseline.example.json` 复制一份，**查过控制台后改 `coupon_balance`/`as_of`**。评测花费 CSV 默认 `/var/lib/deepsuck/eval-spend.csv`（没有就跳过，输出 `sources` 里注明）。
-- 卸载：`systemctl disable --now deepsuck-{diskwatch,docker-prune,cost}.timer && rm /etc/systemd/system/deepsuck-* && systemctl daemon-reload`。
+- 卸载：`systemctl disable --now deepsuck-{diskwatch,docker-prune,redact,cost}.timer && rm /etc/systemd/system/deepsuck-* && systemctl daemon-reload`。
 
 **录音与 trace 的按天清理只在容器里做**：`voice/trace.py` 按 `TRACE_DAYS`（文字，默认 30）和 `TRACE_AUDIO_DAYS`（录音，默认同 `TRACE_DAYS`）每天删过期的 `*.jsonl`/`*.ogg`，`voice/records.py` 按 `VOICE_TRANSCRIPT_DAYS` / `KEEP_AUDIO_DAYS` 清理留存（见 `docs/TRACE_SCHEMA.md`「存储与保留」）。宿主机 `diskwatch.sh` 不删通话数据，只监控卷大小写日志，避免两套清理规则漂移。
 

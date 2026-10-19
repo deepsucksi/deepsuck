@@ -51,6 +51,8 @@ CONFIRM_GENERIC = _C["confirmGeneric"]
 
 # 跑题（默认池；人设可以传自己的）
 DIGRESSIONS = _C["digressions"]
+# 跑题句里的道具词（#129）：含这些词的跑题句不用，除非预设的 propsOk 里有
+DIGRESSION_PROPS = tuple(_C.get("digressionProps", ()))
 
 # 刻意错字 / 网络梗写法：不进入任何混淆表（测试会检查）
 DELIBERATE = _C["deliberate"]

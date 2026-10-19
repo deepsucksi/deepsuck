@@ -87,6 +87,8 @@ DeepSuck 会**公开发布**它收集到的诈骗情报，让任何人都能检�
 
 跨 ASR 分段（#92）：语音识别会把一串验证码切成几段（“验证码是 38”“27 15”），逐段判断时都不打码。`redact_otp_segments(texts)`（JS `redactOtpSegments`；`find_otp_spans_segments` / `findOtpSpansSegments` 返回各段下标）接收同一通电话、**同一说话方**按时间排的连续分段，以每段为中心连同前后各 `segWindow`（2）段用空格拼接，按上面同一套规则再判断，命中的数字映射回各段换成 `*`（长度不变，可重复调用）。拼接处两侧的数字串之间只有空白、句读或“嗯 / 啊 / 那个”时可连成一串（合计不超过 8 位）。对逐段 `redact_text` 之后的文本调用。调用点：`Session.ingest`（JS / Python，本段和前 2 段对方的话）、`voice/trace.py` 落盘（对方、人设各自一串，落盘晚 3 段，看得到前后 2 段）、`voice/records.py` 文字记录（按角色）；历史 trace 用 `python -m voice.redact_backfill` 重跑。
 
+两边说话人（#120）：`redact_dialog_segments(texts, roles)`（JS `redactDialogSegments`）接收两边按时间排的分段与说话方（`scammer`，其余算人设侧），依次跑同一说话方跨段验证码、两边合并的跨段验证码、卡号片段（`redact.card`：卡号语境或 62 开头 BIN 后跟「开头」的前缀、卡号语境下「尾号」后的 3–4 位，全部换成 `*`；`notCard` 排除手机号前缀与 400 / 800 热线），最后人设侧过 `redact.persona` 兜底（连续 3 位及以上逐位数字换成 `*`）。验证码 `minLen` 为 3。存储侧（trace、文字记录、回填）用它；`redact_text` 不含卡号片段与人设兜底。
+
 `mask`、`redact_text`、`extract_sensitive` 也可直接 `from deepsuck import ...`。另有按类型的 `mask_bank_card`、`mask_phone`、`mask_id_card` 等函数，类型到函数的映射见 `MASKERS`。
 
 ### 各类型打码规则

@@ -1,0 +1,10 @@
+[Unit]
+Description=DeepSuck daily trace re-redaction backfill (GitHub #107, #92)
+Documentation=https://github.com/deepsucksi/deepsuck/blob/main/docs/TRACE_SCHEMA.md
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/deepsuck-maint
+ExecStart=@DIR@/deploy/redact-backfill.sh
+Nice=10

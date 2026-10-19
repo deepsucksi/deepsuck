@@ -107,9 +107,14 @@ def test_repeat_without_context_uses_generic():
 
 
 def test_digress_uses_given_pool():
-    pool = ["我先去收个快递"]
+    pool = ["我先去开个窗"]
     h = Humanizer(1.0, seed=4, ops=["digress"], weights={"digress": 10}, digressions=pool)
-    assert pool[0] in h("你说吧")
+    assert pool[0] in h("你说吧", context="喂，你好")
+    # #129：传进来的池子里编道具的句子同样不用；对方没开口（没有 context）不插跑题句
+    h = Humanizer(1.0, seed=4, ops=["digress"], weights={"digress": 10}, digressions=["我先去收个快递"])
+    assert h.digressions == [] and "快递" not in h("你说吧", context="喂，你好")
+    h = Humanizer(1.0, seed=4, ops=["digress"], weights={"digress": 10}, digressions=pool)
+    assert all(pool[0] not in h("你说吧") for _ in range(5))
 
 
 def test_dialect_substitution():
@@ -180,7 +185,7 @@ def test_digressions_do_not_repeat_within_one_conversation():
     h = Humanizer(1.0, seed=3, ops=["digress"], weights={"digress": 10}, digressions=pool)
     used = []
     for _ in range(3):
-        r = h.apply("好的")
+        r = h.apply("好的", context="你在吗")
         used += [d for d in pool if d in r.text]
     assert sorted(used) == sorted(pool)
 

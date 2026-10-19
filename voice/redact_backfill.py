@@ -8,6 +8,11 @@
 只重写有改动的行，其余行原样保留；写临时文件（0600）后原子替换，保留原文件的修改时间（保留期按修改时间算）。
 最近 --min-age 秒内改过、或处理期间被追加的文件（通话可能还在进行）跳过，下次再跑。
 
+文字记录（#125）：DATA_DIR/voice/transcripts/*.json（voice/records.py 写的 Session.report()）的 transcript[].text
+按时间排、带说话方（scammer / bot）过同一套 redact_dialog_segments，与 trace 同一标准；只改有改动的文件，
+按原格式（indent=1）原子重写、0600、保留修改时间；--backup 时一起打进同一个 tar（路径前缀 transcripts/）。
+计数放在输出 JSON 的 transcripts 下；--no-transcripts 只处理 trace。
+
 输出只有计数（JSON），绝不打印任何文字内容或通话编号。
 
     python -m voice.redact_backfill --dry-run          # 只统计会改多少
@@ -30,9 +35,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "python") not in sys.path:
     sys.path.insert(0, str(ROOT / "python"))
 
-from deepsuck.redact import redact_otp_segments  # noqa: E402
+from deepsuck.redact import redact_dialog_segments  # noqa: E402
 
-PERSONA_KEYS = (("bot", "text"), ("turn", "filler"), ("turn", "reply"))
 
 
 def consent_of(rows: List[Optional[dict]]):
@@ -45,22 +49,26 @@ def consent_of(rows: List[Optional[dict]]):
 
 
 def redact_rows(rows: List[Optional[dict]]) -> Tuple[List[Optional[dict]], int, int]:
-    """返回（新行列表、改动的行数、改动的字段数）。rows 里不是 dict 的（坏行）原样保留。"""
+    """返回（新行列表、改动的行数、改动的字段数）。rows 里不是 dict 的（坏行）原样保留。
+
+    #120：两边说话人按时间排（turn 行内依次是 asr、filler、reply），用 redact_dialog_segments 连起来判断：
+    同一说话方跨段验证码、跨说话方验证码、卡号片段、人设侧连续 3 位以上数字兜底。"""
     out = [dict(r) if isinstance(r, dict) else r for r in rows]
-    speakers = {"scammer": [], "persona": []}   # [(行号, 字段)]
+    refs, roles = [], []   # [(行号, 字段)]
     for i, r in enumerate(out):
         if not isinstance(r, dict):
             continue
-        if r.get("type") == "turn" and isinstance(r.get("asr"), str):
-            speakers["scammer"].append((i, "asr"))
-        for typ, key in PERSONA_KEYS:
-            if r.get("type") == typ and isinstance(r.get(key), str):
-                speakers["persona"].append((i, key))
+        if r.get("type") == "turn":
+            for key, role in (("asr", "scammer"), ("filler", "bot"), ("reply", "bot")):
+                if isinstance(r.get(key), str):
+                    refs.append((i, key))
+                    roles.append(role)
+        elif r.get("type") == "bot" and isinstance(r.get("text"), str):
+            refs.append((i, "text"))
+            roles.append("bot")
     changed_rows, fields = set(), 0
-    for refs in speakers.values():
-        if not refs:
-            continue
-        fixed = redact_otp_segments([out[i][k] for i, k in refs])
+    if refs:
+        fixed = redact_dialog_segments([out[i][k] for i, k in refs], roles)
         for (i, k), new in zip(refs, fixed):
             if new != out[i][k]:
                 out[i][k] = new
@@ -108,24 +116,100 @@ def _rewrite(path: Path, raw_lines: List[str], rows, new_rows, st: os.stat_resul
         raise
 
 
-def _backup(tar_path: Path, files: List[Path], base: Path) -> None:
+def _backup(tar_path: Path, files: List[Path], base: Path, extra: Optional[List[Tuple[Path, str]]] = None) -> None:
     tar_path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(str(tar_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "wb") as f, tarfile.open(fileobj=f, mode="w") as tf:
         for p in files:
             tf.add(str(p), arcname=str(p.relative_to(base)))
+        for p, arc in extra or []:
+            tf.add(str(p), arcname=arc)
+
+
+# ---------------------------------------------------------------- 文字记录（#125）
+def redact_transcript(doc: dict) -> Tuple[dict, int]:
+    """返回（新文档、改动的条数）。只动 transcript[].text（字符串）；其他字段原样。"""
+    msgs = doc.get("transcript") if isinstance(doc, dict) else None
+    if not isinstance(msgs, list):
+        return doc, 0
+    refs = [i for i, m in enumerate(msgs) if isinstance(m, dict) and isinstance(m.get("text"), str)]
+    if not refs:
+        return doc, 0
+    fixed = redact_dialog_segments([msgs[i]["text"] for i in refs], [msgs[i].get("role") for i in refs])
+    out = dict(doc)
+    out["transcript"] = [dict(m) if isinstance(m, dict) else m for m in msgs]
+    n = 0
+    for i, t in zip(refs, fixed):
+        if t != msgs[i]["text"]:
+            out["transcript"][i]["text"] = t
+            n += 1
+    return out, n
+
+
+def _rewrite_json(path: Path, doc: dict, st: os.stat_result) -> bool:
+    data = json.dumps(doc, ensure_ascii=False, indent=1).encode("utf-8")
+    fd, tmp = tempfile.mkstemp(prefix=".backfill-", suffix=".tmp", dir=str(path.parent))
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        try:
+            os.chown(tmp, st.st_uid, st.st_gid)
+        except OSError:
+            pass
+        os.utime(tmp, ns=(st.st_atime_ns, st.st_mtime_ns))
+        now = path.stat()
+        if now.st_size != st.st_size or now.st_mtime_ns != st.st_mtime_ns:
+            os.unlink(tmp)
+            return False
+        os.replace(tmp, path)
+        return True
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def plan_transcripts(tdir: Optional[Path], min_age: float, now: float) -> Tuple[dict, list]:
+    stats = {"dir_exists": bool(tdir and tdir.is_dir()), "files_scanned": 0, "skipped_recent": 0, "skipped_bad": 0,
+             "skipped_changed": 0, "files_changed": 0, "fields_changed": 0}
+    plan: list = []
+    if not stats["dir_exists"]:
+        return stats, plan
+    for p in sorted(tdir.glob("*.json")):
+        if not p.is_file() or p.is_symlink():
+            continue
+        stats["files_scanned"] += 1
+        st = p.stat()
+        if now - st.st_mtime < min_age:
+            stats["skipped_recent"] += 1
+            continue
+        try:
+            doc = json.loads(p.read_text(encoding="utf-8", errors="strict"))
+        except (ValueError, UnicodeDecodeError):
+            stats["skipped_bad"] += 1
+            continue
+        new, n = redact_transcript(doc)
+        if n:
+            plan.append((p, new, st, n))
+    return stats, plan
 
 
 def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Optional[Path] = None,
-        now: Optional[float] = None) -> dict:
+        now: Optional[float] = None, transcripts: Optional[Path] = None) -> dict:
     now = time.time() if now is None else now
+    tstats, tplan = plan_transcripts(transcripts, min_age, now) if transcripts is not None else (None, [])
     stats = {"dir_exists": trace_dir.is_dir(), "dry_run": dry_run, "files_scanned": 0, "consented": 0,
              "skipped_not_consented": 0, "skipped_unknown_consent": 0, "skipped_recent": 0, "skipped_changed": 0,
              "files_changed": 0, "rows_changed": 0, "fields_changed": 0, "backup_files": 0}
-    if not stats["dir_exists"]:
-        return stats
+    if tstats is not None:
+        stats["transcripts"] = tstats
     plan = []
-    for p in sorted(trace_dir.glob("*.jsonl")):
+    if not stats["dir_exists"]:
+        trace_dir = None
+    for p in (sorted(trace_dir.glob("*.jsonl")) if trace_dir is not None else []):
         if not p.is_file() or p.is_symlink():
             continue
         stats["files_scanned"] += 1
@@ -147,10 +231,19 @@ def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Opt
         stats["files_changed"] = len(plan)
         stats["rows_changed"] = sum(x[5] for x in plan)
         stats["fields_changed"] = sum(x[6] for x in plan)
+        if tstats is not None:
+            tstats["files_changed"] = len(tplan)
+            tstats["fields_changed"] = sum(x[3] for x in tplan)
         return stats
-    if backup is not None and plan:
-        _backup(backup, [x[0] for x in plan], trace_dir)
-        stats["backup_files"] = len(plan)
+    if backup is not None and (plan or tplan):
+        _backup(backup, [x[0] for x in plan], trace_dir, [(x[0], "transcripts/" + x[0].name) for x in tplan])
+        stats["backup_files"] = len(plan) + len(tplan)
+    for p, new, st, n in tplan:
+        if _rewrite_json(p, new, st):
+            tstats["files_changed"] += 1
+            tstats["fields_changed"] += n
+        else:
+            tstats["skipped_changed"] += 1
     for p, raw_lines, rows, new_rows, st, nrows, nfields in plan:
         if _rewrite(p, raw_lines, rows, new_rows, st):
             stats["files_changed"] += 1
@@ -166,6 +259,8 @@ def main(argv=None) -> int:
     ap.add_argument("--dir", help="追踪目录，默认 TRACE_DIR（容器里是 /traces）")
     ap.add_argument("--dry-run", action="store_true", help="只统计，不改文件")
     ap.add_argument("--min-age", type=float, default=600, help="最近多少秒内改过的文件跳过（通话可能还在进行），默认 600")
+    ap.add_argument("--transcripts", help="文字记录目录，默认 DATA_DIR/voice/transcripts（容器里是 /data/voice/transcripts）")
+    ap.add_argument("--no-transcripts", action="store_true", help="只处理 trace，不处理文字记录")
     ap.add_argument("--backup", help="正式改写前把要改的文件打包到这个 tar（新建，0600；已存在则报错）")
     a = ap.parse_args(argv)
     if a.dir:
@@ -173,7 +268,15 @@ def main(argv=None) -> int:
     else:
         from voice.trace import trace_dir
         d = trace_dir()
-    stats = run(d, dry_run=a.dry_run, min_age=a.min_age, backup=Path(a.backup) if a.backup else None)
+    if a.no_transcripts:
+        td = None
+    elif a.transcripts:
+        td = Path(a.transcripts)
+    else:
+        from voice.records import transcript_dir
+        td = transcript_dir()
+    stats = run(d, dry_run=a.dry_run, min_age=a.min_age, backup=Path(a.backup) if a.backup else None,
+                transcripts=td)
     print(json.dumps(stats, ensure_ascii=False, sort_keys=True))
     return 0 if stats["dir_exists"] else 2
 
