@@ -8,12 +8,12 @@
   var I = window.DeepSuckI18n || { tr: function (x) { return x; }, trParts: function (x) { return x; } };
   // 剧本类型 → 语音/沙盒场景 id；查不到（如「冒充供应商」）时人设卡链到不带场景参数的 demo.html
   var SCENARIO = { '冒充客服': 'refund', '冒充公检法': 'police', '杀猪盘': 'pig', '刷单返利': 'task', '虚假贷款': 'loan', '冒充领导': 'boss', '注销校园贷': 'campus' };
-  // 人设 id / 名字取自 personas/prompts/*.yaml
+  // 人设 id / 名字与 site/assets/core/personas.json（人设唯一数据源）一致；tests/personas_unify.test.js 核对
   var CAST = [
-    { id: 'retiree', name: '王阿姨' },
-    { id: 'mom', name: '小陈妈妈' },
-    { id: 'graduate', name: '小宇' },
-    { id: 'shop_owner', name: '郑老板' }
+    { id: 'wang', name: '王阿姨' },
+    { id: 'chen', name: '小陈妈妈' },
+    { id: 'lin', name: '小林' },
+    { id: 'zheng', name: '郑老板' }
   ];
   function scriptFor(name) {
     for (var i = 0; i < SCRIPTS.length; i++) { var t = String(SCRIPTS[i].title || ''); if (t.slice(-name.length - 3) === ' · ' + name) return SCRIPTS[i]; }
@@ -39,6 +39,7 @@
 
   var lang = document.documentElement.lang === 'en' ? 'en' : 'zh';
   var active = 0;
+  var LIVE_URL = '';
   var console_ = $('heroChat');
   function renderPersona(announce) {
     var c = CAST[active];
@@ -48,7 +49,9 @@
     $('scamLine').textContent = c.scam ? '“' + c.scam + '”' : '';
     $('botSpeaker').textContent = I.trParts(c.title);
     $('personaReply').textContent = c.reply || '';
-    $('personaLink').href = 'demo.html' + (c.scenario ? '?scenario=' + c.scenario : '');
+    // 卡片对应的人设带进沙盒和语音演示（persona 参数），点进去直接是这个人设
+    $('personaLink').href = 'demo.html?' + (c.scenario ? 'scenario=' + c.scenario + '&' : '') + 'persona=' + c.id;
+    if (LIVE_URL) document.querySelectorAll('[data-live-voice]').forEach(function (a) { a.href = LIVE_URL + '?persona=' + c.id; });
     $('personaSource').hidden = !c.source;
     document.querySelectorAll('.team-member').forEach(function (b, i) { var on = i === active; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
     document.dispatchEvent(new CustomEvent('deepsuck:personachange', { detail: { persona: c.id } }));
@@ -129,7 +132,7 @@
   // 语音演示入口：与沙盒一致，live 服务健康时才显示
   var LIVE = String((window.DEEPSUCK_LIVE && window.DEEPSUCK_LIVE.api) || '').replace(/\/+$/, '');
   if (LIVE && window.fetch) fetch(LIVE + '/api/health', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-    if (j) document.querySelectorAll('[data-live-voice]').forEach(function (a) { a.href = LIVE + '/'; a.hidden = false; });
+    if (j) { LIVE_URL = LIVE + '/'; document.querySelectorAll('[data-live-voice]').forEach(function (a) { a.href = LIVE_URL + '?persona=' + CAST[active].id; a.hidden = false; }); }
   }).catch(function () {});
 
   document.querySelectorAll('.menu-panel a').forEach(function (a) { a.addEventListener('click', function () { var d = a.closest('details'); if (d) d.open = false; }); });

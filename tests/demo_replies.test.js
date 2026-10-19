@@ -100,14 +100,16 @@ test('全场景 × 全人设扫规则引擎输出：无星号、无单边引号'
   assert.ok(n > 1000, String(n));
 });
 
-test('遗留修复：小林无“反诈课 PPT”句；李大爷 confirm_intel 后不紧接着要电话', () => {
+test('遗留修复：小林无“反诈课 PPT”句；confirmAskSkip 机制：复述情报后不紧接着要电话', () => {
   const C = require('../site/assets/core/personas.json');
-  const lin = C.personas.find((p) => p.id === 'lin');
-  for (const v of Object.values(lin.templates)) for (const t of v) assert.ok(!/反诈课|PPT/.test(typeof t === 'string' ? t : t.t));
-  const phoneAsk = P.BY_ID.li.asks.phone;
+  const yu = C.personas.find((p) => p.id === 'lin');
+  for (const v of Object.values(yu.templates)) for (const t of v) assert.ok(!/反诈课|PPT/.test(typeof t === 'string' ? t : t.t));
+  // 李大爷已下线（personas/archive/li.json），机制仍保留：给人设加 confirmAskSkip 即生效
+  const phoneAsk = P.BY_ID.wang.asks.phone;
   let confirms = 0;
   for (const sc of S.SCENARIOS) for (let seed = 1; seed <= 30; seed++) {
-    const s = new E.Session({ scenario: sc.id, persona: 'li', rng: H.mulberry32(seed) });
+    const s = new E.Session({ scenario: sc.id, persona: 'wang', rng: H.mulberry32(seed) });
+    s.persona = Object.assign({}, s.persona, { confirmAskSkip: ['phone'] });
     s.opening();
     for (const l of sc.samples) {
       const r = s.ruleReply(s.ingest(l));

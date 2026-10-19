@@ -6,4 +6,6 @@
 | --- | --- | --- | --- | --- |
 | `kitchen.ogg` | 厨房（水声、碗碟） | 王阿姨 `wang` | [Ambient Kitchen Sounds.wav](https://commons.wikimedia.org/wiki/File:Ambient_Kitchen_Sounds.wav)，作者 Wilfredor，Wikimedia Commons，截取 40–102 秒 | CC0 1.0 |
 | `street.ogg` | 街道（车流、人声） | 小林 `lin` | [Sunday in the city street noise1.ogg](https://commons.wikimedia.org/wiki/File:Sunday_in_the_city_street_noise1.ogg)，作者 cori，原载 pdsounds.org，截取 30–92 秒 | 公有领域 |
-| `tv.ogg` | 隔壁屋电视（天气预报） | 李大爷 `li` | 本项目自制：`tools/tv_voice.py` 用 CosyVoice 系统音色 longanhuan 朗读一段原创天气预报文本，再做带通、房间回声和粉噪声处理，听不清具体字句 | 随本仓库 Apache-2.0 |
+| `tv.ogg` | 隔壁屋电视（天气预报） | 暂无（原李大爷，人设已下线；仍可用 `DEEPSUCK_AMBIENCE=tv` 强制） | 本项目自制：`tools/tv_voice.py` 用 CosyVoice 系统音色 longanhuan 朗读一段原创天气预报文本，再做带通、房间回声和粉噪声处理，听不清具体字句 | 随本仓库 Apache-2.0 |
+
+小陈妈妈 `chen`（建议 `living_room`）和郑老板 `zheng`（建议 `shop`）的素材待语音工程师准备、负责人试听后加入；在此之前用默认的厨房底噪。见 `voice/README.md`“新人设音色与底噪”。

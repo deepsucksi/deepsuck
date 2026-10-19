@@ -2,6 +2,11 @@
 
 ## 未发布
 
+- 人设统一（#11）：`site/assets/core/personas.json` 成为人设唯一数据源，四位人设与首页一一对应：01 王阿姨 · 退休老人（`wang`）、02 小陈妈妈 · 宝妈（`chen`，新增）、03 小林 · 刚毕业学生（`lin`，台词按刚毕业上班调整）、04 郑老板 · 个体小老板（`zheng`，新增）。李大爷（`li`）下线，完整资料归档到 `personas/archive/li.json`；顶层 `aliases` 做别名映射：`li` → `wang`，`xiaochen` / `mom` → `chen`，`shop_owner` → `zheng`，旧链接仍可用。
+  - 删去 `personas/prompts/*.yaml` 与 `personas/voice_traits.yaml`：提示词资料并入各人设的 `prompt` 字段、共用规则并入顶层 `promptRules`、语音说话特征（含 #47 的接电话那一声 `opening`）并入 `voiceTraits`；旧版（含周伯）存档在 `personas/archive/prompts-v0.json`。`personas.prompt`、`personas.voice_traits`、`voice/persona.py`、评测脚本都改读 personas.json，不再需要 PyYAML。
+  - 首页“四位人设”一行、卡片 `data-persona` 改为四个新 id；卡片的沙盒与体验链接带 `?persona=<id>` 直达。体验页人设选项改成与首页同样的编号、身份和头像卡片（`/api/config` 新增 `no` / `role` / `photo` / `aliases`），语音镜像带上 round6 头像。
+  - 小陈妈妈、郑老板新增 `voiceStyle` 与各 15 条 `voiceShots`（照王阿姨的标准：短句、偶尔断续、多反问、不用书面词、不提年龄、不编道具、不用感叹号），以及建议底噪 `ambience`（`living_room` / `shop`）与建议音色 `voiceHint`。音色和底噪等负责人试听后再上，在此之前用默认音色与厨房底噪；王阿姨的说话风格、音色和厨房底噪不变。
+  - 测试：人设不抢话门禁与回归测试覆盖四个人设；新增一致性测试 `tests/personas_unify.test.js`、`voice/tests/test_personas_unify.py`（首页角色 id == 体验页选项 == 评测人设集合，编号 / 身份 / 头像一致）。大模型骗子评测默认种子改为 1（7 × 4 × 1 = 28 场，保持在 3 元硬上限内）。
 - 语音（#73）：`voice/persona.py` 硬性规则 5 抽成 `RULE_DIGITS`，去掉具体号码例子（原“尾号8600是吧…”“幺三零…”），改为“只说对方报的那串号码的后四位，或者只说开头几位……问到你自己的卡号、尾号、手机号、验证码，就说找不到、记不清、要去翻一下，不报号码”。`voice/llm_ab.py` 新增数字泄露指标（`digit_leak_replies` / `digit_leak_calls` / `digit_leak_hits`：回复里出现提示词例子的数字串，含汉字写法，且对方没先说过），7 个场景末尾各加一句让人设报尾号的话（`--no-digit-probes` 关掉）。qwen3.7-flash 20 通：数字泄露 9/20 → 0/20，句子带「…」56.4% → 48.5%，第一句抢着反问 1/20 → 1/20，抢话 1/18 → 0/18。新增 `voice/tests/test_digit_leak.py`；docs/LLM_AB.md 补 #73 一节。
 - 文档（Refs #30）：Discussions 分类「诈骗话术线索」显示名改为英文 Scam Script Leads（描述仍为中文），slug 变为 `scam-script-leads`，因为中文 slug 下发帖表单模板不生效；模板 git mv 为 `.github/DISCUSSION_TEMPLATE/scam-script-leads.yml`（只改首行注释）；docs/GROWTH.md 同步路径、分类链接与 slug 说明，并写明分类名不要改回中文。
 - 文档（Refs #30）：Discussions 发帖模板按已核对的分类 slug 改名为 `.github/DISCUSSION_TEMPLATE/诈骗话术线索.yml`（内容不变，只改首行注释）；docs/GROWTH.md 改为新路径并附分类链接，slug 核对与分类调整标为已完成，记下置顶欢迎帖 #69。

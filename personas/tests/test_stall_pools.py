@@ -2,8 +2,6 @@ import re
 
 import pytest
 
-yaml = pytest.importorskip("yaml")
-
 from personas import prompt as P  # noqa: E402
 
 EMOJI = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")
@@ -11,7 +9,7 @@ EMOJI = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")
 
 @pytest.mark.parametrize("pid", P.PERSONA_IDS)
 def test_stall_pools(pid):
-    pools = P.load(pid)["stall_pools"]
+    pools = P.load(pid)["stallPools"]
     for k in ("secrecy", "loan_stall"):
         lines = pools[k]
         assert len(set(lines)) == len(lines) >= 12, (pid, k)

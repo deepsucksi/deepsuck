@@ -145,7 +145,7 @@ for (const sc of S.SCENARIOS) for (const p of P.PERSONAS) SESSIONS.push({ scenar
 SESSIONS.push({ scenario: 'police', persona: 'wang', seed: 11, lines: ['把钱转到卡号 六二二二 零二零二 零零一一', '呃 二二三三 四四五，户名王某某', '有事打 一三九 零零一一', '二二三三', '记住了吗'] });
 SESSIONS.push({ scenario: 'refund', persona: 'wang', seed: 21, lines: ['卡号是 6221887154833655', '995，户名王某某', '房问号 199', '0069 7308 是同事的工好'] });
 SESSIONS.push({ scenario: 'refund', persona: 'lin', seed: 22, lines: ['卡号是 622', '1887154833655995，户名王某某', '电话一三九零零一一二二三三两小时后再打'] });
-SESSIONS.push({ scenario: 'police', persona: 'li', seed: 7, lines: ['我是公安局的', '你涉嫌洗钱', '马上把验证码发我', '不要告诉任何人', '转到安全账户', '你听不懂吗？', '快点', '再不配合就逮捕你'] });
+SESSIONS.push({ scenario: 'police', persona: 'zheng', seed: 7, lines: ['我是公安局的', '你涉嫌洗钱', '马上把验证码发我', '不要告诉任何人', '转到安全账户', '你听不懂吗？', '快点', '再不配合就逮捕你'] });
 
 // ---- 真人化（humanize）：JS 与 Python personas/humanize 逐字一致（一个实例 = 一场对话，按顺序调用） ----
 const HZ_DIGIT_LINES = ['好的，卡号尾号3454对吧？我记下了。', '你说转5000块到6222020200112233445是吧，我找找笔。', '那个网址 refund-tb.example 我打不开啊，你再发一遍？',
@@ -162,7 +162,7 @@ function hzLines(pid) {
 function buildHumanize() {
   const ctxs = S.SCENARIOS.map((sc) => sc.samples).reduce((a, b) => a.concat(b), []);
   const configs = [];
-  for (const prof of ['retiree', 'mom', 'graduate', 'shop_owner', 'wang', 'li', 'lin']) {
+  for (const prof of ['retiree', 'mom', 'graduate', 'shop_owner'].concat(P.PERSONAS.map((p) => p.id))) {
     for (const hw of [false, true]) configs.push({ profile: prof, handwriting: hw });
   }
   configs.push({ intensity: 0.5 }, { intensity: 1.0, mode: 'voice', dialect: '西南' }, { intensity: 0.8, mode: 'chat', dialect: '东北', keep: ['周伯'] },
@@ -170,7 +170,8 @@ function buildHumanize() {
   const cases = [];
   configs.forEach((cfg, ci) => {
     for (const sd of [1, 2]) {
-      const pid = ['wang', 'li', 'lin'].indexOf(cfg.profile) >= 0 ? cfg.profile : (ci % 3 === 0 ? 'wang' : ci % 3 === 1 ? 'li' : 'lin');
+      const ids = P.PERSONAS.map((p) => p.id);
+      const pid = ids.indexOf(cfg.profile) >= 0 ? cfg.profile : ids[ci % ids.length];
       const h = new HZ.Humanizer(Object.assign({}, cfg, { seed: sd * 7919 + ci }));
       const turns = hzLines(pid).map(([t, intent], i) => {
         const ctx = ctxs[(i * 5 + sd + ci) % ctxs.length];

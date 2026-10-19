@@ -5,7 +5,7 @@ from deepsuck import Session, extract_sensitive, redact_text, extract
 
 
 def test_report_never_leaks_raw():
-    s = Session("police", "li")
+    s = Session("police", "zheng")
     s.reply("把钱转到 六二二二 零二零二 零零一一 二二三三 四四五，有问题打 幺三九 零零幺幺 二二三三")
     s.end()
     js = json.dumps(s.report(), ensure_ascii=False)

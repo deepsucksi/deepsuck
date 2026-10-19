@@ -20,12 +20,48 @@
       if (c.limits) $("limits").textContent = `公开体验限制：每局最长 ${c.limits.maxMinutes} 分钟 / ${c.limits.maxTurns} 轮，同时最多 ${c.limits.maxSessions} 路通话` +
         (c.budget && c.budget.capCny ? `；今日额度已用 ${c.budget.usedPct}%` : "") + "。";
       if (c.budget && c.budget.exhausted) { setStatus("bad", "今日语音体验额度已用完"); $("call").disabled = true; return; }
-      $("persona").innerHTML = c.personas.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+      renderCast(c.personas, c.aliases || {});
       $("scenario").innerHTML = c.scenarios.map((s) => `<option value="${s.id}">${esc(s.title)}</option>`).join("");
       // 页面不显示模型、厂商、技术栈名；服务端配置问题见 voice/README.md「需要什么」
       if (c.keyConfigured) setStatus("ok", "就绪");
       else { setStatus("bad", "语音服务暂不可用"); $("call").disabled = true; err("语音服务暂时无法通话，请稍后再来。"); }
     } catch (e) { setStatus("bad", "无法连接服务"); }
+  }
+
+  // 人设：与首页同样的序号、身份和头像（/api/config 的 no / role / photo）；?persona=<id> 直接选中对应人设
+  let persona = "";
+  function pickPersona(id) {
+    persona = id;
+    document.querySelectorAll(".cast-member").forEach((b) => {
+      const on = b.dataset.persona === id;
+      b.setAttribute("aria-checked", String(on));
+      b.tabIndex = on ? 0 : -1;
+    });
+  }
+  function renderCast(list, retired) {
+    const box = $("persona");
+    box.querySelectorAll(".cast-member").forEach((b) => b.remove());
+    list.forEach((p) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "cast-member"; b.dataset.persona = p.id;
+      b.setAttribute("role", "radio"); b.setAttribute("aria-checked", "false");
+      b.setAttribute("aria-label", `${p.no} ${p.role} ${p.name}`);
+      b.innerHTML = `<span class="cast-photo"><img src="${esc(p.photo)}" alt="" width="400" height="500" loading="lazy" decoding="async"></span>` +
+        `<span class="cast-label"><span class="cast-num">${esc(p.no)}</span><b>${esc(p.role)}</b></span><span class="cast-name">${esc(p.name)}</span>`;
+      b.addEventListener("click", () => pickPersona(p.id));
+      box.appendChild(b);
+    });
+    box.onkeydown = (e) => {
+      const i = list.findIndex((p) => p.id === persona), d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!d || i < 0) return;
+      e.preventDefault();
+      const next = list[(i + d + list.length) % list.length].id;
+      pickPersona(next);
+      box.querySelector(`[data-persona="${next}"]`).focus();
+    };
+    let want = new URLSearchParams(location.search).get("persona") || "";
+    if (Object.prototype.hasOwnProperty.call(retired, want)) want = retired[want];
+    pickPersona(list.some((p) => p.id === want) ? want : (list[0] && list[0].id) || "");
   }
 
   function addMsg(role, text, extra) {
@@ -197,7 +233,7 @@
       $("log").innerHTML = "";
       hideTrace();
       try {
-        await negotiate({ persona: $("persona").value, scenario: $("scenario").value, consent: consentOn() });
+        await negotiate({ persona, scenario: $("scenario").value, consent: consentOn() });
       } catch (e) {
         err("无法开始通话：" + e.message); report("offer_failed", String(e.message || "").slice(0, 120)); setConn("failed"); stop(true); return;
       }

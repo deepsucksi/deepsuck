@@ -16,7 +16,7 @@ from .core import utf16_len
 from . import extractors as X
 from . import redact as R
 from . import tactics as T
-from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL
+from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, resolve_persona_id
 
 REPORT_SCHEMA = "deepsuck.intel-report/v0.1"
 VERSION = "0.4.0"
@@ -59,7 +59,7 @@ class Session:
                  rng: Optional[Callable[[], float]] = None, now: Optional[Callable[[], float]] = None,
                  engine: str = "rule"):
         self.scenario = SCENARIO_BY_ID.get(scenario) or SCENARIOS[0]
-        self.persona = PERSONA_BY_ID.get(persona) or PERSONAS[0]
+        self.persona = PERSONA_BY_ID.get(resolve_persona_id(persona)) or PERSONAS[0]
         self.rng = rng or random.random
         self.now = now or (lambda: time.time() * 1000)
         self.engine_name = engine

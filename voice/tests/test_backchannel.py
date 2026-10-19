@@ -32,7 +32,7 @@ FILL = {"嗯……": LOUD, "啊？": LOUD, "你说啥？": LOUD}
 # ---------------- 清单与规则 ----------------
 
 def test_each_persona_has_6_to_10_short_lines():
-    for pid in ("wang", "li", "lin"):
+    for pid in ("wang", "chen", "lin", "zheng"):
         lines = FILLERS[pid]
         assert 6 <= len(lines) <= 10 and len(set(lines)) == len(lines)
         assert all(len(x) <= 8 for x in lines)
@@ -120,16 +120,16 @@ def test_synth_fillers_trims_caches_in_memory_and_uses_data_dir(tmp_path, monkey
         calls.append(text)
         yield b"\x00\x00" * 7200 + LOUD  # 0.3s 静音开头，像 CosyVoice 的真实输出
 
-    got = asyncio.run(synth_fillers("li", "longlaobo_v3", 24000, synth=synth))
-    assert set(got) == set(FILLERS["li"]) and len(calls) == len(FILLERS["li"])
+    got = asyncio.run(synth_fillers("lin", "longanyang", 24000, synth=synth))
+    assert set(got) == set(FILLERS["lin"]) and len(calls) == len(FILLERS["lin"])
     assert all(len(v) < len(LOUD) + 4800 for v in got.values())  # 开头静音被裁掉
     d = tmp_path / "voice" / "fillers"
-    assert len(list(d.glob("longlaobo_v3-24000-*.pcm"))) == len(FILLERS["li"])
+    assert len(list(d.glob("longanyang-24000-*.pcm"))) == len(FILLERS["lin"])
     for f in d.iterdir():
         f.unlink()
-    again = asyncio.run(synth_fillers("li", "longlaobo_v3", 24000, synth=synth, cached_only=True))
-    assert again == got and len(calls) == len(FILLERS["li"])  # 内存缓存，不再调用 TTS
-    other_rate = asyncio.run(synth_fillers("li", "longlaobo_v3", 16000, synth=synth, cached_only=True))
+    again = asyncio.run(synth_fillers("lin", "longanyang", 24000, synth=synth, cached_only=True))
+    assert again == got and len(calls) == len(FILLERS["lin"])  # 内存缓存，不再调用 TTS
+    other_rate = asyncio.run(synth_fillers("lin", "longanyang", 16000, synth=synth, cached_only=True))
     assert other_rate == {}  # 按采样率区分
 
 
@@ -376,28 +376,29 @@ def test_profile_backchannel_delay_env():
     assert get_profile("phone", {"DEEPSUCK_PHONE_LAT_BACKCHANNEL_DELAY_MS": "120"}).backchannel_delay_ms == 120
 
 
-# ---------------- 数据源：personas/voice_traits.yaml ----------------
+# ---------------- 数据源：site/assets/core/personas.json 的 voiceTraits ----------------
 
-ONLINE_FIRST8 = {  # ccca71b 线上的口头语；音频缓存按文本区分，留下的这几条不能改字（王阿姨删去“哎哟……”，李大爷删去“大点声……”）
+ONLINE_FIRST8 = {  # ccca71b 线上的口头语；音频缓存按文本区分，留下的这几条不能改字（王阿姨删去“哎哟……”）
     "wang": ["嗯……", "啊？", "哎……", "你说啥？", "等一下啊……", "我听听啊……", "哦……"],
-    "li": ["啊？", "嗯？", "啥？", "你说啥？", "哦……", "等会儿……", "嗯……"],
-    "lin": ["呃……", "嗯嗯", "啊？", "等下哈", "哦哦", "啊这……", "嗯……我想想", "诶？"],
+    "lin": ["呃……", "嗯嗯", "啊？", "等下哈", "哦哦", "啊这……", "嗯……我想想", "诶？"],  # 与上线版本一致
 }
 
 
-def test_fillers_come_from_voice_traits_yaml_and_keep_online_lines():
+def test_fillers_come_from_personas_json_and_keep_online_lines():
     from personas.voice_traits import fillers
     assert FILLERS == fillers()
     for pid, lines in ONLINE_FIRST8.items():
         assert FILLERS[pid][:len(lines)] == lines
 
 
-def test_load_fillers_direct_yaml_and_missing_file(tmp_path):
+def test_load_fillers_direct_json_and_missing_file(tmp_path):
+    import json
     from voice.persona import load_fillers
-    f = tmp_path / "t.yaml"
-    f.write_text("personas:\n  wang:\n    backchannel: ['嗯……', '啊？']\n", encoding="utf-8")
+    f = tmp_path / "p.json"
+    f.write_text(json.dumps({"personas": [{"id": "wang", "voiceTraits": {"backchannel": ["嗯……", "啊？"]}},
+                                          {"id": "x"}]}, ensure_ascii=False), encoding="utf-8")
     assert load_fillers(f) == {"wang": ["嗯……", "啊？"]}
-    assert load_fillers(tmp_path / "nope.yaml") == {}
+    assert load_fillers(tmp_path / "nope.json") == {}
 
 
 def test_new_yaml_lines_synthesized_on_first_use_old_cache_kept(tmp_path):

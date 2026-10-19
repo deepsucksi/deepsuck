@@ -55,9 +55,10 @@ def test_scenario_specific_lines_are_conditional():
 
 
 def test_offtopic_misunderstandings_only_on_topic():
-    """订牛奶、居委会、寄东西、发鸡蛋这类误解只在相关话题下出现（第二轮重测里被当成答非所问）。"""
-    for pid, bad in (("li", "订牛奶"), ("li", "居委会"), ("wang", "菜鸟驿站"), ("wang", "发鸡蛋")):
+    """寄东西、发鸡蛋、进货这类误解只在相关话题下出现（第二轮重测里被当成答非所问）。
+    原李大爷的“订牛奶 / 居委会”句随人设归档（personas/archive/li.json）。"""
+    for pid, bad in (("wang", "菜鸟驿站"), ("wang", "发鸡蛋"), ("zheng", "订的那批货"), ("zheng", "商户发的"), ("chen", "接龙团购")):
         s = Session("police", pid, rng=lambda: 0.0, now=lambda: 0)
         for _ in range(15):
             assert bad not in s.pick("misunderstand", "你涉嫌洗钱，马上把钱转到安全账户配合调查")
-    assert "订牛奶" in Session("refund", "li", rng=lambda: 0.0, now=lambda: 0).pick("misunderstand", "您的会员要自动续费了")
+    assert "进货押金" in Session("refund", "zheng", rng=lambda: 0.0, now=lambda: 0).pick("misunderstand", "您的会员要自动续费了")

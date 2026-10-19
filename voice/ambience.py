@@ -18,7 +18,22 @@ import numpy as np
 
 DIR = Path(__file__).resolve().parent / "assets" / "ambience"
 SOUNDS = {"kitchen": DIR / "kitchen.ogg", "street": DIR / "street.ogg", "tv": DIR / "tv.ogg"}
-BY_PERSONA = {"wang": "kitchen", "li": "tv", "lin": "street"}
+DEFAULT_SOUND = "kitchen"
+
+
+def _suggested() -> dict:
+    """personas.json 每个人设的 ambience（建议底噪名）。只采用 SOUNDS 里已有素材的名字：
+    小陈妈妈 living_room、郑老板 shop 的素材要等负责人试听通过后由语音工程师加进 SOUNDS，在此之前退回默认底噪。"""
+    import json
+    try:
+        core = Path(__file__).resolve().parents[1] / "site" / "assets" / "core" / "personas.json"
+        data = json.loads(core.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return {}
+    return {p["id"]: p["ambience"] for p in data.get("personas", []) if p.get("ambience") in SOUNDS}
+
+
+BY_PERSONA = _suggested()  # 现为 {"wang": "kitchen", "lin": "street"}；王阿姨的厨房底噪是已批准的质量线，不要改
 DEFAULT_VOLUME = 0.2
 _OFF = ("0", "off", "false", "no", "none", "")
 
@@ -30,7 +45,7 @@ def choose(persona_id: str, env: Optional[str] = None) -> Optional[str]:
         return None
     if v in SOUNDS:
         return v
-    return BY_PERSONA.get(persona_id, "kitchen")
+    return BY_PERSONA.get(persona_id, DEFAULT_SOUND)
 
 
 def volume() -> float:

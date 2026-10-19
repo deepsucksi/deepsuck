@@ -2,7 +2,7 @@
 
 > 仅供防诈研究与教育：**只在浏览器里自己扮演骗子**，不要接入电话网络、不要拨打或接听任何真实号码。
 
-一个本地跑的级联语音管线：你对着浏览器麦克风扮演骗子，DeepSuck 用"王阿姨/李大爷/小林"的声音陪你周旋，同时在看板上实时显示抽取到的（已脱敏）情报、识别出的话术和本轮策略。
+一个本地跑的级联语音管线：你对着浏览器麦克风扮演骗子，DeepSuck 用四位人设（王阿姨 / 小陈妈妈 / 小林 / 郑老板，与首页同一组编号、身份和头像）的声音陪你周旋，同时在看板上实时显示抽取到的（已脱敏）情报、识别出的话术和本轮策略。
 
 ```
 浏览器麦克风 ──SmallWebRTC──▶ Paraformer 实时 ASR ──▶ IntelProcessor ──▶ qwen3.7-flash ──▶ 输出守卫 ──▶ CosyVoice TTS ──SmallWebRTC──▶ 浏览器扬声器
@@ -58,7 +58,9 @@ python -m voice.app                 # 打开 http://localhost:7860
 | `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用 qwen-plus → CosyVoice → Paraformer 的冒烟测试 |
 | `telephony/` | 电话接入抽象层（默认关闭）：`TelephonyAdapter` 基类 + 注册表，`ws-raw` 通用 SIP/WebSocket 适配器、`pipecat-ws`（Twilio/Telnyx/Plivo/Exotel）；阿里云呼入适配器设计稿。见 [telephony/README.md](telephony/README.md) |
 
-人设音色：王阿姨 `longlaoyi_v3`（龙老姨），李大爷 `longlaobo_v3`（龙老伯），小林 `longanyang`。
+人设音色：王阿姨 `longlaoyi_v3`（龙老姨），小林 `longanyang`。小陈妈妈、郑老板的音色等负责人试听后再定，在此之前用默认音色 `longlaoyi_v3`，见下文“新人设音色与底噪（待语音工程师接手）”。
+
+人设选项：页面按 `/api/config` 的 `personas`（`id`、`no`、`role`、`name`、`photo`）渲染成与首页一样的头像卡片；`?persona=<id>` 直达某个人设，首页卡片的“体验”链接就带这个参数。别名按 `aliases` 解析：`li`（已下线）→ `wang`，`xiaochen` / `mom` → `chen`，`shop_owner` → `zheng`。
 
 设计音色（可选）：CosyVoice 支持按一段文字描述生成专属音色，生成的音色只属于你自己的百炼账号。
 `python -m voice.design_voice wang --preview wang.wav` 会生成王阿姨的设计音色并打印一行 `DEEPSUCK_VOICE_WANG=...`。本地运行（`python -m voice.app`）填进 `voice/.env`；用 `deploy/` 的 Docker Compose 自托管时填进 `deploy/.env`（compose 的 voice 服务只读 `deploy/.env`，改完 `docker compose up -d` 重建容器）；
@@ -130,7 +132,23 @@ python -m pytest voice/tests -q    # 全部用假 WebSocket，不联网、不需
 ## 断续停顿与环境底噪
 
 - **断续停顿**：回复里的「…」不再读成逗号，而是当停顿。流式 TTS 遇到以「…」结尾的分句，就把这一句单独合成，结束后插 300 到 900 毫秒的随机静音，再接下一句。每个回合的第一句走原来的路径，所以首包延迟不变。`DEEPSUCK_PAUSE_MS=300-900` 调范围，`DEEPSUCK_PAUSES=0` 关闭（省略号退回读成逗号）。CosyVoice 的 SSML `<break>` 要求整段文字一次发完，没法边生成边合成，所以没有用它。
-- **环境底噪**：`voice/ambience.py` 按人设给发出去的音频混一层低音量循环底噪：王阿姨是厨房，李大爷是隔壁屋电视，小林是街道。网页通话和 SIP 电话都会混。底噪只加在发给对方的音频上，不进 ASR，也不影响打断。`DEEPSUCK_AMBIENCE=0` 关闭，填 `kitchen`、`street` 或 `tv` 可以强制用某一段；`DEEPSUCK_AMBIENCE_VOLUME` 调音量，默认 0.2，大约比说话低 28 dB。素材出处和授权见 `voice/assets/ambience/SOURCES.md`。
+- **环境底噪**：`voice/ambience.py` 按人设给发出去的音频混一层低音量循环底噪：王阿姨是厨房，小林是街道；小陈妈妈、郑老板的建议底噪写在 `personas.json` 的 `ambience`（`living_room`、`shop`），素材批准前用默认的厨房。网页通话和 SIP 电话都会混。底噪只加在发给对方的音频上，不进 ASR，也不影响打断。`DEEPSUCK_AMBIENCE=0` 关闭，填 `kitchen`、`street` 或 `tv` 可以强制用某一段；`DEEPSUCK_AMBIENCE_VOLUME` 调音量，默认 0.2，大约比说话低 28 dB。素材出处和授权见 `voice/assets/ambience/SOURCES.md`。
+
+## 新人设音色与底噪（待语音工程师接手）
+
+#11 把人设统一成四位，数据都在 `site/assets/core/personas.json`。王阿姨的说话风格、音色和厨房底噪是已批准的质量线，不动。小陈妈妈（`chen`）和郑老板（`zheng`）的文字部分已上线，音色和底噪要等负责人试听后再上：
+
+| 字段 / 位置 | 小陈妈妈 `chen` | 郑老板 `zheng` | 说明 |
+| --- | --- | --- | --- |
+| `personas.json` → `ambience` | `living_room` | `shop` | 建议底噪名。`voice/ambience.py` 只采用 `SOUNDS` 里已有的名字，没有素材时退回 `DEFAULT_SOUND`（厨房） |
+| `personas.json` → `voiceHint` | 见文件 | 见文件 | 建议音色描述（性别、语速、口音），供挑系统音色或用 `voice.design_voice` 设计音色 |
+| `personas.json` → `voiceTraits` | 已填 | 已填 | 口头语 `backchannel`、听错反问、语速与停顿；`voice/persona.py` 运行时读取 |
+| `personas.json` → `voiceStyle` / `voiceShots` | 已填 | 已填 | 语音线说话风格与 15 条示范句，照王阿姨的标准写 |
+| 环境变量 | `DEEPSUCK_VOICE_CHEN` | `DEEPSUCK_VOICE_ZHENG` | 试听用，不改代码就能换音色（同样支持 `_MODEL`、`_INSTRUCTION`） |
+| `voice/dashscope_ws.py` → `PERSONA_VOICES` | 未设 | 未设 | 试听通过后把选定音色写进来；未设时用 `DEFAULT_VOICE` |
+| `voice/ambience.py` → `SOUNDS` | 加 `living_room` | 加 `shop` | 素材放 `voice/assets/ambience/`，24 kHz 单声道 Ogg，-26 dBFS RMS，出处写进 `SOURCES.md` |
+
+上线顺序：语音工程师准备音色和素材 → 负责人试听 → 写进 `PERSONA_VOICES` 与 `SOUNDS` → 部署。
 
 ## 通话追踪与问题反馈
 

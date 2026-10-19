@@ -1,43 +1,69 @@
-"""读取 personas/prompts/*.yaml，拼出完整的系统提示词（需要 PyYAML）。
+"""人设系统提示词（大模型模式 / 评测用）。数据唯一来源：site/assets/core/personas.json
+（每个人设的 ``prompt`` 字段 + 顶层 ``promptRules``）；不需要 PyYAML。
 
-    python -m personas.prompt retiree        # 打印周伯的完整系统提示词
+    python -m personas.prompt wang        # 打印王阿姨的完整系统提示词
 """
 from __future__ import annotations
 
+import json
 import sys
-from pathlib import Path
 from typing import Dict, List
 
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-PERSONA_IDS = ("retiree", "mom", "graduate", "shop_owner")
+from .humanize.confusion import _core_path
+
+_D = json.loads(_core_path().read_text(encoding="utf-8"))
+PERSONA_IDS = tuple(p["id"] for p in _D["personas"])
+_BY_ID = {p["id"]: p for p in _D["personas"]}
 
 
-def _yaml():
-    try:
-        import yaml  # type: ignore
-    except ImportError as e:  # pragma: no cover
-        raise ImportError("personas.prompt 需要 PyYAML：pip install pyyaml") from e
-    return yaml
+def _texts(lst) -> List[str]:
+    """模板文本（含带 when 条件的句子），去重保序。"""
+    out: List[str] = []
+    for x in lst:
+        t = x if isinstance(x, str) else x.get("t", "")
+        if t and t not in out:
+            out.append(t)
+    return out
 
 
 def load(persona_id: str) -> Dict:
-    with open(PROMPTS_DIR / f"{persona_id}.yaml", encoding="utf-8") as f:
-        return _yaml().safe_load(f)
+    """一个人设的提示词资料（prompt 字段），附带 id / name / role / humanize_profile 与拖延句池（取自 templates）。"""
+    p = _BY_ID[persona_id]
+    out = dict(p["prompt"])
+    out.update({"id": p["id"], "name": p["name"], "role": p["role"],
+                "humanize_profile": (p.get("humanize") or {}).get("profile"),
+                "stallPools": {k: _texts(p["templates"][k]) for k in ("secrecy", "loan_stall")}})
+    return out
 
 
 def common_rules() -> List[str]:
-    return load("_common")["rules"]
+    return list(_D["promptRules"])
 
 
 def system_prompt(persona_id: str, scenario_hint: str = "") -> str:
     p = load(persona_id)
     rules = "\n".join(f"{i}. {r}" for i, r in enumerate(common_rules(), 1))
-    parts = [p["system_prompt"].strip()]
+    parts = [p["systemPrompt"].strip()]
     if scenario_hint:
         parts.append(f"当前场景：{scenario_hint}")
     parts.append("硬性规则：\n" + rules)
     return "\n".join(parts)
 
 
+def reply_pool(persona_id: str) -> List[str]:
+    """人设原句池（评测 / 错字率校准用）：sampleLines + elicitMoves（去掉句末分号）+ secrecy / loan_stall 拖延句，去重保序。"""
+    import re
+    p = load(persona_id)
+    pool = list(p["sampleLines"]) + [re.sub(r"[；;]\s*$", "", x) for x in p["elicitMoves"]]
+    for lines in p["stallPools"].values():
+        pool += lines
+    out, seen = [], set()
+    for x in pool:
+        if x and x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+
 if __name__ == "__main__":
-    print(system_prompt(sys.argv[1] if len(sys.argv) > 1 else "retiree", " ".join(sys.argv[2:])))
+    print(system_prompt(sys.argv[1] if len(sys.argv) > 1 else PERSONA_IDS[0], " ".join(sys.argv[2:])))

@@ -3,7 +3,7 @@
 改写前 = 首页原版 3 段（王阿姨 / 小林 / 李大爷），固定在 corpus/examples/hero_before.json
 （从 git 历史 420a81f 的 hero-chat.js 取出；网站后来换成了改写版，所以不再读 hero-chat.js 的当前内容，
 当前 hero-chat.js 只用于检查 SCRIPTS 的字段名）；
-改写后 = 新人设（personas/prompts/*.yaml）+ 话术库（corpus/scripts/*.yaml）重写骗子与被骗两侧台词，
+改写后 = 当时的新人设（v0 评测人设，原 personas/prompts/*.yaml，现归档在 personas/archive/prompts-v0.json）+ 话术库（corpus/scripts/*.yaml）重写骗子与被骗两侧台词，
 再用 personas.humanize 以固定随机种子做真人化。输出的 after 段按 hero-chat.js 的 SCRIPTS 结构：
 title（「诈骗类型 · 人设名」）、source（来源类型，如「据公开反诈宣传改写」；SCRIPTS 现有代码不读这个字段）、
 lines（每条 r = 骗子 或 s = 人设 二选一，可选 t = 话术标签、i = 已打码的情报、w = 估算拖住秒数）；
@@ -159,7 +159,8 @@ def validate_script(sc: dict) -> list:
     return errs
 
 
-# 人设 id → 展示名（与 personas/prompts/*.yaml 的 name 一致；测试会核对）
+# 人设 id → 展示名：这份改写对比是 v0 评测人设时期做的，名字与归档 personas/archive/prompts-v0.json 一致（测试会核对）；
+# 现行人设见 site/assets/core/personas.json（首页与本例的“周伯”不同，已统一为王阿姨），这里保留历史原样
 P_NAMES = {"retiree": "周伯", "mom": "小陈妈妈", "graduate": "小宇", "shop_owner": "郑老板"}
 
 KEEP = ["王总", "小宇", "张警官", "星辰任务", "王**", "赵**", "孙**", "警察同志"]

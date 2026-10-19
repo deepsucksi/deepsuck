@@ -56,7 +56,7 @@
       return '<button class="opt' + (s.id === state.scenario ? ' on' : '') + '" data-sc="' + s.id + '">' + esc(tr(s.title)) + '</button>';
     }).join('');
     $('personaOpts').innerHTML = D.personas.PERSONAS.map(function (p) {
-      return '<button class="opt' + (p.id === state.persona ? ' on' : '') + '" data-pe="' + p.id + '">' + esc(tr(p.name)) + '<small>' + esc(tr(p.tagline)) + '</small></button>';
+      return '<button class="opt' + (p.id === state.persona ? ' on' : '') + '" data-pe="' + p.id + '">' + esc(p.no + ' ' + tr(p.name)) + '<small>' + esc(tr(p.role)) + '</small></button>';
     }).join('');
     var sc = D.scenarios.BY_ID[state.scenario];
     $('samples').innerHTML = '<span class="note" style="flex:none;align-self:center">' + L('样例：', 'Samples:') + '</span>' + sc.samples.map(function (l, i) {
@@ -452,6 +452,7 @@
 
   loadSettings();
   if (!D.scenarios.BY_ID[state.scenario]) state.scenario = 'refund';
+  state.persona = D.personas.resolveId(state.persona);
   if (!D.personas.BY_ID[state.persona]) state.persona = 'wang';
   newSession();
   probeProxy();

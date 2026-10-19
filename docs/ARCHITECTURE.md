@@ -70,7 +70,7 @@ flowchart LR
 
 ## 已知风险（2026-10 审计）
 
-1. 人设双轨：线上用 `core/personas.json`（wang / li / lin），评测与语料用 `personas/prompts/*.yaml`（retiree 等），评测结论不能直接代表线上（#11）。
+1. ~~人设双轨~~（#11 已解决）：人设只有一份数据 `core/personas.json`（wang / chen / lin / zheng，与首页四张卡片一一对应），评测与语料都从它读；`tests/personas_unify.test.js` 与 `voice/tests/test_personas_unify.py` 核对首页、体验页、评测三处的人设集合一致。
 2. `voice/app.py` 职责过多：入口、配置、ICE、管线组装、预热、留存调度都在里面；`telephony/server.py` 反向 `import app`；靠改 `sys.path` 引入 `deepsuck`（#12）。
 3. Pipecat 1.12 的 `PipelineTask`/`PipelineRunner` 与上下文内 system 消息已弃用（锁定 `<2`），FastAPI `on_event` 已弃用（#9）。
 4. 配置散落：约 80 个环境变量在多个模块各自读取，两份 `.env.example`，启动时不校验（#13）。

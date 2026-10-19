@@ -31,7 +31,7 @@
   function Session(opts) {
     opts = opts || {};
     this.scenario = D.scenarios.BY_ID[opts.scenario] || D.scenarios.SCENARIOS[0];
-    this.persona = D.personas.BY_ID[opts.persona] || D.personas.PERSONAS[0];
+    this.persona = D.personas.BY_ID[D.personas.resolveId ? D.personas.resolveId(opts.persona) : opts.persona] || D.personas.PERSONAS[0];
     this.rng = opts.rng || Math.random;
     this.now = opts.now || function () { return Date.now(); };
     this.engineName = opts.engine || 'rule';

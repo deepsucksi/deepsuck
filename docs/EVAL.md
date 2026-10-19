@@ -551,7 +551,7 @@ python eval/realism_blind.py score --key eval/realism/key.json --judge llm --jud
 ```bash
 python eval/llm_scammer.py                                   # 估算（缓存感知），不调用
 python eval/llm_scammer.py --run --json eval/results-llm-scammer.json --md out.md [--transcripts t.jsonl]
-python eval/llm_scammer.py --run --seeds 1 --max-turns 15 --scenarios police,boss --personas li   # 调低规模
+python eval/llm_scammer.py --run --seeds 1 --max-turns 15 --scenarios police,boss --personas zheng   # 调低规模
 ```
 
 - **骗子**：系统提示取自 `site/assets/core/scam_scripts.json` 中与模拟器同一类型的条目（`SCENARIO_TYPE` 映射，campus 取 `variant=campus`），按「开场、建立信任、施压、索要、收款指令」五个阶段，每阶段从**同一类型、同一阶段**按种子抽 2 句示例（与规则骗子同一批台词，挂断率可以直接对比），加上该类型的施压手法；收款信息是 `sim.plant()` 生成的虚构值（`.example` 域名）。要求它像真骗子一样推进、施压，觉得对方是机器人或在消遣自己时输出结构化挂断信号：`hangup_type`（bot / trolling / not_worth）、`category`（重复、模板腔、答非所问、拖延太明显、反套话、前后矛盾、说话别扭、其他）、`evidence`（让它起疑的那句回复）、`reason`。提示里告诉骗子“对方可能是反诈机器人或在消遣你”，所以它比一般骗子更警觉，结果偏严；

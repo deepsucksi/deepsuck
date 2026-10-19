@@ -20,11 +20,11 @@ def test_speakable_reads_masked_tail_digitwise():
 
 
 def test_fillers_for_every_persona():
-    assert set(FILLERS) >= {"wang", "li", "lin"}
+    assert set(FILLERS) == {"wang", "chen", "lin", "zheng"}
 
 
-def test_voice_openings_from_traits_yaml():
-    """接电话的那一声从 personas/voice_traits.yaml 读取（#47），内容与之前手写的一致。"""
+def test_voice_openings_from_personas_json():
+    """接电话的那一声从 personas.json 的 voiceTraits.opening 读取（#47 / #11），王阿姨、小林与之前手写的一致。"""
     from voice.persona import VOICE_OPENINGS
 
-    assert VOICE_OPENINGS == {"wang": ["喂？…哪位啊"], "li": ["喂，哪位？"], "lin": ["喂？你好，哪位呀"]}
+    assert VOICE_OPENINGS == {"wang": ["喂？…哪位啊"], "chen": ["喂？…你说"], "lin": ["喂？你好，哪位呀"], "zheng": ["喂，哪个？"]}

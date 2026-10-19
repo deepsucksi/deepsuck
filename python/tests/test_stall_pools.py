@@ -30,7 +30,7 @@ def test_pools_on_stall_rotation_chain():
 
 
 def test_exhausted_pool_rotates_instead_of_repeating():
-    s = Session("loan", "li", rng=lambda: 0.0, now=lambda: 0)
+    s = Session("loan", "zheng", rng=lambda: 0.0, now=lambda: 0)
     n = len([x for x in s.persona["templates"]["secrecy"] if isinstance(x, str)])
     seen = [s.pick(s.fresh_intent("secrecy"), "别告诉家人") for _ in range(n + 4)]
     assert len(seen) == len(set(seen))

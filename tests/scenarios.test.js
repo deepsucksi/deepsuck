@@ -56,7 +56,7 @@ test('情境模板：对方没提"流水/冻结"时不会冒出相关接话', ()
 });
 
 test('同一意图模板不连续重复', () => {
-  const s = new E.Session({ scenario: 'task', persona: 'li', rng: seeded(3) });
+  const s = new E.Session({ scenario: 'task', persona: 'zheng', rng: seeded(3) });
   const seen = [];
   for (let i = 0; i < 3; i++) seen.push(s.pick('generic', ''));
   assert.equal(new Set(seen).size, 3);

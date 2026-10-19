@@ -24,11 +24,14 @@
   });
   var BY_ID = {};
   PERSONAS.forEach(function (p) { BY_ID[p.id] = p; });
+  // 别名 → 人设 id（personas.json 的 aliases：li → wang，xiaochen / mom → chen，shop_owner → zheng）
+  var PERSONA_ALIASES = C.aliases || {};
+  function resolveId(id) { id = String(id || ''); return Object.prototype.hasOwnProperty.call(PERSONA_ALIASES, id) ? PERSONA_ALIASES[id] : id; }
   // 拖延类意图在"骗子侧"估算会额外耗费的等待时间（秒）
   var STALL_SECONDS = C.stallSeconds;
   // 每个意图给大模型的策略提示（llm.js 与 Python voice 端共用）
   var INTENT_HINTS = C.intentHints;
   // 复述情报给骗子听的说法（不念星号）；engine.js speakIntel 使用
   var SPEAK_INTEL = C.speakIntel;
-  return { PERSONAS: PERSONAS, BY_ID: BY_ID, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL };
+  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL };
 });
