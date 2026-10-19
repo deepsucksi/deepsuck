@@ -42,7 +42,7 @@ def test_probe_lines_have_no_digit_runs_after_filter():
 def test_every_form_of_digit_run_is_vague(text):
     out = vague_digits(text)
     assert not echoes(out), (text, out)
-    assert re.search("没听清|开头", out), out
+    assert re.search("没听清|没看清|没记住|开头", out), out
 
 
 @pytest.mark.parametrize("text", ["好像是6开头的", "分期是12期还是24期？", "我刚才那 5 块钱", "两三百块", "等我一下", "一二十分钟吧"])

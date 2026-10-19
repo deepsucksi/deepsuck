@@ -13,7 +13,7 @@ def test_guard_strips_and_masks():
     assert "123456" not in guard_output("验证码是123456")
     # #121：夹着脱敏星号的号码也是一串数字，整串换成含糊说法（不再留开头、尾号）
     assert re.fullmatch("卡号(?:那几个数没听清|那串数没记住|那几位没看清)", guard_output("卡号6222 **** **** 7890"))  # #130：说法轮换
-    assert guard_output("bi***t***.top") == "bi***t***.top"  # 不是数字的打码值不动
+    assert "*" not in guard_output("bi***t***.top")  # #130：打码网址也换成含糊说法（“那个网址”之类），不念星号
 
 
 def test_speakable_never_reads_masked_tail():
