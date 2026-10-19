@@ -9,9 +9,9 @@
 语料与人设提的转账动词用例（期望 name），「卡号是***，户名***」（期望 number + name），#203 姓名回归，姓名单字不露（「*明」「*华」）。
 
 依赖别的 PR 的用例标 xfail(strict=False)，reason 写明依赖哪个 PR（合并顺序 #195 → #214 → 本 PR）：
-- #214：共享核心的新判断（号码词 + 1–3 个星号是 number、转账动词去掉、「户名 / 收款人 / 名下 / 对方叫」后的星号算 name、
-  stars_not_name 顺序）；
-- #195：分段送入（号码词和星号落在两段里）。
+- #214：共享核心的新判断（号码词 + 1–3 个星号是 number、「我在***上班」不当姓名、「卡号是***，户名***」分段判断）；
+- #216：「我在*上班」（main 上就有的多遮，#214 后仍失败）。
+分段送入（号码词 / 姓名锚和星号落在两段里）由本 PR 处理：unmask(prev=…) 按上一段念段首星号，heard_refs 按上一段算（#214 复审）。
 用 `pytest --runxfail voice/tests/test_chain_p0.py` 可以看到这些用例在当前代码上的真实结果。
 """
 import asyncio
@@ -118,25 +118,21 @@ def problems(segs, expect, leak=(), keep=None):
 
 
 # ---- 用例 ----------------------------------------------------------------------------------------------------------
-# 依赖哪个 PR：在 main、main+#195（711d4c9）、main+#214（ba70cdd）、main+#195+#214 上用 --runxfail 逐条实测后定的。
+# 依赖哪个 PR：在本分支、+#195（711d4c9）、+#214（b411fbe）、+#195+#214 上用 --runxfail 逐条实测后定的。
+# 分段送入（号码词和星号落在两段）由本 PR 的 unmask(prev=…) / split_lead_refs 处理，不再依赖 #195。
 DEP_214 = "#214（共享核心：号码词 + 1–3 个星号是 number、「我在***上班」不当姓名、「卡号是***，户名***」按逗号分段判断）"
-DEP_195 = "#195（分段送入：号码词和星号 / 数字落在两段里，heard_refs 要跨段看）"
-DEP_SPLIT_NAME = ("#195 范围的分段送入，但 #195+#214 试合（711d4c9 + ba70cdd）后仍失败：姓名锚 / 转账动词和星号落在两条 "
-                  "user 消息里，IntelProcessor / ContextGuard 逐条 unmask 看不到前一段，念成「那个号」（heard_refs 已是 name）；待另开 issue")
+DEP_216 = ("#216（「我在*上班」：单个星号后跟一个字按宁可多遮当姓名，念「我在那个名字班」；main 上就失败，"
+           "试合 #214 b411fbe 后仍失败，#214 的 fixture 也标了 xfail）")
 _NUMBER_WORDS = ("验证码是", "卡号是", "尾号是", "密码是", "账号是", "手机号是")
-_NAME_SPLIT = ("收款人是", "户名是", "对方叫", "转到", "转给", "汇给", "打到", "转入", "存到")
 
 
 def _depends(group, segs, expect):
-    split = len(segs) > 1
-    if group.startswith("p0") and segs[0].startswith(_NUMBER_WORDS):
-        return DEP_195 if split else DEP_214
-    if group.startswith("p0") and segs[0].startswith("我在"):
+    if group.startswith("p0") and segs[0].startswith(_NUMBER_WORDS) and len(segs) == 1:
         return DEP_214
-    if split and expect == "name" and segs[0] in _NAME_SPLIT and "名下" not in segs[-1]:  # 「**名下」第二段自带姓名语境
-        return DEP_SPLIT_NAME
-    if group.startswith("号码+户名"):
-        return DEP_SPLIT_NAME if len(segs) > 2 else DEP_214
+    if group.startswith("p0") and segs[0].startswith("我在"):
+        return DEP_216 if segs == ["我在*上班"] else DEP_214
+    if group.startswith("号码+户名") and segs[0].startswith("卡号是***"):
+        return DEP_214
     return None
 
 
