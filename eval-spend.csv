@@ -1,2 +1,8 @@
 time,tag,script,model,requests,prompt_tokens,completion_tokens,cost_cny,note
-2026-10-19T14:20:00+08:00,qwen38-baseline-2026-10-19,DashScope 兼容接口冒烟（max_tokens=5）,qwen3.8-flash,2,56,10,0.000072,确认 qwen3.8-flash 可用 ok
+2026-10-19T14:10:00+08:00,qwen38-baseline-2026-10-19,DashScope 兼容接口冒烟（max_tokens=5）,qwen3.8-flash,2,56,10,0.000072,确认 qwen3.8-flash 可用 ok
+2026-10-19T14:13:14+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,735560,17679,0.636181,seeds=2 maxTurns=25 personas=wang scenarios=all ok
+2026-10-19T14:14:40+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm,qwen3.8-flash,120,29539,3981,0.034380,judgeN=60 mode=item seed=1 ok
+2026-10-19T14:17:03+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,702795,17067,0.608317,seeds=2 maxTurns=25 personas=chen scenarios=all ok
+2026-10-19T14:19:23+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm,qwen3.8-flash,120,29438,3958,0.034237,judgeN=60 mode=item seed=2 ok
+2026-10-19T14:20:56+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,699091,16806,0.604649,seeds=2 maxTurns=25 personas=lin scenarios=all ok
+2026-10-19T14:24:37+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,362,692134,17003,0.599615,seeds=2 maxTurns=25 personas=zheng scenarios=all ok
