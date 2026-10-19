@@ -5,7 +5,7 @@
 一个本地跑的级联语音管线：你对着浏览器麦克风扮演骗子，DeepSuck 用四位人设（王阿姨 / 小陈妈妈 / 小林 / 郑老板，与首页同一组编号、身份和头像）的声音陪你周旋，同时在看板上实时显示抽取到的（已脱敏）情报、识别出的话术和本轮策略。
 
 ```
-浏览器麦克风 ──SmallWebRTC──▶ Paraformer 实时 ASR ──▶ IntelProcessor ──▶ qwen3.7-flash ──▶ 输出守卫 ──▶ CosyVoice TTS ──SmallWebRTC──▶ 浏览器扬声器
+浏览器麦克风 ──SmallWebRTC──▶ 实时语音识别 ──▶ IntelProcessor ──▶ 云端大模型 ──▶ 输出守卫 ──▶ 流式语音合成 ──SmallWebRTC──▶ 浏览器扬声器
                                                      │ 情报抽取 / 话术识别 / 黑名单比对
                                                      │ 规则引擎选策略 → 改写系统提示词
                                                      │ 插播拖延填充音（"哎……你等一下啊"）
@@ -14,8 +14,8 @@
 
 ## 需要什么
 
-- **DashScope（阿里云百炼）API Key**：ASR、TTS、大模型三项都走它。**没有 key 时页面能打开，但无法开始通话。** 按量计费，费用以百炼控制台为准。
-- Python ≥ 3.11（Pipecat 1.12 的要求），以及能访问 `dashscope.aliyuncs.com` 的网络。
+- **云端 API Key**：语音识别、语音合成和大模型都走云端 API；大模型可接入云端大模型 API（兼容 OpenAI 格式），地址用 `DASHSCOPE_BASE_URL` 配置。默认配置和需要的环境变量见下文「一条命令跑起来」和 `voice/.env.example`。**没有 key 时页面能打开，但无法开始通话。** 按量计费，费用以所用服务商的控制台为准。
+- Python ≥ 3.11（Pipecat 1.12 的要求），以及能访问所配置 API 地址的网络（默认配置的地址见 `voice/.env.example`）。
 - 一个支持 WebRTC 的浏览器（Chrome / Edge / Firefox / Safari）。
 
 ## 一条命令跑起来
@@ -56,7 +56,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 | `netpatch.py` | UDP 端口段限制、公网 IP 候选（服务器部署用） |
 | `probe.py` | `python -m voice.probe`：aiortc 端到端探针（部署后验证 UDP/ICE；`--json-out` 输出逐句端到端延迟） |
 | `cost.py` | `python -m voice.cost --day YYYY-MM-DD`：按天汇总调用成本（计数 × 单价重算），见下文「每日成本汇总」；VPS 上每天 20:40 由 `deepsuck-cost.timer` 写 `/var/log/deepsuck/cost-latest.json`（docs/DEPLOY.md 第 8 节） |
-| `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用 qwen-plus → CosyVoice → Paraformer 的冒烟测试 |
+| `smoke.py` | `python -m voice.smoke --out x.wav`：真实调用大模型 → 语音合成 → 语音识别的冒烟测试（模型按环境变量配置） |
 | `telephony/` | 电话接入抽象层（默认关闭）：`TelephonyAdapter` 基类 + 注册表，`ws-raw` 通用 SIP/WebSocket 适配器、`pipecat-ws`（Twilio/Telnyx/Plivo/Exotel）；阿里云呼入适配器设计稿。见 [telephony/README.md](telephony/README.md) |
 
 人设音色：王阿姨 `longlaoyi_v3`（龙老姨），小林 `longanyang`。小陈妈妈、郑老板的音色等负责人试听后再定，在此之前用默认音色 `longlaoyi_v3`，见下文“新人设音色与底噪（待语音工程师接手）”。
