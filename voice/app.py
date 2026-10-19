@@ -223,7 +223,7 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         llm = QwenLLMService(api_key=os.environ.get("DASHSCOPE_API_KEY"), base_url=LLM_BASE_URL,
                              settings=QwenLLMService.Settings(model=LLM_MODEL, temperature=0.8, max_tokens=120,
                                                               extra=llm_settings_extra()))
-    context = LLMContext([{"role": "system", "content": system_prompt(pid, session.scenario["id"], "opening")}])
+    context = LLMContext([{"role": "system", "content": system_prompt(pid, session.scenario["id"], "opening", topics=set(), scenes=[])}])
     agg = LLMContextAggregatorPair(context, user_params=LLMUserAggregatorParams(
         vad_analyzer=vad_analyzer, user_turn_strategies=strategies))
     # 填充音改由 FillerProcessor 按延迟触发，IntelProcessor 不再随机插播
