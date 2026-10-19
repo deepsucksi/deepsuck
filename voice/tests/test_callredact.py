@@ -73,7 +73,7 @@ def test_kziza65l_model_input_and_speech_have_no_name():
         spoken = asyncio.run(f.filter(t))
         _clean(spoken)
         assert "那个名字" in spoken, spoken
-    assert re.match("那个名字[？…]", speakable(p.redactor.apply(REPLY), calm_tts=True))  # #132：第一句快速反问的问号换成“…”
+    assert re.match("那个名字[？…，]", speakable(p.redactor.apply(REPLY), calm_tts=True))  # #132：第一句快速反问的问号换成“…”
 
 
 def test_name_said_before_extracted_is_redacted_in_context_too():

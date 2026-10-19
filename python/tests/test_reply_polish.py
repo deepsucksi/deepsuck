@@ -13,9 +13,9 @@ sys.path[:0] = [str(ROOT), str(ROOT / "python")]
 from deepsuck.engine import polish_reply  # noqa: E402
 
 CASES = [
-    ("衣服？…哪件啊", "衣服…哪件啊"),
-    ("两千？…哪笔钱啊。", "两千…哪笔钱啊。"),
-    ("哦，哪个银行？我卡多", "哦，哪个银行…我卡多"),
+    ("衣服？…哪件啊", "衣服，哪件啊"),
+    ("两千？…哪笔钱啊。", "两千，哪笔钱啊。"),
+    ("哦，哪个银行？我卡多", "哦，哪个银行，我卡多"),
     ("你是谁？", "你是谁？"),                       # 只有一句问话：不动
     ("你说的这个到底是哪个单位的？你再说", "你说的这个到底是哪个单位的？你再说"),  # 第一句长：不动
     ("具体怎么弄啊？", "到底怎么弄啊？"),
@@ -46,6 +46,16 @@ def test_js_parity():
 
 def test_wired_into_voice_guard_and_prompts():
     from voice.persona import FOLLOW_UP_RULE, guard_output, system_prompt
-    assert guard_output("衣服？…具体哪件啊") == "衣服…到底哪件啊"
+    assert guard_output("衣服？…具体哪件啊") == "衣服，到底哪件啊"
     assert FOLLOW_UP_RULE in system_prompt("lin", "refund", "generic", [], topics=set(), scenes=["refund"])
     assert FOLLOW_UP_RULE not in system_prompt("lin", "refund", "generic", [], topics=set(), scenes=["refund"], first_turn=True)
+
+
+def test_voice_ellipsis_target_per_persona():
+    import json as _j
+    from voice.persona import PERSONA_BY_ID, style_rule
+    for pid in ("wang", "chen", "lin", "zheng"):
+        v = PERSONA_BY_ID[pid]["voiceEllipsis"]
+        assert v in ("四成", "四五成", "一半", "五成", "五六成")  # 都在 40–60% 之间
+        assert f"大约{v}的句子带“…”" in style_rule(PERSONA_BY_ID[pid])
+    assert "大约一半的句子" in style_rule({})

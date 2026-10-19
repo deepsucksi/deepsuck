@@ -101,7 +101,8 @@ _RP_PUNCT = re.compile(r"[…。？?！!，,、；;.\s~～]")
 
 def polish_reply(text: str) -> str:
     """大模型回复发出前的口语化：书面词（“具体”“请问”“是否”…）换成口语说法；第一句是快速反问（去标点不超过
-    quickQuestionMax 个字，如“衣服？…哪件啊”）且后面还有话时，第一句的问号换成“…”，问题留给第二句。
+    quickQuestionMax 个字，如“衣服？…哪件啊”）且后面还有话时，第一句的问号换成逗号（“衣服，哪件啊”），问题留给后半句。
+    换成逗号不换“…”：#131 要把带“…”的句子压在 40–60%，这里不再添“…”。
     只用于大模型回复（语音 guard_output、网页 sanitizeReply），规则引擎的已批准台词不过这一道。"""
     s = str(text or "")
     for a, b in _RP_FORMAL:
@@ -111,7 +112,7 @@ def polish_reply(text: str) -> str:
         core = _RP_PUNCT.sub("", m.group(2))
         rest = s[m.end():]
         if 0 < len(core) <= _RP_QMAX and _RP_PUNCT.sub("", rest):
-            s = m.group(1) + m.group(2).rstrip("…") + "…" + rest.lstrip("…").lstrip()
+            s = m.group(1) + m.group(2).rstrip("…") + "，" + rest.lstrip("…，,").lstrip()
     return s
 
 

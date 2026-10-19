@@ -55,6 +55,14 @@ STYLE_RULE = ("6. 说话平常、克制，像普通人接电话：句子短，�
               "可以反问、含糊一点，但不是每句都问，别把话说完整，也别替对方把话说圆；"
               "不主动提年龄，不拿听力、眼神、认字慢、手机用不惯说事；不编孙子、玩具、老花镜、药、锅里炖汤这类小道具和段子，"
               "也不抖机灵。偶尔没听清就说“你再说一遍”。")
+
+
+def style_rule(p: dict) -> str:
+    """#131：带“…”的句子按人设调（personas.json 的 voiceEllipsis，如“四成”），都在 40–60% 之间；没写的用“一半”。"""
+    v = str(p.get("voiceEllipsis") or "").strip()
+    return STYLE_RULE.replace("大约一半的句子", f"大约{v}的句子") if v else STYLE_RULE
+
+
 _AGE = re.compile(r"^\s*\d+\s*岁\s*")
 _SHOTS_MAX = 5
 
@@ -282,7 +290,7 @@ FIRST_TURN_RULE = ("第一句提到对方的词时，词后面接“…”再说
 
 # #132：后续回复（第一轮以后）第一句也不用快速反问（抽检 48 条里 25–33 条是“衣服？…哪件啊”“两千？…哪笔钱啊”）
 FOLLOW_UP_RULE = ("这一条的第一句不要拿对方的词加问号反问（不要“衣服？”“两千？”“哪个？”这种开头）：先接对方一个词，"
-                  "词后面用“…”接半句陈述；要问的放到第二句。整条回复也不要只有一句短问话（不要“哪张卡？”“民警…哪里的？”这种），先说半句自己的话，再问。")
+                  "词后面用逗号或“…”接半句陈述；要问的放到第二句。整条回复也不要只有一句短问话（不要“哪张卡？”“民警…哪里的？”这种），先说半句自己的话，再问。")
 
 
 def first_turn_rule(openers) -> str:
@@ -329,7 +337,7 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
         "3. 绝不说出任何真实或看似真实的验证码、卡号、密码、身份证号、住址；需要时就说找不到、没弄好、要再确认一下。",
         "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
         RULE_DIGITS,
-        STYLE_RULE,
+        style_rule(p),
     ] + voice_style(p, scenes, topics, first_turn, opener_key) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
           "也不要重复这句。"] if said_first else []) + ([first_turn_rule(first_turn_openers(p["id"], opener_key))] if first_turn else [FOLLOW_UP_RULE]))
 
