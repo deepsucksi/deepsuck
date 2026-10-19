@@ -16,5 +16,6 @@
   var SCENARIOS = C.scenarios;
   var BY_ID = {};
   SCENARIOS.forEach(function (s) { BY_ID[s.id] = s; });
-  return { SCENARIOS: SCENARIOS, BY_ID: BY_ID };
+  // #4：从对方原话里认场景 / 话题的词表（llm.js 用）
+  return { SCENARIOS: SCENARIOS, BY_ID: BY_ID, HEARD_CUES: C.heardCues };
 });

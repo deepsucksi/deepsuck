@@ -33,19 +33,61 @@
     // 每个拖延意图给大模型的提示（与 Python voice 端共用，见 core/personas.json 的 intentHints）
   var INTENT_HINTS = D.personas.INTENT_HINTS;
 
-  function systemPrompt(persona, scenario, hint, missing) {
-    var call = (persona.call && persona.call[scenario.id]) || '';
+  // #4 不抢话：人设只接对方已经说过的话。场景名、描述、后台选的场景都不进提示词；称呼只按对方原话里认出的场景挑，
+  // “想要的情报”只列对方已经提到过的话题（词表见 core/scenarios.json 的 heardCues，与 voice/persona.py 共用）。
+  var CUES = (D.scenarios && D.scenarios.HEARD_CUES) || { scenes: {}, topics: {} };
+  var GOAL_TOPIC = { bank: 'bank', name: 'bank', url: 'url', wallet: 'wallet', phone: 'phone' };
+  // 套情报类意图的前提话题（与 voice/persona.py 的 NEEDS_TOPIC 一致）：对方还没提到就退回 generic
+  var NEEDS_TOPIC = { elicit_url: 'url', elicit_account: 'bank', elicit_wallet: 'wallet', elicit_contact: 'phone', fake_progress: 'bank' };
+  var GOAL_LABEL = { bank: '收款账户', name: '户名', url: '网址或 APP', wallet: '钱包地址', phone: '电话或微信' };
+  function cueHits(map, text) {
+    var t = String(text || ''), out = [];
+    Object.keys(map).forEach(function (k) {
+      var m = new RegExp(map[k]).exec(t);
+      if (m) out.push({ k: k, at: m.index });
+    });
+    return out;
+  }
+  /** 对方原话里认出的场景（按第一次出现的先后） */
+  function heardScenes(texts) {
+    var out = [];
+    (texts || []).forEach(function (t) {
+      cueHits(CUES.scenes, t).sort(function (a, b) { return a.at - b.at; }).forEach(function (h) {
+        [h.k].concat((CUES.implies || {})[h.k] || []).forEach(function (x) { if (out.indexOf(x) < 0) out.push(x); });
+      });
+    });
+    return out;
+  }
+  function heardTopics(texts) {
+    var out = {};
+    (texts || []).forEach(function (t) { cueHits(CUES.topics, t).forEach(function (h) { out[h.k] = 1; }); });
+    return out;
+  }
+
+  /** heard：对方（骗子）说过的话（字符串数组，已脱敏）。scenario 只用于兼容旧调用，不进提示词。 */
+  function systemPrompt(persona, scenario, hint, missing, heard) {
+    var scenes = heardScenes(heard), topics = heardTopics(heard);
+    var call = '';
+    scenes.some(function (x) {
+      var c = (persona.call && persona.call[x]) || '';
+      // 称呼本身会带出对方还没说的场景（例如“客服”）就不用
+      call = c && heardScenes([c]).every(function (y) { return scenes.indexOf(y) >= 0; }) ? c : '';
+      return !!call;
+    });
+    if (NEEDS_TOPIC[hint] && !topics[NEEDS_TOPIC[hint]]) hint = 'generic';
+    var want = (missing || []).filter(function (g) { return GOAL_TOPIC[g] && topics[GOAL_TOPIC[g]]; })
+      .map(function (g) { return GOAL_LABEL[g] || g; });
     return [
-      '你在一个反诈骗研究沙盒中扮演"潜在受害人"角色，与扮演骗子的人对话。目标：尽可能拖延对方时间，并诱导对方主动暴露收款账户、钱包地址、电话、网址等情报。',
-      '角色：' + persona.name + '，' + persona.tagline + '。称呼对方为"' + call + '"。',
-      '场景：' + scenario.title + '——' + scenario.desc,
-      '本轮建议策略：' + (INTENT_HINTS[hint] || INTENT_HINTS.generic) + '。' + (missing && missing.length ? '仍希望诱导对方提供：' + missing.join('、') + '。' : ''),
+      '你在一个反诈骗研究沙盒中扮演"潜在受害人"角色，与扮演骗子的人对话。目标：尽可能拖延对方时间；对方自己报出来的东西，再顺着让对方说清楚。',
+      '角色：' + persona.name + '，' + persona.tagline + '。' + (call ? '称呼对方为"' + call + '"。' : '先不用称呼对方。'),
+      '你不知道对方来找你干什么，只接对方已经说过的话；对方没提到的事一概不先提，也不要猜对方的目的。',
+      '本轮建议策略：' + (INTENT_HINTS[hint] || INTENT_HINTS.generic) + '。' + (want.length ? '对方已经提到、但还没说清楚的：' + want.join('、') + '，可以顺着问一句。' : ''),
       '硬性规则：',
       '1. 只用简体中文口语，一次回复 1–3 句，不超过 80 字，保持人设，不要出戏，不要说自己是 AI。',
       '2. 绝不提供任何真实或看似真实的验证码、卡号、密码、身份证号、地址；需要时就说找不到、没弄好、要再确认一下。',
       '3. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。',
       '4. 对话里〔〕括起来的是对方发过的号码、网址等信息的代称（原文已隐去）。提到它们时用自然说法，比如“你发的那个网址”“尾号 3445 那个号”，不要照抄〔〕，不要写星号，也不要自己编号码。',
-      '5. 复述对方的话只说关键短语（如“安全账户”“验证码”），不要整句或半句引用对方原话。'
+      '5. 复述对方的话只说两三个字的关键短语，不要整句或半句引用对方原话。'
     ].join('\n');
   }
 
@@ -112,7 +154,9 @@
   function buildMessages(opts) {
     var persona = D.personas.BY_ID[opts.persona] || D.personas.PERSONAS[0];
     var scenario = D.scenarios.BY_ID[opts.scenario] || D.scenarios.SCENARIOS[0];
-    var msgs = [{ role: 'system', content: systemPrompt(persona, scenario, opts.hint, opts.missing) }];
+    var heard = (opts.transcript || []).filter(function (m) { return m.role !== 'bot'; })
+      .map(function (m) { return String(m.text || '').slice(0, 600); });
+    var msgs = [{ role: 'system', content: systemPrompt(persona, scenario, opts.hint, opts.missing, heard) }];
     (opts.transcript || []).slice(-16).forEach(function (m) {
       var text = String(m.text || '').slice(0, 600);
       text = D.redact.redactText(text, D.extractors.extractSensitive(text)); // 双保险
@@ -215,7 +259,7 @@
   return {
     DEFAULTS: DEFAULTS, INTENT_HINTS: INTENT_HINTS,
     missingDirectConfig: missingDirectConfig, restoreDirectConfig: restoreDirectConfig,
-    systemPrompt: systemPrompt, buildMessages: buildMessages, sanitizeReply: sanitizeReply,
+    systemPrompt: systemPrompt, heardScenes: heardScenes, buildMessages: buildMessages, sanitizeReply: sanitizeReply,
     speakMasked: speakMasked, fixQuotes: fixQuotes,
     chatCompletions: chatCompletions, viaProxy: viaProxy
   };

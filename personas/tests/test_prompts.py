@@ -25,7 +25,8 @@ def test_persona_schema(pid):
 @pytest.mark.parametrize("pid", P.PERSONA_IDS)
 def test_system_prompt_has_rules_and_no_secrets(pid):
     sp = P.system_prompt(pid, "冒充客服 · 退款理赔")
-    assert "硬性规则" in sp and "绝不真的转账" in sp and "冒充客服" in sp
+    assert "硬性规则" in sp and "绝不真的转账" in sp
+    assert "冒充客服" not in sp and "当前场景" not in sp  # #4：场景名不进人设提示词
     assert not re.search(r"\d{6,}", sp)
     assert not EMOJI.search(sp)
     assert "sk-" not in sp
