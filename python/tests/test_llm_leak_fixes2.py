@@ -114,7 +114,7 @@ def test_coop_step_never_leaks():
         t = _texts(p["templates"]["coop_step"])
         assert len(set(t)) >= 16, (p["id"], len(t))
         for x in t:
-            assert not re.search(r"\d{3,}", re.sub(r"106", "", x)), x  # 至多两位虚构数字（“106 开头”是短信号段）
+            assert not re.search(r"\d{3,}", re.sub(r"106", "", x)), x  # 规则台词不报号码串（“106 开头”是短信号段）；大模型提示见 test_digit_tighten
 
 
 def test_otp_pool_size_and_adaptive_window():
