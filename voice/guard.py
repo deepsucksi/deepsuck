@@ -170,20 +170,25 @@ class Ticket:
         d = self.by_kind.setdefault(kind or "reply", {k: 0 for k in TICKET_KEYS})
         d[key] += v
 
+    @staticmethod
+    def _norm(text) -> str:
+        # 只比字和数字：TTS 前处理会改标点（「…」读成逗号、感叹号改句号），分句也会切掉标点
+        return "".join(c for c in str(text or "") if c.isalnum())
+
     def tag(self, text, kind: str) -> None:
         """登记一段即将合成的文字的用途（opening / disclosure / farewell）；TTS 服务分句合成时按子串认领。"""
-        t = "".join(str(text or "").split())
+        t = self._norm(text)
         if t:
             self._tags.append([t, kind])
 
     def _claim(self, text) -> Optional[str]:
-        t = "".join(str(text or "").split())
+        t = self._norm(text)
         if not t:
             return None
         for tag in self._tags:
             if t in tag[0]:
                 tag[0] = tag[0].replace(t, "", 1)
-                if not any(c.isalnum() for c in tag[0]):
+                if not tag[0]:
                     self._tags.remove(tag)
                 return tag[1]
         return None
