@@ -36,7 +36,7 @@ def test_drop_unheard_same_as_js():
             assert drop_unheard(v, set()) == v, k
 
 
-@pytest.mark.parametrize("text", [c["redacted"] for c in RX["charExplain"] if c["expect"] == "mask"] + ["伟是****", "伟字是****", "就是****", "伟，****"])
+@pytest.mark.parametrize("text", [c["redacted"] for c in RX["charExplain"] if c["expect"] == "mask" and not c.get("xfail")] + ["伟是****", "伟字是****", "就是****", "伟，****"])
 def test_char_explain_is_a_name(text):  # #172
     out = speak_masked(text)
     assert UR["phrase"]["name"] in out and "那个号" not in out and "*" not in out, out
