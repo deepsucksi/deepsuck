@@ -72,7 +72,14 @@ def render(t: dict, audio: bool = False) -> str:
                            + (f" llm整句={r['llm_full_ms']}ms" if r.get("llm_full_ms") is not None else ""))
             if "llm_in_tokens" in r:
                 out.append(f"    用量: llm {r.get('llm_in_tokens')}/{r.get('llm_out_tokens')} tokens  "
-                           f"asr {r.get('asr_audio_sec')}s  tts {r.get('tts_chars')} 字（{r.get('tts_voice') or '-'}）")
+                           f"asr {r.get('asr_audio_sec')}s  tts {r.get('tts_chars')} 字"
+                           + (f" / 计费 {r['tts_billed_chars']}" if "tts_billed_chars" in r else "")
+                           + f"（{r.get('tts_voice') or '-'}）")
+        elif typ == "call":
+            out.append(f"    调用 #{r.get('turn')} {r.get('kind')}" + ("（最后一轮之后）" if r.get("tail") else "") + ": "
+                       f"llm {r.get('prompt_tokens')}/{r.get('completion_tokens')} tokens（{r.get('llm_model') or '-'}）  "
+                       f"asr {r.get('asr_seconds')}s  tts {r.get('tts_chars')} 字 / 计费 {r.get('tts_billed_chars')}"
+                       f"（{r.get('tts_voice') or '-'}）")
         elif typ == "feedback":
             out.append(f"[{ts}] 这通有问题" + (f"（第 {r['turn']} 轮）" if r.get("turn") is not None else "") + f": {r.get('note') or '（无说明）'}")
         elif typ == "end":
@@ -83,7 +90,8 @@ def render(t: dict, audio: bool = False) -> str:
                        + (f" 时长={r['duration_sec']}s" if r.get("duration_sec") is not None else "")
                        + (f" 首声p50={fa}ms" if fa is not None else "")
                        + (f" 合计 llm {u.get('llm_in_tokens')}/{u.get('llm_out_tokens')} tokens asr {u.get('asr_audio_sec')}s"
-                          f" tts {u.get('tts_chars')} 字" if u else "")
+                          f" tts {u.get('tts_chars')} 字" + (f"（计费 {u['tts_billed_chars']}）" if "tts_billed_chars" in u else "")
+                          if u else "")
                        + (f" 约 {r['cost_cny']} 元" if r.get("cost_cny") is not None else ""))
         elif typ == "audio":
             parts = [f"{k} {v.get('seconds')}s {v.get('bytes')}B" for k, v in r.items() if isinstance(v, dict)]

@@ -5,6 +5,9 @@
 
 数据源（文件不存在就跳过，并在输出的 sources 里注明）：
   1. 通话追踪 TRACE_DIR/*.jsonl 的 end 行（usage、模型、音色、kind），按 end 时间的 +08:00 日期分桶。
+     schema v3（#94）优先读 v3 字段：end.usage_total 的 prompt_tokens / completion_tokens / asr_seconds /
+     tts_billed_chars，end 行的 asr_model / tts_model / tts_voice；type="call" 行按 kind 另出 by_call_kind。
+     v2 记录照旧读 end.usage。
   2. DATA_DIR/voice/voice-usage.jsonl：不同意存储的通话也写一行（不含内容，跨天保留）。
      同一 call_id 同时出现在 trace 和这里时只算一次（trace 为准，缺的字段从这里补）。
   3. DATA_DIR/voice-budget.json：guard 的当日账本，只有当天一份。作为全量计数参考：
@@ -131,15 +134,29 @@ def _pick(row: Mapping, *keys):
     return None
 
 
+V3_USAGE = (("prompt_tokens", "llm_in"), ("completion_tokens", "llm_out"), ("asr_seconds", "asr_sec"),
+            ("tts_chars", "tts_chars"), ("tts_billed_chars", "tts_billed_chars"))
+
+
+def _v3_usage(row: Mapping) -> Optional[dict]:
+    """schema v3：end.usage_total（或 call 行本身）里的定稿字段 → 本文件的计数名；不是 v3 返回 None。"""
+    u = row.get("usage_total") if isinstance(row.get("usage_total"), Mapping) else row
+    if "prompt_tokens" not in u:
+        return None
+    return {old: u.get(new) for new, old in V3_USAGE}
+
+
 def make_record(row: Mapping, *, source: str, call_id: Optional[str] = None, start: Optional[Mapping] = None,
                 fallback_day: Optional[str] = None) -> Optional[dict]:
     """一行 end（trace）或 voice-usage 记录 → 统一结构。缺字段降级为 None / 0。"""
     start = start or {}
-    usage = row.get("usage") if isinstance(row.get("usage"), Mapping) else row
+    v3 = _v3_usage(row)
+    usage = v3 or (row.get("usage") if isinstance(row.get("usage"), Mapping) else row)
     day = cn_date(row.get("t") or row.get("ended") or row.get("end")) or fallback_day
     if not day:
         return None
-    billed = _pick(row, "tts_billed_chars", "tts_billable_chars")
+    billed = (v3 or {}).get("tts_billed_chars")
+    billed = billed if billed is not None else _pick(row, "tts_billed_chars", "tts_billable_chars")
     rec = {
         "call_id": str(call_id or row.get("call_id") or row.get("id") or row.get("trace_id") or "") or None,
         "day": day,
@@ -181,6 +198,18 @@ def read_traces(trace_dir: Optional[Path]) -> Tuple[List[dict], dict]:
         rec = make_record(end, source="trace", call_id=start.get("id") or p.stem, start=start,
                           fallback_day=cn_date(start.get("t")))
         if rec:
+            calls = [r for r in rows if r.get("type") == "call"]
+            if calls:  # v3：按 kind 合计调用行（模型、音色取调用行自己的）
+                rec["call_kinds"] = {}
+                for c in calls:
+                    k = rec["call_kinds"].setdefault(str(c.get("kind") or "other"), {
+                        "rows": 0, "asr_sec": 0.0, "tts_chars": 0, "tts_billed_chars": 0, "llm_in": 0, "llm_out": 0,
+                        "llm_model": None, "tts_voice": None})
+                    k["rows"] += 1
+                    for new, old in V3_USAGE:
+                        k[old] += _f(c.get(new)) if old == "asr_sec" else int(_f(c.get(new)))
+                    k["llm_model"] = k["llm_model"] or c.get("llm_model")
+                    k["tts_voice"] = k["tts_voice"] or c.get("tts_voice")
             out.append(rec)
     info["calls"] = len(out)
     return out, info
@@ -361,6 +390,7 @@ def compute_day(src: Sources, day: str) -> dict:
     counts = {"calls": len(recs), "asr_sec": 0.0, "tts_chars": 0, "tts_chars_billed": 0, "llm_in": 0, "llm_out": 0}
     tts_est = False
     kinds: Dict[str, dict] = {}
+    call_kinds: Dict[str, dict] = {}
     asr_free_eligible = 0.0
     for r in recs:
         c = price_record(r, env)
@@ -376,6 +406,13 @@ def compute_day(src: Sources, day: str) -> dict:
         g = kinds.setdefault(kname, {"calls": 0, "cny": 0.0})
         g["calls"] += 1
         g["cny"] += c["llm_in"] + c["llm_out"] + c["asr"] + c["tts"]
+        for kname, k in (r.get("call_kinds") or {}).items():  # v3 调用行：按用途拆开的金额（原价）
+            sub = {**k, "tts_model": r.get("tts_model"), "llm_model": k["llm_model"] or r.get("llm_model"),
+                   "tts_voice": k["tts_voice"] or r.get("tts_voice")}
+            cc = price_record(sub, env)
+            g2 = call_kinds.setdefault(kname, {"rows": 0, "cny": 0.0})
+            g2["rows"] += k["rows"]
+            g2["cny"] += cc["llm_in"] + cc["llm_out"] + cc["asr"] + cc["tts"]
 
     # 账本差额：不同意存储、又没有 voice-usage.jsonl 时，逐通记录少算的部分
     ledger, ledger_info = _ledger_for(src.data, day)
@@ -435,6 +472,7 @@ def compute_day(src: Sources, day: str) -> dict:
         "tts_estimated": tts_est,
         "counts": {k: (_r(v, 1) if isinstance(v, float) else v) for k, v in counts.items()},
         "by_kind": {k: {"calls": v["calls"], "cny": _r(v["cny"])} for k, v in sorted(kinds.items())},
+        "by_call_kind": {k: {"rows": v["rows"], "cny": _r(v["cny"])} for k, v in sorted(call_kinds.items())},
         "ledger_gap": gap,
         "eval_rows": ev,
         "_ledger_info": ledger_info,
@@ -522,6 +560,10 @@ def format_text(rep: dict) -> str:
     for k, v in rep["by_kind"].items():
         n = "" if v["calls"] is None else f"{v['calls']} 通，"
         lines.append(f"  - {k}: {n}{v['cny']:.4f}")
+    if rep.get("by_call_kind"):
+        lines.append("v3 调用行按用途（原价，不扣免费额度）：")
+        for k, v in rep["by_call_kind"].items():
+            lines.append(f"  - {k}: {v['rows']} 行，{v['cny']:.4f}")
     b = rep["baseline"]
     if b.get("found"):
         if "balance_est" in b:
