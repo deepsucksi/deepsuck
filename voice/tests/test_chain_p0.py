@@ -107,7 +107,7 @@ def problems(segs, expect, leak=(), keep=None):
                 why.append(f"户名没念成那个名字：{o}")
             if not (any(k in head for k in NUM_SAY) and P.NAME_PHRASE not in head):
                 why.append(f"卡号没念成那个号：{o}")
-        if len(segs) == 1 and r["model"] != segs[0].replace("***", "那个号", 1).replace("**", "那个号", 1).replace("户名***", "户名那个名字").replace("户名**", "户名那个名字"):
+        if len(segs) == 1 and r["model"] != "卡号是那个号，户名那个名字":
             why.append(f"给模型的不是「卡号是那个号，户名那个名字」：{r['model']}")
     elif expect == "keep":
         if any(o.replace("。", "") != keep for o in said):
