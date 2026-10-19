@@ -40,10 +40,11 @@ def test_explicit_model_wins_and_global_default():
     assert vs.model == "x"
 
 
-def test_new_personas_fall_back_to_default_voice_until_approved():
-    """小陈妈妈、郑老板的音色等负责人试听：没设环境变量时用默认音色；语音工程师用 DEEPSUCK_VOICE_CHEN / _ZHENG 试听。"""
+def test_new_persona_voices():
+    """#95：小陈妈妈用设计音色（只认环境变量，没配退回默认音色，自托管能用），郑老板 longsanshu_v3。"""
+    assert ds.persona_voice("chen", env={}) == ds.VoiceSpec(ds.DEFAULT_VOICE, "cosyvoice-v3-flash", None, 1.0)
+    assert ds.persona_voice("zheng", env={}) == ds.VoiceSpec("longsanshu_v3", "cosyvoice-v3-flash", None, 1.0)
     for pid in ("chen", "zheng"):
-        assert ds.persona_voice(pid, env={}).voice == ds.DEFAULT_VOICE
         assert ds.persona_voice(pid, env={f"DEEPSUCK_VOICE_{pid.upper()}": "longxx_v3"}).voice == "longxx_v3"
     assert ds.persona_voice("wang", env={}).voice == "longlaoyi_v3"
 
@@ -159,8 +160,7 @@ def test_ambience_choice_and_mixer(monkeypatch):
     import numpy as np
     from voice import ambience as A
     assert A.choose("wang", "1") == "kitchen" and A.choose("lin", "1") == "street"
-    # 小陈妈妈 living_room、郑老板 shop 的素材未批准前退回默认底噪（厨房）
-    assert A.choose("chen", "1") == A.choose("zheng", "1") == A.DEFAULT_SOUND == "kitchen"
+    assert A.choose("chen", "1") == "living_room" and A.choose("zheng", "1") == "shop"
     import json
     core = json.loads((Path(A.__file__).resolve().parents[1] / "site/assets/core/personas.json").read_text(encoding="utf-8"))
     assert {p["id"]: p["ambience"] for p in core["personas"]} == {

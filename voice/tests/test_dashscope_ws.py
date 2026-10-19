@@ -21,8 +21,9 @@ def test_message_builders():
 def test_persona_voices_are_elderly_for_elders():
     assert ds.PERSONA_VOICES["wang"] == "longlaoyi_v3"
     assert ds.PERSONA_VOICES["lin"] == "longanyang"
-    # 小陈妈妈、郑老板的音色待负责人试听；在此之前走默认音色（可用 DEEPSUCK_VOICE_CHEN / _ZHENG 试听）
-    assert "chen" not in ds.PERSONA_VOICES and "zheng" not in ds.PERSONA_VOICES
+    # #95：郑老板系统音色 longsanshu_v3；小陈妈妈是设计音色，只认 DEEPSUCK_VOICE_CHEN，代码里不写死（没配走默认音色）
+    assert ds.PERSONA_VOICES["zheng"] == "longsanshu_v3"
+    assert "chen" not in ds.PERSONA_VOICES
     assert ds.DEFAULT_VOICE == "longlaoyi_v3"
 
 
