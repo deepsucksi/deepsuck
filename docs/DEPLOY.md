@@ -125,6 +125,7 @@ docker compose logs -f --tail=100 voice                                     # �
 nano /opt/deepsuck/deploy/.env && docker compose up -d                       # 改护栏参数
 docker compose exec voice cat /data/voice-budget.json                       # 当日语音用量
 docker compose exec proxy cat /data/chat-budget.json                        # 当日文字用量
+docker compose exec proxy sh -c 'tail -n 5 /data/chat-usage-$(TZ=Asia/Shanghai date +%F).jsonl'  # 文字代理逐次台账（上游 usage 原样，estimated=true 为估算）
 docker compose down                                                         # 停服（不会产生任何 DashScope 费用）
 docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile        # 改了 deploy/caddy/Caddyfile 后生效（或 docker compose restart caddy）
 ```

@@ -36,7 +36,8 @@
   var SPEAK_INTEL = C.speakIntel;
   var NAME_RULE = C.nameRule; // 人设侧姓名规则（#130），llm.js 硬性规则 7 使用
   var REPLY_POLISH = C.replyPolish; // 大模型回复口语化（#132、#134），llm.js polishReply 使用
+  var TAIL_DEDUPE = C.tailDedupe; // 跨轮去重（#153），engine.dedupeTail 使用
   var SPLIT_NAME = X.nameRules.split; // 拆字报姓说法（#157，只读 extractors.json），engine.vagueDigits / llm.js 打码姓名替换用
   var DIGIT_ECHO = C.digitEcho; // 人设回复发出前的数字过滤配置（issue #121），engine.vagueDigits 使用
-  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL, DIGIT_ECHO: DIGIT_ECHO, NAME_RULE: NAME_RULE, REPLY_POLISH: REPLY_POLISH, SPLIT_NAME: SPLIT_NAME };
+  return { PERSONAS: PERSONAS, BY_ID: BY_ID, PERSONA_ALIASES: PERSONA_ALIASES, resolveId: resolveId, STALL_SECONDS: STALL_SECONDS, INTENT_HINTS: INTENT_HINTS, SPEAK_INTEL: SPEAK_INTEL, DIGIT_ECHO: DIGIT_ECHO, NAME_RULE: NAME_RULE, REPLY_POLISH: REPLY_POLISH, SPLIT_NAME: SPLIT_NAME, TAIL_DEDUPE: TAIL_DEDUPE };
 });

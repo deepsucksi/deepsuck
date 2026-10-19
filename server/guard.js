@@ -3,6 +3,7 @@
  *  - 每 IP 每分钟 / 每 IP 每天 / 全局每分钟 限流
  *  - 每日全局预算（人民币，按 DashScope 返回的 usage token 记账；无 usage 时按字数估算），超出即拒绝
  *  - 预算账本按 Asia/Shanghai 自然日持久化到 DATA_DIR，重启不清零
+ *  - 逐次台账（#174）：DATA_DIR/chat-usage-YYYY-MM-DD.jsonl，每次调用一行，原样保留上游 usage；没 usage 时估算并标 estimated
  * Apache-2.0
  */
 'use strict';
@@ -45,18 +46,27 @@ function createBudget(opts) {
   var capCny = +opts.capCny || 0;
   var prices = opts.prices || { inPerM: 0.8, outPerM: 2 };
   var file = opts.dir ? path.join(opts.dir, 'chat-budget.json') : null;
-  var st = { day: cnDay(), spentCny: 0, calls: 0, inTokens: 0, outTokens: 0, refused: 0 };
+  // 前六个字段是原有格式（voice/cost.py 读 inTokens/outTokens），#174 只在后面追加计数
+  function fresh(d) { return { day: d, spentCny: 0, calls: 0, inTokens: 0, outTokens: 0, refused: 0, reasoningTokens: 0, cachedTokens: 0, estimatedCalls: 0 }; }
+  var st = fresh(cnDay());
   var reserved = 0, lastSave = 0;
   if (file && fs.existsSync(file)) {
     try { var j = JSON.parse(fs.readFileSync(file, 'utf8')); if (j.day === st.day) st = Object.assign(st, j); } catch (e) {}
   }
-  function roll() { var d = cnDay(); if (d !== st.day) { st = { day: d, spentCny: 0, calls: 0, inTokens: 0, outTokens: 0, refused: 0 }; reserved = 0; } }
+  function roll() { var d = cnDay(); if (d !== st.day) { st = fresh(d); reserved = 0; } }
   function save(force) {
     if (!file) return;
     var t = Date.now(); if (!force && t - lastSave < 2000) return; lastSave = t;
     try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file + '.tmp', JSON.stringify(st)); fs.renameSync(file + '.tmp', file); } catch (e) { console.error('[budget] save failed', e.message); }
   }
   function cost(inTok, outTok) { return (inTok * prices.inPerM + outTok * prices.outPerM) / 1e6; }
+  function appendLedger(rec) {
+    if (!opts.dir) return;
+    try {
+      fs.mkdirSync(opts.dir, { recursive: true });
+      fs.appendFileSync(path.join(opts.dir, 'chat-usage-' + rec.day + '.jsonl'), JSON.stringify(rec) + '\n', { mode: 0o600 });
+    } catch (e) { console.error('[budget] ledger append failed', e.message); }
+  }
   return {
     cost: cost,
     enabled: function () { return capCny > 0; },
@@ -75,12 +85,53 @@ function createBudget(opts) {
       st.spentCny = +(st.spentCny + cost(usage.in, usage.out)).toFixed(6);
       save();
     },
+    /**
+     * #174：按上游 usage 结算并写一行逐次台账。
+     * raw：上游响应的 usage 对象，原样写进台账；没有（或不含 token 数）时用 est {in, out} 估算并标 estimated: true。
+     * raw 和 est 都没有（调用失败且上游没给 usage）：只释放预占，不记账，返回 null。
+     * 金额 = prompt_tokens × 输入单价 + completion_tokens × 输出单价（思考 token 已含在 completion_tokens 里；
+     * cached_tokens 照原价算，是上限）。返回台账记录。
+     */
+    record: function (resv, raw, est, meta) {
+      roll();
+      reserved = Math.max(0, reserved - (resv || 0));
+      var u = normUsage(raw), estimated = false, usage = raw;
+      if (!u) {
+        if (!est) return null;
+        estimated = true;
+        u = { in: +est.in || 0, out: +est.out || 0, reasoning: 0, cached: 0 };
+        usage = { prompt_tokens: u.in, completion_tokens: u.out, total_tokens: u.in + u.out };
+      }
+      var c = +cost(u.in, u.out).toFixed(8);
+      st.calls++; st.inTokens += u.in; st.outTokens += u.out;
+      st.reasoningTokens += u.reasoning; st.cachedTokens += u.cached;
+      if (estimated) st.estimatedCalls++;
+      st.spentCny = +(st.spentCny + c).toFixed(6);
+      var rec = Object.assign({ ts: new Date().toISOString(), day: st.day }, meta || {},
+        { estimated: estimated, usage: usage, cny: c, prices: { inPerM: prices.inPerM, outPerM: prices.outPerM } });
+      appendLedger(rec);
+      save();
+      return rec;
+    },
     status: function () {
       roll();
       return { day: st.day, capCny: capCny, spentCny: +st.spentCny.toFixed(4), calls: st.calls, refused: st.refused,
         exhausted: capCny > 0 && st.spentCny >= capCny * 0.999 };
     },
     flush: function () { save(true); }
+  };
+}
+
+/** 上游 usage → {in, out, reasoning, cached}；不是对象或没有 token 数时返回 null */
+function normUsage(u) {
+  if (!u || typeof u !== 'object') return null;
+  var n = function (x) { x = +x; return isFinite(x) && x > 0 ? Math.round(x) : 0; };
+  if (!isFinite(+u.prompt_tokens) && !isFinite(+u.completion_tokens)) return null;
+  if (u.prompt_tokens == null && u.completion_tokens == null) return null;
+  return {
+    in: n(u.prompt_tokens), out: n(u.completion_tokens),
+    reasoning: n(u.completion_tokens_details && u.completion_tokens_details.reasoning_tokens),
+    cached: n(u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens)
   };
 }
 
@@ -100,4 +151,4 @@ function parseOrigins(s) {
   return String(s || '').split(',').map(function (x) { return x.trim().replace(/\/+$/, ''); }).filter(Boolean);
 }
 
-module.exports = { cnDay: cnDay, createLimiter: createLimiter, createBudget: createBudget, estimateTokens: estimateTokens, parseOrigins: parseOrigins };
+module.exports = { cnDay: cnDay, createLimiter: createLimiter, createBudget: createBudget, estimateTokens: estimateTokens, normUsage: normUsage, parseOrigins: parseOrigins };
