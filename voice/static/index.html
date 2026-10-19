@@ -225,15 +225,15 @@ button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:
       <button id="call" class="primary">开始通话</button>
       <button id="hang" class="hang" hidden>挂断</button>
       <div class="consent" id="consentRow">
-        <label><input type="checkbox" id="consent" checked><span id="consentText">允许保存本次通话录音，用于改进 DeepSuck（30 天后删除）</span></label>
+        <label><input type="checkbox" id="consent" checked><span id="consentText">允许用本次对话改进 DeepSuck（保存录音和脱敏文字，30 天后删除）</span></label>
         <button type="button" class="linkbtn" id="consentMore" aria-expanded="false" aria-controls="consentInfo">了解更多</button>
       </div>
     </div>
     <div id="consentInfo" class="consent-info" hidden>
       <p>用途：回放有问题的通话，改进识别、人设回复和延迟。不用于训练第三方模型，不对外公开。</p>
-      <p id="infoWhat">保存什么：每通都保存逐轮文字记录，保存前去掉银行卡号、身份证号、姓名、手机号、QQ、微信、支付宝等信息，另记每轮意图、延迟、用量和版本号。勾选同意时另存双方录音（对方一轨、机器人一轨）。</p>
+      <p id="infoWhat">保存什么：双方录音（对方一轨、机器人一轨）和逐轮文字。文字保存前去掉银行卡号、身份证号、姓名、手机号、QQ、微信、支付宝等信息；另记每轮意图、延迟、用量和版本号。</p>
       <p id="infoDays">保存多久：30 天后自动删除。</p>
-      <p id="infoOff">取消勾选：不保存录音，只保存去掉敏感信息的文字记录。</p>
+      <p id="infoOff">取消勾选：不存录音和文字等任何内容，只记这通的编号、时间和用量（时长、字数等）。</p>
     </div>
     <div id="trace" class="trace" hidden>
       <span>通话编号 <code id="traceId"></code></span>
@@ -282,7 +282,7 @@ button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:
 </div>
 <footer class="note">
   <div class="wrap">
-    <p id="keepNote">每通保存去掉敏感信息的文字记录 30 天用于排查问题，勾选同意时另存录音；仅供防诈研究与教育，请勿用于联系任何真实的人。</p>
+    <p id="keepNote">勾选同意时保存录音和脱敏文字 30 天用于改进，不勾选只记用量、不存内容；仅供防诈研究与教育，请勿用于联系任何真实的人。</p>
     <p class="keep-note-en" lang="en">Do not use this to contact any real person.</p>
     <div class="foot"><a href="https://deepsuck.si/">deepsuck.si</a><a href="https://deepsuck.si/intel.html">公开诈骗情报库</a><a href="https://github.com/deepsucksi/deepsuck">GitHub · Apache-2.0</a></div>
   </div>

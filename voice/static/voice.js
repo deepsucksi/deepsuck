@@ -261,7 +261,7 @@
   }
 
   // ---- 通话追踪：同意、编号、反馈 ----
-  // 文字记录每通都存，录音要勾选；保留天数取服务端配置（页面里写的是默认 30 天）
+  // 勾选才存录音和脱敏文字，不勾选只记用量（#96）；保留天数取服务端配置（页面里写的是默认 30 天）
   const NOTE_TAIL = "仅供防诈研究与教育，请勿用于联系任何真实的人。";
   function applyTraceCopy(t) {
     if (!traceOn) {
@@ -272,14 +272,16 @@
     const days = (t && t.days) || 30, audioDays = (t && t.audioDays) || days, audioOn = !t || t.audio !== false;
     if (!audioOn) {
       $("consentRow").hidden = true;
-      $("keepNote").textContent = `每通保存去掉敏感信息的文字记录 ${days} 天用于排查问题，不保存录音；` + NOTE_TAIL;
+      $("consentText").textContent = `允许用本次对话改进 DeepSuck（保存脱敏文字，${days} 天后删除）`;
+      $("keepNote").textContent = `勾选同意时保存脱敏文字 ${days} 天用于改进，不保存录音，不勾选只记用量、不存内容；` + NOTE_TAIL;
       return;
     }
     if (days === 30 && audioDays === 30) return; // 与页面默认文案一致
-    $("consentText").textContent = `允许保存本次通话录音，用于改进 DeepSuck（${audioDays} 天后删除）`;
+    $("consentText").textContent = days === audioDays ? `允许用本次对话改进 DeepSuck（保存录音和脱敏文字，${days} 天后删除）`
+      : `允许用本次对话改进 DeepSuck（保存录音 ${audioDays} 天、脱敏文字 ${days} 天）`;
     $("infoDays").textContent = days === audioDays ? `保存多久：${days} 天后自动删除。`
       : `保存多久：文字记录 ${days} 天、录音 ${audioDays} 天后自动删除。`;
-    $("keepNote").textContent = `每通保存去掉敏感信息的文字记录 ${days} 天用于排查问题，勾选同意时另存录音；` + NOTE_TAIL;
+    $("keepNote").textContent = `勾选同意时保存录音和脱敏文字 ${days} 天用于改进，不勾选只记用量、不存内容；` + NOTE_TAIL;
   }
   function consentOn() { return traceOn && $("consent").checked; }
   function showTrace(id, key) {

@@ -1,4 +1,4 @@
-"""通话追踪：脱敏文字每通都存，录音只在同意时存；SIP 不录音且主叫打码；脱敏；token 保护；
+"""通话追踪：同意才存录音和脱敏文字，没同意只记用量；SIP 不录音且主叫打码；脱敏；token 保护；
 30 天清理（录音目录/天数可单独配）；磁盘上限停录；“这通有问题”只认当前通话、写进同一份记录；
 每轮 schema 字段（docs/TRACE_SCHEMA.md）；trace_cli 列出有问题的通话、按天汇总用量。全部离线。"""
 import asyncio
@@ -65,7 +65,7 @@ def test_consent_writes_redacted_turns_and_end(tmp_path):
     assert oct(os.stat(t.path).st_mode & 0o777) == "0o600"
 
 
-def test_no_consent_stores_redacted_text_but_no_audio(tmp_path):
+def test_no_consent_stores_usage_only_no_text_no_audio(tmp_path):
     env = _env(tmp_path)
     t = TR.CallTrace(channel="web", consent=False, persona="wang", scenario="refund", model="qwen-plus", env=env)
     assert t.store and t.audio_processor() is None and t.audio is None
@@ -76,8 +76,11 @@ def test_no_consent_stores_redacted_text_but_no_audio(tmp_path):
     rows = _lines(t.path)
     assert rows[0]["consent"] is False and rows[-1]["type"] == "end" and rows[-1]["consent"] is False
     assert rows[-1]["audio"] is False and sum(1 for r in rows if r["type"] == "turn") == 2
+    assert rows[0]["text_stored"] is False
     raw = t.path.read_text(encoding="utf-8")
-    assert CARD not in raw and PHONE not in raw
+    assert CARD[-4:] not in raw and "客服" not in raw and "别催" not in raw and "喂" not in raw  # 不存任何文字（#96）
+    for r in rows:
+        assert not {"asr", "reply", "filler", "intent", "intel", "tactics", "text"} & set(r), r
     stats = json.loads((tmp_path / "traces" / "stats.json").read_text())
     day = next(iter(stats.values()))
     assert day["calls"] == 1 and day["noConsent"] == 1 and "consent" not in day

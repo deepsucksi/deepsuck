@@ -1,13 +1,15 @@
 """通话追踪与问题反馈。字段表见 docs/TRACE_SCHEMA.md（schema_version = SCHEMA_VERSION）。
 
 每通电话一个 8 位通话编号（base32，/api/offer 生成并返回给页面，页面可见、可复制），每一行都带 call_id。
-网页通话：
-  文字：每通都存（不论是否勾选同意）。每轮一行 JSONL（ASR 文本、人设回复、意图、情报、延迟拆解、模型、
-        大模型 token、ASR 音频秒数、TTS 字数和音色、是否被打断），结束写一行汇总（起止时间、时长、退出原因、
-        是否同意录音、用量合计）。
-  录音：只有页面勾选同意（随 /api/offer 传 consent，只认 JSON true）才录两轨（对方 / 人设），各一个 16k 单声道
-        ogg/opus，用 Pipecat 的 AudioBufferProcessor 分轨回调、后台线程边写边编码。
-  “这通有问题”：页面带上 /api/offer 发的一次性反馈口令提交，写成 feedback 行（flagged=true）。
+网页通话：页面复选框（默认勾选）随 /api/offer 传 consent（只认 JSON true）。
+  勾选：每轮一行 JSONL（ASR 文本、人设回复、意图、情报、延迟拆解、模型、大模型 token、ASR 音频秒数、
+        TTS 字数和音色、是否被打断），结束写一行汇总（起止时间、时长、退出原因、是否同意、用量合计）；
+        录音两轨（对方 / 人设），各一个 16k 单声道 ogg/opus，用 Pipecat 的 AudioBufferProcessor 分轨回调、
+        后台线程边写边编码。
+  不勾选（#96）：同一份 trace，但只存编号、时间、人设、渠道和用量 / 延迟字段，不存任何文字
+        （asr、reply、意图、情报、口头语、开场白和告别语原文都不写，见 strip_text）；不录音。
+  “这通有问题”：页面带上 /api/offer 发的一次性反馈口令提交，写成 feedback 行（flagged=true）；
+        没同意的通话只记编号和标记，不存说明和轮次。
 电话线路（SIP）：只存脱敏文字记录、不录音，主叫号码打码，consent 记为 "sip-text-only"。
 
 文字落盘前一律再过一遍共享脱敏 deepsuck.redact_text(text, extract_sensitive(text))，再补一条自报姓名规则
@@ -165,6 +167,31 @@ def redact(text) -> str:
 
     t = "" if text is None else str(text)
     return _mask_self_names(redact_text(t, extract_sensitive(t)))
+
+
+# ---- 没同意的通话：只留用量，不留文字（#96） ----
+# 按行类型列出含文字（或由文字派生）的字段；没同意的网页通话写盘前去掉，线上清理旧记录也用这一份
+TEXT_FIELDS: Dict[str, tuple] = {
+    "turn": ("asr", "reply", "filler", "intent", "intents", "intel", "tactics", "prompt"),
+    "bot": ("text",),
+    "feedback": ("note", "turn"),
+    "client_error": ("reason",),
+    "client_connected": ("reason",),
+    "latency": (),
+}
+# 页面上报的诊断字段里只留枚举 / 数字（浏览器名、错误信息等字符串不留）
+CLIENT_DETAIL_ENUMS = ("ice", "conn", "gather", "path")
+
+
+def strip_text(row: Mapping) -> dict:
+    """去掉一行里的文字字段（见 TEXT_FIELDS），用量、延迟、编号、时间、枚举照留。"""
+    out = {k: v for k, v in row.items() if k not in TEXT_FIELDS.get(str(row.get("type")), ())}
+    if out.get("type") in ("client_error", "client_connected") and isinstance(out.get("detail"), dict):
+        out["detail"] = {k: v for k, v in out["detail"].items()
+                         if not isinstance(v, str) or k in CLIENT_DETAIL_ENUMS}
+    if out.get("type") == "start":
+        out["text_stored"] = False
+    return out
 
 
 def key_hash(key: str) -> str:
@@ -448,8 +475,10 @@ class CallTrace:
         self.env, self.clock, self.free_fn = env, clock, free_fn
         self.channel = channel
         self.consent = SIP_CONSENT if channel == "phone" else bool(consent is True)
-        # 脱敏文字每通都存（VOICE_TRACE=0 时全关）；录音只在网页通话勾选同意时存
+        # 每通都有 trace（VOICE_TRACE=0 时全关）；文字只在勾选同意（或电话线路的 sip-text-only）时存，
+        # 没同意的网页通话只留用量（#96）；录音只在网页通话勾选同意时存
         self.store = enabled(env)
+        self.text = self.consent is True or self.consent == SIP_CONSENT
         self.id = trace_id if valid_id(trace_id or "") else new_id()
         self.persona, self.scenario, self.model, self.engine = persona, scenario, model, engine
         self.tts_voice, self.asr_model, self.tts_model = tts_voice or "", asr_model or "", tts_model or ""
@@ -474,7 +503,7 @@ class CallTrace:
                          "channel": channel, "consent": self.consent, "persona": persona, "persona_id": persona,
                          "scenario": scenario, "model": model, "engine": engine, "asr_model": self.asr_model,
                          "tts_model": self.tts_model, "tts_voice": self.tts_voice, "code": code_version(),
-                         "promptVersion": prompt_version(),
+                         "promptVersion": prompt_version(), "text_stored": self.text,
                          **({"fk": key_hash(feedback_key)} if feedback_key and channel == "web" else {}),
                          **({"caller": mask_caller(caller)} if channel == "phone" and caller else {})})
 
@@ -488,6 +517,8 @@ class CallTrace:
     def _write(self, obj: dict) -> None:
         if not self.store:
             return
+        if not self.text:
+            obj = strip_text(obj)
         try:
             _append(self.path, {"schema_version": SCHEMA_VERSION, "call_id": self.id, **obj})
         except OSError as e:
@@ -714,6 +745,8 @@ def feedback(trace_id: str, note: str = "", turn=None, env=None, now: Optional[f
         turn = None
     row = {"schema_version": SCHEMA_VERSION, "call_id": trace_id, "type": "feedback", "t": iso(now),
            "flagged": True, "note": redact(str(note or "")[:200]).strip(), "turn": turn}
+    if st.get("consent") is not True:  # 没同意：只记编号和标记
+        row = strip_text(row)
     _append(p, row)
     return {"ok": True}
 
@@ -767,6 +800,8 @@ def client_report(trace_id: Optional[str], stage: str, reason: str = "", detail=
            "type": "client_connected" if stage == "connected" else "client_error", "t": iso(now), "stage": stage,
            "reason": redact(re.sub(r"\d{1,3}(?:\.\d{1,3}){3}", "<ip>", str(reason or "")[:200])).strip(),
            "detail": clean}
+    if rows[0].get("consent") is not True:
+        row = strip_text(row)
     _append(p, row)
     return {"ok": True, "stored": True}
 
@@ -896,6 +931,53 @@ def usage_by_day(since: Optional[str] = None, until: Optional[str] = None, env=N
         d["exit_reasons"][why] = d["exit_reasons"].get(why, 0) + 1
     return {"schema_version": SCHEMA_VERSION, "generated_at": iso(), "tz": "+08:00",
             "days": [days_[k] for k in sorted(days_)]}
+
+
+def scrub_no_consent(env=None, apply: bool = False, now: Optional[float] = None, busy_secs: float = 120) -> dict:
+    """清理旧记录（#96）：没同意的网页通话里已写下的文字字段删掉，用量照留。apply=False 只统计（dry-run）。
+
+    逐个文件判断，只命中「没同意」的网页通话：start 行 consent 不是 true，end 行（有的话）consent=false，
+    且文件里没有任何一行 consent=true、也没有录音文件。已同意的（任何一行 consent=true 或有录音）一律跳过，
+    计入 skipped_consent。没有 end 行且最近 busy_secs 秒内还在写的文件视为通话中，跳过（skipped_busy）。
+    改写用临时文件 + rename，权限 0600，保留原修改时间（保留期按修改时间算）。"""
+    now = time.time() if now is None else now
+    rep = {"apply": apply, "scanned": 0, "files": 0, "rows": 0, "already_clean": 0, "skipped_consent": [],
+           "skipped_busy": [], "paths": []}
+    for p in _files(env):
+        rows = _lines(p)
+        if not rows or rows[0].get("type") != "start" or rows[0].get("channel") != "web":
+            continue
+        rep["scanned"] += 1
+        end = next((r for r in reversed(rows) if r.get("type") == "end"), None)
+        consented = (rows[0].get("consent") is True or any(r.get("consent") is True for r in rows)
+                     or (end is not None and end.get("consent") is not False)
+                     or any(_audio_file(p.stem, k, env) is not None for k in TRACKS)
+                     or any(r.get("type") == "audio" for r in rows))
+        if consented:
+            rep["skipped_consent"].append(p.stem)
+            continue
+        new = [strip_text(r) for r in rows]
+        changed = sum(1 for a, b in zip(rows, new) if a != b and a.get("type") != "start")
+        if not changed:
+            rep["already_clean"] += 1
+            continue
+        st = p.stat()
+        if end is None and now - st.st_mtime < busy_secs:
+            rep["skipped_busy"].append(p.stem)
+            continue
+        rep["files"] += 1
+        rep["rows"] += changed
+        rep["paths"].append(str(p))
+        if apply:
+            new[0]["scrubbed_at"] = iso(now)
+            tmp = p.with_name(p.name + ".scrub")
+            fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                for r in new:
+                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            os.utime(tmp, (st.st_atime, st.st_mtime))
+            os.replace(tmp, p)
+    return rep
 
 
 def cleanup(env=None, now: Optional[float] = None) -> int:

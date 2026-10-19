@@ -109,10 +109,14 @@ def test_client_report_writes_into_same_trace(monkeypatch, tmp_path):
 
 
 def test_client_report_counts_and_goes_into_text_trace(monkeypatch, tmp_path):
-    """#5 起文字每通都存：不勾选录音的网页通话，上报也写进同一编号；电话线路不收；没编号只计数。"""
+    """不勾选的网页通话：上报写进同一编号，但只留阶段和枚举/数字诊断（#96 不存文字）；电话线路不收；没编号只计数。"""
     c = TestClient(_app(monkeypatch, tmp_path))
     off = TR.CallTrace(channel="web", consent=False, persona="lin", scenario="pig", model="m")
-    assert c.post("/api/client-report", json={"trace_id": off.id, "stage": "ice_failed"}).status_code == 200
+    assert c.post("/api/client-report", json={"trace_id": off.id, "stage": "ice_failed", "reason": "多半是代理拦截",
+                                              "detail": {"browser": "Chrome 130", "ice": "failed", "elapsedMs": 20000}}
+                  ).status_code == 200
+    row = next(r for r in _lines(off.path) if r["type"] == "client_error")
+    assert "reason" not in row and row["detail"] == {"ice": "failed", "elapsedMs": 20000}
     assert c.post("/api/client-report", json={"stage": "offer_failed", "reason": "HTTP 429"}).status_code == 200
     assert [r["stage"] for r in _lines(off.path) if r["type"] == "client_error"] == ["ice_failed"]
     sip = TR.CallTrace(channel="phone", consent=None, persona="lin", scenario="pig", model="m")
