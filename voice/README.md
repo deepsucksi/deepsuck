@@ -5,7 +5,7 @@
 一个本地跑的级联语音管线：你对着浏览器麦克风扮演骗子，DeepSuck 用四位人设（王阿姨 / 小陈妈妈 / 小林 / 郑老板，与首页同一组编号、身份和头像）的声音陪你周旋，同时在看板上实时显示抽取到的（已脱敏）情报、识别出的话术和本轮策略。
 
 ```
-浏览器麦克风 ──SmallWebRTC──▶ Paraformer 实时 ASR ──▶ IntelProcessor ──▶ qwen3.7-flash ──▶ 输出守卫 ──▶ CosyVoice TTS ──SmallWebRTC──▶ 浏览器扬声器
+浏览器麦克风 ──SmallWebRTC──▶ Paraformer 实时 ASR ──▶ IntelProcessor ──▶ qwen3.8-flash ──▶ 输出守卫 ──▶ CosyVoice TTS ──SmallWebRTC──▶ 浏览器扬声器
                                                      │ 情报抽取 / 话术识别 / 黑名单比对
                                                      │ 规则引擎选策略 → 改写系统提示词
                                                      │ 插播拖延填充音（"哎……你等一下啊"）
@@ -34,7 +34,7 @@ python -m voice.app                 # 打开 http://localhost:7860
 
 | 参数 | 说明 |
 |---|---|
-| 环境变量 `DEEPSUCK_LLM_MODEL` / `DEEPSUCK_LLM_THINKING` | 语音大模型，默认 `qwen3.7-flash`、思考关（显式发 `enable_thinking=false`）；单价按模型查 `guard.py` 的 `LLM_PRICES`，选型见 [docs/LLM_AB.md](../docs/LLM_AB.md) |
+| 环境变量 `DEEPSUCK_LLM_MODEL` / `DEEPSUCK_LLM_THINKING` | 语音大模型，默认 `qwen3.8-flash`（该模型默认开思考）、思考关（显式发 `enable_thinking=false`）；单价按模型查 `guard.py` 的 `LLM_PRICES`，选型见 [docs/LLM_AB.md](../docs/LLM_AB.md) |
 | `--engine rule` | 不调用大模型，用规则引擎（与网页版同一套模板）出话；仍需 ASR/TTS |
 | `--host` / `--port` | 默认 `127.0.0.1:7860` |
 

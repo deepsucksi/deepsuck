@@ -44,7 +44,7 @@ def _env_i(name: str, default: int) -> int:
 # 来源（2026-10-19 查询）：
 #   qwen-plus      https://help.aliyun.com/zh/model-studio/qwen-plus       输入≤128K：0.8 / 2
 #   qwen3.7-flash  https://help.aliyun.com/zh/model-studio/qwen3-7-flash   输入≤32K：0.2 / 0.8
-#   qwen3.8-flash  https://help.aliyun.com/zh/model-studio/qwen3-8-flash   输入≤1M：0.8 / 2.7
+#   qwen3.8-flash  https://help.aliyun.com/zh/model-studio/qwen3-8-flash   0.8 / 2.7（不分档；缓存命中输入 0.1）
 # 每轮输入约 1–3K token，都落在最低一档。快照名（如 qwen-plus-2025-12-01）按前缀取价。
 # 覆盖优先级：VOICE_PRICE_LLM_IN/OUT_PER_M（语音专用）> PRICE_LLM_IN/OUT_PER_M（Node 代理那份，只在语音模型
 # 与代理的 LLM_MODEL 相同时才套用）> PRICE_LLM_TABLE="模型:输入:输出,..." > 下表。
@@ -53,7 +53,7 @@ LLM_PRICES: Dict[str, Tuple[float, float]] = {
     "qwen3.7-flash": (0.2, 0.8),
     "qwen3.8-flash": (0.8, 2.7),
 }
-DEFAULT_LLM_MODEL = "qwen3.7-flash"   # 语音默认模型（#40 选型，见 docs/LLM_AB.md）
+DEFAULT_LLM_MODEL = "qwen3.8-flash"   # 语音默认模型（#149：全项目用 Qwen 最新系列，见 docs/LLM_AB.md）
 PROXY_LLM_MODEL = "qwen-plus"         # Node 文字代理 LLM_MODEL 的默认值（server/index.js）
 
 
@@ -86,8 +86,8 @@ class Prices:
     """单价（元）。默认值为 2026-10 百炼北京地域原价，以控制台为准。"""
     asr_per_sec: float = 0.00024      # paraformer-realtime-v2
     tts_per_char: float = 0.0001      # cosyvoice-v3-flash：1 元 / 万字符
-    llm_in_per_m: float = 0.2         # qwen3.7-flash 输入：元 / 百万 token
-    llm_out_per_m: float = 0.8        # qwen3.7-flash 输出
+    llm_in_per_m: float = 0.8         # qwen3.8-flash 输入：元 / 百万 token
+    llm_out_per_m: float = 2.7        # qwen3.8-flash 输出
     llm_model: str = DEFAULT_LLM_MODEL
 
     @classmethod

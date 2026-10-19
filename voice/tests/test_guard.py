@@ -16,7 +16,7 @@ def test_budget_reserve_charge_release_persist(tmp_path):
     assert all(others)
     assert b.reserve(est, "x") is None  # 预占满了
     t1.asr(300); t1.tts(500); t1.llm(30000, 2000)
-    assert abs(t1.spent - (300 * 0.00024 + 500 * 0.0001 + (30000 * 0.2 + 2000 * 0.8) / 1e6)) < 1e-9  # 默认 qwen3.7-flash 单价
+    assert abs(t1.spent - (300 * 0.00024 + 500 * 0.0001 + (30000 * 0.8 + 2000 * 2.7) / 1e6)) < 1e-9  # 默认 qwen3.8-flash 单价
     t1.close()
     for o in others:
         o.close()

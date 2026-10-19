@@ -12,11 +12,11 @@ from voice import llm_ab as AB  # noqa: E402
 
 
 def test_default_model_and_price():
-    assert G.DEFAULT_LLM_MODEL == "qwen3.7-flash"
+    assert G.DEFAULT_LLM_MODEL == "qwen3.8-flash"
     p = G.Prices.from_env(env={})
-    assert p.llm_model == "qwen3.7-flash" and (p.llm_in_per_m, p.llm_out_per_m) == (0.2, 0.8)
+    assert p.llm_model == "qwen3.8-flash" and (p.llm_in_per_m, p.llm_out_per_m) == (0.8, 2.7)
     d = G.Prices()
-    assert (d.llm_in_per_m, d.llm_out_per_m, d.llm_model) == (0.2, 0.8, "qwen3.7-flash")
+    assert (d.llm_in_per_m, d.llm_out_per_m, d.llm_model) == (0.8, 2.7, "qwen3.8-flash")
 
 
 def test_price_table_lookup():
@@ -36,7 +36,7 @@ def test_proxy_price_only_for_same_model():
     p = G.Prices.from_env(env=dict(prod, DEEPSUCK_LLM_MODEL="qwen-plus", PRICE_LLM_IN_PER_M="0.9"))
     assert p.llm_in_per_m == 0.9                                    # 同一模型时沿用
     p = G.Prices.from_env(env={"PRICE_LLM_IN_PER_M": "5"})            # LLM_MODEL 未设 = 代理默认 qwen-plus
-    assert p.llm_in_per_m == 0.2
+    assert p.llm_in_per_m == 0.8                                    # 语音默认 qwen3.8-flash 查表，不套代理单价
     p = G.Prices.from_env(env=dict(prod, VOICE_PRICE_LLM_IN_PER_M="0.3", VOICE_PRICE_LLM_OUT_PER_M="1"))
     assert (p.llm_in_per_m, p.llm_out_per_m) == (0.3, 1.0)
 

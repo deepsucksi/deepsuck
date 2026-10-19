@@ -1,7 +1,7 @@
-# 语音大模型选型（#40，2026-10-19）
+# 语音大模型选型（#40，2026-10-19；#149 起按新规则）
 
-结论：语音默认模型从 `qwen-plus` 改为 **`qwen3.7-flash`**，`enable_thinking=false`（`DEEPSUCK_LLM_THINKING=0`）。
-文字代理（`LLM_MODEL`，Node）和离线评测（`eval/`）仍用 `qwen-plus`，本轮不动；ASR、TTS 也不动。
+现行：语音和电话默认模型 **`qwen3.8-flash`**，`enable_thinking=false`（`DEEPSUCK_LLM_THINKING=0`；qwen3.8-flash 默认开思考，必须显式关）。
+2026-10-19 14:07 负责人定的规则（#145）：全项目用 Qwen 最新系列，用新不用旧。下面 #40 的 A/B 结果保留作历史记录。
 
 ## 方法
 
@@ -30,12 +30,11 @@
 
 ## 选型
 
-规则（俊杰定）：默认 qwen3.8-flash；它在人设不抢话、输出守卫、口语断续、首字延迟四项里有一项明显不如 qwen-plus，就改用 qwen3.7-flash。
+规则（2026-10-19 起，#145）：用最新 Qwen 系列，语音大模型统一 `qwen3.8-flash`。延迟或成本差一点不是退回旧模型的理由，靠调优补
+（关思考、max_tokens、提示词长度、连接复用、地域等）。
 
-- qwen3.8-flash 首字延迟明显更慢：p50 +173 ms（+48%），p90 913 ms，是 qwen-plus 的 2.2 倍，有几轮超过 1.2 s。按规则改用 qwen3.7-flash。
-- qwen3.7-flash 也比 qwen-plus 慢（p50 +88 ms，p90 +170 ms），含「…」的比例从 100% 降到 74%，回复更短；抢话 1/18（qwen-plus 0/18）。
-  好处是大模型成本降到四分之一（每通约 0.0018 元，对比 0.0075 元）。
-- 以后想回退：生产 `.env` 里把 `DEEPSUCK_LLM_MODEL` 改回 `qwen-plus` 再重建 voice 即可，单价按模型自动取表。
+- 历史：#40 时 qwen3.8-flash 首字 p50 538 ms、p90 913 ms（比 qwen-plus 慢），当时选了 qwen3.7-flash；#149 起改回 qwen3.8-flash，延迟靠调优补。
+- 大模型单价 0.8 / 2.7 元/百万 token，按上表每通约 0.0071 元（qwen3.7-flash 约 0.0018 元）。
 
 ## 单价（元 / 百万 token，华北 2 北京原价，非思考，最低输入档；2026-10-19 查询）
 
