@@ -36,7 +36,9 @@ test('vague phrases appear at most once', () => {
 
 test('web prompt carries the shared name rule', () => {
   assert.ok(PJ.nameRule.startsWith('不复述对方说的任何人名'));
-  const sp = L.systemPrompt(P.BY_ID.lin, S.BY_ID.refund, 'generic', []);
+  // #173：报过名字时是原句；没报过名字时去掉举的说法（“那个名字”“户名没记全”），规则本身还在
+  const sp = L.systemPrompt(P.BY_ID.lin, S.BY_ID.refund, 'generic', [], ['户名是张**']);
   assert.ok(sp.includes(PJ.nameRule));
+  assert.ok(L.systemPrompt(P.BY_ID.lin, S.BY_ID.refund, 'generic', []).includes('不复述对方说的任何人名'));
   assert.ok(!/〔姓/.test(sp));
 });

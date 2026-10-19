@@ -44,8 +44,8 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
 from .callredact import CallRedactor
-from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_scenes, prompt_parts, session_topics, speakable,
-                      system_prompt, unmask)
+from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
+                      speakable, system_prompt, unmask)
 
 Notify = Callable[[dict], Awaitable[None]]
 
@@ -334,6 +334,15 @@ class IntelProcessor(FrameProcessor):
         """对方已经报过、已提取的情报种类（GOAL_LABEL 的名称），从 session.intel 算，和上下文截断无关。"""
         return [GOAL_LABEL[g] for g in GOAL_LABEL if self.session.have_goal(g)]
 
+    def heard_refs(self) -> set:
+        """#173：对方到现在报过的代称种类（"name" / "number" / "url" / "wallet"…）：对方的话里出现过的打码值（共享核心
+        deepsuck.refs.heard_refs，与网页 llm.js 同一套）加上已提取的情报。从 session 算，和上下文截断无关。"""
+        out = heard_refs(m.get("text", "") for m in getattr(self.session, "messages", []) or [] if m.get("role") == "scammer")
+        for goal, kind in (("bank", "number"), ("phone", "number"), ("name", "name"), ("url", "url"), ("wallet", "wallet")):
+            if self.session.have_goal(goal):
+                out.add(kind)
+        return out
+
     def update_prompt(self) -> str:
         """#169：上下文排成 [固定部分 system] + 历史（窗口内）+ [本轮可变部分 system]，当前这段转写由聚合器接在最后。
         固定部分每轮基本不变，历史一次截一整块，所以前面一长段在相邻两轮之间相同，可以吃百炼的前缀缓存。"""
@@ -356,7 +365,7 @@ class IntelProcessor(FrameProcessor):
         fixed, turn = prompt_parts(self.session.persona["id"], self.session.scenario["id"], self.intent, missing,
                                    said_first=self.said_first, topics=topics, first_turn=first,
                                    scenes=heard_scenes(self.session), opener_key=f"{self.opener_salt}|{heard}",
-                                   have=self.have_labels(), facts=self.facts)
+                                   have=self.have_labels(), facts=self.facts, refs=self.heard_refs())
         sp = fixed + "\n" + turn
         self.prompt_sha = hashlib.sha1(sp.encode("utf-8")).hexdigest()[:8]
         if self.context is not None:
