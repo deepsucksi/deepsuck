@@ -273,7 +273,7 @@ def test_interruption_stops_backchannel_in_output_transport():
 # ---------------- LLM 上下文 ----------------
 
 def test_system_prompt_mentions_backchannel_only_when_said():
-    assert "已经先随口应了一声" not in system_prompt("wang", "refund")
+    assert "随口应了一声" not in system_prompt("wang", "refund")
     sp = system_prompt("wang", "refund", said_first="啊？")
     assert "“啊？”" in sp and "开头不要再用嗯" in sp
 
@@ -290,12 +290,13 @@ def test_intel_processor_writes_backchannel_into_llm_prompt():
     intel = IntelProcessor(_session(), context=ctx, mode="llm", backchannel=bc)
     asyncio.run(run_test(intel, frames_to_send=[_tf("我是淘宝客服，您的订单有问题需要退款")]))
     assert intel.said_first == "嗯……"
-    assert "“嗯……”" in ctx.get_messages()[0]["content"]
+    # #169：said_first 在本轮可变部分（历史之后的那条 system），不在开头的固定部分
+    assert "“嗯……”" in ctx.get_messages()[-1]["content"] and "“嗯……”" not in ctx.get_messages()[0]["content"]
     # 下一回合对方催促：不说口头语，提示词也不再提
     bc.take()
     intel = IntelProcessor(_session(), context=ctx, mode="llm", backchannel=bc)  # 处理器实例不能跑两次 run_test
     asyncio.run(run_test(intel, frames_to_send=[_tf("你快点")]))
-    assert intel.said_first == "" and "随口应了一声" not in ctx.get_messages()[0]["content"]
+    assert intel.said_first == "" and not any("随口应了一声" in str(m["content"]) for m in ctx.get_messages() if m["role"] == "system")
 
 
 # ---------------- 指标 ----------------
