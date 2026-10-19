@@ -828,6 +828,26 @@ python eval/llm_scammer.py --run --seeds 1 --max-turns 15 --scenarios police,bos
 - **费用护栏**：调用前先用只读缓存把每场走一遍，完全缓存的场次不计费，其余按“每场都打满轮数”保守估算（每汉字 1 token，骗子模型官方单价，常量复用 `realism_judge.py`；另可加 `--budget-tag` 把多次运行记入 `eval-spend.csv` 并按总预算（硬上限 10 元）收紧每次上限），超过 3 元拒绝（`--max-cost` 只能调低）；运行中超限也停；请求与回复缓存在 `eval/.llm-scammer-cache/`（已 gitignore）。实际 token 约为估算的一半；
 - 同一条件下规则骗子（`sim.run_one`，同种子、同 25 轮上限，只在进程内临时改上限）一并跑出来并列。
 
+#### 被骗方换成大模型人设（#194，`--responder llm`）
+
+`--responder llm` 让被骗方也由大模型扮演，测的是网页大模型人设本身（提示词、发送前过滤），用来对比人设提示词的不同版本。
+
+```bash
+# 只估算（不加 --run 不调用、不记账）：一轮 7 场，每个场景一场、四个人设按场景轮流
+python eval/llm_scammer.py --profile hard --responder llm --seeds 1 --persona-prompt-ref e3e43be   # A
+python eval/llm_scammer.py --profile hard --responder llm --seeds 1 --persona-prompt-ref cccb4f0   # B
+# 实跑（需要负责人批准花费）：同一预算标签累计，推荐 --total-budget 1.3
+python eval/llm_scammer.py --run --profile hard --responder llm --seeds 1 --persona-prompt-ref e3e43be \
+  --budget-tag <标签> --total-budget 1.3 --max-cost 0.43 --estimate-guard cached \
+  --json /tmp/a.json --json-transcripts --md /tmp/a.md
+```
+
+- **提示词**：由网页 `site/assets/js/llm.js` 的 `systemPrompt` / `buildMessages` 直接生成（`eval/persona_prompt_bridge.js` 用 Node 调用），eval 里不放规则副本。`--persona-prompt-ref` 用 `git archive` 取那个 ref 的 `site/assets/js` 和 `site/assets/core`，不切换工作区；同时在 import `deepsuck` 之前把 `DEEPSUCK_CORE_DIR` 指过去，所以 Python 侧的过滤链、规则引擎和提示词读同一份 `personas.json`（含 `eagerAsk.rule`）等共享规则源。骗子台词固定取当前检出，两边相同；
+- **发送前过滤**：与网页代理模式相同的整条链，Python 版 `deepsuck.llmfilter.llm_pipeline`：`sanitizeReply` 两遍（holdTransfer、打码姓名、脱敏、代称、长数字、截断、引号、口语化）→ `dedupe_tail`（最近三条人设回复的尾句）→ `vague_digits`，再经 `Session.record_bot` 脱敏。与 JS 共用用例 `tests/fixtures/llm_sanitize.json`。本轮意图和缺项与 `demo.js` 相同（`choose_intent`、`missing_goals`），开场白用规则引擎，不过 humanize；
+- **模型与缓存**：默认 `qwen3.8-flash`，temperature 0.9、max_tokens 200（`llm.js` DEFAULTS），每个请求显式 `enable_thinking=false`。`--persona-layout cache`（默认）把系统提示词里不随轮次变的行放最前、全部历史接在后面、本轮会变的行（称呼、建议策略、规则 4、规则 7）作为最后一条 system，与语音端 #169 相同；`--persona-layout web` 与网页请求逐字相同（每轮重算、历史留 16 条）。缓存键含 ref 名、提交和提示词目录的 git tree，A / B 不串缓存；台账（`--budget-tag`）记 `cached_tokens`，结果里 `usage.by` 分骗子 / 被骗方；
+- **指标**：每轮（种子）多报**套出至少一条情报的场数**（`intelSessions`：骗子暴露、引擎也提取到）、骗子至少暴露一条的场数、人设平均回复字数；提取率、平均拖延轮数、10 轮内起疑挂断率照旧。transcript 打码规则不变（银行卡、姓名、身份证、QQ、微信、支付宝打码）；
+- **费用护栏**：估算分两档。`cost_cny` 按每场打满 25 轮、完全不命中缓存（默认用它决定是否拒绝运行）；`cost_cny_if_cached` 按同一场每个请求都命中上一个请求的整段输入。`--estimate-guard cached` 改用后者决定是否开跑，运行中仍按实际 usage 在 `--max-cost` / `--total-budget` 处停下。2026-10-19 估算，一轮 7 场：A（e3e43be）0.938 元 / 吃到缓存 0.211 元，B（cccb4f0）0.942 元 / 0.212 元。以往高压档实测平均 11 轮左右挂断、缓存命中约 70%，实际通常远低于保守估算。
+
 第一轮结果（2026-10-18；第 3 轮修补后 [`eval/results-llm-scammer-v1.json`](../eval/results-llm-scammer-v1.json)，修补前基线 [`eval/results-llm-scammer-baseline.json`](../eval/results-llm-scammer-baseline.json)，不含对话全文；第二轮修补后的结果见下一小节）：
 
 | | 起疑挂断（95% 区间） | 放弃 | 打满 25 轮 | 平均拖延轮数 | 情报暴露率 | 提取率 | 完全重复 / 近重复 | 费用 |

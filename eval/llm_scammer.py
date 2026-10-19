@@ -32,6 +32,15 @@
   收款信息放在后面；同一场多轮对话只往后追加，前缀不变，便于命中百炼隐式缓存（公共前缀 ≥1024 token 才可能命中）；
 - 计费按 usage.prompt_tokens_details.cached_tokens 区分缓存命中（0.1 元 / 百万）与未命中（0.8 元 / 百万），台账多记一列 cached_tokens；
 - 每个请求都显式 enable_thinking=false。
+
+#194 起：
+- 被骗方 --responder llm：大模型扮人设（eval/llm_persona.py），系统提示词由网页 site/assets/js/llm.js 生成，发送前过滤用
+  Python 版 deepsuck.llmfilter.llm_pipeline（sanitizeReply 两遍 → dedupeTail → vagueDigits，与 JS 共用 tests/fixtures/llm_sanitize.json）；
+  --persona-prompt-ref <git ref> 从该 ref 读 site/assets/js、site/assets/core（git archive，不切换工作区），来源哈希进缓存键；
+  --persona-layout cache（默认，固定行在最前、本轮可变行在历史之后）/ web（与网页 buildMessages 完全相同）；
+- --pairing rotate：每个场景一场、人设按场景轮流（--seeds k 时第 k 轮整体错开一位），llm 被骗方默认用它，一轮 7 场；
+- 汇总多记：套出至少一条情报（引擎提取到骗子暴露的值）的场数 intelSessions、骗子至少暴露一条的场数 revealedSessions、
+  人设平均回复字数 avgReplyChars；费用按骗子 / 被骗方分开记（usage.by）。
 """
 from __future__ import annotations
 
@@ -55,12 +64,49 @@ for _p in (ROOT, ROOT / "python"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+
+def _early_prompt_source(argv: List[str]):
+    """#194：--persona-prompt-ref 时先把那个 ref 的 site/assets 解出来，并在 import deepsuck 之前把 DEEPSUCK_CORE_DIR
+    指过去：提示词（llm.js）和 Python 过滤链、规则引擎读的是同一份 personas.json 等共享规则源。"""
+    import os
+    ref = None
+    for i, x in enumerate(argv):
+        if x == "--persona-prompt-ref" and i + 1 < len(argv):
+            ref = argv[i + 1]
+        elif x.startswith("--persona-prompt-ref="):
+            ref = x.split("=", 1)[1]
+    if not ref:
+        return None
+    if "deepsuck" in sys.modules:
+        raise RuntimeError("--persona-prompt-ref 要在 import deepsuck 之前处理")
+    spec = importlib.util.spec_from_file_location("llm_persona", Path(__file__).with_name("llm_persona.py"))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["llm_persona"] = mod
+    spec.loader.exec_module(mod)
+    src = mod.PromptSource(ref)
+    os.environ["DEEPSUCK_CORE_DIR"] = str(src.dir / "core")
+    return src
+
+
+EARLY_SOURCE = _early_prompt_source(sys.argv[1:]) if __name__ == "__main__" else None
+
 from deepsuck import extractors as X  # noqa: E402
 from deepsuck import sim as SIM  # noqa: E402
 from deepsuck.engine import Session, vague_digits  # noqa: E402
 from deepsuck.personas import PERSONAS, SCENARIOS  # noqa: E402
 from deepsuck.rng import mulberry32  # noqa: E402
 from personas.humanize import Humanizer  # noqa: E402
+
+
+def load_persona():
+    """#194：大模型被骗方（eval/llm_persona.py），按路径加载。"""
+    if "llm_persona" in sys.modules:
+        return sys.modules["llm_persona"]
+    spec = importlib.util.spec_from_file_location("llm_persona", Path(__file__).with_name("llm_persona.py"))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["llm_persona"] = mod
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def load_judge():
@@ -87,11 +133,17 @@ EST_OUT_TOKENS_PER_TURN = 90    # 估算用：骗子每轮 JSON 输出（continu
 PROMPT_VERSION = "scammer-v1"  # 旧版（固定部分在后面），只为读旧缓存保留
 PROMPT_VERSIONS = {"default": "scammer-v2", "hard": "scammer-hard-v4"}
 PROFILES = tuple(PROMPT_VERSIONS)
-RESPONDERS = ("persona", "bad", "stall")
+RESPONDERS = ("persona", "bad", "stall", "llm")
+PAIRINGS = ("full", "rotate")
+EST_LLM_REPLY_TOKENS = 30      # 估算用：大模型人设每条回复（规则 1 上限 80 字，#194 A / B 压到 25 字以内；按 30 token 算）
+EST_SAY_TOKENS = 60            # 估算用：骗子每条消息正文（不含 JSON 外壳），进被骗方的历史
 SILENT_MARK = "（对方没有回复）"  # 人设这一轮回复为空串时，骗子看到的内容
 FLAG_SUSPICION = 7  # hard 档：起疑分 ≥7 的回合记为“露馅”
 QUIT_WINDOW = 10    # #164：“10 轮内起疑挂断率”——高压骗子在前 10 轮就识破，算早露馅
 CACHE_DIR = ROOT / "eval" / ".llm-scammer-cache"
+# 骗子台词固定取当前检出（--persona-prompt-ref 只换人设一侧的规则源，骗子两边相同）
+SCAM_SCRIPTS = ROOT / "eval" / "scammer-scripts.json"
+SCAM_CORPUS = ROOT / "site" / "assets" / "core" / "scam_scripts.json"
 LINES_PER_PHASE = 2
 PHASES = ("opening", "trust", "pressure", "request", "payout")
 PHASE_NAME = {"opening": "开场", "trust": "建立信任", "pressure": "施压", "request": "索要", "payout": "收款指令"}
@@ -416,9 +468,16 @@ class Meter:
         self.lock = threading.Lock()
         self.u = {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0, "cost_cny": 0.0, "requests": 0,
                   "cached_requests": 0}
+        self.by: Dict[str, dict] = {}
 
-    def add(self, pt: int, ct: int, cached: int = 0) -> None:
+    def add(self, pt: int, ct: int, cached: int = 0, who: str = "scammer") -> None:
         with self.lock:
+            b = self.by.setdefault(who, {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0, "requests": 0})
+            b["prompt_tokens"] += pt
+            b["completion_tokens"] += ct
+            b["cached_tokens"] += cached
+            b["requests"] += 1
+            b["cost_cny"] = round(J.cost_cny(b["prompt_tokens"], b["completion_tokens"], b["cached_tokens"]), 6)
             self.u["prompt_tokens"] += pt
             self.u["completion_tokens"] += ct
             self.u["cached_tokens"] += cached
@@ -436,9 +495,9 @@ class Caller:
     """带缓存的调用；client=None 表示只读缓存（未命中抛 CacheMiss，用于估算）。"""
 
     def __init__(self, client_getter: Optional[Callable[[], object]], meter: Optional[Meter], cache_dir: Path,
-                 refresh: bool = False, version: str = PROMPT_VERSIONS["default"]):
+                 refresh: bool = False, version: str = PROMPT_VERSIONS["default"], who: str = "scammer"):
         self.get_client, self.meter, self.cache_dir, self.refresh = client_getter, meter, Path(cache_dir), refresh
-        self.version = version
+        self.version, self.who = version, who
 
     def __call__(self, messages: List[dict], params: dict) -> dict:
         k = cache_key(messages, params, self.version)
@@ -460,7 +519,7 @@ class Caller:
         tmp.write_text(json.dumps(hit, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         tmp.replace(p)
         if self.meter:
-            self.meter.add(pt, ct, cached)
+            self.meter.add(pt, ct, cached, self.who)
         return hit
 
 
@@ -471,7 +530,8 @@ def session_seed(scenario: str, persona: str, seed: int) -> int:
 
 def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: List[str], call: Callable,
                 model: str = MODEL, max_turns: int = DEFAULT_MAX_TURNS, humanize: bool = True,
-                profile: str = "default", responder: str = "persona") -> dict:
+                profile: str = "default", responder: str = "persona", persona_call: Optional[Callable] = None,
+                prompt_source=None, persona_layout: str = "cache") -> dict:
     rd = SIM.Rand(seed)
     values = SIM.plant(rd)
     sysmsg = system_prompt(corpus, scenario, values, kinds, seed, profile)
@@ -479,8 +539,15 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
     s = Session(scenario, persona, rng=mulberry32(seed ^ 0x5EED), now=lambda: 0)
     bad = ({"bad": BadResponder, "stall": StallResponder}[responder](session_seed(scenario, persona, seed))
            if responder in ("bad", "stall") else None)
+    llm = None
+    if responder == "llm":
+        if persona_call is None or prompt_source is None:
+            raise ValueError("responder=llm 需要 persona_call 和 prompt_source")
+        # 网页大模型路径不过 humanize（与线上一致），开场白用规则引擎
+        llm = load_persona().LLMResponder(s, persona, scenario, prompt_source, persona_call, model,
+                                          session_seed(scenario, persona, seed) ^ 0x11A, persona_layout)
     hum = (Humanizer(profile=HUMANIZE_PROFILE.get(persona, persona), seed=seed ^ 0x4855, **HUMANIZE_OVERRIDES.get(persona, {}))
-           if humanize and not bad else None)
+           if humanize and not bad and not llm else None)
     first = {"text": bad.opening(), "intent": responder} if bad else s.opening()
     # #121：数字过滤在错别字扰动之后、发出去之前（与线上一致；record_bot 已过一遍，这里是扰动后的最后一道）
     bot_text = vague_digits(hum.apply(first["text"]).text) if hum else first["text"]
@@ -529,6 +596,8 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
         if bad:
             s.ingest(say)  # 情报提取照常（口径相同），回复换成差的对照组
             r = {"text": bad.reply(say), "intent": responder}
+        elif llm:
+            r = llm.reply(s.ingest(say))  # text 已过网页同一套发送前过滤并 record_bot；raw 是模型原文
         else:
             r = s.rule_reply(s.ingest(say))
         h = hum.apply(r["text"], context=say, intent=r["intent"]) if hum else None
@@ -538,7 +607,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
             # 骗子那边看到的是“对方没回”，口径与线上一致（空串不会发出去）。
             turns -= 1
             silent += 1
-            log.append({"role": "bot", "text": "", "raw": r["text"], "intent": r["intent"], "ops": [], "silent": True})
+            log.append({"role": "bot", "text": "", "raw": r.get("raw", r["text"]), "intent": r["intent"], "ops": [], "silent": True})
             messages.append({"role": "user", "content": SILENT_MARK})
             continue
         is_dup, g = text in seen, SIM._bigrams(text)
@@ -550,17 +619,19 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
         grams.append(g)
         leaks += bot_leak(text, scam_said)
         stars += bool(re.search(r"[*＊]", text))
-        log.append({"role": "bot", "text": text, "raw": r["text"], "intent": r["intent"], "ops": h.ops if h else []})
+        log.append({"role": "bot", "text": text, "raw": r.get("raw", r["text"]), "intent": r["intent"], "ops": h.ops if h else []})
         messages.append({"role": "user", "content": text})
     got = {(i["type"], SIM._canon(i["type"], s._raw[k])) for k, i in s.intel.items()}
     total_kinds = len(kinds)
+    sent = [m["text"] for m in log[1:] if m["role"] == "bot" and not m.get("silent")]
     return {"scenario": scenario, "persona": persona, "seed": seed, "model": model_name, "turns": turns,
             "estMinutes": s.est_seconds / 60, "quit": quit_, "hangup": hang,
             "revealedKinds": len({kind_of(t) for t, _ in revealed} & set(kinds)), "totalKinds": total_kinds,
             "revealedItems": len(revealed), "capturedItems": len(revealed & got), "falseIntel": len(got - revealed),
             "botReplies": turns, "silentTurns": silent, "leaks": leaks, "starReplies": stars, "dup": dup, "dupRaw": dup_raw, "near": near, "parseErrors": parse_errors,
             "profile": profile, "responder": responder, "suspicion": sus, "probes": probes,
-            "flaggedTurns": sum(x >= FLAG_SUSPICION for x in sus), "transcript": log}
+            "flaggedTurns": sum(x >= FLAG_SUSPICION for x in sus),
+            "replyChars": sum(len(re.sub(r"\s", "", t)) for t in sent), "transcript": log}
 
 
 # ---------------------------------------------------------------- transcript 脱敏（#164：结果文件里存对话全文）
@@ -610,23 +681,52 @@ def redact_transcript(row: dict) -> List[dict]:
 
 # ---------------------------------------------------------------- estimate / run
 def estimate_session(corpus: dict, scenario: str, persona: str, seed: int, kinds: List[str], max_turns: int,
-                     profile: str = "default") -> dict:
-    """按“每轮都不挂断、到上限、缓存一次也不命中”估算（偏保守）；骗子每轮输出按 EST_OUT_TOKENS_PER_TURN，人设回复按该人设台词平均长度 × 1.3。"""
+                     profile: str = "default", responder: str = "persona", persona_sys_tokens: int = 0) -> dict:
+    """按“每轮都不挂断、到上限、缓存一次也不命中”估算（偏保守）；骗子每轮输出按 EST_OUT_TOKENS_PER_TURN，人设回复按该人设台词平均长度 × 1.3。
+    responder=llm 时人设回复按 EST_LLM_REPLY_TOKENS，另加被骗方模型的调用：每轮输入 = 人设系统提示词（persona_sys_tokens，
+    取对方把各类信息都报过时最长的那版）+ 全部历史，输出 EST_LLM_REPLY_TOKENS。
+    另给 cached_tokens：假设同一场每个请求都命中上一个请求的整段输入（隐式缓存的理想情况，前缀不足 1024 token 不算），
+    用来估“吃到缓存时”的费用；拒绝运行只看无缓存的估算。"""
     values = SIM.plant(SIM.Rand(seed))
     sys_t = J.estimate_tokens(system_prompt(corpus, scenario, values, kinds, seed, profile))
-    p = next(x for x in PERSONAS if x["id"] == persona)
-    lens = [len(it if isinstance(it, str) else it["t"]) for v in p["templates"].values() for it in v]
-    bot_t = int(mean(lens) * 1.3) + 8
-    inp = out = 0
+    if responder == "llm":
+        bot_t = EST_LLM_REPLY_TOKENS
+    else:
+        p = next(x for x in PERSONAS if x["id"] == persona)
+        lens = [len(it if isinstance(it, str) else it["t"]) for v in p["templates"].values() for it in v]
+        bot_t = int(mean(lens) * 1.3) + 8
+    inp = out = cached = 0
     hist = bot_t
+    prev = 0
     for _ in range(max_turns + 1):
-        inp += sys_t + hist
+        cur = sys_t + hist
+        inp += cur
+        cached += prev if prev >= 1024 else 0
+        prev = cur
         out += EST_OUT_TOKENS_PER_TURN
         hist += EST_OUT_TOKENS_PER_TURN + bot_t
-    return {"prompt_tokens": inp, "completion_tokens": out}
+    r_in = r_out = r_cached = 0
+    if responder == "llm":
+        hist, prev = bot_t, 0
+        for _ in range(max_turns):
+            hist += EST_SAY_TOKENS
+            cur = persona_sys_tokens + hist
+            r_in += cur
+            r_cached += prev if prev >= 1024 else 0
+            prev = cur
+            r_out += EST_LLM_REPLY_TOKENS
+            hist += bot_t
+    return {"prompt_tokens": inp + r_in, "completion_tokens": out + r_out, "cached_tokens": cached + r_cached,
+            "responder_prompt_tokens": r_in, "responder_completion_tokens": r_out}
 
 
-def plan(scenarios, personas, seeds: int) -> List[tuple]:
+def plan(scenarios, personas, seeds: int, pairing: str = "full") -> List[tuple]:
+    """full：场景 × 人设 × 种子；rotate（#194）：每轮（种子）每个场景一场，人设按场景顺序轮流，第 k 轮整体错开 k 位。"""
+    if pairing == "rotate":
+        n = len(personas)
+        return [(sc, personas[(i + k) % n], 1000 + k) for k in range(seeds) for i, sc in enumerate(scenarios)]
+    if pairing != "full":
+        raise ValueError(f"pairing must be one of {PAIRINGS}")
     return [(sc, p, 1000 + k) for sc in scenarios for p in personas for k in range(seeds)]
 
 
@@ -634,52 +734,94 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
         model: str = MODEL, max_cost: float = HARD_MAX_COST_CNY, client_factory: Optional[Callable[[], object]] = None,
         cache_dir: Path = CACHE_DIR, dry_run: bool = True, refresh: bool = False, humanize: bool = True,
         workers: int = 6, corpus: Optional[dict] = None, log: Callable[[str], None] = lambda s: None,
-        meter_hook: Optional[Callable[[object], None]] = None, profile: str = "default", responder: str = "persona") -> dict:
+        meter_hook: Optional[Callable[[object], None]] = None, profile: str = "default", responder: str = "persona",
+        prompt_source=None, persona_layout: str = "cache", pairing: Optional[str] = None,
+        estimate_guard: str = "conservative") -> dict:
     max_cost = min(float(max_cost), HARD_MAX_COST_CNY)
     if profile not in PROFILES:
         raise ValueError(f"profile must be one of {PROFILES}")
     if responder not in RESPONDERS:
         raise ValueError(f"responder must be one of {RESPONDERS}")
     version = PROMPT_VERSIONS[profile]
+    pairing = pairing or ("rotate" if responder == "llm" else "full")
+    pver = None
+    if responder == "llm":
+        LP = load_persona()
+        if persona_layout not in LP.LAYOUTS:
+            raise ValueError(f"persona_layout must be one of {LP.LAYOUTS}")
+        prompt_source = prompt_source or LP.PromptSource(None)
+        pver = LP.version_for(prompt_source, persona_layout)
+        version = version + "|" + pver  # 骗子缓存键也带上人设提示词来源，A / B 不串
     scenarios = list(scenarios or [s["id"] for s in SCENARIOS])
     personas = list(personas or [p["id"] for p in PERSONAS])
     if corpus is None:
-        corpus = json.loads(SIM.default_corpus_path().read_text(encoding="utf-8"))
-    legacy = SIM.load_scripts("legacy")
-    jobs = plan(scenarios, personas, seeds)
+        corpus = json.loads(SCAM_CORPUS.read_text(encoding="utf-8"))
+    legacy = SIM.load_scripts("legacy", str(SCAM_SCRIPTS))
+    jobs = plan(scenarios, personas, seeds, pairing)
+    extra = {}
+    if responder == "llm":
+        extra = {"prompt_source": prompt_source, "persona_layout": persona_layout}
     # 1) 只读缓存走一遍：完全缓存的场次不计费
     ro = Caller(None, None, cache_dir, refresh, version)
+    ro_p = Caller(None, None, cache_dir, refresh, pver, "responder") if pver else None
     cached, todo = {}, []
     for job in jobs:
         kinds = legacy["scenarios"][job[0]]["intel"]
         try:
-            cached[job] = (run_session(*job, corpus, kinds, ro, model, max_turns, humanize, profile, responder)
+            cached[job] = (run_session(*job, corpus, kinds, ro, model, max_turns, humanize, profile, responder,
+                                       persona_call=ro_p, **extra)
                            if not refresh else None)
             if cached[job] is None:
                 raise CacheMiss("refresh")
         except CacheMiss:
             cached.pop(job, None)
             todo.append(job)
-    est_in = est_out = 0
+    est_in = est_out = est_cached = r_in = r_out = 0
+    psys = {}
     for job in todo:
-        e = estimate_session(corpus, job[0], job[1], job[2], legacy["scenarios"][job[0]]["intel"], max_turns, profile)
+        if responder == "llm" and job[1] not in psys:
+            psys[job[1]] = J.estimate_tokens("\n".join(m["content"] for m in prompt_source.messages(
+                job[1], job[0], "confirm_intel", ["bank", "name", "url", "wallet", "phone"],
+                [{"role": "scammer", "text": t} for t in load_persona().PROBE_HEARD], persona_layout)
+                if m["role"] == "system"))
+        e = estimate_session(corpus, job[0], job[1], job[2], legacy["scenarios"][job[0]]["intel"], max_turns, profile,
+                             responder, psys.get(job[1], 0))
         est_in += e["prompt_tokens"]
         est_out += e["completion_tokens"]
+        est_cached += e["cached_tokens"]
+        r_in += e["responder_prompt_tokens"]
+        r_out += e["responder_completion_tokens"]
     est_cost = J.cost_cny(est_in, est_out)
     estimate = {"sessions": len(jobs), "uncached_sessions": len(todo), "max_turns": max_turns,
                 "prompt_tokens": est_in, "completion_tokens": est_out, "cost_cny": round(est_cost, 4),
+                "cost_cny_if_cached": round(J.cost_cny(est_in, est_out, est_cached), 4),
                 "max_cost_cny": max_cost,
                 "price": {"input_per_m": J.PRICE_INPUT_PER_M, "output_per_m": J.PRICE_OUTPUT_PER_M,
                           "cached_input_per_m": J.PRICE_CACHED_INPUT_PER_M, "source": J.PRICE_SOURCE}}
+    if responder == "llm":
+        estimate.update({"responder_prompt_tokens": r_in, "responder_completion_tokens": r_out,
+                         "responder_cost_cny": round(J.cost_cny(r_in, r_out), 4),
+                         "persona_prompt": prompt_source.describe(), "persona_layout": persona_layout,
+                         "persona_system_tokens": psys, "pairing": pairing,
+                         "jobs": ["/".join(map(str, j)) for j in todo]})
     log(f"估算：{len(jobs)} 场（未缓存 {len(todo)} 场，每场至多 {max_turns} 轮），输入至多约 {est_in} token、"
-        f"输出约 {est_out} token，约 {est_cost:.4f} 元（上限 {max_cost} 元）")
-    if est_cost > max_cost:
-        raise BudgetError(f"估算费用 {est_cost:.4f} 元超过上限 {max_cost} 元，拒绝运行；请减少 --seeds / --max-turns / 场景或人设")
+        f"输出约 {est_out} token，约 {est_cost:.4f} 元（全吃到缓存时约 {estimate['cost_cny_if_cached']:.4f} 元；上限 {max_cost} 元）")
+    # 运行前拒绝：默认看无缓存的保守估算；--estimate-guard cached 改看“吃到缓存”的估算（显式选择），
+    # 运行中仍按实际 usage（含 cached_tokens）累计，超过上限立即停下
+    if estimate_guard not in ("conservative", "cached"):
+        raise ValueError("estimate_guard must be conservative or cached")
+    estimate["guard"] = estimate_guard
+    guard_cost = est_cost if estimate_guard == "conservative" else estimate["cost_cny_if_cached"]
+    if guard_cost > max_cost:
+        raise BudgetError(f"估算费用 {guard_cost:.4f} 元超过上限 {max_cost} 元，拒绝运行；请减少 --seeds / --max-turns / 场景或人设")
     config = {"model": model, "seeds": seeds, "maxTurns": max_turns, "scenarios": scenarios, "personas": personas,
               "humanize": {p: HUMANIZE_PROFILE.get(p, p) for p in personas} if humanize else None,
               "humanizeOverrides": {p: HUMANIZE_OVERRIDES[p] for p in personas if p in HUMANIZE_OVERRIDES} or None,
               "temperature": TEMPERATURE, "promptVersion": version, "profile": profile, "responder": responder,
-              "enableThinking": False, "linesPerPhase": LINES_PER_PHASE}
+              "enableThinking": False, "linesPerPhase": LINES_PER_PHASE, "pairing": pairing}
+    if responder == "llm":
+        config.update({"personaPrompt": prompt_source.describe(), "personaLayout": persona_layout,
+                       "personaPromptVersion": pver, "personaTemperature": load_persona().TEMPERATURE})
     result = {"config": config, "date": date.today().isoformat(), "estimate": estimate, "dry_run": dry_run}
     if dry_run:
         return result
@@ -699,13 +841,14 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
             return holder["c"]
 
     caller = Caller(get_client, meter, cache_dir, refresh, version)
+    pcaller = Caller(get_client, meter, cache_dir, refresh, pver, "responder") if pver else None
     rows: Dict[tuple, dict] = dict(cached)
     for _ in cached:
         meter.cached()
 
     def work(job):
         return job, run_session(*job, corpus, legacy["scenarios"][job[0]]["intel"], caller, model, max_turns, humanize,
-                                profile, responder)
+                                profile, responder, persona_call=pcaller, **extra)
 
     with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
         for job, row in ex.map(work, todo):
@@ -714,6 +857,8 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
     ordered = [rows[j] for j in jobs]
     meter.u["cost_cny"] = round(meter.u["cost_cny"], 6)
     meter.u["cache_hit_rate"] = round(meter.u["cached_tokens"] / meter.u["prompt_tokens"], 4) if meter.u["prompt_tokens"] else None
+    if meter.by:
+        meter.u["by"] = meter.by
     result.update({"usage": meter.u, "rows": ordered})
     result.update(summarize(ordered, scenarios, personas))
     return result
@@ -726,6 +871,10 @@ def aggregate(rows: List[dict]) -> dict:
     rev = sum(r["revealedItems"] for r in rows)
     return {
         "sessions": len(rows),
+        # #194：套出至少一条情报（骗子暴露、引擎也提取到）的场数；骗子至少暴露一条的场数
+        "intelSessions": sum(r["capturedItems"] > 0 for r in rows),
+        "revealedSessions": sum(r["revealedItems"] > 0 for r in rows),
+        "avgReplyChars": sum(r.get("replyChars", 0) for r in rows) / replies,
         "suspiciousQuit": sum(r["quit"] == "suspicious" for r in rows) / n,
         "suspiciousQuitEarly": sum(r["quit"] == "suspicious" and r["turns"] <= QUIT_WINDOW for r in rows) / n,
         "giveUp": sum(r["quit"] == "give_up" for r in rows) / n,
@@ -771,13 +920,13 @@ def summarize(rows: List[dict], scenarios, personas) -> dict:
     }
 
 
-def rule_baseline(scenarios, personas, seeds: int, max_turns: int) -> dict:
+def rule_baseline(scenarios, personas, seeds: int, max_turns: int, pairing: str = "full") -> dict:
     """同样的场景 × 人设 × 种子、同样轮数上限下的规则骗子（deepsuck.sim，语料台词），便于并列对比。"""
-    scripts = SIM.load_scripts("corpus")
+    scripts = SIM.load_scripts("corpus", str(SCAM_SCRIPTS), str(SCAM_CORPUS))
     old = SIM.MAX_TURNS
     SIM.MAX_TURNS = max_turns  # 只在本进程内临时改，不改 sim.py
     try:
-        rows = [SIM.run_one(sc, p, "rule", seed, scripts) for sc, p, seed in plan(scenarios, personas, seeds)]
+        rows = [SIM.run_one(sc, p, "rule", seed, scripts) for sc, p, seed in plan(scenarios, personas, seeds, pairing)]
     finally:
         SIM.MAX_TURNS = old
     return SIM.aggregate(rows)
@@ -786,7 +935,7 @@ def rule_baseline(scenarios, personas, seeds: int, max_turns: int) -> dict:
 def to_markdown(res: dict) -> str:
     pn = {p["id"]: p["name"] for p in PERSONAS}
     sn = {s["id"]: s["title"] for s in SCENARIOS}
-    cols = [("suspiciousQuit", "起疑挂断", "{:.1%}"), ("suspiciousQuitEarly", f"{QUIT_WINDOW} 轮内起疑挂断", "{:.1%}"), ("giveUp", "放弃", "{:.0%}"), ("avgTurns", "平均拖延轮数", "{:.1f}"),
+    cols = [("intelSessions", "套出情报场数", "{:d}"), ("suspiciousQuit", "起疑挂断", "{:.1%}"), ("suspiciousQuitEarly", f"{QUIT_WINDOW} 轮内起疑挂断", "{:.1%}"), ("giveUp", "放弃", "{:.0%}"), ("avgTurns", "平均拖延轮数", "{:.1f}"),
             ("elicitRate", "情报暴露率", "{:.0%}"), ("extractRate", "提取率", "{:.1%}"), ("leakRate", "泄露率", "{:.1%}"),
             ("repeatRate", "完全重复率", "{:.1%}"), ("nearRepeatRate", "近重复率", "{:.1%}")]
     if res["overall"].get("avgSuspicion") is not None:
@@ -799,8 +948,10 @@ def to_markdown(res: dict) -> str:
                 "—" if v.get(c[0]) is None else c[2].format(v.get(c[0], 0)) for c in cols) + " |")
         return "\n".join(out)
     rows = {"llm": res["overall"]}
+    pp = res["config"].get("personaPrompt")
     names = {"llm": f"大模型骗子（{res['config']['model']}，{res['config'].get('profile', 'default')} 档，"
-                    f"被骗方 {res['config'].get('responder', 'persona')}）"}
+                    f"被骗方 {res['config'].get('responder', 'persona')}"
+                    + (f"，人设提示词 {pp['label']}，平均回复 {res['overall'].get('avgReplyChars', 0):.1f} 字" if pp else "") + "）"}
     if res.get("ruleBaseline"):
         rb = dict(res["ruleBaseline"])
         rb.setdefault("giveUp", 1 - rb.get("suspiciousQuit", 0) - rb.get("maxTurnsHit", 0))
@@ -810,6 +961,8 @@ def to_markdown(res: dict) -> str:
     parts = [table(f"总体（{len(c['scenarios'])} 场景 × {len(c['personas'])} 人设 × {c['seeds']} 种子，每场至多 {c['maxTurns']} 轮）",
                    rows, names),
              table("大模型骗子 · 按人设", res["byPersona"], pn), table("大模型骗子 · 按场景", res["byScenario"], sn)]
+    if len(res.get("bySeed") or {}) > 1:
+        parts.insert(1, table("大模型骗子 · 按轮（种子）", res["bySeed"], {}))
     cat = res.get("hangupCategories") or {}
     if cat:
         parts.append("**起疑挂断的露馅类别**：" + "，".join(f"{CATEGORIES[k].split('：')[0]} {v}" for k, v in cat.items()))
@@ -837,7 +990,17 @@ def main(argv=None) -> int:
     ap.add_argument("--profile", choices=PROFILES, default="default",
                     help="骗子档：default = 原口径；hard = #164 高压档（更多疑、主动试探、发现机器人感就挂断，每轮输出起疑分）")
     ap.add_argument("--responder", choices=RESPONDERS, default="persona",
-                    help="被骗方：persona = 规则引擎 + humanize（被测人设）；bad = 规则模拟的明显差的对照组（校准用）")
+                    help="被骗方：persona = 规则引擎 + humanize（被测人设）；bad / stall = 规则模拟的差的对照组（校准用）；"
+                         "llm = 大模型扮人设（网页 llm.js 的提示词 + 同一套发送前过滤，#194）")
+    ap.add_argument("--persona-prompt-ref", default=None,
+                    help="responder=llm：人设提示词与共享规则源取自这个 git ref（git archive，不切换工作区），默认当前检出")
+    ap.add_argument("--persona-layout", choices=("cache", "web"), default="cache",
+                    help="responder=llm：cache = 固定行放最前、本轮可变行放历史之后（吃缓存）；web = 与网页 buildMessages 完全相同")
+    ap.add_argument("--estimate-guard", choices=("conservative", "cached"), default="conservative",
+                    help="运行前拒绝用哪个估算：conservative = 无缓存、每场到轮数上限（默认）；cached = 同一场前缀全吃到缓存。"
+                         "运行中都按实际费用在 --max-cost / --total-budget 处停下")
+    ap.add_argument("--pairing", choices=PAIRINGS, default=None,
+                    help="full = 场景 × 人设；rotate = 每轮每个场景一场、人设轮流（responder=llm 默认 rotate）")
     ap.add_argument("--no-humanize", action="store_true")
     ap.add_argument("--handwriting", default="", help="逗号分隔的人设：打开 humanize 手写输入档（错字密度改用 handwritingTypoPer100）")
     ap.add_argument("--typo-rate", default="", help="覆盖每百字错字目标，如 wang=2.5,li=2.0")
@@ -863,8 +1026,21 @@ def main(argv=None) -> int:
         print(str(e), file=sys.stderr)
         return 2
     held = {}
+    if a.persona_prompt_ref and a.responder != "llm":
+        print("--persona-prompt-ref 只用于 --responder llm", file=sys.stderr)
+        return 2
+    src = None
+    if a.responder == "llm":
+        LP = load_persona()
+        src = EARLY_SOURCE if (EARLY_SOURCE is not None and EARLY_SOURCE.ref == a.persona_prompt_ref) else None
+        if src is None:
+            if a.persona_prompt_ref:
+                print("--persona-prompt-ref 要从命令行入口传入（需要在 import deepsuck 之前解出规则源）", file=sys.stderr)
+                return 2
+            src = LP.PromptSource(None)
     note = (f"profile={a.profile} responder={a.responder} seeds={a.seeds} maxTurns={a.max_turns} "
-            f"personas={a.personas or 'all'} scenarios={a.scenarios or 'all'}" + (f" handwriting={a.handwriting}" if a.handwriting else ""))
+            f"personas={a.personas or 'all'} scenarios={a.scenarios or 'all'}" + (f" handwriting={a.handwriting}" if a.handwriting else "")
+            + (f" personaPrompt={src.label} layout={a.persona_layout}" if src else ""))
 
     def book(status: str) -> None:
         m = held.get("m")
@@ -878,7 +1054,8 @@ def main(argv=None) -> int:
     try:
         res = run(sc, ps, a.seeds, a.max_turns, a.model, max_cost, J.default_client_factory(), dry_run=not a.run,
                   refresh=a.refresh, humanize=not a.no_humanize, workers=a.workers, log=lambda s: print(s, file=sys.stderr),
-                  meter_hook=lambda m: held.__setitem__("m", m), profile=a.profile, responder=a.responder)
+                  meter_hook=lambda m: held.__setitem__("m", m), profile=a.profile, responder=a.responder,
+                  prompt_source=src, persona_layout=a.persona_layout, pairing=a.pairing, estimate_guard=a.estimate_guard)
     except BudgetError as e:
         book("stopped:budget")
         print(str(e), file=sys.stderr)
@@ -891,7 +1068,8 @@ def main(argv=None) -> int:
         print(json.dumps(res["estimate"], ensure_ascii=False, indent=1))
         return 0
     if not a.no_rule_baseline:
-        res["ruleBaseline"] = rule_baseline(res["config"]["scenarios"], res["config"]["personas"], a.seeds, a.max_turns)
+        res["ruleBaseline"] = rule_baseline(res["config"]["scenarios"], res["config"]["personas"], a.seeds, a.max_turns,
+                                           res["config"].get("pairing", "full"))
     md = to_markdown(res)
     print(md)
     if a.transcripts:
