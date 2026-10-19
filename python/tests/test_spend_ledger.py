@@ -46,3 +46,25 @@ def test_scammer_cli_refuses_when_budget_used_up(tmp_path, capsys):
                            "--scenarios", "police"])
     assert rc == 2
     assert "已用完" in capsys.readouterr().err
+
+
+def test_cached_tokens_column_and_migration(tmp_path):
+    led = tmp_path / "old.csv"
+    old = ("time,tag,script,model,requests,prompt_tokens,completion_tokens,cost_cny,note\n"
+           "2026-10-19T14:10:00+08:00,t,x,qwen3.8-flash,2,56,10,0.000072,smoke ok\n")
+    led.write_text(old, encoding="utf-8")
+    S.append("t", "y", "qwen3.8-flash", {"requests": 1, "prompt_tokens": 2000, "completion_tokens": 10,
+                                         "cached_tokens": 1536, "cost_cny": 0.0005}, ledger=led)
+    import csv
+    with open(led, encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert list(rows[0].keys()) == S.FIELDS and "cached_tokens" in S.FIELDS
+    assert rows[0]["cached_tokens"] == "" and rows[0]["note"] == "smoke ok" and rows[0]["cost_cny"] == "0.000072"
+    assert rows[1]["cached_tokens"] == "1536"
+    assert abs(S.spent("t", led) - 0.000572) < 1e-9   # 补列不改旧金额，累计照旧
+
+
+def test_cached_price_from_official_page():
+    assert J.PRICE_CACHED_INPUT_PER_M == 0.1 and J.BATCH_PRICE_FACTOR == 0.5
+    assert abs(J.cost_cny(1_000_000, 0, 1_000_000) - 0.1) < 1e-9
+    assert abs(J.cost_cny(1_000_000, 1_000_000, batch=True) - 1.75) < 1e-9
