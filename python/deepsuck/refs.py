@@ -10,7 +10,7 @@ import re
 from typing import Iterable
 
 from .core import load
-from .extractors import extract_sensitive
+from .extractors import extract_sensitive, masked_lead_not_surname
 from .redact import redact_text
 
 _P = load("personas")
@@ -47,8 +47,8 @@ def mask_names(text: str, bracket: bool = False) -> str:
     w = "〔" + NAME + "〕" if bracket else NAME
 
     def rep(m: re.Match) -> str:
-        sur = m.group(2)
-        return m.group(0) if len(sur) == 1 and sur in _DE["notSurname"] else w
+        # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json，不在表里的再看 notSurname
+        return m.group(0) if masked_lead_not_surname(m, m.group(2), _DE["notSurname"]) else w
 
     s = _NAME_MASK.sub(rep, str(text or ""))
     s = _SPLIT_BEFORE_NAME.sub("", s)

@@ -60,6 +60,28 @@
     var rest = m && start != null ? m.input.slice(start + 1) : n.slice(1);
     return after.test(rest);
   }
+  /** #201 人设侧共用（llm.js maskNames、engine.js vagueDigits）：打码姓名「c**」里星号前那个字 c 在共用字表里时，按字表判断它在
+   *  rest（c 后面的文字，从星号起）前面算不算「不当姓」：surname=false → true；surname=true → rest 匹配 after 才 true，否则 false
+   *  （拿不准就当姓名，照样换成「那个名字」）。c 不在字表里返回 null，由调用方按自己的 notSurname 判断。与 Python stop_surname 一致。 */
+  function stopSurname(c, rest) {
+    if (!Object.prototype.hasOwnProperty.call(NAME_STOPCHARS, c)) return null;
+    var after = NAME_STOPCHARS[c];
+    return !after || after.test(String(rest || ''));
+  }
+  /** #201：打码姓名正则（星号紧跟在姓 sur 后面）在 str 的 off 处匹配到 m 时，sur 是不是「不当姓」。复姓一律算姓；
+   *  单字先查共用字表（stopSurname），不在表里的再看 fallback（personas.json 的 notSurname）。与 Python masked_lead_not_surname 一致。
+   *  拿不准就当姓名：可能是真姓的字（surname=true）后面只跟 1–3 个星号时，正好是脱敏后的 2–4 字姓名（「户名有志强」→「户名有**」），
+   *  不放行；4 个及以上星号（「我只有****块钱」）才按字表的 after 放行。 */
+  var SHORT_STARS = /^[*＊]{1,3}(?![*＊])/;
+  function maskedLeadNotSurname(m, sur, off, str, fallback) {
+    if (sur.length !== 1) return false;
+    var star = m.search(/[*＊]/);
+    var rest = String(str).slice(off + (star < 0 ? m.length : star));
+    var st = stopSurname(sur, rest);
+    if (st === null) return String(fallback || '').indexOf(sur) >= 0;
+    if (st && NAME_STOPCHARS[sur] && SHORT_STARS.test(rest)) return false;
+    return st;
+  }
   var NAME_BOUNDARY = new RegExp(NR.boundary);
   // ASR 数字规整（ITN）会把“张三”转成“张3”：单个阿拉伯数字还原为汉字（等长，脱敏区间不变）
   var NAME_DIGITS = '零一二三四五六七八九';
@@ -447,5 +469,5 @@
     return extract(text).filter(function (e) { return e.sensitive; });
   }
 
-  return { extract: extract, extractSensitive: extractSensitive, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
+  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
 });
