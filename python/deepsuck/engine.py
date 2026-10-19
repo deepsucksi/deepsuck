@@ -16,7 +16,7 @@ from .core import load, utf16_len
 from . import extractors as X
 from . import redact as R
 from . import tactics as T
-from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, DIGIT_ECHO, resolve_persona_id
+from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, DIGIT_ECHO, REPLY_POLISH, resolve_persona_id
 
 REPORT_SCHEMA = "deepsuck.intel-report/v0.1"
 VERSION = "0.4.0"
@@ -90,6 +90,29 @@ _CLAUSE_END = "？?！!。；;，,…\n"
 
 def _tok(kind: str, arg: str = "") -> str:
     return "\ue000" + kind + arg + "\ue001"
+
+
+# ---- 大模型回复口语化（#132、#134，配置在 personas.json 的 replyPolish；JS 在 llm.js 的 polishReply，两边逐字一致）----
+_RP_FORMAL = [(a, b) for a, b in REPLY_POLISH["formal"]]
+_RP_QMAX = int(REPLY_POLISH["quickQuestionMax"])
+_RP_FIRST = re.compile(r"^(\s*)([^。？?！!；;\n]*?)([？?]+)")
+_RP_PUNCT = re.compile(r"[…。？?！!，,、；;.\s~～]")
+
+
+def polish_reply(text: str) -> str:
+    """大模型回复发出前的口语化：书面词（“具体”“请问”“是否”…）换成口语说法；第一句是快速反问（去标点不超过
+    quickQuestionMax 个字，如“衣服？…哪件啊”）且后面还有话时，第一句的问号换成“…”，问题留给第二句。
+    只用于大模型回复（语音 guard_output、网页 sanitizeReply），规则引擎的已批准台词不过这一道。"""
+    s = str(text or "")
+    for a, b in _RP_FORMAL:
+        s = s.replace(a, b)
+    m = _RP_FIRST.match(s)
+    if m:
+        core = _RP_PUNCT.sub("", m.group(2))
+        rest = s[m.end():]
+        if 0 < len(core) <= _RP_QMAX and _RP_PUNCT.sub("", rest):
+            s = m.group(1) + m.group(2).rstrip("…") + "…" + rest.lstrip("…").lstrip()
+    return s
 
 
 def vague_digits(text: str) -> str:
