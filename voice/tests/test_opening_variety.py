@@ -53,7 +53,8 @@ def test_first_turn_prompt_has_openers_only_on_first_turn():
     assert all(f"- {x}" in on for x in shown) and not any(f"- {x}" in off for x in shown)  # few-shot 里的第一句说法
     last = on.rstrip().split("\n")[-1]
     assert last == P.first_turn_rule(shown) and last.endswith(P.FIRST_TURN_RULE)
-    assert all(f"“{x}”" in last for x in shown)  # 第一轮规则的格式示例就是本通挑出来的几种
+    # #169：第一句说法只在“第一句的说法”里列一次，第一轮规则里不再重复
+    assert not any(f"“{x}”" in last for x in shown) and all(on.count(x) == 1 for x in shown)
     assert P.FIRST_TURN_RULE not in off
 
 

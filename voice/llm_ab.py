@@ -249,6 +249,11 @@ def summarize(rows: List[dict], model: str, turns_per_call: int = 10) -> dict:
         "scene_leak_hits": sorted({d for r in sl for d in r["scene_leaked"]}),
         "sent_ellipsis_pct": round(100 * sum(bool(ELLIPSIS.search(x)) for x in sents) / (len(sents) or 1), 1),
         "sentences": len(sents),
+        # #153 跨轮重复率：尾句和本通最近三轮人设回复的尾句相同（去标点）；raw 为原样回复，final 为过 dedupe_tail 之后
+        "tail_repeat_raw": sum(1 for r in ok if r.get("tail_repeat_raw")),
+        "tail_repeat": sum(1 for r in ok if r.get("tail_repeat")),
+        "tail_repeat_raw_pct": round(100 * sum(1 for r in ok if r.get("tail_repeat_raw")) / n, 1),
+        "tail_repeat_examples": [r["reply"] for r in ok if r.get("tail_repeat_raw")][:8],
         "first_question": sum(first_question(r["reply"]) for r in firsts), "calls": len(firsts),
         # #95 第一句模板重复率：「哦…X的事啊」句式几通；最常见的第一句骨架占几通（重复率 = first_skeleton_top / calls）
         "first_template": sum(opening_template(r["reply"]) for r in firsts),
@@ -302,7 +307,7 @@ async def stream_reply(http, url: str, key: str, model: str, messages: list, thi
 
 
 async def run_script(http, url, key, model, sc, thinking=False, call: int = 0) -> List[dict]:
-    from deepsuck.engine import Session
+    from deepsuck.engine import Session, _td_norm, dedupe_tail, tail_sentence
     from deepsuck.rng import mulberry32
     from pipecat.processors.aggregators.llm_context import LLMContext
 
@@ -314,6 +319,7 @@ async def run_script(http, url, key, model, sc, thinking=False, call: int = 0) -
     ip = IntelProcessor(s, context=ctx)
     ctx.add_message({"role": "assistant", "content": voice_opening(s)["text"]})
     said, heard, rows = "", "", []
+    tails: List[str] = []  # #153：本通最近几轮人设回复的尾句（跨轮重复率）
     for turn, line in enumerate(sc["lines"]):
         a = s.ingest(line)
         said += a["redacted"]
@@ -333,11 +339,20 @@ async def run_script(http, url, key, model, sc, thinking=False, call: int = 0) -
             continue
         raw = res["text"]
         reply = guard_output(raw)
+        # #153 跨轮重复：尾句和本通最近三轮的尾句（去标点）相同。tail_repeat_raw 是守卫后的原样回复，
+        # tail_repeat 是过 dedupe_tail 之后（语音接线 PR 之前，喂回模型的仍是原样回复，和现网一致）
+        recent = {_td_norm(x) for x in tails[-3:]} - {""}
+        tail_raw = _td_norm(tail_sentence(reply))
+        deduped = dedupe_tail(reply, tails[-3:], sc["persona"])
+        tail_repeat_raw = bool(tail_raw and tail_raw in recent)
+        tail_repeat = bool(_td_norm(tail_sentence(deduped)) in recent and _td_norm(deduped))
+        tails.append(tail_sentence(reply))
         ctx.add_message({"role": "assistant", "content": reply})
         row.update(raw=raw, reply=reply, guarded=reply != raw.strip(), think="<think>" in raw or res["reasoning"],
                    leaked=leaked(reply, said) if sc["leak_check"] else [], style=style(raw),
                    digit_leaked=digit_leaks(raw, heard, examples), scene_leaked=scene_leaks(raw, heard),
                    digit_echo_raw=digit_echoes(raw), digit_echo=digit_echoes(reply),
+                   tail_repeat_raw=tail_repeat_raw, tail_repeat=tail_repeat, deduped=deduped,
                    ttft_ms=res["ttft_ms"], total_ms=res["total_ms"], **{"in": res["in"], "out": res["out"]})
         rows.append(row)
     return rows
