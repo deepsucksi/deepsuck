@@ -517,12 +517,29 @@ _NAME_MASKED = re.compile(
 NAME_PHRASE = "那个名字"
 
 
+# #215：姓名锚（户名 / 收款人 / 名下 / 对方叫）后面紧跟星号时一律念“那个名字”（与 #214 共享核心的姓名锚一致，比号码判断先做）。
+# 原来“名”“户”在 _NOT_SURNAME 里，“户名***”匹配不到 _NAME_MASKED，户名被 unmask 念成“那个号”（“卡号是***，户名***”→
+# “……户名那个号”）。锚和星号之间可以有“是 / 为 / ：”和空格（念的时候“是”“为”去掉，冒号保留）。星号后面要是还跟着一个字
+# （“户名*明”“收款人**华”，脱敏只留了名里的一个字）一并换掉，不露姓名里的任何字；“的 / 和 / 卡 / ，”这类字照旧保留。
+# 只认星号：“户名和账号”“收款人信息”“我名下有房”不动；星号后面紧跟数字 / 字母（打码号码）不算姓名。
+_NAME_ANCHOR = re.compile(
+    r"(户名|收款人|名下|对方叫)\s*(?:是|为)?\s*([:：]?)\s*[*＊]+(?![0-9A-Za-z０-９*＊])([\u4e00-\u9fff](?![*＊]))?")
+# 星号紧跟“名下”（“转到**名下”）：星号是名字，不是号码；前面的字（“到”）不当姓吃掉
+_STARS_BEFORE_MINGXIA = re.compile(r"(?<![0-9A-Za-z０-９*＊])[*＊]+(?=名下)")
+_NAME_ANCHOR_KEEP = set("的地得之是为和与跟及或同在名下卡账户号码行开吧呢啊吗了呀哦嘛也都就还")
+
+
 def _unmask_names(s: str) -> str:
+    def anchor(m: re.Match) -> str:
+        tail = m.group(3) or ""
+        return m.group(1) + m.group(2) + NAME_PHRASE + (tail if tail in _NAME_ANCHOR_KEEP else "")
+
     def rep(m: re.Match) -> str:
         # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓），不在表里的再看 _NOT_SURNAME
         if masked_lead_not_surname(m, m.group(2), _NOT_SURNAME):
             return m.group(0)
         return NAME_PHRASE
+    s = _STARS_BEFORE_MINGXIA.sub(NAME_PHRASE, _NAME_ANCHOR.sub(anchor, s))
     return _NAME_MASKED.sub(rep, s)
 
 
@@ -567,10 +584,107 @@ def speakable(text: str, calm_tts: bool | None = None) -> str:
     return _STARS.sub("……", s)
 
 
+# #215：输出端拦住拆字解释。模型自己复述「收款人是弓长张，伟大的伟对吧」「龚厂长，伟大的伟对吧」「是伟大的伟吗」时，
+# 拆字解释连同它解释的姓名整体换成已批的「那个名字」（NAME_PHRASE，规则替换，不是新台词，不加任何别的字）：
+# 「收款人是弓长张，伟大的伟对吧」→「收款人是那个名字对吧」，「是伟大的伟吗」→「是那个名字吗」。
+# 1) 拆字报姓：共享核心 nameRules.split.spellings（弓长张、耳东陈、口天吴…）和它们的 ASR 同音变体（龚厂长、工长张、二东陈…）。
+#    后面必须是结尾 / 标点 / 确认说法（对吧、是吗…）/ 语气词 / 下一段解释，所以「宫长张罗了一桌菜」「尔东陈列馆」不动。
+#    前面紧跟的「姓」一并换掉（与 _unmask_names 的「他姓张**」→「他那个名字」一致）。
+# 2) 逐字解释：词 + 的(那个) + 被解释的字 X（+ 字），词取「的」前面最短的、含 X 的 2–4 个汉字（不含「的 / 是」），
+#    X 后面同样要是结尾 / 标点 / 确认说法 / 语气词 / 下一段解释（「伟大的伟人」「明天的明天」不算；X 不在词里的「伟大的祖国」不算）。
+#    前面紧跟「X是」「X就是」「X字是」时一并换掉（那里也念出了 X）。
+# 3) 相邻几段（中间只隔标点、空格）换完以后合成一个「那个名字」。
+_EXR = load("extractors")["nameRules"]
+_SPLIT_SPELLINGS = tuple(_EXR["split"]["spellings"])
+# 拆字说法里每个字的 ASR 同音 / 近音写法（只用于识别人设复述的拆字报姓，不进任何台词）
+_SPLIT_HOMOPHONES = {
+    "弓": "工公宫龚功攻", "长": "厂场常", "张": "章长掌", "耳": "尔二而儿", "东": "冬", "陈": "晨程成臣沉",
+    "口": "扣寇", "天": "田添", "吴": "无武五午", "立": "力丽利", "早": "枣找", "章": "张", "木": "目牧", "子": "字紫",
+    "李": "里理礼", "双": "霜", "林": "临琳", "古": "谷股", "月": "越", "胡": "湖壶", "言": "严盐", "午": "五武",
+    "许": "须", "草": "曹", "头": "投", "黄": "皇煌", "易": "亦义", "杨": "阳扬洋", "关": "官观", "郑": "正政",
+    "马": "码", "冯": "风", "吕": "旅", "走": "奏", "肖": "小晓萧", "赵": "照", "禾": "和合", "程": "成城诚",
+}
+
+
+def _split_variants(sp: str) -> str:
+    return "".join("[" + c + _SPLIT_HOMOPHONES.get(c, "") + "]" for c in sp)
+
+
+_HAN = "[\u4e00-\u9fff]"
+_EXP_TAIL = "(?:" + _EXR["explain"]["tailWords"] + ")"
+_EXP_PARTICLE = "[啊呀吧嘛哈呢哦吗么]"
+_EXP_SEP = "[\\s，,、：:；;。]{0,2}"
+# X（或拆字报姓）后面的合法结尾：结尾、非汉字、确认说法、语气词、下一段逐字解释（「伟大的伟，明天的明」「弓长张伟大的伟」）
+_EXP_NEXT = _HAN + "{2,4}的(?:那个)?" + _HAN
+_EXP_END = "(?=$|[^\u4e00-\u9fff]|" + _EXP_TAIL + "|" + _EXP_PARTICLE + "|" + _EXP_SEP + _EXP_NEXT + ")"
+# 拆字报姓后面跟着 1–2 个字的名（「弓长张，三丰」「走肖赵，明。」「弓长张三丰」）一并换掉；名的字不能是共享核心
+# split.givenStop 里的字或语气词。同音变体（「龚厂长」）后面必须隔着标点才算名，免得「尔东陈列馆」「宫长张罗」被当成拆字报姓。
+_GIVEN_CHAR = "(?:(?!" + _EXR["split"]["givenStop"] + "|" + _EXP_PARTICLE + ")" + _HAN + ")"
+_GIVEN_AFTER = _GIVEN_CHAR + "{1,2}(?![\u4e00-\u9fff])"
+_SPLIT_EXACT = "|".join(sorted(_SPLIT_SPELLINGS, key=len, reverse=True))
+_SPLIT_SAY = re.compile(
+    "姓?(?:(?:" + _SPLIT_EXACT + ")(?:" + _EXP_SEP + _GIVEN_AFTER + ")?"
+    + "|(?:" + "|".join(_split_variants(sp) for sp in _SPLIT_SPELLINGS) + ")(?:[\\s，,、：:；;。]{1,2}" + _GIVEN_AFTER + ")?)"
+    + _EXP_END)
+_EXPLAIN_CAND = re.compile("(" + _HAN + "{1,4})的(?:那个)?(" + _HAN + ")字?" + _EXP_END)
+_NAME_RUN = re.compile(NAME_PHRASE + "(?:" + _EXP_SEP + "(?:就是|是)?" + NAME_PHRASE + ")+")
+# 共享核心逐字解释的反例里，长得像解释、其实是普通话的（tests/fixtures/redact.json「这是大家的家」）
+_EXPLAIN_KEEP = frozenset(("大家的家",))
+
+
+def _explain_spans(s: str):
+    out, pos = [], 0
+    while True:
+        m = _EXPLAIN_CAND.search(s, pos)
+        if not m:
+            return out
+        pre, x = m.group(1), m.group(2)
+        cut = s.rfind(NAME_PHRASE, 0, m.start(1) + len(pre))  # 不往前吃进已经换好的「那个名字」（「弓长张伟大的伟」）
+        if cut >= 0 and cut + len(NAME_PHRASE) > m.start(1):
+            pre = s[cut + len(NAME_PHRASE):m.start(1) + len(pre)]
+        word = next((pre[-k:] for k in range(2, len(pre) + 1) if x in pre[-k:] and not re.search("[的是]", pre[-k:])), None)
+        if word is None or (word + "的" + x) in _EXPLAIN_KEEP:
+            pos = m.start() + 1
+            continue
+        # 词往前接到标点 / 「的」「是」/ 4 个字为止，「弓长张，日月明的明」的「日」也换掉（宁可多遮）
+        word = next((pre[-k:] for k in range(len(pre), len(word), -1) if not re.search("[的是]", pre[-k:])), word)
+        start = m.start(2) - len(m.group(0)[len(m.group(1)):m.start(2) - m.start()]) - len(word)
+        lead = re.search(re.escape(x) + "字?(?:就是|是)$", s[:start])  # 「伟是伟大的伟」「伟，就是伟大的伟」的「伟是」也念出了 X
+        if lead:
+            start = lead.start()
+        out.append((start, m.end()))
+        pos = m.end()
+
+
+_SPLIT_AT_END = re.compile("(?:" + _SPLIT_EXACT + "|" + "|".join(_split_variants(sp) for sp in _SPLIT_SPELLINGS) + ")[\\s，,、：:；;。]*$")
+_GIVEN_HEAD = re.compile("^[\\s，,、：:；;。]{0,2}" + _GIVEN_AFTER)
+
+
+def drop_given_after_split(prev: str, cur: str) -> str:
+    """#215：TTS 按分句送时，「你刚说口天吴，一凡，对吧」被切成「你刚说口天吴」「一凡，对吧」。上一句（原文）以拆字报姓结尾时，
+    这一句开头 1–2 个字的名（规则同 drop_name_explain 里拆字报姓后面的名）去掉，免得单独念出来。"""
+    if not prev or not _SPLIT_AT_END.search(prev):
+        return cur
+    return _GIVEN_HEAD.sub("", cur, count=1).lstrip("，, ")
+
+
+def drop_name_explain(text: str) -> str:
+    """#215：拆字报姓、逐字解释（连同被解释的姓名）整体换成已批的「那个名字」，相邻几段合成一个。没有命中时原样返回。"""
+    s = str(text or "")
+    if "的" not in s and not any(c in s for c in "".join(_SPLIT_SPELLINGS) + "".join(_SPLIT_HOMOPHONES.values())):
+        return s
+    s = _SPLIT_SAY.sub(NAME_PHRASE, s)
+    spans = _explain_spans(s)
+    for a, b in reversed(spans):
+        s = s[:a] + NAME_PHRASE + s[b:]
+    return _NAME_RUN.sub(NAME_PHRASE, s)
+
+
 def guard_output(text: str) -> str:
     """输出守卫（PolicyGuard）：去掉括号动作/Markdown、不说成已经转账或答应去转（#187）、数字过滤（#121、#167：连续 2 位及以上的数字含中文数字换成含糊说法）、口语化（#132、#134）、脱敏、抹掉 5 位以上数字串。"""
     s = re.sub(r"<think>.*?</think>", "", str(text or ""), flags=re.S)
     s = _BOLD.sub(r"\1", s)
+    s = drop_name_explain(s)  # #215：拆字报姓 / 逐字解释整体换成「那个名字」（在脱敏、数字过滤之前，免得被打成星号再念成「那个号」）
     s = hold_transfer(s)  # #187：说成已经转了 / 答应去转的分句换成“还在弄，没弄好”（在数字过滤、姓名替换、TTS 之前）
     s = vague_digits(s)
     s = polish_reply(s)  # #132、#134：书面词换口语，第一句快速反问的问号换成“…”

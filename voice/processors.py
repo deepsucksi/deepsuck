@@ -47,6 +47,7 @@ from pipecat.utils.text.base_text_filter import BaseTextFilter
 from .callredact import CallRedactor, redact_digit_fragments
 from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
                       speakable, system_prompt, unmask)
+from .persona import NAME_PHRASE, drop_given_after_split  # noqa: E402  #215 拆字解释：已批说法「那个名字」
 
 Notify = Callable[[dict], Awaitable[None]]
 
@@ -108,14 +109,26 @@ class GuardTextFilter(BaseTextFilter):
 
     def __init__(self, redactor: Optional[CallRedactor] = None):
         self.redactor = redactor
+        self._last = ""
+        self._prev_raw = ""
 
     async def update_settings(self, settings):  # 无可调参数
         return None
 
     async def filter(self, text: str) -> str:
-        return speakable(self.redactor.apply(text) if self.redactor is not None else text)
+        prev, self._prev_raw = self._prev_raw, text
+        text = drop_given_after_split(prev, text)  # #215：上一句以拆字报姓结尾时，这一句开头的名不念
+        out = speakable(self.redactor.apply(text) if self.redactor is not None else text)
+        # #215：TTS 按分句送，「收款人是弓长张，伟大的伟对吧」被切成两句，各自换成「那个名字」；
+        # 上一句以「那个名字」结尾、这一句又以它开头时去掉这一个，合起来仍是「收款人是那个名字对吧」
+        if self._last.endswith(NAME_PHRASE) and out.startswith(NAME_PHRASE):
+            out = out[len(NAME_PHRASE):].lstrip("，, ")
+        if out:
+            self._last = out
+        return out
 
     async def handle_interruption(self):
+        self._last = self._prev_raw = ""
         return None
 
     async def reset_interruption(self):

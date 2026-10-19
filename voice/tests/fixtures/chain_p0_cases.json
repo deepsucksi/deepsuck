@@ -1,0 +1,175 @@
+{
+ "desc": "语音 P0 用例（#206 第六条探针 / #214 / #215）：号码词后跟 1–3 个星号是 number；户名、收款人、对方叫后跟星号是 name；转账动词后的星号是 name",
+ "cases": [
+  {
+   "text": "验证码是*",
+   "expect": "number"
+  },
+  {
+   "text": "卡号是*",
+   "expect": "number"
+  },
+  {
+   "text": "尾号是*",
+   "expect": "number"
+  },
+  {
+   "text": "密码是*",
+   "expect": "number"
+  },
+  {
+   "text": "账号是*",
+   "expect": "number"
+  },
+  {
+   "text": "转到*",
+   "expect": "name",
+   "note": "原期望 number 是写错了（与语料「转到**名下」冲突），负责人同意改成 name（#214 审查，#215）"
+  },
+  {
+   "text": "手机号是*",
+   "expect": "number"
+  },
+  {
+   "text": "收款人是*",
+   "expect": "name"
+  },
+  {
+   "text": "户名是*",
+   "expect": "name"
+  },
+  {
+   "text": "收款人姓和*",
+   "expect": "name"
+  },
+  {
+   "text": "对方叫*",
+   "expect": "name"
+  },
+  {
+   "text": "我在*上班",
+   "expect": "not_name"
+  },
+  {
+   "text": "验证码是**",
+   "expect": "number"
+  },
+  {
+   "text": "卡号是**",
+   "expect": "number"
+  },
+  {
+   "text": "尾号是**",
+   "expect": "number"
+  },
+  {
+   "text": "密码是**",
+   "expect": "number"
+  },
+  {
+   "text": "账号是**",
+   "expect": "number"
+  },
+  {
+   "text": "转到**",
+   "expect": "name",
+   "note": "原期望 number 是写错了（与语料「转到**名下」冲突），负责人同意改成 name（#214 审查，#215）"
+  },
+  {
+   "text": "手机号是**",
+   "expect": "number"
+  },
+  {
+   "text": "收款人是**",
+   "expect": "name"
+  },
+  {
+   "text": "户名是**",
+   "expect": "name"
+  },
+  {
+   "text": "收款人姓和**",
+   "expect": "name"
+  },
+  {
+   "text": "对方叫**",
+   "expect": "name"
+  },
+  {
+   "text": "我在**上班",
+   "expect": "not_name"
+  },
+  {
+   "text": "验证码是***",
+   "expect": "number"
+  },
+  {
+   "text": "卡号是***",
+   "expect": "number"
+  },
+  {
+   "text": "尾号是***",
+   "expect": "number"
+  },
+  {
+   "text": "密码是***",
+   "expect": "number"
+  },
+  {
+   "text": "账号是***",
+   "expect": "number"
+  },
+  {
+   "text": "转到***",
+   "expect": "name",
+   "note": "原期望 number 是写错了（与语料「转到**名下」冲突），负责人同意改成 name（#214 审查，#215）"
+  },
+  {
+   "text": "手机号是***",
+   "expect": "number"
+  },
+  {
+   "text": "收款人是***",
+   "expect": "name"
+  },
+  {
+   "text": "户名是***",
+   "expect": "name"
+  },
+  {
+   "text": "收款人姓和***",
+   "expect": "name"
+  },
+  {
+   "text": "对方叫***",
+   "expect": "name"
+  },
+  {
+   "text": "我在***上班",
+   "expect": "not_name"
+  },
+  {
+   "text": "户名和平",
+   "expect": "name",
+   "note": "raw text; 和平 must be masked"
+  }
+ ],
+ "transfer_verbs": {
+  "desc": "语料与人设提的转账动词用例（#214 审查），期望都是 name",
+  "texts": [
+   "转给***",
+   "汇给**",
+   "转到**名下",
+   "打到**的卡上",
+   "转给**的账户",
+   "转入**",
+   "存到**"
+  ]
+ },
+ "number_and_name": {
+  "desc": "号码和户名在一句里：期望 number 和 name 都有，念「卡号是那个号，户名那个名字」",
+  "texts": [
+   "卡号是***，户名***"
+  ]
+ }
+}
