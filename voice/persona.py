@@ -158,7 +158,7 @@ def voice_style(p: dict, scenes, topics=None, first_turn: bool = False, opener_k
     return style + extra
 
 
-def voice_style_parts(p: dict, scenes, topics=None, first_turn: bool = False, opener_key: str = ""):
+def voice_style_parts(p: dict, scenes, topics=None, first_turn: bool = False, opener_key: str = "", unreported=None):
     """#169：返回 (风格规则, 例句和第一句说法)。风格规则基本不随轮次变，放提示词固定部分；例句按话题筛、第一句说法只在
     第一轮，放到每轮可变的末尾。
 
@@ -191,6 +191,11 @@ def voice_style_parts(p: dict, scenes, topics=None, first_turn: bool = False, op
     pick = [x for x in pick if not (scenes_in(x["scammer"] + x["reply"]) - set(sc))]
     if topics is not None:
         pick = [x for x in pick if topics_in(x["scammer"] + x["reply"]) <= set(topics)]
+    # #181：对方还没报过号码 / 名字时，不放回复里带“那个号”/“那个名字”的例句（例句文字不改，只是这轮不选）
+    for kind in (unreported or ()):
+        word = REF_WORDS.get(kind)
+        if word:
+            pick = [x for x in pick if word not in x["reply"]]
     # 开口就反问的例句改成“接词 + 半句陈述，问题放第二句”的示范：#64 / #95 只在第一轮改，#132 每轮都改
     # （后续回复第一句快速反问“衣服？…哪件啊”多数是照着例句学的）；例句文字不改，只改拼进提示词的样子。
     pick = [dict(x, reply=first_turn_shot(x["reply"], i)) for i, x in enumerate(pick[:_SHOTS_MAX])]
@@ -335,6 +340,29 @@ HARD_RULES = (
 
 
 MISS_HEAD = "还没问到的："
+# #181：“那个号”“那个名字”是对方报过以后的指代说法（RULE_DIGITS、名字规则、unmask 都这样用）。对方还没报过时模型也套用，
+# 说出“户名是那个名字”“你说的那个号”，像是对方报过（XSIBKTYQ）。这一轮还没报过的，末尾单独写明不要这么说、要直接问。
+REF_WORDS = {"number": "那个号", "name": "那个名字"}
+# 只按对方已经提到的话题说（#4：提示词里不出现对方还没说的事），闲聊时这一行不出现。
+_NUMBER_TOPICS = (("bank", "卡号", "“卡号多少”"), ("phone", "电话", "“电话多少”"), ("wallet", "钱包地址", "“地址发来”"))
+
+
+def unreported_line(unreported, topics=None) -> str:
+    """对方还没报过号码 / 名字时的一行：不说“那个号”“那个名字”，要问就直接问。只在相关话题对方已经提到后才出现
+    （号码：bank / phone / wallet；名字：bank）；topics 为 None（离线工具）时不出现。"""
+    if not unreported or topics is None:
+        return ""
+    topics = set(topics)
+    what, refs, asks = [], [], []
+    nums = [x for x in _NUMBER_TOPICS if x[0] in topics]
+    if "number" in unreported and nums:
+        what.append("、".join(x[1] for x in nums)); refs.append(REF_WORDS["number"]); asks += [x[2] for x in nums]
+    if "name" in unreported and "bank" in topics:
+        what.append("户名"); refs.append(REF_WORDS["name"]); asks.append("“户名是谁”")
+    if not what:
+        return ""
+    return (f"对方到现在还没报过{'，也没报过'.join(what)}：不要说{''.join(f'“{x}”' for x in refs)}“你说的那个…”这种像他已经报过的话，"
+            f"也不要说已经记下了；要问就直接问，比如{''.join(asks)}。")
 
 
 def said_first_line(said_first: str) -> str:
@@ -369,15 +397,15 @@ def first_sentence_is_question(text: str) -> bool:
 
 def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
                   said_first: str = "", topics=None, first_turn: bool = False, scenes=None,
-                  opener_key: str = "", have=None, facts=None) -> str:
+                  opener_key: str = "", have=None, facts=None, unreported=None) -> str:
     """完整提示词 = 固定部分 + 换行 + 本轮可变部分（见 prompt_parts）。离线工具、测试用；通话里两段分开放（#169）。"""
     return "\n".join(prompt_parts(persona_id, scenario_id, hint, missing, said_first, topics, first_turn, scenes,
-                                   opener_key, have, facts))
+                                   opener_key, have, facts, unreported))
 
 
 def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
                  said_first: str = "", topics=None, first_turn: bool = False, scenes=None,
-                 opener_key: str = "", have=None, facts=None) -> tuple[str, str]:
+                 opener_key: str = "", have=None, facts=None, unreported=None) -> tuple[str, str]:
     """语音人设提示词，返回 (固定部分, 本轮可变部分)。#4：场景名、描述、后台选的场景都不进提示词；称呼和例句只按对方原话里已经认出的场景挑。
     #169：固定部分（开头、角色、不抢话、硬性规则、号码规则、说话风格）放前面，每轮基本不变，便于前缀缓存；
     本轮策略、缺项、已拿到的情报、人设说过的事实、例句、第一句说法、said_first、首轮/后续规则放末尾（通话中放在历史之后）。
@@ -386,7 +414,8 @@ def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: st
     topics：对方已经提到的话题（session_topics）；None 表示不过滤例句（离线工具用）。
     first_turn：对方刚说完第一段话（本通电话人设的第一条回复），加 FIRST_TURN_RULE 和第一句说法示例。
     opener_key：挑第一句说法示例用的键（调用方传对方第一句话），同一通电话里固定。
-    have：对方已经报过、已提取的情报种类（只列名称）。facts：人设自己说过、已截出上下文的关键事实。"""
+    have：对方已经报过、已提取的情报种类（只列名称）。facts：人设自己说过、已截出上下文的关键事实。
+    unreported：对方到这一轮还没报过的指代类别（"number" / "name"，见 IntelProcessor.unreported）；None 表示不判断（离线工具）。"""
     p = PERSONA_BY_ID.get(resolve_persona_id(persona_id)) or PERSONAS[0]
     if scenes is None:
         scenes = [(SCENARIO_BY_ID.get(scenario_id) or SCENARIOS[0])["id"]]
@@ -397,8 +426,8 @@ def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: st
     who = f"称呼对方为\"{call}\"。" if call else "先不用称呼对方。"
     # #169：放到末尾后，“对方已经提到、但还没说清楚的：收款人姓名”被模型读成“对方说过名字”（本地号码探针里说出
     # “你说的那个名字还没讲完”）；改成只说还没问到，并写明没说过的不要说成说过。
-    miss = MISS_HEAD + "、".join(missing) + "，可以顺着问一句；对方没说过的，不要说成他说过。" if missing else ""
-    style, extra = voice_style_parts(p, scenes, topics, first_turn, opener_key)
+    miss = MISS_HEAD + "、".join(missing) + "（对方还没报过），可以顺着直接问一句；对方没说过的，不要说成他说过。" if missing else ""
+    style, extra = voice_style_parts(p, scenes, topics, first_turn, opener_key, unreported)
     fixed = [PROMPT_HEAD, f"角色：{p['name']}，{_AGE.sub('', p['tagline'])}。{who}", NO_LEAK_RULE, *HARD_RULES, RULE_DIGITS,
              style_rule(p)] + style
     turn = [f"本轮建议策略：{INTENT_HINTS.get(hint, INTENT_HINTS['generic'])}。{miss}"]
@@ -406,6 +435,8 @@ def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: st
     turn += extra
     if said_first:
         turn.append(said_first_line(said_first))
+    if unreported_line(unreported, topics):
+        turn.append(unreported_line(unreported, topics))
     turn.append(first_turn_rule() if first_turn else FOLLOW_UP_RULE)
     return "\n".join(fixed), "\n".join(turn)
 

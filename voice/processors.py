@@ -334,6 +334,18 @@ class IntelProcessor(FrameProcessor):
         """对方已经报过、已提取的情报种类（GOAL_LABEL 的名称），从 session.intel 算，和上下文截断无关。"""
         return [GOAL_LABEL[g] for g in GOAL_LABEL if self.session.have_goal(g)]
 
+    def unreported(self) -> List[str]:
+        """#181：对方到现在还没报过的指代类别。号码：没有提取到卡号 / 电话 / 钱包，对方的话（打码后经 unmask）里也没有
+        “那个号”“那几位”；名字：没有提取到姓名，对方的话里也没有“那个名字”。从 session 算，和上下文截断无关。"""
+        said = "\n".join(unmask(m.get("text", "")) for m in getattr(self.session, "messages", []) or []
+                         if m.get("role") == "scammer")
+        out = []
+        if not any(self.session.have_goal(g) for g in ("bank", "phone", "wallet")) and "那个号" not in said and "那几位" not in said:
+            out.append("number")
+        if not self.session.have_goal("name") and "那个名字" not in said:
+            out.append("name")
+        return out
+
     def update_prompt(self) -> str:
         """#169：上下文排成 [固定部分 system] + 历史（窗口内）+ [本轮可变部分 system]，当前这段转写由聚合器接在最后。
         固定部分每轮基本不变，历史一次截一整块，所以前面一长段在相邻两轮之间相同，可以吃百炼的前缀缓存。"""
@@ -356,7 +368,7 @@ class IntelProcessor(FrameProcessor):
         fixed, turn = prompt_parts(self.session.persona["id"], self.session.scenario["id"], self.intent, missing,
                                    said_first=self.said_first, topics=topics, first_turn=first,
                                    scenes=heard_scenes(self.session), opener_key=f"{self.opener_salt}|{heard}",
-                                   have=self.have_labels(), facts=self.facts)
+                                   have=self.have_labels(), facts=self.facts, unreported=self.unreported())
         sp = fixed + "\n" + turn
         self.prompt_sha = hashlib.sha1(sp.encode("utf-8")).hexdigest()[:8]
         if self.context is not None:
