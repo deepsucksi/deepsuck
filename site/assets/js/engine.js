@@ -133,7 +133,6 @@
   var TD = D.personas.TAIL_DEDUPE;
   var TD_IGNORE = new RegExp('[' + TD.ignore.replace(/[\\\]\[^-]/g, '\\$&') + ']+', 'g');
   var TD_SENT = /[^。？！?!；;\n]+[。？！?!；;]*|[。？！?!；;]+/g;
-  var TD_END = /[。？！?!；;…\s]*$/;
   function tdNorm(s) { return String(s || '').replace(TD_IGNORE, ''); }
   function tdSplit(text) {
     var out = [];
@@ -153,29 +152,31 @@
     var parts = tdSplit(text).filter(function (x) { return tdNorm(x); });
     return parts.length ? parts[parts.length - 1].trim() : '';
   }
-  /** 跨轮去重（纯函数）：recentTails 是最近几轮人设回复的尾句（调用方维护），当前尾句去掉标点后与其中之一相同就改写 */
-  function dedupeTail(text, recentTails) {
+  /** 删完为空时的兜底：该人设 templates[fallback] 里已有台词（纯文本、不带 {变量}），按原句哈希定起点依次挑整句和尾句都没说过的第一句 */
+  function tdFallback(text, personaId, seen) {
+    var p = personaId ? D.personas.BY_ID[D.personas.resolveId(personaId)] : null;
+    var pool = ((p && p.templates && p.templates[TD.fallback]) || []).filter(function (x) { return typeof x === 'string' && x.indexOf('{') < 0; });
+    if (!pool.length) return '';
+    var start = tdHash(tdNorm(text)) % pool.length;
+    for (var i = 0; i < pool.length; i++) {
+      var c = pool[(start + i) % pool.length];
+      if (!seen[tdNorm(c)] && !seen[tdNorm(tailSentence(c))]) return c;
+    }
+    return '';
+  }
+  /** 跨轮去重（纯函数）：recentTails 是最近几轮人设回复的尾句（调用方维护）；当前尾句去掉标点后与其中之一相同就删掉这句，
+   *  删完为空时从 personaId 这个人设已有的台词里确定性地挑一句最近几轮没说过的，不加新说法 */
+  function dedupeTail(text, recentTails, personaId) {
     var s = String(text || '');
     var seen = {};
     (recentTails || []).slice(-TD.window).forEach(function (x) { var n = tdNorm(x); if (n) seen[n] = 1; });
     if (!Object.keys(seen).length) return s;
-    for (var k = 0; k < 8; k++) {
-      var parts = tdSplit(s).filter(function (x) { return tdNorm(x) || x.trim(); });
-      if (!parts.length) return s;
-      var tail = parts[parts.length - 1];
-      if (!seen[tdNorm(tail)]) return s;
-      var head = parts.slice(0, -1).join('');
-      if (parts.filter(function (x) { return tdNorm(x); }).length > 1) { s = head.replace(/\s+$/, ''); continue; }
-      var m = tail.match(TD_END), body = tail.slice(0, m.index), end = tail.slice(m.index);
-      var leadWs = body.slice(0, body.length - body.replace(/^\s+/, '').length);
-      var cut = Math.max(body.lastIndexOf('，'), body.lastIndexOf(','), body.lastIndexOf('、'));
-      if (cut > 0 && tdNorm(body.slice(0, cut))) { s = head + body.slice(0, cut) + (end || ''); continue; }
-      var bt = body.replace(/\s+$/, '');
-      if (Array.from(tdNorm(body)).length > 1 && bt && TD.particles.indexOf(bt.slice(-1)) >= 0) { s = head + bt.slice(0, -1) + end; continue; }
-      var lead = TD.lead[tdHash(tdNorm(text)) % TD.lead.length];
-      return head + leadWs + lead + body.replace(/^\s+/, '') + end;
+    for (;;) {
+      var parts = tdSplit(s).filter(function (x) { return tdNorm(x); });
+      if (!parts.length) return tdNorm(text) ? tdFallback(text, personaId, seen) : s;
+      if (!seen[tdNorm(parts[parts.length - 1])]) return s;
+      s = parts.slice(0, -1).join('').replace(/\s+$/, '');
     }
-    return s;
   }
 
   var DE = D.personas.DIGIT_ECHO;

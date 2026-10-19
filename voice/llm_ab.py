@@ -343,7 +343,7 @@ async def run_script(http, url, key, model, sc, thinking=False, call: int = 0) -
         # tail_repeat 是过 dedupe_tail 之后（语音接线 PR 之前，喂回模型的仍是原样回复，和现网一致）
         recent = {_td_norm(x) for x in tails[-3:]} - {""}
         tail_raw = _td_norm(tail_sentence(reply))
-        deduped = dedupe_tail(reply, tails[-3:])
+        deduped = dedupe_tail(reply, tails[-3:], sc["persona"])
         tail_repeat_raw = bool(tail_raw and tail_raw in recent)
         tail_repeat = bool(_td_norm(tail_sentence(deduped)) in recent and _td_norm(deduped))
         tails.append(tail_sentence(reply))

@@ -203,7 +203,7 @@
       ? D.llm.viaProxy(payload, API + 'chat')
       : D.llm.chatCompletions(state.direct, D.llm.buildMessages(payload));
     return call.then(function (reply) {
-      reply = D.engine.dedupeTail(reply, recentTails(s)); // #153：最近三轮说过的尾句不原样再说
+      reply = D.engine.dedupeTail(reply, recentTails(s), s.persona.id); // #153：最近三轮说过的尾句不原样再说
       var m = s.recordBot(reply, hint); m.engine = '大模型'; return m;
     }).catch(function (e) {
       console.warn(e);

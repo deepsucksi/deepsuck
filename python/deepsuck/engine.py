@@ -166,7 +166,6 @@ def _thin_ellipsis(s: str) -> str:
 _TD = TAIL_DEDUPE
 _TD_IGNORE = re.compile("[" + re.escape(_TD["ignore"]) + "]+")
 _TD_SENT = re.compile(r"[^。？！?!；;\n]+[。？！?!；;]*|[。？！?!；;]+")
-_TD_END = re.compile(r"[。？！?!；;…\s]*$")
 
 
 def _td_norm(s: str) -> str:
@@ -198,37 +197,36 @@ def tail_sentence(text: str) -> str:
     return parts[-1].strip() if parts else ""
 
 
-def dedupe_tail(text: str, recent_tails: list) -> str:
+def _td_fallback(text: str, persona_id, seen: set) -> str:
+    """删完为空时的兜底：该人设 templates[fallback] 里已有台词（纯文本、不带 {变量}），按原句哈希定起点依次挑，
+    整句和尾句都不在 seen 里的第一句；挑不出返回空串。不新增任何台词文本。"""
+    p = PERSONA_BY_ID.get(resolve_persona_id(persona_id)) if persona_id else None
+    pool = [x for x in ((p or {}).get("templates", {}).get(_TD["fallback"]) or []) if isinstance(x, str) and "{" not in x]
+    if not pool:
+        return ""
+    start = _td_hash(_td_norm(text)) % len(pool)
+    for i in range(len(pool)):
+        c = pool[(start + i) % len(pool)]
+        if _td_norm(c) not in seen and _td_norm(tail_sentence(c)) not in seen:
+            return c
+    return ""
+
+
+def dedupe_tail(text: str, recent_tails: list, persona_id: Optional[str] = None) -> str:
     """跨轮去重（纯函数，不存状态）：recent_tails 是最近几轮人设回复的尾句（调用方维护，取最后 window 条），
-    当前回复的尾句和其中任何一条去掉标点后相同，就改写到不同为止：
-    不止一句时去掉重复的尾句；只有一句时去掉最后一个分句、再不行去掉句尾语气词，最后才在句首加 lead 里的一个说法。"""
+    当前回复的尾句和其中任何一条去掉标点后相同，就把这句删掉（新尾句再重复就接着删）；
+    删完为空时从 persona_id 这个人设已有的台词里确定性地挑一句最近几轮没说过的（见 _td_fallback），不加新说法。"""
     s = str(text or "")
     seen = {_td_norm(x) for x in list(recent_tails or [])[-int(_TD["window"]):]} - {""}
     if not seen:
         return s
-    for _ in range(8):
-        parts = [x for x in _td_split(s) if _td_norm(x) or x.strip()]
+    while True:
+        parts = [x for x in _td_split(s) if _td_norm(x)]
         if not parts:
+            return _td_fallback(text, persona_id, seen) if _td_norm(text) else s
+        if _td_norm(parts[-1]) not in seen:
             return s
-        tail = parts[-1]
-        if _td_norm(tail) not in seen:
-            return s
-        if len([x for x in parts if _td_norm(x)]) > 1:
-            s = "".join(parts[:-1]).rstrip()
-            continue
-        m = _TD_END.search(tail)
-        body, end = tail[:m.start()], tail[m.start():]
-        lead_ws = body[:len(body) - len(body.lstrip())]
-        cut = max(body.rfind("，"), body.rfind(","), body.rfind("、"))
-        if cut > 0 and _td_norm(body[:cut]):
-            s = "".join(parts[:-1]) + body[:cut] + (end or "")
-            continue
-        if len(_td_norm(body)) > 1 and body.rstrip()[-1:] in _TD["particles"]:
-            s = "".join(parts[:-1]) + body.rstrip()[:-1] + end
-            continue
-        lead = _TD["lead"][_td_hash(_td_norm(text)) % len(_TD["lead"])]
-        return "".join(parts[:-1]) + lead_ws + lead + body.lstrip() + end
-    return s
+        s = "".join(parts[:-1]).rstrip()
 
 
 def vague_digits(text: str) -> str:

@@ -6,10 +6,10 @@ const FIX = require('./fixtures/tail_dedupe.json');
 
 test('fixture cases', () => {
   for (const c of FIX.cases) {
-    assert.strictEqual(E.dedupeTail(c.text, c.recent), c.expected, c.text);
+    assert.strictEqual(E.dedupeTail(c.text, c.recent, c.persona), c.expected, c.text);
     assert.strictEqual(E.tailSentence(c.text), c.tail, c.text);
     const out = c.expected;
-    assert.strictEqual(E.dedupeTail(out, c.recent), out);
+    assert.strictEqual(E.dedupeTail(out, c.recent, c.persona), out);
   }
 });
 
@@ -21,5 +21,16 @@ test('pure: input not mutated, window of 3', () => {
 
 test('demo wires dedupe for LLM replies only', () => {
   const src = require('fs').readFileSync(require('path').join(__dirname, '../site/assets/js/demo.js'), 'utf8');
-  assert.match(src, /dedupeTail\(reply, recentTails\(s\)\)/);
+  assert.match(src, /dedupeTail\(reply, recentTails\(s\), s\.persona\.id\)/);
+});
+
+test('no new lead phrases; fallback only from approved lines', () => {
+  const PJ = require('../site/assets/core/personas.json');
+  assert.ok(!('lead' in PJ.tailDedupe) && !('particles' in PJ.tailDedupe));
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../site/assets/core/personas.json'), 'utf8');
+  assert.ok(!src.includes('我是说，') && !src.includes('还是那句，'));
+  const pool = PJ.personas.find((p) => p.id === 'chen').templates.ask_repeat.filter((x) => typeof x === 'string' && !x.includes('{'));
+  const out = E.dedupeTail(pool[0], pool.slice(0, 3), 'chen');
+  assert.ok(pool.slice(3).includes(out), out);
+  assert.strictEqual(E.dedupeTail(pool[0], pool.slice(0, 3)), '');
 });

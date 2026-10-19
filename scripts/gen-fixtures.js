@@ -44,24 +44,29 @@ const SPLIT_NAME_CASES = [
   ['弓长岭', 'keep']
 ];
 
-// 跨轮去重（#153）：[当前回复, 最近几轮尾句]，期望值由 JS dedupeTail 生成，Python dedupe_tail 逐项比对
+// 跨轮去重（#153）：[当前回复, 最近几轮尾句, 人设 id（可省）]，期望值由 JS dedupeTail 生成，Python dedupe_tail 逐项比对。
+// 重复的尾句整句删掉；删完为空才从该人设 templates.ask_repeat 已有台词里挑（不带 {变量} 的），没传人设返回空串
 const TAIL_DEDUPE_CASES = [
   ['我想想。你发来吧。', ['你发来吧。']],
   ['我想想。你发来吧。', ['你发来吧']],
-  ['嗯，你发来吧。', ['你发来吧。']],
-  ['你发来吧，我看看。', ['你发来吧，我看看']],
-  ['好的吧', ['好的吧。']],
+  ['嗯，你发来吧。', ['你发来吧。'], 'chen'],
+  ['你发来吧，我看看。', ['你发来吧，我看看'], 'lin'],
+  ['好的吧', ['好的吧。'], 'zheng'],
   ['你发来', ['你发来。']],
-  ['你说哪个？', ['衣服的事。', '你说哪个？']],
-  ['嗯…我听着呢', ['嗯，我听着呢。']],
-  ['等一下。你再说一遍。', ['你再说一遍', '等一下']],
+  ['你说哪个？', ['衣服的事。', '你说哪个？'], 'wang'],
+  ['嗯…我听着呢', ['嗯，我听着呢。'], 'chen'],
+  ['等一下。你再说一遍。', ['你再说一遍', '等一下'], 'zheng'],
   ['你再说一遍。', ['你再说一遍。', 'a', 'b', 'c']],
-  ['你再说一遍。', ['a', 'b', '你再说一遍？']],
-  ['', ['你说']],
-  ['你说。', []],
+  ['你再说一遍。', ['a', 'b', '你再说一遍？'], 'lin'],
+  ['', ['你说'], 'chen'],
+  ['你说。', [], 'chen'],
   ['哦…行。你发来吧…', ['你发来吧…']],
-  ['那个名字我没记全，你再说一遍', ['那个名字我没记全，你再说一遍。']],
-  ['好的。好的。', ['好的。']]
+  ['那个名字我没记全，你再说一遍', ['那个名字我没记全，你再说一遍。'], 'wang'],
+  ['好的。好的。', ['好的。'], 'chen'],
+  ['好的。好的。', ['好的。']],
+  ['稍等哈，娃刚才在叫我，你那句再说一遍？', ['稍等哈，娃刚才在叫我，你那句再说一遍？', '你说慢点，我一边哄娃一边看，没跟上。', '刚才那段太长了，你分开发我吧。'], 'chen'],
+  ['你说慢点，店里吵，刚才那句没听到。', ['你说慢点，店里吵，刚才那句没听到。'], 'zheng'],
+  ['行。', ['行'], 'mom']
 ];
 
 // 验证码按上下文打码（#33）：[文本, 'mask' 应打码 | 'keep' 原样（卡号 / 手机号仍由实体规则打码）]，号码均为虚构
@@ -381,7 +386,7 @@ function build() {
       .map((input) => ({ input, expected: CB.lookup(input) }))
   };
   out.humanize = buildHumanize();
-  out.tail_dedupe = { comment: HEADER, window: P.TAIL_DEDUPE.window, cases: TAIL_DEDUPE_CASES.map(([text, recent]) => ({ text, recent, expected: E.dedupeTail(text, recent), tail: E.tailSentence(text) })) };
+  out.tail_dedupe = { comment: HEADER, window: P.TAIL_DEDUPE.window, cases: TAIL_DEDUPE_CASES.map(([text, recent, persona]) => ({ text, recent, persona: persona || null, expected: E.dedupeTail(text, recent, persona), tail: E.tailSentence(text) })) };
   return out;
 }
 
