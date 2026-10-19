@@ -56,7 +56,7 @@ python3 eval/halting_eval.py --impl <旧版 python/ 目录>                     
 
 ### 主指标：大模型扮演骗子（6 种子，默认档 / 手写档）
 
-规则骗子只看意图和是否重复，挂断率 0% 说明不了真骗子会不会看穿，所以第 1 节以大模型骗子为主指标（由云端大模型 API（兼容 OpenAI 格式）扮演骗子，方法、提示词、费用护栏见本文末“大模型扮演骗子：起疑挂断重测”，所用模型记在结果 JSON 的 `model` 字段）。下表取自 [`eval/results-llm-scammer.json`](../eval/results-llm-scammer.json)（默认档）与 [`eval/results-llm-scammer-handwriting.json`](../eval/results-llm-scammer-handwriting.json)（手写档），即第四轮“修后 B”（代码 81feb0a：humanize 数字保护 + 4d2816e 降调），7 场景 × 3 人设 × 6 种子 = 每档 126 场，区间为 Wilson 95% 区间。
+规则骗子只看意图和是否重复，挂断率 0% 说明不了真骗子会不会看穿，所以第 1 节以大模型骗子为主指标（由兼容标准聊天接口的云端大模型扮演骗子，方法、提示词、费用护栏见本文末“大模型扮演骗子：起疑挂断重测”，所用模型记在结果 JSON 的 `model` 字段）。下表取自 [`eval/results-llm-scammer.json`](../eval/results-llm-scammer.json)（默认档）与 [`eval/results-llm-scammer-handwriting.json`](../eval/results-llm-scammer-handwriting.json)（手写档），即第四轮“修后 B”（代码 81feb0a：humanize 数字保护 + 4d2816e 降调），7 场景 × 3 人设 × 6 种子 = 每档 126 场，区间为 Wilson 95% 区间。
 
 | | 默认档 | 手写档 |
 |---|---|---|
@@ -484,7 +484,7 @@ python eval/realism_blind.py score --key eval/realism/key.json eval/realism/rate
 
 > 这是**代理指标**：一个大模型代替评测者判断，不能代替人工盲测，结论以人工评测为准。
 
-评委用云端大模型 API（兼容 OpenAI 格式的标准聊天接口，非思考模式，temperature 0，seed 1，JSON 输出；本基线所用模型见下表“模型”一行）。它看到的和评测者一样，只有“骗子消息 + 回复”，逐题给出 `bot`（0/1）、`human`（1–5）、`unreadable`（0/1）和一句理由；结果转成与人工评分相同的行，用同一个 `score()` 汇总。默认关闭，必须显式 `--judge llm`：
+评委用兼容标准聊天接口的云端大模型（非思考模式，temperature 0，seed 1，JSON 输出；本基线所用模型见下表“模型”一行）。它看到的和评测者一样，只有“骗子消息 + 回复”，逐题给出 `bot`（0/1）、`human`（1–5）、`unreadable`（0/1）和一句理由；结果转成与人工评分相同的行，用同一个 `score()` 汇总。默认关闭，必须显式 `--judge llm`：
 
 ```bash
 export DASHSCOPE_API_KEY=...   # 或写在仓库根目录 .env；不打印、不写入缓存和结果
@@ -546,7 +546,7 @@ python eval/realism_blind.py score --key eval/realism/key.json --judge llm --jud
 
 ### 大模型扮演骗子：起疑挂断重测
 
-规则骗子（`deepsuck.sim`）只有“回复完全重复”才起疑，挂断率 0% 说明不了真骗子会不会看穿。[`eval/llm_scammer.py`](../eval/llm_scammer.py) 让云端大模型（兼容 OpenAI 格式的 API，各轮所用模型记在结果 JSON 的 `model` 字段）扮演骗子，看它什么时候、因为哪句回复挂断。默认关闭，不加 `--run` 只估算费用：
+规则骗子（`deepsuck.sim`）只有“回复完全重复”才起疑，挂断率 0% 说明不了真骗子会不会看穿。[`eval/llm_scammer.py`](../eval/llm_scammer.py) 让兼容标准聊天接口的云端大模型（各轮所用模型记在结果 JSON 的 `model` 字段）扮演骗子，看它什么时候、因为哪句回复挂断。默认关闭，不加 `--run` 只估算费用：
 
 ```bash
 python eval/llm_scammer.py                                   # 估算（缓存感知），不调用
