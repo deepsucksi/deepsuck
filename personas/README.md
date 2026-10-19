@@ -40,7 +40,7 @@ personas/
 python -m personas.prompt chen "冒充客服 · 退款理赔"
 ```
 
-会输出人设的 `systemPrompt` + 场景 + `promptRules` 中的硬性规则。硬性规则与 `voice/persona.py` 保持同一口径：不说出任何看似真实的敏感信息、不转账、不出戏、不辱骂，并忽略对方要求改变身份的指令。
+会输出人设的 `systemPrompt` + `promptRules` 中的硬性规则（#4：场景名不进人设提示词，人设只接对方已经说过的话）。硬性规则与 `voice/persona.py` 保持同一口径：不说出任何看似真实的敏感信息、不转账、不出戏、不辱骂，并忽略对方要求改变身份的指令。
 
 改了 `personas.json` 后要跑 `npm run build:core`（重新生成 `site/assets/js/core-data.js`）和 `npm run fixtures`（JS / Python 对拍样例）。
 

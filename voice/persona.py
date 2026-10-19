@@ -57,18 +57,45 @@ _AGE = re.compile(r"^\s*\d+\s*岁\s*")
 _SHOTS_MAX = 5
 
 
-def voice_style(p: dict, scenario_id: str, topics=None, first_turn: bool = False) -> list[str]:
+_EXAMPLE = re.compile(r"[，,；;]?\s*(?:比如|例如)((?:[“\"][^”\"]*[”\"][、，,和或]?)+)")
+
+
+def _scene_list(scenes) -> list:
+    if scenes is None:
+        return []
+    return [scenes] if isinstance(scenes, str) else list(scenes)
+
+
+def _unheard(text: str, scenes, topics) -> bool:
+    """text 里有没有对方还没说出的场景（或 topics 不为 None 时，对方还没提到的话题）。"""
+    if scenes_in(text) - set(scenes):
+        return True
+    return topics is not None and bool(topics_in(text) - set(topics))
+
+
+def voice_style(p: dict, scenes, topics=None, first_turn: bool = False) -> list[str]:
     """语料组给的语音专用风格规则和少样本例句（personas.json 的 voiceStyle / voiceShots，可选字段）。
 
+    scenes：对方原话里已经认出的场景（heard_scenes，按出现先后；也接受单个场景 id，离线工具用）。
+    #4：例句只从这些场景里挑，而且例句里不能带出别的场景；风格规则里举的例子（“比如‘退…退款？’”）
+    带出对方还没说的场景或话题时，只去掉这个例子，规则本身保留。台词文字一律不改。
     topics 不为 None 时（通话中），例句只留“对方台词里的话题都已经在本通电话里出现过”的那几条，
     免得例句里的链接、加微信、转账把模型往对方还没提的方向带。"""
+    sc = _scene_list(scenes)
     out: list[str] = []
-    style = [str(x).strip() for x in (p.get("voiceStyle") or []) if str(x).strip()]
+    style = []
+    for x in (p.get("voiceStyle") or []):
+        x = str(x).strip()
+        if not x:
+            continue
+        x = _EXAMPLE.sub(lambda m: "" if _unheard(m.group(1), sc, topics) else m.group(0), x)
+        style.append(x)
     if style:
         out.append("说话风格补充：")
         out += [f"- {x}" for x in style]
     shots = [x for x in (p.get("voiceShots") or []) if isinstance(x, dict) and x.get("scammer") and x.get("reply")]
-    pick = [x for x in shots if x.get("scenario") == scenario_id] or [x for x in shots if not x.get("scenario")]
+    pick = [x for x in shots if x.get("scenario") in sc or not x.get("scenario")]
+    pick = [x for x in pick if not (scenes_in(x["scammer"] + x["reply"]) - set(sc))]
     if topics is not None:
         pick = [x for x in pick if topics_in(x["scammer"] + x["reply"]) <= set(topics)]
     if first_turn:  # 第一轮只给“第一句不是问句”的例句，免得照着例句一开口就反问
@@ -81,13 +108,12 @@ def voice_style(p: dict, scenario_id: str, topics=None, first_turn: bool = False
 
 # ---- 不抢话：人设只接对方已经说过的话（俊杰 10-19：小林在“杀猪盘”里对方没提投资就问“哪个投资平台”）----
 # 话题词表只在语音侧用来门控意图和挑例句，不改共享的话术识别（python/deepsuck/tactics）。
-TOPICS = {
-    "url": re.compile(r"网址|网站|网页|链接|官网|平台|APP|[Aa]pp|软件|下载|安装|二维码|小程序|http|www\.|\.com|会议号|共享屏幕|屏幕共享"),
-    "bank": re.compile(r"卡号|银行|账户|账号|户名|开户行|转账|转到|转给|转过来|汇款|打款|打钱|收款|付款|充值|保证金|手续费|垫付|垫|入金|流水|对公"),
-    "wallet": re.compile(r"钱包|USDT|usdt|泰达|比特币|以太坊|币安|虚拟币|加密货币|数字货币|充币|链上|U币"),
-    "phone": re.compile(r"电话|手机号|号码|微信|QQ|qq|加我|加一下|联系方式|私聊|Telegram|TG|飞机号|WhatsApp|专线"),
-    "invest": re.compile(r"投资|理财|收益|回报|带单|导师|渠道|炒币|炒股|股票|基金|盈利|翻倍|稳赚"),
-}
+# #4：话题词表和场景词表在 site/assets/core/scenarios.json 的 heardCues（JS llm.js 共用），只用来门控意图、挑称呼和例句，
+# 不改共享的话术识别（python/deepsuck/tactics）。
+_CUES = load("scenarios")["heardCues"]
+TOPICS = {k: re.compile(v) for k, v in _CUES["topics"].items()}
+SCENES = {k: re.compile(v) for k, v in _CUES["scenes"].items()}
+SCENE_IMPLIES = {k: list(v) for k, v in (_CUES.get("implies") or {}).items()}
 INTEL_TOPIC = {"bank_card": "bank", "url": "url", "phone": "phone", "qq": "phone", "wechat": "phone", "alipay": "bank",
                "email": "phone", "name": "bank"}
 GOAL_TOPIC = {"bank": "bank", "name": "bank", "url": "url", "wallet": "wallet", "phone": "phone"}
@@ -101,11 +127,29 @@ NEEDS_TACTIC = {"otp_stall": ("otp",), "greedy": ("high_return",), "romance": ("
                               "loan_fraud", "campus_loan", "info_harvest", "crypto"),
                 "urgency_stall": ("urgency", "transfer", "safe_account", "otp", "app_download")}
 NEUTRAL = ("generic", "ask_repeat", "misunderstand", "tech_trouble", "slow_walk")
+# #4：对方说第一段话时不装手机/网络故障——qwen3.7-flash 接“我在网上看到你”会顺着“网络”问“哪个平台看到的”
+NOT_FIRST_TURN = ("tech_trouble",)
 
 
 def topics_in(text: str) -> set:
     t = str(text or "")
     return {k for k, r in TOPICS.items() if r.search(t)}
+
+
+def scenes_in(text: str) -> set:
+    t = str(text or "")
+    return {k for k, r in SCENES.items() if r.search(t)}
+
+
+def heard_scenes(session) -> list:
+    """对方原话里已经认出的场景，按第一次出现的先后。人设不知道后台选的是哪个场景（session.scenario 只给看板用）。"""
+    out: list = []
+    for m in getattr(session, "messages", []):
+        if m.get("role") == "scammer":
+            t = m.get("text", "")
+            for k in sorted(scenes_in(t), key=lambda k: SCENES[k].search(t).start()):
+                out += [x for x in [k] + SCENE_IMPLIES.get(k, []) if x not in out]
+    return out
 
 
 def session_topics(session) -> set:
@@ -131,6 +175,8 @@ def gate_intent(intent: str, session) -> str:
         ok = NEEDS_TOPIC[intent] in topics
     elif intent in NEEDS_TACTIC:
         ok = bool(tactics & set(NEEDS_TACTIC[intent]))
+    elif intent in NOT_FIRST_TURN:
+        ok = sum(1 for m in getattr(session, "messages", []) if m.get("role") == "scammer") > 1
     elif intent in ("confirm_intel", "re_ask"):
         ok = bool(getattr(session, "intel", None)) or intent == "re_ask"
     if ok:
@@ -156,11 +202,12 @@ RULE_DIGITS = ("5. 号码只复述对方自己报过的一部分：只说对方�
                "不要念星号，不要把整串号码念全，也不要自己编号码。问到你自己的卡号、尾号、手机号、验证码，"
                "就说找不到、记不清、要去翻一下，不报号码。")
 
-NO_LEAK_RULE = "你不知道对方打电话来干什么，只接对方已经说过的话；对方没提到的事一概不先提，也不要猜对方的目的。"
+NO_LEAK_RULE = ("你不知道对方打电话来干什么，只接对方已经说过的话；对方没提到的事一概不先提，也不要猜对方的目的；"
+                "对方说在哪儿看到你、怎么认识你，也不要追问是从哪儿、在哪儿看到的。")
 # #64：每通电话人设的第一条回复不抢着反问（qwen3.7-flash 18 通里 17 通第一句就是问句，林姐还顺嘴问出了对方没提的事）
 FIRST_TURN_RULE = ("这是对方开口说的第一段话。你这一条的第一句只是应一声、接住对方的话，是陈述句，句尾用句号，"
-                   "不带问号，也不用“啊？”收尾，格式像“哦…是我。”“嗯，衣服的事啊。”“哦…卡的事啊。”“嗯，交朋友啊。”；"
-                   "第一句里不要把对方的词重复一遍再问（不要“衣服？”“卡？”这种）。"
+                   "不带问号，也不用“啊？”收尾，格式像“哦…是我。”或“嗯，……的事啊。”（省略号换成对方刚才亲口说的一个词）；"
+                   "第一句里不要把对方的词重复一遍再问。"
                    "第二句可以不说；要问（包括上面建议策略里的追问）都放到第二句，只问对方刚才那段话里亲口说过的词，"
                    "不问对方是从哪儿、怎么找到你的。")
 _Q = re.compile(r"[？?]")
@@ -173,18 +220,24 @@ def first_sentence_is_question(text: str) -> bool:
 
 
 def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: str = "opening", missing=None,
-                  said_first: str = "", topics=None, first_turn: bool = False) -> str:
-    """语音人设提示词。场景名和描述不进提示词（只给后台分析和看板用）；scenario_id 只决定称呼和例句。
+                  said_first: str = "", topics=None, first_turn: bool = False, scenes=None) -> str:
+    """语音人设提示词。#4：场景名、描述、后台选的场景都不进提示词；称呼和例句只按对方原话里已经认出的场景挑。
+    scenes：heard_scenes(session)（通话中必须传，开场前是空表）；None 表示离线工具，按 scenario_id 当作对方已经说出的场景。
     missing：对方已经提到、但还没说清楚的情报（调用方按话题过滤，见 IntelProcessor.update_prompt）。
     topics：对方已经提到的话题（session_topics）；None 表示不过滤例句（离线工具用）。
     first_turn：对方刚说完第一段话（本通电话人设的第一条回复），加 FIRST_TURN_RULE。"""
     p = PERSONA_BY_ID.get(resolve_persona_id(persona_id)) or PERSONAS[0]
-    s = SCENARIO_BY_ID.get(scenario_id) or SCENARIOS[0]
-    call = p["call"].get(s["id"], "")
+    if scenes is None:
+        scenes = [(SCENARIO_BY_ID.get(scenario_id) or SCENARIOS[0])["id"]]
+    scenes = _scene_list(scenes)
+    scenes += [y for x in list(scenes) for y in SCENE_IMPLIES.get(x, []) if y not in scenes]
+    # 称呼只按对方已经说出的场景挑；称呼本身会带出别的场景的（例如“客服”）也不用
+    call = next((c for c in (p.get("call", {}).get(x, "") for x in scenes) if c and not (scenes_in(c) - set(scenes))), "")
+    who = f"称呼对方为\"{call}\"。" if call else "先不用称呼对方。"
     miss = "对方已经提到、但还没说清楚的：" + "、".join(missing) + "，可以顺着问一句。" if missing else ""
     return "\n".join([
         '你在一个反诈骗研究项目中扮演"潜在受害人"，接到一个陌生电话。目标：尽可能拖延对方时间；对方自己报出来的东西，再顺着让对方说清楚。',
-        f"角色：{p['name']}，{_AGE.sub('', p['tagline'])}。称呼对方为\"{call}\"。",
+        f"角色：{p['name']}，{_AGE.sub('', p['tagline'])}。{who}",
         NO_LEAK_RULE,
         f"本轮建议策略：{INTENT_HINTS.get(hint, INTENT_HINTS['generic'])}。{miss}",
         "硬性规则：",
@@ -194,7 +247,7 @@ def system_prompt(persona_id: str = "wang", scenario_id: str = "refund", hint: s
         "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
         RULE_DIGITS,
         STYLE_RULE,
-    ] + voice_style(p, s["id"], topics, first_turn) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
+    ] + voice_style(p, scenes, topics, first_turn) + ([f"本轮你已经先随口应了一声“{said_first}”，接下来直接接着说正事，开头不要再用嗯、啊、哎、哦之类的语气词，"
           "也不要重复这句。"] if said_first else []) + ([FIRST_TURN_RULE] if first_turn else []))
 
 

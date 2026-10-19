@@ -101,3 +101,7 @@ qwen3.7-flash，`--repeat 2`（20 通、100 轮），线上香港服务器上用
 改后被问尾号时的回答像“尾号…我记不清了。”“后四位…我得去翻一下，你等会儿”“我卡…找不着了。你报个电话”。两遍合计花费约 0.04 元。
 
 `personas.json` 不在本次范围（归语料与人设），发现的问题记在 #73 的 PR 里。
+
+## 人设不抢先说出场景（#4，2026-10-19）
+
+脚本：7 个场景开头各加一句不带场景的话（`NEUTRAL_OPEN`，`--no-neutral-open` 关掉），每遍 50 → 57 轮；杀猪盘闲聊的人设从李大爷（已下线）换成小陈妈妈。新指标 `scene_leak_replies` / `scene_leak_calls` / `scene_leak_hits`：回复命中某个场景的词（`site/assets/core/scenarios.json` 的 `heardCues.scenes`），而对方此前（含本轮）没说出这个场景。qwen3.7-flash `--repeat 2`：改前 3/20 通（都是“领导”），改后 0/20；闲聊抢话 2/18 → 0/18，数字泄露 0 → 0。详见 docs/EVAL.md「人设抢先提及」。
