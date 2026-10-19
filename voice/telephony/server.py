@@ -84,9 +84,12 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
 
     session = Session(scenario=scenario, persona=persona, engine=f"phone-{engine}")
     recorder = None  # 电话线路没法勾选同意：不录音，只存脱敏文字
+    from ..dashscope_ws import persona_voice as _pv
+
     trace = TR.CallTrace(channel="phone", consent=TR.SIP_CONSENT, persona=session.persona["id"], scenario=session.scenario["id"],
                          model=os.environ.get("DEEPSUCK_LLM_MODEL", DEFAULT_LLM_MODEL) if engine == "llm" else "rule",
-                         engine=engine, caller=call.from_number)
+                         engine=engine, caller=call.from_number, tts_voice=_pv(session.persona["id"]).voice,
+                         usage_fn=(lambda: dict(ticket.usage)) if ticket is not None else None)
     trace.session = session
     reason = {"v": ""}
     bg_fill: Optional[asyncio.Task] = None
@@ -170,7 +173,7 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
         REC.save_transcript(session, call.call_id, "phone")
         await lat.flush()
         trace.end(reason["v"] or "pipeline_end", stats=session.stats(), latency=summarize(lat.turns),
-                  usage=ticket.usage if ticket else None)
+                  usage=ticket.usage if ticket else None, cost_cny=ticket.spent if ticket else None)
         logger.info(f"phone call ended: trace={trace.id} provider={call.provider} from={mask_number(call.from_number)} "
                     f"stats={session.stats()} usage={ticket.usage if ticket else None} "
                     f"latency={summarize(lat.turns)}")

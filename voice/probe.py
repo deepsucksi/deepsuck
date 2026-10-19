@@ -146,7 +146,7 @@ def candidate_types(sdp: str) -> dict:
 
 async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenario: str, origin: Optional[str],
               out_wav: Optional[str] = None, quiet: bool = False, insecure: bool = False,
-              consent: bool = False, relay: Optional[str] = None) -> dict:
+              consent: bool = False, relay: Optional[str] = None, flag: Optional[str] = None) -> dict:
     import aiohttp
     import numpy as np
     from aiortc import MediaStreamTrack, RTCConfiguration, RTCPeerConnection, RTCSessionDescription
@@ -200,6 +200,7 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
     pc.addTransceiver("video", direction="recvonly")
     dc = pc.createDataChannel("chat", ordered=True)
     stats = {"bot_audio_sec": 0.0, "events": [], "connected_after": None}
+    fb_key = ""
     if relay:
         stats["relay"] = stats_relay
     bot_pcm = bytearray()
@@ -279,6 +280,7 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
             stats["offer_status"] = r.status
             if r.status == 200 and isinstance(body, dict) and body.get("trace_id"):
                 stats["trace_id"] = body["trace_id"]
+                fb_key = body.get("feedback_key") or ""  # 只在内存里用，不写进 stats / json-out
                 if not quiet:
                     print(f"[{time.time() - t_start:5.1f}s] trace    通话编号 {body['trace_id']}")
             if r.status != 200:
@@ -309,6 +311,21 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
         await pc.close()
     except Exception as e:  # 关闭时的清理异常不影响探测结果
         stats["close_error"] = f"{type(e).__name__}: {e}"
+    if flag is not None and stats.get("trace_id"):
+        # 模拟页面的“这通有问题”：带本通的 feedback_key 提交；再用错的口令试一次，应被拒（403）
+        try:
+            await asyncio.sleep(2)  # 等服务端写完结束行
+            headers = {"Content-Type": "application/json"}
+            if origin:
+                headers["Origin"] = origin
+            fu = url.rstrip("/") + f"/api/feedback/{stats['trace_id']}"
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False) if insecure else None) as s:
+                async with s.post(fu, headers=headers, json={"key": fb_key, "note": flag}) as r:
+                    stats["feedback"] = r.status
+                async with s.post(fu, headers=headers, json={"key": "wrong-key", "note": "x"}) as r:
+                    stats["feedback_wrong_key"] = r.status
+        except Exception as e:
+            stats["feedback"] = f"{type(e).__name__}"
     if out_wav and bot_pcm:
         with wave.open(out_wav, "wb") as w:
             w.setnchannels(1); w.setsampwidth(2); w.setframerate(stats.get("bot_rate", 48000)); w.writeframes(bytes(bot_pcm))
@@ -357,14 +374,16 @@ def main(argv=None) -> int:
     ap.add_argument("--relay", choices=["tcp", "tls"],
                     help="只走 TURN 中继：tcp = turn:...?transport=tcp，tls = turns:（凭据从 /api/ice 现取）")
     ap.add_argument("--consent", action="store_true",
-                    help="同意保存录音和脱敏文字（通话追踪，30 天删除）；服务端返回的通话编号打印在 trace_id")
+                    help="同意保存录音（通话追踪；脱敏文字每通都存）；服务端返回的通话编号打印在 trace_id")
+    ap.add_argument("--flag", metavar="说明",
+                    help="挂断后模拟页面“这通有问题”提交这句说明（并用错口令试一次，应 403）；结果在 feedback")
     a = ap.parse_args(argv)
     if a.make_wav:
         print(json.dumps({"segments": asyncio.run(make_scammer_wav(a.make_wav))}))
         if not a.wav:
             return 0
     st = asyncio.run(run(a.url, a.wav, a.seconds, a.persona, a.scenario, a.origin, a.out_wav, insecure=a.insecure,
-                         consent=a.consent, relay=a.relay))
+                         consent=a.consent, relay=a.relay, flag=a.flag))
     summary = {k: v for k, v in st.items() if k not in ("events", "state", "fillers")}
     summary["turns"] = sum(1 for e in st.get("events", []) if e.get("type") == "scammer")
     summary["intel"] = [i.get("masked") for i in (st.get("state") or {}).get("intel", [])]

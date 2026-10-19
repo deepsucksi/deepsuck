@@ -225,20 +225,20 @@ button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:
       <button id="call" class="primary">开始通话</button>
       <button id="hang" class="hang" hidden>挂断</button>
       <div class="consent" id="consentRow">
-        <label><input type="checkbox" id="consent" checked>允许用本次对话改进 DeepSuck（保存录音和脱敏文字，30 天后删除）</label>
+        <label><input type="checkbox" id="consent" checked><span id="consentText">允许保存本次通话录音，用于改进 DeepSuck（30 天后删除）</span></label>
         <button type="button" class="linkbtn" id="consentMore" aria-expanded="false" aria-controls="consentInfo">了解更多</button>
       </div>
     </div>
     <div id="consentInfo" class="consent-info" hidden>
       <p>用途：回放有问题的通话，改进识别、人设回复和延迟。不用于训练第三方模型，不对外公开。</p>
-      <p>保存什么：双方录音（对方一轨、机器人一轨）和逐轮文字。文字落盘前去掉卡号、手机号等敏感信息；另记每轮意图、延迟和版本号。</p>
-      <p>保存多久：30 天后自动删除。</p>
-      <p>取消勾选：这通电话什么内容都不存，只计一次通话次数。</p>
+      <p id="infoWhat">保存什么：每通都保存逐轮文字记录，保存前去掉银行卡号、身份证号、姓名、手机号、QQ、微信、支付宝等信息，另记每轮意图、延迟、用量和版本号。勾选同意时另存双方录音（对方一轨、机器人一轨）。</p>
+      <p id="infoDays">保存多久：30 天后自动删除。</p>
+      <p id="infoOff">取消勾选：不保存录音，只保存去掉敏感信息的文字记录。</p>
     </div>
     <div id="trace" class="trace" hidden>
       <span>通话编号 <code id="traceId"></code></span>
       <button type="button" class="linkbtn" id="traceCopy">复制</button>
-      <button type="button" class="linkbtn" id="fbOpen">这通有问题</button>
+      <button type="button" class="linkbtn" id="fbOpen" aria-controls="fb">这通有问题</button>
     </div>
     <form id="fb" class="fb" hidden>
       <input type="text" id="fbNote" maxlength="200" placeholder="一句话说明（可不填）" aria-label="问题说明">
@@ -246,7 +246,7 @@ button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:
       <button type="submit" class="mini">提交</button>
       <button type="button" class="linkbtn" id="fbCancel">取消</button>
     </form>
-    <div id="fbDone" class="fb-done" hidden></div>
+    <div id="fbDone" class="fb-done" role="status" aria-live="polite" hidden></div>
     <div id="err"></div>
     <div id="netHelp" class="net-help" role="alert" hidden>
       <p><b>没有连上语音通道。</b><span id="netWhy">多半是当前网络或代理拦截了实时音频（UDP）</span>。</p>
@@ -282,7 +282,7 @@ button.mini{padding:8px 14px;font-size:12px;background:transparent;border-color:
 </div>
 <footer class="note">
   <div class="wrap">
-    <p id="keepNote">勾选同意时保存录音和脱敏文字 30 天用于改进，不勾选则不保存；仅供防诈研究与教育，请勿用于联系任何真实的人。</p>
+    <p id="keepNote">每通保存去掉敏感信息的文字记录 30 天用于排查问题，勾选同意时另存录音；仅供防诈研究与教育，请勿用于联系任何真实的人。</p>
     <p class="keep-note-en" lang="en">Do not use this to contact any real person.</p>
     <div class="foot"><a href="https://deepsuck.si/">deepsuck.si</a><a href="https://deepsuck.si/intel.html">公开诈骗情报库</a><a href="https://github.com/deepsucksi/deepsuck">GitHub · Apache-2.0</a></div>
   </div>

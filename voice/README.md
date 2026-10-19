@@ -179,25 +179,32 @@ python -m pytest voice/tests -q    # 全部用假 WebSocket，不联网、不需
 
 ## 通话追踪与问题反馈
 
-网页「开始通话」旁的复选框（默认勾选）决定这通电话存不存内容，随 `/api/offer` 的 `consent` 传给服务端（只认 JSON `true`）。代码在 `voice/trace.py`。
+代码在 `voice/trace.py`，字段表（schema v2，与 #18 磁盘监控、#20 成本监控共用）在 [docs/TRACE_SCHEMA.md](../docs/TRACE_SCHEMA.md)。
 
-- 勾选：每通一个 8 位通话编号（base32），页面显示、可复制。每轮写一行 JSONL：时间、ASR 文本、意图、人设回复、本轮情报（脱敏）、各段延迟（`latency.py`）、模型名、提示词哈希和模板版本、代码版本（`GIT_SHA` 或镜像里的 `.gitmeta`）、人设和场景、consent；结束写一行汇总（挂断原因、统计、延迟分位）。录音两轨（对方、人设），由 Pipecat `AudioBufferProcessor` 分轨回调，后台线程边收边编码成 16k 单声道 ogg/opus（约 2 KB/秒/轨）。「这通有问题」按钮 POST `/api/feedback/<编号>`，写进同一份记录。
-- 不勾选：什么内容都不存，只在 `stats.json` 里加无内容的计数。
-- 电话线路（SIP）：没法勾选，只存脱敏文字、不录音，主叫号码按 `mask_phone` 打码，consent 记为 `sip-text-only`。
-- 文字落盘前都过一遍共享的 `redact_text(text, extract_sensitive(text))`。
+- 每通一个 8 位通话编号（base32），页面显示、可复制，每行 trace 都带 `call_id`。
+- 文字每通都存：每轮一行 JSONL（ASR 文本、人设回复、意图、情报、延迟拆解、模型名、大模型输入/输出 token、首字/整句延迟、ASR 音频秒数、TTS 字数和音色、是否被打断、提示词和代码版本）；结束写一行汇总（起止时间、时长、退出原因、是否同意录音、用量合计、估算花费）。
+- 录音：网页「开始通话」旁的复选框（默认勾选）随 `/api/offer` 的 `consent` 传给服务端（只认 JSON `true`），勾选才录两轨（对方、人设），由 Pipecat `AudioBufferProcessor` 分轨回调，后台线程边收边编码成 16k 单声道 ogg/opus（约 2 KB/秒/轨）。
+- 「这通有问题」：页面带 `/api/offer` 发的一次性 `feedback_key` POST `/api/feedback/<编号>`（同一 IP 每分钟 6 次、每通 5 条、通话开始 6 小时内），写成 `feedback` 行（`flagged: true`）。
+- 电话线路（SIP）：只存脱敏文字、不录音，主叫号码按 `mask_phone` 打码，consent 记为 `sip-text-only`。
+- 文字落盘前都过一遍共享的 `redact_text(text, extract_sensitive(text))`，再补自报姓名规则（「我叫张伟」→「我叫张*」）。
 
 读取（不对公众）：`GET /api/traces?since=&limit=`、`GET /api/traces/<编号>`、`GET /api/traces/<编号>/audio/<scammer|persona>`，需 `Authorization: Bearer $TRACE_ADMIN_TOKEN`（常量时间比较）；没配 token 或请求带 `X-Forwarded-For`（经 Caddy 进来）时一律 404；Caddy 对 `/api/traces*` 直接 404。服务器上直接用命令行：
 
     docker exec deepsuck-voice-1 python -m voice.trace_cli --list
     docker exec deepsuck-voice-1 python -m voice.trace_cli <编号> --audio
+    docker exec deepsuck-voice-1 python -m voice.trace_cli --flagged          # 被标记有问题的通话
+    docker exec deepsuck-voice-1 python -m voice.trace_cli --usage --days 7   # 按天用量汇总（JSON）
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `VOICE_TRACE` | `1` | `0` 关闭追踪（页面不显示同意选项） |
 | `TRACE_DIR` | `DATA_DIR/voice/traces` | compose 里固定为命名卷 `voice-traces:/traces` |
-| `TRACE_DAYS` | `30` | 保留天数；启动时和之后每天清理一次 |
+| `TRACE_DAYS` | `30` | 文字保留天数；启动时和之后每天清理一次 |
 | `TRACE_AUDIO` | `1` | `0` 只存文字不录音 |
-| `TRACE_MAX_MB` | `1024` | 目录总量上限，超过停录音（文字照存），打 warning |
+| `TRACE_AUDIO_DIR` | 同 `TRACE_DIR` | 录音目录（容器里须在挂载的卷内） |
+| `TRACE_AUDIO_DAYS` | 同 `TRACE_DAYS` | 录音保留天数 |
+| `TRACE_FEEDBACK_HOURS` | `6` | 通话开始后多少小时内能提交「这通有问题」 |
+| `TRACE_MAX_MB` | `1024` | 录音和文字目录总量上限，超过停录音（文字照存），打 warning |
 | `TRACE_MIN_FREE_MB` | `1024` | 磁盘剩余低于此值停录音 |
 | `TRACE_ADMIN_TOKEN` | 空 | 读取接口口令；留空则接口 404。生成：`openssl rand -hex 24` |
 | `GIT_SHA` | 空 | 构建参数，可选；不传时读镜像里的 `.gitmeta` |
@@ -211,7 +218,7 @@ UDP 被封的网络（公司/校园网、不转发 UDP 的代理或 VPN）里，
 - 凭据：页面在点「开始通话」后 `POST /api/ice` 现取，coturn REST 临时凭据，有效期 `TURN_TTL`（默认 600 秒），不落盘、不进 `/api/config`。
 - 页面状态：正在连接… → 已接通 · 通话中；20 秒没接通或 ICE 失败显示「连接失败」和建议（换网络、关代理/VPN、换浏览器），有通话编号时一并显示。
 - 上报：失败或接通时 `POST /api/client-report`（阶段、原因、候选类型计数、选中路径、耗时、浏览器名；不含 IP、SDP）。
-  一律只计数（`stats.json`）；勾选同意并拿到编号的通话，再写进同一编号的追踪，`python -m voice.trace_cli <编号>` 可见「前端上报失败 / 前端已接通」。
+  一律只计数（`stats.json`）；拿到编号的网页通话，再写进同一编号的追踪，`python -m voice.trace_cli <编号>` 可见「前端上报失败 / 前端已接通」。
 - 实测中继：`python -m voice.probe ... --relay tcp`（或 `tls`），只收集 relay 候选，退出码 6 表示没拿到中继。
 
 | 变量 | 默认 | 说明 |
