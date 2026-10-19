@@ -490,6 +490,9 @@ def _split_rules():
         "re": compile_js(src),
         "asr": compile_js(asr_src),  # #163：ASR 同音写法（龚厂长），只在后面紧跟逐字解释时才算，见 split_hits
         "asrSur": asr,
+        # #202 负责人决定（拿不准就遮）：首字是真姓（nameRules.surnames，龚、宫）的同音写法本身也打码（「宫长张」→「宫**」）；
+        # 弓长张、尔东陈这类首字不是姓本字的拆字说法照旧不打
+        "asrReal": tuple(k for k in sorted(asr, key=len, reverse=True) if k[0] in (nr.get("surnames") or "")),
         "sep": compile_js("^(?:" + sp.get("sep", "") + ")"),
         "stop": compile_js(sp["givenStop"]),
         "notNames": compile_js(nr["notNames"]) if nr.get("notNames") else None,
@@ -645,6 +648,21 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
     # 逐字解释（#158）：拆字报姓后紧跟逐字解释时不再往后数字打码，整段解释由下面统一打码
     units = explain_units(s, ents)
     out: List[dict] = []
+    # #202：首字是真姓的同音写法当拆字报姓用时（后面紧跟逐字解释，或提示词后 patterns.name 跳过它取到了紧跟的「张伟」），
+    # 写法本身按姓名打码（「宫长张」→「宫**」），先占位，后面紧贴的解释段按 joiner 隔开。与 redact.js 一致
+    used = [a for a, _b, _sur in split_hits(s, units)]
+    for m0 in R["asr"].finditer(s):
+        if any(e.get("type") == "name" and e["start"] == m0.end() - 1 for e in ents):
+            used.append(m0.start())
+    for a in used:
+        key = next((k for k in R["asrReal"] if s.startswith(k, a)), None)
+        if not key:
+            continue
+        b = a + len(key)
+        if any(x < b and a + 1 < y for x, y in claimed):
+            continue
+        claimed.append((a + 1, b))
+        out.append({"start": a + 1, "end": b, "masked": _stars(len(key) - 1)})
     for _a, m_end, sur in split_hits(s, units):
         pos = m_end + R["sep"].match(s[m_end:]).end()
         if any(u["start"] <= pos < u["end"] for u in units):

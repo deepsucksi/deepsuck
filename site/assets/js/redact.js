@@ -463,6 +463,9 @@
       asr: new RegExp(asrKeys.length ? '(' + asrKeys.map(function (k) { return esc(k) + '(?:' + (sp.link || '') + esc(asr[k]) + ')?'; }).join('|') + ')' : '((?!))', 'g'),
       asrKeys: asrKeys,
       asrSur: asr,
+      // #202 负责人决定（拿不准就遮）：首字是真姓（nameRules.surnames，龚、宫）的同音写法本身也打码（「宫长张」→「宫**」）；
+      // 弓长张、尔东陈这类首字不是姓本字的拆字说法照旧不打
+      asrReal: asrKeys.filter(function (k) { return (nr.surnames || '').indexOf(k.charAt(0)) >= 0; }),
       re: new RegExp('(' + alts.map(function (x) { return esc(x.slice(0, -1)) + (sp.link || '') + esc(x.slice(-1)); }).join('|') + ')', 'g'),
       sep: new RegExp('^(?:' + (sp.sep || '') + ')'),
       stop: new RegExp(sp.givenStop),
@@ -614,6 +617,23 @@
     // 逐字解释（#158）：拆字报姓后紧跟逐字解释时不再往后数字打码，整段解释由下面统一打码
     var units = explainUnits(s, ents);
     var out = [];
+    // #202：首字是真姓的同音写法当拆字报姓用时（后面紧跟逐字解释，或提示词后 patterns.name 跳过它取到了紧跟的「张伟」），
+    // 写法本身按姓名打码（「宫长张」→「宫**」），先占位，后面紧贴的解释段按 joiner 隔开。与 redact.py 一致
+    var used = splitHits(s, units).map(function (h) { return h.start; });
+    var m0;
+    R.asr.lastIndex = 0;
+    while ((m0 = R.asr.exec(s))) {
+      var me = m0.index + m0[0].length;
+      if (ents.some(function (e) { return e.type === 'name' && e.start === me - 1; })) used.push(m0.index);
+    }
+    used.forEach(function (a) {
+      var key = R.asrReal.filter(function (k) { return s.indexOf(k, a) === a; })[0];
+      if (!key) return;
+      var b = a + key.length;
+      if (claimed.some(function (c) { return c[0] < b && a + 1 < c[1]; })) return;
+      claimed.push([a + 1, b]);
+      out.push({ start: a + 1, end: b, masked: stars(key.length - 1) });
+    });
     splitHits(s, units).forEach(function (h) {
       var sur = h.sur;
       var after = h.end;
