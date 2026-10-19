@@ -1032,6 +1032,23 @@
    "redacted": "收款人叫张**，****"
   },
   {
+   "text": "弓长张，日月明的明",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 5,
+     "masked": "*"
+    },
+    {
+     "start": 5,
+     "end": 9,
+     "masked": "，****"
+    }
+   ],
+   "redacted": "弓长张，*，****"
+  },
+  {
    "text": "伟大的祖国",
    "expect": "keep",
    "spans": [],

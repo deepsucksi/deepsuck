@@ -604,7 +604,8 @@
         if (n.charAt(0) === sur && s.substr(pos, n.length - 1) === n.slice(1)) { given = n.slice(1); break; }
       }
       if (!given) {
-        while (given.length < max && pos + given.length < s.length && !R.stop.test(s.charAt(pos + given.length))) {
+        while (given.length < max && pos + given.length < s.length && !R.stop.test(s.charAt(pos + given.length)) &&
+          !units.some(function (u) { return u.start === pos + given.length; })) {
           given += s.charAt(pos + given.length);
         }
         if (given && R.notNames && R.notNames.test(given)) given = '';

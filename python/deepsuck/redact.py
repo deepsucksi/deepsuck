@@ -629,7 +629,8 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
         given = next((n[1:] for n in names if n[0] == sur and s.startswith(n[1:], pos)), "")
         if not given:
             while len(given) < int(sp.get("givenMax", 2)) and pos + len(given) < len(s) \
-                    and not R["stop"].match(s[pos + len(given)]):
+                    and not R["stop"].match(s[pos + len(given)]) \
+                    and not any(u["start"] == pos + len(given) for u in units):
                 given += s[pos + len(given)]
             if given and R["notNames"] and R["notNames"].search(given):
                 given = ""
