@@ -133,6 +133,8 @@ tags: [技术, 语音, 情报]
 
 在离线评测中，我们让大模型扮演骗子，与三个人设在 7 个场景下各对话 6 个随机种子（现已调整为四个人设），每档 126 场。默认档的起疑挂断率为 13.5%（95% 区间 8.6–20.5%），平均拖延 23.6 轮（上限 25 轮），情报提取率 99.8%（430/431），泄露率为 0（[docs/EVAL.md](https://github.com/deepsucksi/deepsuck/blob/main/docs/EVAL.md) 第 1 节主指标表，结果文件 `eval/results-llm-scammer.json`）。这是模拟对手的结果，不代表真实骗子的反应；文档里也写明了最近几次人设改动之后需要复测。
 
+<p class="note">注：2026-10-19 换模型后另有新基线，见 <a href="https://github.com/deepsucksi/deepsuck/blob/main/docs/EVAL.md">EVAL.md</a>。</p>
+
 ## 还没解决的
 
 - 打断门槛是按合成音频定的，还没有用真人通话校准；
