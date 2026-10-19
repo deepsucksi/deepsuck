@@ -32,6 +32,17 @@ def test_fixture_has_required_cases():
     assert "好像是6开头的" in F["negative"]
 
 
+def test_persona_templates_have_no_two_digit_runs():
+    # #198：小林 otp_stall[12] / loan_stall[5] / coop_step[7] 换成不带数字的已批台词后，台词库里不再有两个数字挨着的句子
+    core = json.loads((ROOT / "site" / "assets" / "core" / "personas.json").read_text(encoding="utf-8"))
+    bad = [(p["id"], k, i, t) for p in core["personas"] for k, v in (p.get("templates") or {}).items()
+           for i, x in enumerate(v) for t in [x if isinstance(x, str) else x.get("t", "")] if pairs(t)]
+    assert bad == []
+    lin = next(p for p in core["personas"] if p["id"] == "lin")["templates"]
+    for t in (lin["otp_stall"][12], lin["loan_stall"][5], lin["coop_step"][7]["t"]):
+        assert t in F["negative"] and vague_digits(t) == t
+
+
 @pytest.mark.parametrize("case", F["positive"], ids=lambda x: x["in"])
 def test_positive_capped_and_same_as_js(case):
     out = vague_digits(case["in"])
