@@ -10,6 +10,8 @@
         （asr、reply、意图、情报、口头语、开场白和告别语原文都不写，见 strip_text）；不录音。
   “这通有问题”：页面带上 /api/offer 发的一次性反馈口令提交，写成 feedback 行（flagged=true）；
         没同意的通话只记编号和标记，不存说明和轮次。
+v3（#94）：每轮按调用用途（kind = reply / filler / opening / disclosure / farewell / asr）另写 type="call" 行，
+  只有用量和模型 / 音色，各 call 行之和等于 end.usage_total；tts_billed_chars 按 CosyVoice 计费规则在脱敏前算好。
 电话线路（SIP）：只存脱敏文字记录、不录音，主叫号码打码，consent 记为 "sip-text-only"。
 
 文字落盘前一律再过一遍共享脱敏 deepsuck.redact_text(text, extract_sensitive(text))，再补一条自报姓名规则
@@ -52,9 +54,13 @@ AUDIO_RATE = 16000
 OPUS_BITRATE = 16000
 CHUNK_SECS = 10
 MAX_FEEDBACK = 5          # 每通最多几条“这通有问题”
-SCHEMA_VERSION = 2        # docs/TRACE_SCHEMA.md；v1 = 6ccede1 的旧格式（没有 schema_version 字段）
+SCHEMA_VERSION = 3        # docs/TRACE_SCHEMA.md；v2 = #5（b17b8da），v1 = 6ccede1 的旧格式（没有 schema_version 字段）
 USAGE_KEYS = (("llm_in", "llm_in_tokens"), ("llm_out", "llm_out_tokens"), ("asr_sec", "asr_audio_sec"),
-              ("tts_chars", "tts_chars"))
+              ("tts_chars", "tts_chars"), ("tts_billed_chars", "tts_billed_chars"))
+# v3 定稿字段名（10-19 群里定的）← v2 / Ticket.usage 的名字；usage_total 和 call 行都用它
+V3_NAMES = (("llm_in", "prompt_tokens"), ("llm_out", "completion_tokens"), ("asr_sec", "asr_seconds"),
+            ("tts_chars", "tts_chars"), ("tts_billed_chars", "tts_billed_chars"))
+CALL_KINDS = ("reply", "filler", "opening", "disclosure", "farewell", "intent", "guard", "asr")
 CLEANUP_INTERVAL_SECS = 86400
 SIP_CONSENT = "sip-text-only"
 try:  # 与 deepsuck 跨回合拼接窗口一致（extractors.json 的 stitch.window）
@@ -178,6 +184,7 @@ TEXT_FIELDS: Dict[str, tuple] = {
     "client_error": ("reason",),
     "client_connected": ("reason",),
     "latency": (),
+    "call": (),   # v3 调用行只有用量、模型、音色和 kind（固定枚举），本来就没有文字
 }
 # 页面上报的诊断字段里只留枚举 / 数字（浏览器名、错误信息等字符串不留）
 CLIENT_DETAIL_ENUMS = ("ice", "conn", "gather", "path")
@@ -222,6 +229,16 @@ def usage_delta(now: Optional[Mapping], before: Optional[Mapping]) -> dict:
     for k, name in USAGE_KEYS:
         v = float(now.get(k, 0) or 0) - float(before.get(k, 0) or 0)
         out[name] = round(max(0.0, v), 2) if k == "asr_sec" else int(max(0, v))
+    return out
+
+
+def v3_usage(now: Optional[Mapping], before: Optional[Mapping] = None) -> dict:
+    """同 usage_delta，但用 v3 定稿名（prompt_tokens / completion_tokens / asr_seconds / tts_chars / tts_billed_chars）。"""
+    now, before = now or {}, before or {}
+    out = {}
+    for k, name in V3_NAMES:
+        v = float(now.get(k, 0) or 0) - float(before.get(k, 0) or 0)
+        out[name] = round(max(0.0, v), 2) if k == "asr_sec" else int(round(max(0, v)))
     return out
 
 
@@ -488,7 +505,7 @@ class CallTrace:
                  caller: str = "", trace_id: Optional[str] = None, env=None, clock=time.time,
                  free_fn=disk_free, prompt_sha: Optional[Callable[[], str]] = None, tts_voice: str = "",
                  asr_model: str = "", tts_model: str = "", usage_fn: Optional[Callable[[], Optional[dict]]] = None,
-                 feedback_key: str = ""):
+                 feedback_key: str = "", calls_fn: Optional[Callable[[], Optional[dict]]] = None):
         self.env, self.clock, self.free_fn = env, clock, free_fn
         self.channel = channel
         self.consent = SIP_CONSENT if channel == "phone" else bool(consent is True)
@@ -502,6 +519,10 @@ class CallTrace:
         self.prompt_sha = prompt_sha or (lambda: "")
         self.usage_fn = usage_fn or (lambda: None)
         self._usage_mark: dict = {}
+        # v3：Ticket.kinds()（kind → 累计用量）；每次切轮取一次差写 call 行
+        self.calls_fn = calls_fn or (lambda: None)
+        self._kind_mark: Dict[str, dict] = {}
+        self._call_turn = 0
         # 会话（可选）：回合文字以 Session.messages 为准——跨回合拼接（卡号分几句报）会回头给前几句补打码，
         # 所以回合先压住 HOLD 个骗子回合再落盘，落盘时取会话里的最终脱敏文本
         self.session = None
@@ -644,7 +665,31 @@ class CallTrace:
             if snap:
                 self._usage_mark = snap
             self._pending.append(c)
+            # 和 turn 行同一个切点：本轮各 kind 的 call 行之和 = 本轮 turn 行的用量
+            self._call_turn = self.turns + len(self._pending)
+            self._write_calls(self._call_turn)
         self._drain()
+
+    def _write_calls(self, turn: int, tail: bool = False) -> None:
+        """v3：自上次切点以来每种 kind 一行 type="call"（kind 没有用量就不写）。tail=True：最后一轮之后的
+        告别语、尾音识别等，记在最后一轮编号上并标 tail。"""
+        try:
+            snap = {k: dict(v) for k, v in (self.calls_fn() or {}).items()}
+        except Exception as e:
+            logger.warning(f"通话追踪取调用用量失败: {e}")
+            return
+        for kind in sorted(snap, key=lambda k: (CALL_KINDS.index(k) if k in CALL_KINDS else 99, k)):
+            u = v3_usage(snap[kind], self._kind_mark.get(kind))
+            if not any(u.values()):
+                continue
+            llm = bool(u["prompt_tokens"] or u["completion_tokens"])
+            tts = bool(u["tts_chars"] or u["tts_billed_chars"])
+            self._write({"type": "call", "t": iso(self.clock()), "turn": turn,
+                         "kind": kind if kind in CALL_KINDS else "other",
+                         "llm_model": self.model if llm else None, **u,
+                         "tts_voice": self.tts_voice if tts else None,
+                         **({"tail": True} if tail else {})})
+        self._kind_mark = snap
 
     def _final_asr(self, c: dict) -> str:
         msgs = [m for m in getattr(self.session, "messages", []) if m.get("role") == "scammer"]
@@ -682,7 +727,8 @@ class CallTrace:
                      "llm_in_tokens": u["llm_in_tokens"], "llm_out_tokens": u["llm_out_tokens"],
                      "llm_first_token_ms": lat.get("llm_ttft"), "llm_full_ms": c.get("llm_full_ms"),
                      "first_audible_ms": lat.get("first_audible"), "e2e_reply_ms": lat.get("e2e_reply"),
-                     "asr_audio_sec": u["asr_audio_sec"], "tts_chars": u["tts_chars"], "tts_voice": self.tts_voice,
+                     "asr_audio_sec": u["asr_audio_sec"], "tts_chars": u["tts_chars"],
+                     "tts_billed_chars": u["tts_billed_chars"], "tts_voice": self.tts_voice,
                      "interrupted": bool(c.get("interrupted")),
                      "asr": self._final_asr(c),
                      "intent": c["intents"][-1] if c["intents"] else None,
@@ -700,6 +746,7 @@ class CallTrace:
             return
         self._flush()
         self._drain(all_=True)
+        self._write_calls(max(self.turns, self._call_turn), tail=True)
         self._ended = True
         reason = self.reason or reason or "unknown"
         now = self.clock()
@@ -707,9 +754,11 @@ class CallTrace:
         total = usage if usage is not None else (self.usage_fn() or {})
         self._write({"type": "end", "t": iso(now), "started_at": iso(self.t0), "ended_at": iso(now),
                      "duration_sec": round(max(0.0, now - self.t0), 1), "exit_reason": reason, "reason": reason,
-                     "consent": self.consent, "persona_id": self.persona, "model": self.model,
+                     "consent": self.consent, "persona_id": self.persona, "persona": self.persona,
+                     "channel": self.channel, "model": self.model, "asr_model": self.asr_model,
+                     "tts_model": self.tts_model,
                      "tts_voice": self.tts_voice, "turns": self.turns, "interrupted_turns": self.interrupted,
-                     "usage_total": usage_delta(total, None),
+                     "usage_total": {**usage_delta(total, None), **v3_usage(total)},
                      **({"cost_cny": round(float(cost_cny), 6)} if cost_cny is not None else {}),
                      "stats": stats or {}, "latency": latency or {}, "usage": usage or {},
                      "audio": self.audio is not None})
@@ -940,7 +989,7 @@ def usage_by_day(since: Optional[str] = None, until: Optional[str] = None, env=N
         d = days_.setdefault(day, {"date": day, "calls": 0, "consent_calls": 0, "audio_calls": 0, "sip_calls": 0,
                                    "flagged_calls": 0, "turns": 0, "interrupted_turns": 0, "duration_sec": 0.0,
                                    "cost_cny": 0.0, **usage_delta(None, None), "by_model": {}, "by_persona": {},
-                                   "exit_reasons": {}})
+                                   "exit_reasons": {}, "by_kind": {}})
         u = _call_usage(rows)
         d["calls"] += 1
         d["consent_calls"] += 1 if st.get("consent") is True else 0
@@ -964,6 +1013,13 @@ def usage_by_day(since: Optional[str] = None, until: Optional[str] = None, env=N
         d["by_persona"][pid] = d["by_persona"].get(pid, 0) + 1
         why = str(end.get("exit_reason") or end.get("reason") or "unfinished")
         d["exit_reasons"][why] = d["exit_reasons"].get(why, 0) + 1
+        for r in rows:  # v3 调用行按 kind 汇总（v2 记录没有，就是空的）
+            if r.get("type") == "call":
+                k = d["by_kind"].setdefault(str(r.get("kind") or "other"), {"rows": 0, **v3_usage(None)})
+                k["rows"] += 1
+                for _k, name in V3_NAMES:
+                    k[name] = round(k[name] + float(r.get(name) or 0), 2) if name == "asr_seconds" \
+                        else k[name] + int(r.get(name) or 0)
     return {"schema_version": SCHEMA_VERSION, "generated_at": iso(), "tz": "+08:00",
             "days": [days_[k] for k in sorted(days_)]}
 

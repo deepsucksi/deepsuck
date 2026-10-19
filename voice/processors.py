@@ -42,7 +42,8 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
-from .persona import FILLERS, GOAL_TOPIC, gate_intent, guard_output, session_topics, speakable, system_prompt, unmask
+from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_scenes, session_topics, speakable, system_prompt,
+                      unmask)
 
 Notify = Callable[[dict], Awaitable[None]]
 
@@ -238,6 +239,8 @@ class IntelProcessor(FrameProcessor):
         self.on_heard = None     # 回调：听到骗子说话（看门狗用来判断静默）
         self.closing = False     # 护栏触发挂断后不再处理新转写（不再调用大模型）
         self.prompt_sha = ""     # 本轮系统提示词的短哈希（通话追踪记录用）
+        # #95：第一句说法示例按“本通随机值 + 对方第一句话”挑。对方开口常是同一句“喂，你好…”，只按原话挑会每通都一样
+        self.opener_salt = os.urandom(4).hex()
         # 意图门控：只接对方已经说过的话（rule 模式经 Session.intent_gate 生效，llm 模式在下面直接调用）
         session.intent_gate = lambda intent: gate_intent(intent, session)
 
@@ -253,7 +256,8 @@ class IntelProcessor(FrameProcessor):
         first = sum(1 for m in getattr(self.session, "messages", []) if m.get("role") == "scammer") <= 1
         heard = next((m.get("text", "") for m in getattr(self.session, "messages", []) if m.get("role") == "scammer"), "")
         sp = system_prompt(self.session.persona["id"], self.session.scenario["id"], self.intent, missing,
-                           said_first=self.said_first, topics=topics, first_turn=first, opener_key=heard)
+                           said_first=self.said_first, topics=topics, first_turn=first,
+                           scenes=heard_scenes(self.session), opener_key=f"{self.opener_salt}|{heard}")
         self.prompt_sha = hashlib.sha1(sp.encode("utf-8")).hexdigest()[:8]
         if self.context is not None:
             msgs = list(self.context.get_messages())
@@ -373,6 +377,8 @@ async def synth_fillers(persona_id: str, voice, sample_rate: int, synth=None, ca
         extra = {"model": voice.model}
         if voice.instruction:
             extra["instruction"] = voice.instruction
+        if voice.rate != 1.0:
+            extra["rate"] = voice.rate
         voice_name, voice = voice.voice, voice.cache_tag
     else:
         voice_name = voice
@@ -396,7 +402,7 @@ async def synth_fillers(persona_id: str, voice, sample_rate: int, synth=None, ca
         try:
             buf = bytearray()
             if meter is not None:
-                meter.tts(len(line))
+                meter.tts(len(line), kind="filler", text=line)
             async for chunk in synth(line, voice=voice_name, sample_rate=sample_rate, **extra):
                 buf.extend(chunk)
             pcm = trim_silence(bytes(buf), sample_rate)

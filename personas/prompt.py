@@ -41,11 +41,10 @@ def common_rules() -> List[str]:
 
 
 def system_prompt(persona_id: str, scenario_hint: str = "") -> str:
+    """人设说明 + 共用硬性规则。#4：场景名不进人设提示词（人设只接对方已经说过的话），scenario_hint 只为兼容旧调用，已不使用。"""
     p = load(persona_id)
     rules = "\n".join(f"{i}. {r}" for i, r in enumerate(common_rules(), 1))
     parts = [p["systemPrompt"].strip()]
-    if scenario_hint:
-        parts.append(f"当前场景：{scenario_hint}")
     parts.append("硬性规则：\n" + rules)
     return "\n".join(parts)
 

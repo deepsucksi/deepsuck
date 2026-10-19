@@ -40,8 +40,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: bootstrap.sh syntax + shellcheck
         run: bash -n deploy/bootstrap.sh && shellcheck -S error deploy/bootstrap.sh && bash -n deploy/sip/entrypoint.sh && shellcheck -S warning deploy/sip/entrypoint.sh && bash deploy/tests/test_bootstrap.sh
-      - name: maint scripts (diskwatch / cost-report / install-timers) shellcheck + tests
-        run: shellcheck -S warning -x deploy/diskwatch.sh deploy/cost-report.sh deploy/install-timers.sh deploy/maint-lib.sh deploy/tests/test_maint.sh && bash deploy/tests/test_maint.sh
+      - name: maint scripts (diskwatch / cost-report / redact-backfill / install-timers) shellcheck + tests
+        run: shellcheck -S warning -x deploy/diskwatch.sh deploy/cost-report.sh deploy/redact-backfill.sh deploy/install-timers.sh deploy/maint-lib.sh deploy/tests/test_maint.sh && bash deploy/tests/test_maint.sh
       - name: compose config
         run: |
           cp deploy/.env.example deploy/.env

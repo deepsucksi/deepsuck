@@ -179,10 +179,10 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
     if tts is None:
         vs = persona_voice(pid, TTS_MODEL)
         if os.environ.get("DEEPSUCK_TTS_STREAM", "1") == "0":  # 回退：每句一连接的旧实现
-            tts = CosyVoiceTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction,
+            tts = CosyVoiceTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction, rate=vs.rate,
                                       text_filters=[GuardTextFilter()], meter=meter)
         else:
-            tts = CosyVoiceStreamTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction,
+            tts = CosyVoiceStreamTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction, rate=vs.rate,
                                             text_filters=[GuardTextFilter()],
                                             meter=meter, clause_min_chars=prof.tts_clause_min_chars)
     fillers = {} if fillers is None else fillers
@@ -223,7 +223,7 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         llm = QwenLLMService(api_key=os.environ.get("DASHSCOPE_API_KEY"), base_url=LLM_BASE_URL,
                              settings=QwenLLMService.Settings(model=LLM_MODEL, temperature=0.8, max_tokens=120,
                                                               extra=llm_settings_extra()))
-    context = LLMContext([{"role": "system", "content": system_prompt(pid, session.scenario["id"], "opening")}])
+    context = LLMContext([{"role": "system", "content": system_prompt(pid, session.scenario["id"], "opening", topics=set(), scenes=[])}])
     agg = LLMContextAggregatorPair(context, user_params=LLMUserAggregatorParams(
         vad_analyzer=vad_analyzer, user_turn_strategies=strategies))
     # 填充音改由 FillerProcessor 按延迟触发，IntelProcessor 不再随机插播
@@ -285,9 +285,12 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
         # 通话追踪：勾选同意才存脱敏文字和两轨录音，没同意只记用量（#96）。编号与 /api/offer 返回给页面的一致
         trace = TR.CallTrace(channel="web", consent=consent, persona=session.persona["id"],
                              scenario=session.scenario["id"], model=LLM_MODEL if engine == "llm" else "rule",
-                             engine=engine, trace_id=trace_id, asr_model=ASR_MODEL, tts_model=TTS_MODEL,
+                             engine=engine, trace_id=trace_id, asr_model=ASR_MODEL,
+                             # 实际合成用的模型（设计音色走它自己的模型，如 cosyvoice-v3.5-flash）
+                             tts_model=persona_voice(session.persona["id"], TTS_MODEL).model or TTS_MODEL,
                              tts_voice=persona_voice(session.persona["id"], TTS_MODEL).voice,
                              usage_fn=(lambda: dict(ticket.usage)) if ticket is not None else None,
+                             calls_fn=ticket.kinds if ticket is not None else None,
                              feedback_key=feedback_key)
         call_id = trace.id
         trace.session = session
@@ -331,6 +334,9 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
                 context.add_message({"role": "assistant", "content": msg["text"]})
             await notify({"type": "limits", "maxMinutes": limits.max_minutes, "maxTurns": limits.max_turns})
             disc = disclosure_text()
+            if ticket is not None:  # 通话追踪 v3：按文字认出开场白 / 提示语的合成用量
+                ticket.tag(disc, "disclosure")
+                ticket.tag(msg["text"], "opening")
             if disc:
                 await notify({"type": "bot", "text": disc, "intent": "disclosure"})
             await notify({"type": "bot", "text": msg["text"], "intent": "opening"})
@@ -367,6 +373,8 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
                     intel.closing = True  # 不再处理新转写，避免继续花钱
                     await notify({"type": "limit", "reason": why, "text": G.END_NOTE[why]})
                     await notify({"type": "bot", "text": G.END_TEXT[why], "intent": "hangup"})
+                    if ticket is not None:
+                        ticket.tag(G.END_TEXT[why], "farewell")
                     await task.queue_frames([TTSSpeakFrame(G.END_TEXT[why]), EndFrame()])
                     await asyncio.sleep(8)  # 给告别语播放时间；EndFrame 正常走完时本任务会被取消
                     await task.cancel()

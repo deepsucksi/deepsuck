@@ -10,6 +10,9 @@
     python -m voice.probe --url https://live.deepsuck.si --origin https://live.deepsuck.si --wav x.wav --relay tcp
 --relay tcp 只用 turn:...?transport=tcp，--relay tls 只用 turns:；凭据从 POST /api/ice 现取，只生成 relay 候选。
 
+模拟打断（#94）：--barge-in 在 WAV 放完后，等人设开始说正式回复（收到回复通知、且听到人设的声音）时，
+把 WAV 里第一段话再推一遍，服务端应在这一轮的 trace 里记 interrupted=true；结果在 barge_in。
+
 退出码（JSON 汇总里的 exit / exit_reason 同步给出）：
   0  正常：/api/offer 200，连上并收到机器人音频
   2  /api/offer 被拒（非 200，例如 403 来源不符、429 限频、503 名额已满）
@@ -48,6 +51,16 @@ def speech_segments(pcm: bytes, rate: int = 16000, frame_ms: int = 20, rms: floa
             else:
                 segs.append([t, t + frame_ms / 1000])
     return [(round(a, 2), round(b, 2)) for a, b in segs]
+
+
+def barge_clip(pcm: bytes, rate: int = 16000, min_s: float = 1.2) -> bytes:
+    """打断用的一段话：WAV 里第一段说话（至少 min_s 秒，不够就往后多取一点）。"""
+    segs = speech_segments(pcm, rate)
+    if not segs:
+        return b""
+    a, b = segs[0]
+    b = max(b, a + min_s)
+    return pcm[int(a * rate) * 2:int(b * rate) * 2]
 
 
 def window_flags(segs, t0: float, times: list) -> list:
@@ -146,7 +159,8 @@ def candidate_types(sdp: str) -> dict:
 
 async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenario: str, origin: Optional[str],
               out_wav: Optional[str] = None, quiet: bool = False, insecure: bool = False,
-              consent: bool = False, relay: Optional[str] = None, flag: Optional[str] = None) -> dict:
+              consent: bool = False, relay: Optional[str] = None, flag: Optional[str] = None,
+              barge_in: bool = False) -> dict:
     import aiohttp
     import numpy as np
     from aiortc import MediaStreamTrack, RTCConfiguration, RTCPeerConnection, RTCSessionDescription
@@ -164,14 +178,18 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
         def __init__(self):
             super().__init__()
             self.pos, self.t0, self.n = 0, None, 0
+            self.inject = b""  # --barge-in：WAV 放完后插进来的一段话
 
         async def recv(self):
             if self.t0 is None:
                 self.t0 = time.time()
             self.n += 1
             await asyncio.sleep(max(0, self.t0 + self.n * 0.02 - time.time()))
-            chunk = pcm[self.pos:self.pos + 640]
-            self.pos += 640
+            if self.inject:
+                chunk, self.inject = self.inject[:640], self.inject[640:]
+            else:
+                chunk = pcm[self.pos:self.pos + 640]
+                self.pos += 640
             chunk = chunk + b"\x00" * (640 - len(chunk))
             f = AudioFrame.from_ndarray(np.frombuffer(chunk, dtype=np.int16).reshape(1, -1), format="s16", layout="mono")
             f.sample_rate, f.pts, f.time_base = 16000, (self.n - 1) * 320, fractions.Fraction(1, 16000)
@@ -228,6 +246,9 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
             return
         if e.get("type") in ("scammer", "bot", "limit", "limits"):
             stats["events"].append(e)
+            if (barge_in and e.get("type") == "bot" and e.get("intent") not in ("opening", "disclosure", "hangup")
+                    and "barge_in" not in stats and mic.pos >= len(pcm)):
+                stats["_barge_armed"] = time.time()
             if not quiet:
                 print(f"[{time.time() - t_start:5.1f}s] {e.get('type'):8s} {e.get('text') or e}")
         elif e.get("type") == "state":
@@ -248,6 +269,14 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
             arr16 = fr.to_ndarray().reshape(-1).astype("float64")
             if arr16.size and float(np.sqrt(np.mean(arr16 * arr16))) > LOUD_RMS:
                 loud.append(time.time())
+                armed = stats.get("_barge_armed")
+                if armed and time.time() - armed > 0.3 and "barge_in" not in stats:
+                    clip = barge_clip(pcm)
+                    mic.inject = clip
+                    stats.pop("_barge_armed", None)
+                    stats["barge_in"] = {"at": round(time.time() - t_start, 2), "clip_sec": round(len(clip) / 32000, 2)}
+                    if not quiet:
+                        print(f"[{time.time() - t_start:5.1f}s] barge-in 人设说话时插话 {stats['barge_in']['clip_sec']}s")
             if out_wav:
                 stats["bot_rate"] = fr.sample_rate
                 arr = fr.to_ndarray().reshape(-1)
@@ -330,6 +359,9 @@ async def run(url: str, wav: Optional[str], seconds: float, persona: str, scenar
         with wave.open(out_wav, "wb") as w:
             w.setnchannels(1); w.setsampwidth(2); w.setframerate(stats.get("bot_rate", 48000)); w.writeframes(bytes(bot_pcm))
     stats["bot_audio_sec"] = round(stats["bot_audio_sec"], 1)
+    stats.pop("_barge_armed", None)
+    if barge_in and "barge_in" not in stats:
+        stats["barge_in"] = {"at": None, "note": "WAV 放完后没等到人设的正式回复"}
     if mic.t0 is not None and pcm:
         segs = speech_segments(pcm)
         stats["client_e2e_ms"] = client_e2e(segs, mic.t0, loud)
@@ -375,6 +407,8 @@ def main(argv=None) -> int:
                     help="只走 TURN 中继：tcp = turn:...?transport=tcp，tls = turns:（凭据从 /api/ice 现取）")
     ap.add_argument("--consent", action="store_true",
                     help="同意保存录音（通话追踪；同意才存录音和脱敏文字）；服务端返回的通话编号打印在 trace_id")
+    ap.add_argument("--barge-in", action="store_true",
+                    help="WAV 放完后，在人设说正式回复时把第一段话再推一遍，模拟打断（trace 应记 interrupted=true）")
     ap.add_argument("--flag", metavar="说明",
                     help="挂断后模拟页面“这通有问题”提交这句说明（并用错口令试一次，应 403）；结果在 feedback")
     a = ap.parse_args(argv)
@@ -383,7 +417,7 @@ def main(argv=None) -> int:
         if not a.wav:
             return 0
     st = asyncio.run(run(a.url, a.wav, a.seconds, a.persona, a.scenario, a.origin, a.out_wav, insecure=a.insecure,
-                         consent=a.consent, relay=a.relay, flag=a.flag))
+                         consent=a.consent, relay=a.relay, flag=a.flag, barge_in=a.barge_in))
     summary = {k: v for k, v in st.items() if k not in ("events", "state", "fillers")}
     summary["turns"] = sum(1 for e in st.get("events", []) if e.get("type") == "scammer")
     summary["intel"] = [i.get("masked") for i in (st.get("state") or {}).get("intel", [])]

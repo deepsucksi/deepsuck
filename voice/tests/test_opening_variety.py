@@ -38,7 +38,9 @@ def test_openers_pick_depends_on_first_line():
     a = P.first_turn_openers("wang", "您好，我是售后客服。")
     assert a == P.first_turn_openers("wang", "您好，我是售后客服。")  # 可复现
     assert len(a) == len(set(a)) == P._OPENERS_SHOWN
-    assert sum(x in P.FIRST_TURN_OPENERS_BY_PERSONA["wang"] for x in a) == 1
+    assert sum(x in P.FIRST_TURN_OPENERS_BY_PERSONA["wang"] for x in a) <= 1
+    own = [sum(x in P.FIRST_TURN_OPENERS_BY_PERSONA["wang"] for x in P.first_turn_openers("wang", f"{i}|喂")) for i in range(40)]
+    assert 0 in own and 1 in own  # 本人设的说法有的通放、有的通不放
     assert sum(x in P.FIRST_TURN_ECHOES for x in a) == 2
     picks = {tuple(P.first_turn_openers("chen", f"第{i}句")) for i in range(20)}
     assert len(picks) >= 10
@@ -66,7 +68,7 @@ def test_update_prompt_uses_first_scammer_line():
     s.ingest("您好，我是网店客服，您给孩子买的童装有问题。")
     sp = ip.update_prompt()
     first = next(m["text"] for m in s.messages if m["role"] == "scammer")
-    assert all(f"- {x}" in sp for x in P.first_turn_openers("chen", first))
+    assert all(f"- {x}" in sp for x in P.first_turn_openers("chen", f"{ip.opener_salt}|{first}"))
 
 
 def test_ab_opening_template_metric():
@@ -86,3 +88,21 @@ def test_ab_opening_template_metric():
     s = AB.summarize(rows, "qwen3.7-flash")
     assert (s["first_template"], s["first_template_strict"], s["first_template_pct"], s["calls"]) == (2, 2, 50.0, 4)
     assert s["first_skeleton_top"] == 2 and s["first_skeleton_top_text"] == "哦X啊" and s["first_skeletons"] == 3
+
+
+def test_opening_examples_carry_no_scene_or_topic():
+    """#4：第一句示例和补充示范不带场景词、话题词，免得把对方还没说的事带进提示词。"""
+    from voice.persona import scenes_in, topics_in
+    pool = (P.FIRST_TURN_ECHOES + P.FIRST_TURN_OPENERS + sum(P.FIRST_TURN_OPENERS_BY_PERSONA.values(), [])
+            + [a + b for a, b in P.FIRST_TURN_DEMOS] + list(P._SHOT_TAILS))
+    assert [x for x in pool if scenes_in(x) or topics_in(x)] == []
+
+
+def test_opener_salt_varies_per_call():
+    """对方第一句话一样（“喂，你好…”）时，不同的通话也挑出不同的示例。"""
+    from deepsuck.engine import Session
+    from deepsuck.rng import mulberry32
+    from voice.processors import IntelProcessor
+    salts = {IntelProcessor(Session(scenario="refund", persona="wang", rng=mulberry32(1), now=lambda: 0)).opener_salt
+             for _ in range(5)}
+    assert len(salts) == 5
