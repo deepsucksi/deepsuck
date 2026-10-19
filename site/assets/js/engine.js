@@ -248,6 +248,18 @@
       entities: entities.concat(stitchedNow).map(function (e) { return { type: e.type, label: e.label, masked: e.masked, sensitive: e.sensitive }; })
     };
     this.messages.push({ role: 'scammer', text: redacted, t: this.now(), tactics: tactics.map(function (t) { return t.id; }), intel: analysis.newIntel });
+    // #92：验证码被 ASR 切成几段（「验证码是 38」「27 15」）时，和前几段对方的话连起来再判断一次，
+    // 本段与前几段（已脱敏文本）里命中的数字一起补打码
+    if (D.redact.redactOtpSegments) {
+      var idx = [];
+      this.messages.forEach(function (m, i) { if (m.role === 'scammer') idx.push(i); });
+      idx = idx.slice(-(D.redact.otpSegWindow() + 1));
+      if (idx.length > 1) {
+        var fixed = D.redact.redactOtpSegments(idx.map(function (i) { return self.messages[i].text; }));
+        idx.forEach(function (i, k) { self.messages[i].text = fixed[k]; });
+        analysis.redacted = fixed[fixed.length - 1];
+      }
+    }
     return analysis;
   };
 
@@ -326,7 +338,7 @@
       vars.intel = this.lastNew.map(function (i) { return self.speakIntel(i); }).join('，');
       var missing = this.missingGoals();
       var g0 = missing[0];
-      // confirmAskSkip：复述完情报不紧接着要这些（如李大爷复述后马上要电话，会被当成反套话），留给之后的 elicit_*
+      // confirmAskSkip：复述完情报不紧接着要这些（如复述后马上要电话，会被骗子当成反套话），留给之后的 elicit_*
       var skip = (this.persona.confirmAskSkip || []).indexOf(g0) >= 0;
       vars.ask = (g0 && !skip && !this.asked[g0] && this.persona.asks[g0]) || this.persona.asks.none;
       if (g0 && !skip) this.asked[g0] = true;

@@ -13,6 +13,22 @@
 `call_id`：8 位 base32（`A-Z2-7`，40 bit 随机），`/api/offer` 生成，接通后页面显示「通话编号 XXXXXXXX」并可复制，
 用户报问题时引用。同一通电话重协商不换编号。电话线路（SIP）由服务端生成，不对外显示。
 
+## 没同意的通话（#96）
+
+网页通话没勾选同意时，仍然写同一份 trace（不另建 voice-usage.jsonl），但只存编号、时间、人设、渠道和用量 / 延迟字段，
+不存任何文字。start 行 `text_stored` 为 `false`。写盘前按 `voice/trace.py` 的 `TEXT_FIELDS` 去掉：
+
+| 行 | 去掉的字段 |
+|---|---|
+| `turn` | `asr`、`reply`、`filler`、`intent`、`intents`、`intel`、`tactics`、`prompt` |
+| `bot` | `text`（只留 `kind`） |
+| `feedback` | `note`、`turn`（只留编号和 `flagged`） |
+| `client_error` / `client_connected` | `reason`；`detail` 里的字符串只留 `ice`、`conn`、`gather`、`path` 这几个枚举 |
+
+用量字段（token、ASR 秒数、TTS 字数、模型、音色、延迟、是否打断、`usage_total`、`cost_cny`）照留，`--usage` 照常汇总。
+不录音。电话线路（`sip-text-only`）行为不变。上线前写下的旧记录用
+`python -m voice.trace_cli --scrub-no-consent`（dry-run）/ `--apply` 清理：只命中没同意且没有录音的通话，已同意的一律跳过。
+
 ## 每轮（`type = "turn"`）
 
 一个用户回合（对方说完一段 → 人设回复）一行。为了让跨回合补打码（卡号分几句报）生效，落盘会晚 3 个回合，挂断时全部写完。
@@ -71,10 +87,10 @@
 
 | `type` | 说明 |
 |---|---|
-| `start` | 第一行：`started_at`、`channel`（`web` / `phone`）、`consent`、`persona_id`、`scenario`、`model`、`asr_model`、`tts_model`、`tts_voice`、`code`、`promptVersion`；网页通话另有 `fk`（反馈口令的哈希，不是口令本身）；电话另有打码的 `caller` |
+| `start` | 第一行：`text_stored`（是否存文字）、`started_at`、`channel`（`web` / `phone`）、`consent`、`persona_id`、`scenario`、`model`、`asr_model`、`tts_model`、`tts_voice`、`code`、`promptVersion`；网页通话另有 `fk`（反馈口令的哈希，不是口令本身）；电话另有打码的 `caller` |
 | `bot` | 开场白 / 说明 / 告别语（`kind` = `opening` / `disclosure` / `hangup`，文字已脱敏） |
 | `interrupt` | 还没有回合时被打断（例如开场白），`during` = `opening` / `filler` |
-| `feedback` | 「这通有问题」：`flagged`（恒为 `true`）、`note`（脱敏、最多 200 字）、`turn`（可选，用户填的第几轮） |
+| `feedback` | 「这通有问题」：`flagged`（恒为 `true`）、`note`（脱敏、最多 200 字）、`turn`（可选，用户填的第几轮）；没同意的通话只有 `flagged` |
 | `audio` | 录音收尾：每轨 `file`、`bytes`、`seconds` |
 | `audio_stopped` | 录音因磁盘上限或剩余不足停止（文字照存） |
 | `client_connected` / `client_error` | 页面上报的接通 / 失败（#3） |
@@ -89,6 +105,7 @@
    邮箱、收款人姓名、网址、钱包地址、验证码类短数字等。
 2. 自报 / 转述姓名补充规则（`voice/trace.py`）：「我叫张伟」「我是李明警官」「他叫王强」「姓名是王小红」，
    姓氏表、称呼表复用 `extractors.json` 的 `nameRules`，打码用共享的 `mask_name`（`张*`）。「王经理」「李总」这类称呼不打码。
+3. 跨分段验证码（#92）：同一说话方（对方：`asr`；人设：`reply`、`filler`）的相邻分段连起来再判断一次（共享 `deepsuck.redact.redact_otp_segments`，前后各 2 段），「验证码是 38」「27 15」两段都打码。历史文件用 `docker exec deepsuck-voice-1 python -m voice.redact_backfill --dry-run`（只统计）/ 不带 `--dry-run`（改写）重跑：只改 start 行 `consent` 为 `true` 的通话，只把命中的数字换成 `*`，保留修改时间，输出只有计数。
 
 卡号等原值只在进程内存里，不进文件。
 
@@ -107,7 +124,7 @@
 | `TRACE_FEEDBACK_HOURS` | `6` | 通话开始后多少小时内还能提交「这通有问题」 |
 | `TRACE_ADMIN_TOKEN` | 空 | 读取接口口令；留空则接口 404 |
 
-- 文字每通都存；录音只在网页通话勾选同意时存；电话线路只存文字。
+- 勾选同意：存录音和脱敏文字；没同意：只存用量、不存文字、不录音（#96）；电话线路只存文字。
 - 清理：服务启动时一次、之后每 24 小时一次，按文件修改时间删除超过保留天数的 `*.jsonl` / `*.ogg`；`stats.json` 只有计数，不删。
 - 文件权限 0600。#18 做按天清理或监控时：文件名是 `<call_id>` 不含日期，按修改时间（或 start 行 `t`）判断天数；
   录音目录大小即 `TRACE_AUDIO_DIR` 下 `*.ogg` 的总和。
@@ -146,6 +163,7 @@
 
 ## 版本记录
 
+- v2 补丁（#96）：没同意的网页通话不存文字（见上），start 行加 `text_stored`，清理过的旧记录 start 行有 `scrubbed_at`。字段名不变，`schema_version` 仍为 2。
 - v2（#5）：每行加 `schema_version`、`call_id`；每轮加 token、ASR 秒数、TTS 字数和音色、首字 / 整句延迟、是否打断；
-  end 行加起止时间、时长、`exit_reason`、`usage_total`、`cost_cny`；文字每通都存（录音仍要同意）；反馈加口令、`flagged`。
+  end 行加起止时间、时长、`exit_reason`、`usage_total`、`cost_cny`；反馈加口令、`flagged`。
 - v1（6ccede1）：初版，只在同意时存文字和录音。

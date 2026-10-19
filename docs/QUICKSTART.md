@@ -1,6 +1,6 @@
 # 5 分钟自托管上手（docs/QUICKSTART.md）
 
-从 `git clone` 到在本机跑起沙盒、接入通义千问、打开语音演示，以及电话接入的现状。每一步都能单独停下：**不填任何 Key，项目照常以规则引擎运行。**
+从 `git clone` 到在本机跑起沙盒、接入云端大模型 API（兼容标准聊天接口）、打开语音演示，以及电话接入的现状。每一步都能单独停下：**不填任何 Key，项目照常以规则引擎运行。**
 
 ## 0. 你需要
 
@@ -22,7 +22,7 @@ npm start            # 打开 http://127.0.0.1:8787/demo.html
 
 **无 Key 时的行为**：`/api/health` 返回 `llmConfigured: false`；`/api/chat` 返回 503 并附中文提示；沙盒“引擎设置”里显示“代理在线，但未配置 API Key”，对话自动使用浏览器内的规则引擎。情报提取、脱敏和黑名单比对都照常在本地完成。
 
-## 2. 接入通义千问（文字对话）：约 1 分钟
+## 2. 接入云端大模型 API（文字对话）：约 1 分钟
 
 ```bash
 cp .env.example .env
@@ -40,6 +40,12 @@ curl -s http://127.0.0.1:8787/api/health   # llmConfigured: true
 | `LLM_BASE_URL` | 百炼兼容模式地址 | 任何兼容标准聊天接口的服务都可以 |
 | `CHAT_DAILY_BUDGET_CNY` | `0`（不限） | **本地也建议设一个**，例如 `1` |
 | `HOST` / `PORT` | `127.0.0.1` / `8787` | 监听地址 |
+
+公开页面和 README 里统一写作“云端大模型 API（兼容标准聊天接口）”，具体用哪家服务由部署者在这里配置。文字代理（`server/index.js`）只认标准聊天接口（Chat Completions 格式），三个变量决定接哪家：
+
+- **默认（`.env.example` 原样）**：阿里云百炼（DashScope）兼容模式，`LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1`，Key 填 `DASHSCOPE_API_KEY`（百炼控制台北京地域创建），模型由 `LLM_MODEL` 指定。
+- **换成其他兼容标准聊天接口的服务**：Key 填 `LLM_API_KEY`（优先级高于 `DASHSCOPE_API_KEY`），`LLM_BASE_URL` 填该服务的兼容地址（一般以 `/v1` 结尾，代理会在后面拼 `/chat/completions`），`LLM_MODEL` 填该服务的模型名。改完重启 `npm start`，用 `curl -s http://127.0.0.1:8787/api/health` 看 `llmConfigured` 是否为 `true`。
+- 公开部署时文字代理和语音各自的模型变量（`LLM_MODEL`、`DEEPSUCK_LLM_MODEL`）与单价护栏见 [DEPLOY.md](DEPLOY.md)；语音服务目前只走百炼（ASR、LLM、TTS 同一个 `DASHSCOPE_API_KEY`），见第 3 节。
 
 > **注意：进程环境变量优先于 `.env`。** `server/index.js` 和 `voice/app.py` 都只会用 `.env` 补上*尚未设置*的变量。如果你的 shell 里已经 `export` 了 `DASHSCOPE_API_KEY`（或 `LLM_API_KEY`），即使 `.env` 留空也会用它，并按量计费。只想跑规则引擎时，可以用 `env -u DASHSCOPE_API_KEY -u LLM_API_KEY npm start`。
 

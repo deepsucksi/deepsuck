@@ -59,6 +59,33 @@ const OTP_CASES = [
   ['验证码是多少？我念一下：一二三', 'keep']
 ];
 
+// #92：同一说话方连续的 ASR 分段（验证码被切成两三段）；mask = 跨段判断后比逐段脱敏多打了码
+const OTP_SEG_CASES = [
+  [['验证码是 38', '27 15'], 'mask'],
+  [['验证码是 38。', '27，', '15'], 'mask'],
+  [['你的校验码是三八', '二七', '一五'], 'mask'],
+  [['动态码……4 7', '2、9', '1 5'], 'mask'],
+  [['短信验证码我念一下啊', '3827 15'], 'mask'],
+  [['验证码是三八二', '7 1 5'], 'mask'],
+  [['那个验证码', '是 38', '２７１５'], 'mask'],
+  [['38 27', '15 这个是验证码吧'], 'mask'],
+  [['验证码 472915', '472915'], 'mask'],
+  [['验证码是幺二', '三四，五六'], 'mask'],
+  [['验证码是 38', '嗯', '27 15'], 'mask'],
+  [['验证码收到了吧', '那你先转 3000 元'], 'keep'],
+  [['验证码是 38', '明天 27 号'], 'keep'],
+  [['验证码发了吗', '尾号 3827 的卡'], 'keep'],
+  [['验证码等会儿再说', '金额 5000', '你先转过来'], 'keep'],
+  [['我今年 65', '岁了'], 'keep'],
+  [['验证码已发送', '下午 3 点', '15 分到'], 'keep'],
+  [['38 27', '15'], 'keep'],
+  [['验证码发到你手机了', '138 0000', '1111'], 'keep'],
+  [['验证码是多少', '我数一下', '一二三'], 'keep'],
+  [['验证码收到了', '订单号 A3827', '15'], 'keep'],
+  [['验证码是六位的', '这个月花了 3800', '27 块'], 'keep'],
+  [['验证码不能说', '我先挂了'], 'keep']
+];
+
 // ---- 输入用例（全部为虚构测试数据）----
 const TEXTS = [
   '把钱转到 6217 0012 3456 7890 123，户名李强，建设银行',
@@ -204,6 +231,15 @@ function build() {
       const masked = redacted !== R.redactText(text, X.extractSensitive(text).concat([{ start: 0, end: text.length, sensitive: false }]));
       if ((expect === 'mask') !== masked) throw new Error('OTP 用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
+    }),
+    otpSegments: OTP_SEG_CASES.map(([segments, expect]) => {
+      const each = segments.map((t) => R.redactText(t, X.extractSensitive(t)));
+      const spans = R.findOtpSpansSegments(each);
+      const redacted = R.redactOtpSegments(each);
+      if ((expect === 'mask') !== (JSON.stringify(redacted) !== JSON.stringify(each))) {
+        throw new Error('跨分段 OTP 用例与预期不符：' + segments.join(' | ') + ' -> ' + redacted.join(' | '));
+      }
+      return { segments, expect, spans, redacted };
     }) };
   out.normalize = { comment: HEADER, cases: TEXTS.map((text) => { const n = N.normalize(text); return { text, expected: n.text, changed: n.changed }; }) };
   out.extract = {

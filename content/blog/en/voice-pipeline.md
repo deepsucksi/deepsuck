@@ -131,7 +131,7 @@ On retention: for web calls the visitor chooses whether to save. If they agree, 
 
 ## Does it hold them?
 
-In offline evaluation, a language model plays the scammer against three personas in 7 scenarios with 6 random seeds, 126 sessions per tier. In the default tier, the suspicious hang-up rate is 13.5% (95% interval 8.6–20.5%), the average stall is 23.6 turns (cap 25), extraction rate is 99.8% (430/431) and the leak rate is 0 (main table in section 1 of [docs/EVAL.md](https://github.com/deepsucksi/deepsuck/blob/main/docs/EVAL.md), result file `eval/results-llm-scammer.json`). This is a simulated opponent, not real scammers, and the document notes that recent persona changes still need re-testing.
+In offline evaluation, a language model plays the scammer against three personas in 7 scenarios with 6 random seeds (now four personas), 126 sessions per tier. In the default tier, the suspicious hang-up rate is 13.5% (95% interval 8.6–20.5%), the average stall is 23.6 turns (cap 25), extraction rate is 99.8% (430/431) and the leak rate is 0 (main table in section 1 of [docs/EVAL.md](https://github.com/deepsucksi/deepsuck/blob/main/docs/EVAL.md), result file `eval/results-llm-scammer.json`). This is a simulated opponent, not real scammers, and the document notes that recent persona changes still need re-testing.
 
 ## Still open
 

@@ -95,7 +95,7 @@ def test_turn_and_end_schema_fields(tmp_path):
 
 
 def test_text_redacted_on_disk_card_name_id_qq_wechat_alipay(tmp_path):
-    t = _call(_env(tmp_path), consent=False)
+    t = _call(_env(tmp_path), consent=True)
     raw = t.path.read_text(encoding="utf-8")
     for secret in (CARD, IDCARD, QQ, WX, ALIPAY, NAME):
         assert secret not in raw, secret
@@ -158,13 +158,13 @@ def test_audio_dir_and_days_configurable(tmp_path):
 def test_usage_by_day_and_flagged(tmp_path, capsys):
     env = _env(tmp_path)
     day1 = Clock(1_790_000_000.0)  # 2026-09-21（UTC+8）
-    a = _call(env, consent=True, clock=day1)
-    b = _call(env, consent=False, clock=Clock(1_790_000_000.0 + 86400))
+    a = _call(env, consent=False, clock=day1)
+    b = _call(env, consent=True, clock=Clock(1_790_000_000.0 + 86400))
     assert TR.feedback(b.id, "第二轮答非所问", 2, env=env, key="key", now=1_790_000_000.0 + 86400 + 60) == {"ok": True}
     rep = TR.usage_by_day(env=env)
     assert rep["schema_version"] == 2 and [d["date"] for d in rep["days"]] == ["2026-09-21", "2026-09-22"]
     d1, d2 = rep["days"]
-    assert d1["calls"] == 1 and d1["consent_calls"] == 1 and d2["consent_calls"] == 0 and d2["flagged_calls"] == 1
+    assert d1["calls"] == 1 and d1["consent_calls"] == 0 and d2["consent_calls"] == 1 and d2["flagged_calls"] == 1
     assert d1["llm_in_tokens"] == 1700 and d1["llm_out_tokens"] == 55 and d1["asr_audio_sec"] == 12.0
     assert d1["tts_chars"] == 40 and d1["turns"] == 2 and d1["interrupted_turns"] == 1 and d1["duration_sec"] == 30.0
     assert d1["cost_cny"] == 0.0123 and d1["by_model"]["qwen-flash"]["llm_in_tokens"] == 1700
@@ -188,7 +188,7 @@ def test_usage_by_day_and_flagged(tmp_path, capsys):
         assert b.id in text and "第 2 轮 第二轮答非所问" in text
         assert trace_cli.main([a.id]) == 0
         text = capsys.readouterr().out
-        assert "用量: llm 800/30 tokens" in text and "被打断" in text and "llm整句=900ms" in text and "约 0.0123 元" in text
+        assert "用量: llm 800/30 tokens" in text and "被打断" in text and "（没同意，未存文字）" in text and "llm整句=900ms" in text and "约 0.0123 元" in text
     finally:
         os.environ.pop("TRACE_DIR", None)
 

@@ -1,4 +1,4 @@
-"""通话追踪：脱敏文字每通都存，录音只在同意时存；SIP 不录音且主叫打码；脱敏；token 保护；
+"""通话追踪：同意才存录音和脱敏文字，没同意只记用量；SIP 不录音且主叫打码；脱敏；token 保护；
 30 天清理（录音目录/天数可单独配）；磁盘上限停录；“这通有问题”只认当前通话、写进同一份记录；
 每轮 schema 字段（docs/TRACE_SCHEMA.md）；trace_cli 列出有问题的通话、按天汇总用量。全部离线。"""
 import asyncio
@@ -65,7 +65,7 @@ def test_consent_writes_redacted_turns_and_end(tmp_path):
     assert oct(os.stat(t.path).st_mode & 0o777) == "0o600"
 
 
-def test_no_consent_stores_redacted_text_but_no_audio(tmp_path):
+def test_no_consent_stores_usage_only_no_text_no_audio(tmp_path):
     env = _env(tmp_path)
     t = TR.CallTrace(channel="web", consent=False, persona="wang", scenario="refund", model="qwen-plus", env=env)
     assert t.store and t.audio_processor() is None and t.audio is None
@@ -76,8 +76,11 @@ def test_no_consent_stores_redacted_text_but_no_audio(tmp_path):
     rows = _lines(t.path)
     assert rows[0]["consent"] is False and rows[-1]["type"] == "end" and rows[-1]["consent"] is False
     assert rows[-1]["audio"] is False and sum(1 for r in rows if r["type"] == "turn") == 2
+    assert rows[0]["text_stored"] is False
     raw = t.path.read_text(encoding="utf-8")
-    assert CARD not in raw and PHONE not in raw
+    assert CARD[-4:] not in raw and "客服" not in raw and "别催" not in raw and "喂" not in raw  # 不存任何文字（#96）
+    for r in rows:
+        assert not {"asr", "reply", "filler", "intent", "intel", "tactics", "text"} & set(r), r
     stats = json.loads((tmp_path / "traces" / "stats.json").read_text())
     day = next(iter(stats.values()))
     assert day["calls"] == 1 and day["noConsent"] == 1 and "consent" not in day
@@ -388,3 +391,44 @@ def test_cross_turn_card_digits_are_redacted_via_session(tmp_path):
     assert s.intel, "拼接应识别出卡号"
     assert "62220212" not in raw and "345678" not in raw, raw
     assert [r["n"] for r in _lines(t.path) if r["type"] == "turn"] == [1, 2, 3]
+
+
+def test_split_otp_across_asr_segments_is_redacted_on_disk(tmp_path):
+    """#92：验证码被 ASR 切成「验证码是 38」「27 15」两段，落盘时同一说话方相邻分段连起来判断，两段都打码。"""
+    from deepsuck.engine import Session
+    from deepsuck.rng import mulberry32
+
+    env = _env(tmp_path)
+    s = Session(scenario="refund", persona="lin", rng=mulberry32(1), now=lambda: 0)
+    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="refund", model="m", env=env)
+    t.session = s
+    for line in ["验证码是 38", "27 15", "那你先转 3000 元", "快点"]:
+        a = s.ingest(line)
+        t.observe({"type": "scammer", "text": a["redacted"], "turn": a["turn"], "intent": "generic",
+                   "tactics": [], "newIntel": a["newIntel"]})
+        t.observe({"type": "bot", "text": "嗯", "intent": "generic"})
+    t.end("client_hangup")
+    turns = [r for r in _lines(t.path) if r["type"] == "turn"]
+    assert [r["asr"] for r in turns] == ["验证码是 **", "** **", "那你先转 3000 元", "快点"]
+
+
+def test_split_otp_without_session_uses_trace_history(tmp_path):
+    """没有会话对象时，用本通已记下的同一说话方分段判断；人设回复单独按人设自己的分段判断。
+    （#96 起没同意的通话不存文字，这里用已同意的通话验证打码。）"""
+    env = _env(tmp_path)
+    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="refund", model="m", env=env)
+    for n, (sc, bot) in enumerate([("你的校验码是三八", "验证码是"), ("二七", "我看看"), ("一五", "好")], 1):
+        t.observe({"type": "scammer", "text": sc, "turn": n, "intent": "generic", "tactics": [], "newIntel": []})
+        t.observe({"type": "bot", "text": bot, "intent": "generic"})
+    t.end("client_hangup")
+    turns = [r for r in _lines(t.path) if r["type"] == "turn"]
+    assert [r["asr"] for r in turns] == ["你的校验码是**", "**", "**"]
+    assert [r["reply"] for r in turns] == ["验证码是", "我看看", "好"]   # 不跨说话方拼接
+
+
+def test_seg_redact_slice_matches_whole_call():
+    segs = ["验证码是", "38", "嗯", "27", "15", "好的", "金额 5000", "下午 3 点"]
+    from deepsuck.redact import redact_otp_segments
+    whole = redact_otp_segments(segs)
+    for i in range(len(segs)):
+        assert TR.seg_redact(segs, [i]) == [whole[i]]

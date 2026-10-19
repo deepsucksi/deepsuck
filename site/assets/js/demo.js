@@ -1,6 +1,6 @@
 /*!
  * DeepSuck — demo.js：沙盒演示页 UI（访客扮演骗子）。
- * URL 参数（便于截图/自动演示）：?scenario=police&persona=li&autoplay=4&fast=1&summary=1
+ * URL 参数（便于截图/自动演示）：?scenario=police&persona=zheng&autoplay=4&fast=1&summary=1
  * Apache-2.0
  */
 (function () {
@@ -371,10 +371,11 @@
   /* ---------- 设置 ---------- */
   function loadSettings() {
     try {
-      var saved = JSON.parse(localStorage.getItem('deepsuck.llm') || 'null');
-      if (saved) { state.direct = Object.assign(state.direct, saved); state.engine = saved.engine || 'rule'; }
+      // 已保存的配置原样读回，不清除、不覆盖（#108）
+      var raw = localStorage.getItem('deepsuck.llm');
+      if (raw) { var r = D.llm.restoreDirectConfig(raw); state.direct = r.direct; state.engine = r.engine; }
     } catch (e) {}
-    if (state.engine === 'direct' && !state.direct.apiKey) state.engine = 'rule';
+    if (state.engine === 'direct' && D.llm.missingDirectConfig(state.direct).length) state.engine = 'rule';
   }
   function openSettings() {
     document.querySelectorAll('input[name=engine]').forEach(function (r) { r.checked = r.value === state.engine; });
@@ -383,10 +384,11 @@
   }
   function saveSettings() {
     var eng = (document.querySelector('input[name=engine]:checked') || {}).value || 'rule';
-    state.direct.baseUrl = $('cfgBase').value.trim() || D.llm.DEFAULTS.baseUrl;
-    state.direct.model = $('cfgModel').value.trim() || D.llm.DEFAULTS.model;
+    state.direct.baseUrl = $('cfgBase').value.trim();
+    state.direct.model = $('cfgModel').value.trim();
     state.direct.apiKey = $('cfgKey').value.trim();
     if (eng === 'proxy' && !state.proxyOk) { toast(L('未检测到已配置的本地代理（npm start + .env），仍使用规则引擎', 'No configured local proxy detected (npm start + .env); still using the rule engine')); eng = 'rule'; }
+    if (eng === 'direct' && (!state.direct.baseUrl || !state.direct.model)) { toast(L('请先填写 Base URL 和模型名（见 QUICKSTART）', 'Please enter the base URL and model name first (see QUICKSTART)')); $(state.direct.baseUrl ? 'cfgModel' : 'cfgBase').focus(); return; }
     if (eng === 'direct' && !state.direct.apiKey) { toast(L('请先填写 API Key', 'Please enter an API key first')); return; }
     state.engine = eng;
     try {
@@ -411,7 +413,7 @@
         setProxyStatus(function () { return L('已检测到代理：', 'Proxy detected: ') + j.model + ' @ ' + j.provider; });
         if (!localStorage.getItem('deepsuck.llm') && !FAST) { state.engine = 'proxy'; state.session.engineName = engineName(); renderPanel(); toast(L('检测到已配置的大模型代理，已切换到 ', 'Configured LLM proxy detected; switched to ') + j.model); }
       } else if (j) {
-        setProxyStatus(function () { return L('代理在线，但未配置 API Key（编辑 .env 中的 DASHSCOPE_API_KEY）', 'Proxy online, but no API key configured (edit DASHSCOPE_API_KEY in .env)'); });
+        setProxyStatus(function () { return L('代理在线，但未配置 API Key（编辑 .env 中的 LLM_API_KEY，见 docs/QUICKSTART.md）', 'Proxy online, but no API key configured (set LLM_API_KEY in .env; see docs/QUICKSTART.md)'); });
       } else throw new Error();
     }).catch(function () { setProxyStatus(function () { return L('未检测到代理（纯静态托管时正常）。运行 npm start 可启用。', 'No proxy detected (normal for static hosting). Run npm start to enable it.'); }); });
   }
