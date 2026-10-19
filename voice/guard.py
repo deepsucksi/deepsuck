@@ -45,7 +45,7 @@ def _env_i(name: str, default: int) -> int:
 #   qwen-plus      https://help.aliyun.com/zh/model-studio/qwen-plus       输入≤128K：0.8 / 2
 #   qwen3.7-flash  https://help.aliyun.com/zh/model-studio/qwen3-7-flash   输入≤32K：0.2 / 0.8
 #   qwen3.8-flash  https://help.aliyun.com/zh/model-studio/qwen3-8-flash   0.8 / 2.7（不分档；缓存命中输入 0.1）
-# 每轮输入约 1–3K token，都落在最低一档。快照名（如 qwen-plus-2025-12-01）按前缀取价。
+# qwen-plus、qwen3.7-flash 两行只为旧 trace 记账保留；现用模型一律 qwen3.8-flash（#145）。每轮输入约 1–3K token，都落在最低一档。快照名（如 qwen-plus-2025-12-01）按前缀取价。
 # 覆盖优先级：VOICE_PRICE_LLM_IN/OUT_PER_M（语音专用）> PRICE_LLM_IN/OUT_PER_M（Node 代理那份，只在语音模型
 # 与代理的 LLM_MODEL 相同时才套用）> PRICE_LLM_TABLE="模型:输入:输出,..." > 下表。
 LLM_PRICES: Dict[str, Tuple[float, float]] = {
@@ -54,7 +54,7 @@ LLM_PRICES: Dict[str, Tuple[float, float]] = {
     "qwen3.8-flash": (0.8, 2.7),
 }
 DEFAULT_LLM_MODEL = "qwen3.8-flash"   # 语音默认模型（#149：全项目用 Qwen 最新系列，见 docs/LLM_AB.md）
-PROXY_LLM_MODEL = "qwen-plus"         # Node 文字代理 LLM_MODEL 的默认值（server/index.js）
+PROXY_LLM_MODEL = "qwen3.8-flash"     # Node 文字代理 LLM_MODEL 的默认值（server/index.js，#148）
 
 
 def llm_price_table(env=None) -> Dict[str, Tuple[float, float]]:

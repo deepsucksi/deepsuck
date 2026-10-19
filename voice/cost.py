@@ -276,7 +276,7 @@ def asr_price_per_sec(env=None) -> float:
 
 
 def proxy_prices(env=None) -> Tuple[str, float, float]:
-    """文字代理：server/index.js 用 LLM_MODEL + PRICE_LLM_IN/OUT_PER_M（默认 qwen-plus 0.8 / 2）。"""
+    """文字代理：server/index.js 用 LLM_MODEL + PRICE_LLM_IN/OUT_PER_M（默认 qwen3.8-flash 0.8 / 2.7，#148）。"""
     e = _env(env)
     model = e.get("LLM_MODEL") or G.PROXY_LLM_MODEL
     p_in, p_out = G.llm_price(model, e)

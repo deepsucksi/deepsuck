@@ -45,14 +45,14 @@ def test_ids():
 
 def test_consent_writes_redacted_turns_and_end(tmp_path):
     env = _env(tmp_path)
-    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="pig", model="qwen-plus", env=env,
+    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="pig", model="qwen3.8-flash", env=env,
                      prompt_sha=lambda: "abcd1234")
     _talk(t)
     t.end("client_hangup", stats={"turns": 2}, latency={"first_audible": {"p50": 500}})
     rows = _lines(t.path)
     assert [r["type"] for r in rows] == ["start", "bot", "turn", "turn", "end"]
     st, op, t1, t2, end = rows
-    assert st["consent"] is True and st["id"] == t.id and st["model"] == "qwen-plus" and st["code"]
+    assert st["consent"] is True and st["id"] == t.id and st["model"] == "qwen3.8-flash" and st["code"]
     assert op["kind"] == "opening"
     assert t1["n"] == 1 and t1["intent"] == "confirm_intel" and t1["filler"] == "嗯…"
     assert t1["latency"]["first_audible"] == 500 and t1["prompt"] == "abcd1234" and t1["promptVersion"]
@@ -67,7 +67,7 @@ def test_consent_writes_redacted_turns_and_end(tmp_path):
 
 def test_no_consent_stores_usage_only_no_text_no_audio(tmp_path):
     env = _env(tmp_path)
-    t = TR.CallTrace(channel="web", consent=False, persona="wang", scenario="refund", model="qwen-plus", env=env)
+    t = TR.CallTrace(channel="web", consent=False, persona="wang", scenario="refund", model="qwen3.8-flash", env=env)
     assert t.store and t.audio_processor() is None and t.audio is None
     _talk(t)
     t.end("client_hangup")
@@ -98,7 +98,7 @@ def test_no_consent_stores_usage_only_no_text_no_audio(tmp_path):
 
 def test_sip_text_only_masks_caller_and_never_records(tmp_path):
     env = _env(tmp_path)
-    t = TR.CallTrace(channel="phone", consent=True, persona="wang", scenario="refund", model="qwen-plus",
+    t = TR.CallTrace(channel="phone", consent=True, persona="wang", scenario="refund", model="qwen3.8-flash",
                      caller="+86" + PHONE, env=env)
     assert t.consent == TR.SIP_CONSENT and t.store
     assert t.audio_processor() is None
@@ -119,7 +119,7 @@ def _pcm(secs, amp=3000):
 
 def test_consent_records_two_opus_tracks(tmp_path):
     env = _env(tmp_path)
-    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="pig", model="qwen-plus", env=env)
+    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="pig", model="qwen3.8-flash", env=env)
     buf = t.audio_processor()
     assert buf is not None and t.audio is not None
     for _ in range(3):

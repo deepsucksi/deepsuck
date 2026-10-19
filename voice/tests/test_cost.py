@@ -8,7 +8,8 @@ from voice import cost as C
 
 ASR = 0.00024          # paraformer-realtime-v2 元/秒
 FLASH = (0.2, 0.8)     # qwen3.7-flash 元/百万 token
-PLUS = (0.8, 2.0)      # qwen-plus
+PLUS = (0.8, 2.0)      # qwen-plus（旧 trace 记账）
+F38 = (0.8, 2.7)       # qwen3.8-flash，文字代理默认（#148）
 
 
 def trace(d: Path, tid: str, end_t: str, usage: dict, start_t: str = None, model="qwen3.7-flash",
@@ -137,7 +138,7 @@ def test_chat_budget_and_eval_spend(tmp_path):
     (tmp_path / "eval-spend.csv").write_text("date,role,pr,cny,note\n2026-10-19,voice,46,0.2,对比\n"
                                              "2026-10-19,corpus,68,0.25,复测\n2026-10-18,voice,40,9,昨天\n", encoding="utf-8")
     r = report(tmp_path)
-    assert r["items"]["proxy"] == pytest.approx(PLUS[0] + 0.5 * PLUS[1])
+    assert r["items"]["proxy"] == pytest.approx(F38[0] + 0.5 * F38[1])
     assert r["items"]["eval"] == pytest.approx(0.45)
     assert len(r["eval_rows"]) == 2
 

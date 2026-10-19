@@ -36,7 +36,7 @@ curl -s http://127.0.0.1:8787/api/health   # llmConfigured: true
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `DASHSCOPE_API_KEY` | 空 | 百炼 Key；为空就只用规则引擎 |
-| `LLM_MODEL` | `qwen-plus` | 也可以填 `qwen-turbo`、`qwen-max` 等 |
+| `LLM_MODEL` | `qwen3.8-flash` | 也可以填 `qwen3.8-max`；3.8 系列其他型号见[百炼模型列表](https://help.aliyun.com/zh/model-studio/models) |
 | `LLM_BASE_URL` | 百炼兼容模式地址 | 任何兼容标准聊天接口的服务都可以 |
 | `CHAT_DAILY_BUDGET_CNY` | `0`（不限） | **本地也建议设一个**，例如 `1` |
 | `HOST` / `PORT` | `127.0.0.1` / `8787` | 监听地址 |

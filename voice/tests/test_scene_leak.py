@@ -108,7 +108,7 @@ def test_llm_ab_scene_leak_metric():
     base = {"guarded": False, "ttft_ms": 400.0, "total_ms": 900.0, "turn": 1}
     rows = [dict(base, reply="x", scene_leaked=["police"], call=1, style=AB.style("x")),
             dict(base, reply="y", scene_leaked=[], call=2, style=AB.style("y"))]
-    s = AB.summarize(rows, "qwen-plus")
+    s = AB.summarize(rows, "qwen3.8-flash")
     assert s["scene_leak_replies"] == 1 and s["scene_leak_calls"] == 1 and s["scene_leak_hits"] == ["police"]
 
 
