@@ -168,22 +168,24 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
     from pipecat.pipeline.pipeline import Pipeline
 
     from .interrupt import user_turn_strategies
+    from .callredact import CallRedactor
     from .processors import BotTextTap, FillerProcessor, GuardTextFilter, IntelProcessor
     from .services import CosyVoiceStreamTTSService, CosyVoiceTTSService, ParaformerSTTService
     from .tuning import get_profile, vad_params
 
     prof = get_profile(profile)
     pid = session.persona["id"]
+    redactor = CallRedactor()  # #140：本通电话的已提取姓名/号码集合，进模型（IntelProcessor）和送 TTS（GuardTextFilter）共用
     stt = stt or ParaformerSTTService(model=ASR_MODEL, sample_rate=IN_RATE, meter=meter,
                                       max_sentence_silence=prof.asr_max_silence_ms)
     if tts is None:
         vs = persona_voice(pid, TTS_MODEL)
         if os.environ.get("DEEPSUCK_TTS_STREAM", "1") == "0":  # 回退：每句一连接的旧实现
             tts = CosyVoiceTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction, rate=vs.rate,
-                                      text_filters=[GuardTextFilter()], meter=meter)
+                                      text_filters=[GuardTextFilter(redactor)], meter=meter)
         else:
             tts = CosyVoiceStreamTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction, rate=vs.rate,
-                                            text_filters=[GuardTextFilter()],
+                                            text_filters=[GuardTextFilter(redactor)],
                                             meter=meter, clause_min_chars=prof.tts_clause_min_chars)
     fillers = {} if fillers is None else fillers
     backchannel = None
@@ -204,7 +206,7 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         from pipecat.turns.user_turn_processor import UserTurnProcessor
 
         intel = IntelProcessor(session, notify=notify, mode="rule", fillers=fillers, filler_rate=OUT_RATE,
-                               filler_prob=0.0, blocklist=blocklist, backchannel=backchannel)
+                               filler_prob=0.0, blocklist=blocklist, backchannel=backchannel, redactor=redactor)
         intel.meter = meter
         turns = UserTurnProcessor(user_turn_strategies=strategies)
         procs = [transport.input(), VADProcessor(vad_analyzer=vad_analyzer), stt, turns, intel, filler, tts,
@@ -228,7 +230,8 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
         vad_analyzer=vad_analyzer, user_turn_strategies=strategies))
     # 填充音改由 FillerProcessor 按延迟触发，IntelProcessor 不再随机插播
     intel = IntelProcessor(session, context=context, notify=notify, mode="llm", fillers=fillers,
-                           filler_rate=OUT_RATE, filler_prob=0.0, blocklist=blocklist, backchannel=backchannel)
+                           filler_rate=OUT_RATE, filler_prob=0.0, blocklist=blocklist, backchannel=backchannel,
+                           redactor=redactor)
     intel.meter = meter
     tap = BotTextTap(intel)
     procs = [transport.input(), stt, intel, agg.user(), llm, filler, tap, tts, transport.output(), agg.assistant()]
