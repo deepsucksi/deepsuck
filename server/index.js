@@ -2,7 +2,7 @@
 /*!
  * DeepSuck — 可选的本地后端（零依赖，Node.js >= 18）
  *  - 托管 site/ 静态文件
- *  - POST /api/chat：代理到 OpenAI 兼容大模型（默认阿里云百炼 DashScope / qwen-plus），API Key 只留在服务器端
+ *  - POST /api/chat：代理到 OpenAI 兼容大模型（默认阿里云百炼 DashScope / qwen3.8-flash），API Key 只留在服务器端
  *  - GET  /api/health：返回是否已配置大模型、限流与当日预算状态（不返回 Key）
  *  - 公开部署（deploy/）时的费用护栏见 server/guard.js：每 IP/全局限流、每局最大轮数、每日预算上限、CORS 白名单
  * 用法：cp .env.example .env && 填写 DASHSCOPE_API_KEY && npm start
@@ -34,10 +34,10 @@ var CFG = {
   host: process.env.HOST || '127.0.0.1',
   port: parseInt(process.env.PORT || '8787', 10),
   apiKey: process.env.LLM_API_KEY || process.env.DASHSCOPE_API_KEY || '',
-  // 服务端代理的默认值（未设 LLM_BASE_URL / LLM_MODEL 时）：百炼兼容模式 + qwen-plus，与改前一致。
+  // 服务端代理的默认值（未设 LLM_BASE_URL / LLM_MODEL 时）：百炼兼容模式 + qwen3.8-flash（#145 统一用 Qwen 最新系列）。
   // 浏览器端 llm.js 的 DEFAULTS 已留空（#108），这里单独保留，代理行为不变。配置见 docs/QUICKSTART.md。
   baseUrl: process.env.LLM_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-  model: process.env.LLM_MODEL || 'qwen-plus',
+  model: process.env.LLM_MODEL || 'qwen3.8-flash',
   temperature: process.env.LLM_TEMPERATURE ? parseFloat(process.env.LLM_TEMPERATURE) : llm.DEFAULTS.temperature,
   maxTokens: parseInt(process.env.LLM_MAX_TOKENS || '120', 10),
   // ---- 费用护栏（公开部署时务必保留默认值或调得更严） ----
@@ -46,8 +46,8 @@ var CFG = {
   globalPerMin: parseInt(process.env.GLOBAL_RATE_PER_MIN || '60', 10),      // 全站每分钟
   maxTurns: parseInt(process.env.CHAT_MAX_TURNS || '40', 10),               // 每局骗子最多发言轮数
   budgetCny: parseFloat(process.env.CHAT_DAILY_BUDGET_CNY || '0'),          // 每日预算（元），0 = 不限（仅本地）
-  priceInPerM: parseFloat(process.env.PRICE_LLM_IN_PER_M || '0.8'),         // qwen-plus 输入 元/百万 token
-  priceOutPerM: parseFloat(process.env.PRICE_LLM_OUT_PER_M || '2'),         // qwen-plus 输出 元/百万 token
+  priceInPerM: parseFloat(process.env.PRICE_LLM_IN_PER_M || '0.8'),         // qwen3.8-flash 输入 元/百万 token
+  priceOutPerM: parseFloat(process.env.PRICE_LLM_OUT_PER_M || '2.7'),       // qwen3.8-flash 输出 元/百万 token
   dataDir: process.env.DATA_DIR || '',
   origins: guard.parseOrigins(process.env.ALLOWED_ORIGINS),                // 例：https://deepsuck.si,https://www.deepsuck.si
   trustProxy: process.env.TRUST_PROXY === '1',                             // 在 Caddy 之后：取 X-Forwarded-For 最右值
