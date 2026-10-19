@@ -89,6 +89,7 @@
    邮箱、收款人姓名、网址、钱包地址、验证码类短数字等。
 2. 自报 / 转述姓名补充规则（`voice/trace.py`）：「我叫张伟」「我是李明警官」「他叫王强」「姓名是王小红」，
    姓氏表、称呼表复用 `extractors.json` 的 `nameRules`，打码用共享的 `mask_name`（`张*`）。「王经理」「李总」这类称呼不打码。
+3. 跨分段验证码（#92）：同一说话方（对方：`asr`；人设：`reply`、`filler`）的相邻分段连起来再判断一次（共享 `deepsuck.redact.redact_otp_segments`，前后各 2 段），「验证码是 38」「27 15」两段都打码。历史文件用 `docker exec deepsuck-voice-1 python -m voice.redact_backfill --dry-run`（只统计）/ 不带 `--dry-run`（改写）重跑：只改 start 行 `consent` 为 `true` 的通话，只把命中的数字换成 `*`，保留修改时间，输出只有计数。
 
 卡号等原值只在进程内存里，不进文件。
 
