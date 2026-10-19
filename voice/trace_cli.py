@@ -8,6 +8,9 @@
                                                 被点了“这通有问题”的通话和各条说明
     python -m voice.trace_cli --usage [--since 2026-10-01] [--until 2026-10-19] [--days 7]
                                                 按天（UTC+8）汇总用量，输出 JSON（#20 成本监控直接用）
+    python -m voice.trace_cli --scrub-no-consent [--apply]
+                                                没同意的网页通话：删掉已写下的文字字段、用量照留（#96）；
+                                                不带 --apply 只统计（dry-run），输出 JSON
 字段表见 docs/TRACE_SCHEMA.md。
 
 容器里：docker exec deepsuck-voice-1 python -m voice.trace_cli <编号>
@@ -50,15 +53,18 @@ def render(t: dict, audio: bool = False) -> str:
                        f"代码={r.get('code')} 提示词={r.get('promptVersion')}"
                        + (f"  主叫={r['caller']}" if r.get("caller") else ""))
         elif typ == "bot":
-            out.append(f"[{ts}] 人设({r.get('kind')}): {r.get('text')}")
+            out.append(f"[{ts}] 人设({r.get('kind')})" + (f": {r['text']}" if "text" in r else ""))
         elif typ == "turn":
             out.append(f"[{ts}] #{r.get('n')} 意图={r.get('intent')}" + (f"（{'/'.join(r['intents'])}）" if r.get("intents") else "")
                        + (f"  提示词={r.get('prompt')}" if r.get("prompt") else "")
                        + ("  被打断" if r.get("interrupted") else ""))
-            out.append(f"    对方: {r.get('asr')}")
-            if r.get("filler"):
-                out.append(f"    口头语: {r['filler']}")
-            out.append(f"    人设: {r.get('reply')}")
+            if "asr" not in r and "reply" not in r:
+                out.append("    （没同意，未存文字）")
+            else:
+                out.append(f"    对方: {r.get('asr')}")
+                if r.get("filler"):
+                    out.append(f"    口头语: {r['filler']}")
+                out.append(f"    人设: {r.get('reply')}")
             if r.get("intel"):
                 out.append("    情报: " + "、".join(f"{i.get('label')} {i.get('masked')}" for i in r["intel"]))
             if r.get("latency"):
@@ -109,7 +115,12 @@ def main(argv=None) -> int:
     ap.add_argument("--since", help="起始日期 YYYY-MM-DD（含）")
     ap.add_argument("--until", help="截止日期 YYYY-MM-DD（含，仅 --usage）")
     ap.add_argument("--days", type=int, help="最近几天（仅 --usage，等价于 --since 今天往前 N-1 天）")
+    ap.add_argument("--scrub-no-consent", action="store_true", help="删掉没同意通话里的文字字段（默认 dry-run）")
+    ap.add_argument("--apply", action="store_true", help="配合 --scrub-no-consent 真正改写文件")
     a = ap.parse_args(argv)
+    if a.scrub_no_consent:
+        print(json.dumps(TR.scrub_no_consent(apply=a.apply), ensure_ascii=False, indent=1))
+        return 0
     if a.usage:
         since = a.since
         if a.days and not since:

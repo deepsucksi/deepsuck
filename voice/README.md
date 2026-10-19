@@ -182,9 +182,10 @@ python -m pytest voice/tests -q    # 全部用假 WebSocket，不联网、不需
 代码在 `voice/trace.py`，字段表（schema v2，与 #18 磁盘监控、#20 成本监控共用）在 [docs/TRACE_SCHEMA.md](../docs/TRACE_SCHEMA.md)。
 
 - 每通一个 8 位通话编号（base32），页面显示、可复制，每行 trace 都带 `call_id`。
-- 文字每通都存：每轮一行 JSONL（ASR 文本、人设回复、意图、情报、延迟拆解、模型名、大模型输入/输出 token、首字/整句延迟、ASR 音频秒数、TTS 字数和音色、是否被打断、提示词和代码版本）；结束写一行汇总（起止时间、时长、退出原因、是否同意录音、用量合计、估算花费）。
+- 勾选同意时存文字：每轮一行 JSONL（ASR 文本、人设回复、意图、情报、延迟拆解、模型名、大模型输入/输出 token、首字/整句延迟、ASR 音频秒数、TTS 字数和音色、是否被打断、提示词和代码版本）；结束写一行汇总（起止时间、时长、退出原因、是否同意录音、用量合计、估算花费）。
+- 没勾选（#96）：同一份 trace 只存编号、时间、人设、渠道和用量 / 延迟字段，不存任何文字、不录音；旧记录用 `python -m voice.trace_cli --scrub-no-consent [--apply]` 清理。
 - 录音：网页「开始通话」旁的复选框（默认勾选）随 `/api/offer` 的 `consent` 传给服务端（只认 JSON `true`），勾选才录两轨（对方、人设），由 Pipecat `AudioBufferProcessor` 分轨回调，后台线程边收边编码成 16k 单声道 ogg/opus（约 2 KB/秒/轨）。
-- 「这通有问题」：页面带 `/api/offer` 发的一次性 `feedback_key` POST `/api/feedback/<编号>`（同一 IP 每分钟 6 次、每通 5 条、通话开始 6 小时内），写成 `feedback` 行（`flagged: true`）。
+- 「这通有问题」：页面带 `/api/offer` 发的一次性 `feedback_key` POST `/api/feedback/<编号>`（同一 IP 每分钟 6 次、每通 5 条、通话开始 6 小时内），写成 `feedback` 行（`flagged: true`）；没同意的通话只记编号和标记。
 - 电话线路（SIP）：只存脱敏文字、不录音，主叫号码按 `mask_phone` 打码，consent 记为 `sip-text-only`。
 - 文字落盘前都过一遍共享的 `redact_text(text, extract_sensitive(text))`，再补自报姓名规则（「我叫张伟」→「我叫张*」）。
 
