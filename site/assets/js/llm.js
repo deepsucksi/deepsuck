@@ -146,7 +146,8 @@
   /** 只换打码姓名（#130 / #157）：要在再跑一遍 redactText 之前做，否则“耳东陈***”会被再打成“耳*****”、当成号码 */
   function maskNames(text, bracket) {
     var w = bracket ? '〔' + NDE.name + '〕' : NDE.name;
-    var s = String(text || '').replace(NAME_MASK_RE, function (m, xing, sur) { return sur.length === 1 && NDE.notSurname.indexOf(sur) >= 0 ? m : w; })
+    // #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓，「和*」「姓*」照样当姓名），不在表里的再看 notSurname
+    var s = String(text || '').replace(NAME_MASK_RE, function (m, xing, sur, off, str) { return D.extractors.maskedLeadNotSurname(m, sur, off, str, NDE.notSurname) ? m : w; })
       .replace(SPLIT_BEFORE_NAME, '')
       .replace(NAME_TAIL_RE, '$1')
       .replace(EXPLAIN_NAME_RE, w); // #172
