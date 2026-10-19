@@ -14,6 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function (C) {
   'use strict';
   var H = C.humanize, CF = H.confusion;
+  var MIN_DIGRESSIONS = 3; // 预设跑题句滤掉道具后少于这个数就用默认池补（#129）
   var OPS = ['dialect', 'selfref', 'repeat', 'digress', 'extras', 'typo', 'asr', 'punct', 'emoji', 'split'];
   var MODES = ['chat', 'voice'];
   var PUNCT_STYLES = ['comma', 'none'];
@@ -205,7 +206,18 @@
     var self = this;
     ops.forEach(function (o) { if (OPS.indexOf(o) < 0) throw new Error('unknown op: ' + o); self.ops[o] = true; });
     this.weights = Object.assign({}, g('weights', {}), opts.weights || {});
-    this.digressions = (opts.digressions && opts.digressions.length ? opts.digressions : (g('digressions', null) && g('digressions', []).length ? g('digressions', []) : CF.digressions)).slice();
+    this.propsOk = g('propsOk', []).slice();
+    // #129：跑题句不编道具——含人设背景里没有的道具词（吃药、买菜、广场舞、外孙……）的句子不用（只改选取，不改文字）
+    var propsOk = this.propsOk, props = CF.digressionProps || [];
+    this.digressions = (opts.digressions && opts.digressions.length ? opts.digressions : (g('digressions', null) && g('digressions', []).length ? g('digressions', []) : CF.digressions))
+      .filter(function (d) { return !props.some(function (w) { return d.indexOf(w) >= 0 && propsOk.indexOf(w) < 0; }); });
+    if (!(opts.digressions && opts.digressions.length) && this.digressions.length < MIN_DIGRESSIONS) {
+      // 预设的跑题句滤掉道具后不够（王阿姨只剩一句），用默认池里同样不编道具的句子补上，免得一句话反复出现
+      var mine = this.digressions;
+      CF.digressions.forEach(function (d) {
+        if (mine.indexOf(d) < 0 && !props.some(function (w) { return d.indexOf(w) >= 0 && propsOk.indexOf(w) < 0; })) mine.push(d);
+      });
+    }
     this.keep = (opts.keep || []).concat(g('keep', []), CF.nameCues); // 人名提示词本身不写错
     this.handwriting = !!(opts.handwriting === undefined || opts.handwriting === null ? g('handwriting', false) : opts.handwriting);
     var shape = opts.shapeTypos === undefined || opts.shapeTypos === null ? g('shapeTypos', this.mode === 'chat') : opts.shapeTypos;
@@ -346,8 +358,9 @@
     return out !== null ? [out, true] : [text, false];
   };
 
-  P._digress = function (text, intent) {
-    if (!this.digressions.length || COOP_INTENTS.indexOf(intent) >= 0 || !this._hit(this._p('digress'))) return [text, false];
+  P._digress = function (text, intent, context) {
+    // #129：对方还没开口（开场白，没有 context）时不插跑题句
+    if (!String(context || '').trim() || !this.digressions.length || COOP_INTENTS.indexOf(intent) >= 0 || !this._hit(this._p('digress'))) return [text, false];
     var d = this._take(this.digressions, this._usedDigressions);
     var out = this._attach(text, d, this.rng.random() < 0.5, '……', '。');
     return out !== null ? [out, true] : [text, false];
@@ -588,7 +601,7 @@
     if (this.ops.dialect) { r = this._dialect(text); text = r[0]; if (r[1]) applied.push('dialect'); }
     if (this.ops.selfref) { r = this._selfref(text); text = r[0]; if (r[1]) applied.push('selfref'); }
     if (this.ops.repeat) { r = this._repeat(text, context); text = r[0]; if (r[1]) applied.push('repeat'); }
-    if (this.ops.digress) { r = this._digress(text, intent); text = r[0]; if (r[1]) applied.push('digress'); }
+    if (this.ops.digress) { r = this._digress(text, intent, context); text = r[0]; if (r[1]) applied.push('digress'); }
     if (this.ops.extras) { r = this._extras(text); text = r[0]; applied = applied.concat(r[1]); }
     if (this.ops.typo) { r = this._typo(text); text = r[0]; if (r[1]) applied.push('typo:' + r[1]); }
     if (this.ops.asr) { r = this._asr(text); text = r[0]; if (r[1]) applied.push('asr'); }

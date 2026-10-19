@@ -1,6 +1,6 @@
 {
   "schema": "deepsuck.eval.scammer-scripts/v1",
-  "comment": "骗子模拟器脚本（LLM-free，全部虚构）。pitch：按阶段推进的话术（不含情报）；reveal：被追问时暴露情报的句式（含去武装写法）；urge/repeat/annoyed/quit：被拖延时的反应。情报值由模拟器按 seed 随机生成（域名一律 .example）。revealHard：更难的去武装写法（全角/大写/圈码数字、薇❤信、丶 代替点等，由真值确定性变换得到、不额外消耗随机数），用于 python -m deepsuck.sim --reveal hard。",
+  "comment": "骗子模拟器脚本（LLM-free，全部虚构）。pitch：按阶段推进的话术（不含情报）；reveal：被追问时暴露情报的句式（含去武装写法）；urge/repeat/annoyed/quit：被拖延时的反应。情报值由模拟器按 seed 随机生成（域名一律 .example）。revealHard：更难的去武装写法（全角/大写/圈码数字、薇❤信、丶 代替点等，由真值确定性变换得到、不额外消耗随机数），用于 python -m deepsuck.sim --reveal hard。 revealSplitName：报完户名再用拆字复述（「户名张三丰，弓长张，三丰」，#139），{name_split}/{name_given} 由 deepsuck.sim.split_name 按 core/extractors.json 的 nameRules.split 生成，只用于姓氏有拆字说法的虚构姓名；不参与随机选句（模拟结果不变），供离线打码回归测试。",
   "common": {
     "urge": ["你快点行不行？", "别磨蹭了，时间来不及了！", "你到底弄好没有？", "我这边很忙，你抓紧。", "听清楚了吗？按我说的做。"],
     "repeat": ["我再说一遍，你听好了。", "你听我说，就按刚才说的办。", "不是这个意思，你认真听。"],
@@ -20,7 +20,8 @@
       "phone": ["电话 {phone_circled}，记好了。", "手机 {phone_dots}。", "号码 {phone_mix}，打这个。", "电话 {phone_spaced_cn}。", "加薇❤信 {wx}，或者Q扣 {qq}。", "v❤：{wx}，企鹅 {qq_spaced}。", "微信号码是 {wx}，qq号码 {qq}。"],
       "url": ["打开 {domain_dun} 注册一下。", "网址 {domain_mid}，你记一下。", "链接 {domain_dotword}，打开就能下载。"],
       "name": ["收款人姓名是{name}。", "账户名字写{name}。", "户名：{name}。"]
-    }
+    },
+    "revealSplitName": ["户名{name}，{name_split}，{name_given}。", "收款人{name}，{name_split}{name_given}，别写错了。", "账户名字是{name}，就是{name_split}，{name_given}。", "户名写{name}。我再说一遍，{name_split}，{name_given}，记好了。"]
   },
   "scenarios": {
     "refund": {

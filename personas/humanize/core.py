@@ -29,6 +29,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 from . import confusion as C
 from .profiles import resolve
 
+MIN_DIGRESSIONS = 3  # 预设跑题句滤掉道具后少于这个数就用默认池补（#129）
 OPS: Tuple[str, ...] = ("dialect", "selfref", "repeat", "digress", "extras", "typo", "asr", "punct", "emoji", "split")
 MODES = ("chat", "voice")
 PUNCT_STYLES = ("comma", "none")
@@ -300,7 +301,12 @@ class Humanizer:
         if unknown:
             raise ValueError(f"unknown ops: {sorted(unknown)}")
         self.weights = {**prof.get("weights", {}), **(weights or {})}
-        self.digressions = list(digressions or prof.get("digressions") or C.DIGRESSIONS)
+        self.props_ok = tuple(prof.get("propsOk") or ())
+        # #129：跑题句不编道具——含人设背景里没有的道具词（吃药、买菜、广场舞、外孙……）的句子不用（只改选取，不改文字）
+        self.digressions = [d for d in (digressions or prof.get("digressions") or C.DIGRESSIONS) if not self._invents_prop(d)]
+        if not digressions and len(self.digressions) < MIN_DIGRESSIONS:
+            # 预设的跑题句滤掉道具后不够（王阿姨只剩一句），用默认池里同样不编道具的句子补上，免得一句话反复出现
+            self.digressions += [d for d in C.DIGRESSIONS if d not in self.digressions and not self._invents_prop(d)]
         self.keep = tuple(keep) + tuple(prof.get("keep", ())) + tuple(C.NAME_CUES)  # 人名提示词本身不写错
         self._apply_keep: Tuple[str, ...] = ()
         self.handwriting = bool(prof.get("handwriting", False) if handwriting is None else handwriting)
@@ -464,8 +470,12 @@ class Humanizer:
             out = self._append(text, line, "，")
         return (out, True) if out is not None else (text, False)
 
-    def _digress(self, text: str, intent: Optional[str] = None) -> Tuple[str, bool]:
-        if not self.digressions or intent in COOP_INTENTS or not self._hit(self._p("digress")):
+    def _invents_prop(self, line: str) -> bool:
+        return any(w in line and w not in self.props_ok for w in C.DIGRESSION_PROPS)
+
+    def _digress(self, text: str, intent: Optional[str] = None, context: Optional[str] = None) -> Tuple[str, bool]:
+        # #129：对方还没开口（开场白，没有 context）时不插跑题句
+        if not (context or "").strip() or not self.digressions or intent in COOP_INTENTS or not self._hit(self._p("digress")):
             return text, False
         # 同一个实例（一整段对话）里跑题句不重复，用完一轮才重来
         d = self._take(self.digressions, self._used_digressions)
@@ -758,7 +768,7 @@ class Humanizer:
             text, ok = self._repeat(text, context)
             ok and applied.append("repeat")
         if "digress" in self.ops:
-            text, ok = self._digress(text, intent)
+            text, ok = self._digress(text, intent, context)
             ok and applied.append("digress")
         if "extras" in self.ops:
             text, done = self._extras(text)
