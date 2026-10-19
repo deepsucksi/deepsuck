@@ -14,8 +14,8 @@
   超过 1 元（硬上限，--max-cost 只能调低）直接拒绝运行；运行中实际费用超过上限也会停下；
 - 每次请求与回复按内容哈希缓存在 eval/.judge-cache/（.gitignore），重跑不重复计费；
 - 判断结果转成与人工评分相同的行格式（id / rater / human / bot / unreadable），交给 realism_blind.score() 汇总；
-- 严格档（#164，--judge-profile strict）：评委提示词改为“从严审核”，对机器味（客服腔、书面语、模板套话）、复读（原样复述
-  诈骗消息、回复里同一句反复）、过度配合（满口答应却没有真人的犹豫和个人细节）明确扣分；默认档（judge-v3-item）不变；
+- 严格档（#164，--judge-profile strict）：评委提示词改为“从严审核”，八个扣分项（太书面 / 客服腔、太长太完整、复读、过于配合、
+  自相矛盾、答非所问 / 空泛、露信息、别扭）从 5 分起每命中一项扣 1 分，命中两项判机器人，5 分不轻易给；默认档（judge-v3-item）不变；
 - 调用方式（#164，--judge-api）：sync = 标准同步接口；batch = 百炼 OpenAI 兼容 Batch（文件输入）接口，按实时价 50% 计费、
   没有上下文缓存折扣，异步完成（completion_window 24h），本地记下任务号，超时后重跑会接着等同一个任务、不重复提交；
 - 所有请求显式 enable_thinking=false（qwen3.8 系列默认开思考）；系统提示词固定放在最前面，题目放在后面；
@@ -65,7 +65,7 @@ DEFAULT_BATCH = 10
 DEFAULT_SEED = 1
 PROMPT_VERSION = "judge-v1"          # 批量模式（提示词与 76cef8b 相同，旧缓存仍可命中）
 PROMPT_VERSION_ITEM = "judge-v3-item"      # v3：说明回复里的“／”是分成几条连发的消息
-PROMPT_VERSION_STRICT = "judge-strict-v1"  # #164 严格档（逐题）
+PROMPT_VERSION_STRICT = "judge-strict-v2"  # #164 严格档（逐题）；v2 补上太长、自相矛盾、露信息三项并按命中项逐项扣分
 MODES = ("item", "batch")
 DEFAULT_MODE = "item"
 CACHE_DIR = ROOT / "eval" / ".judge-cache"
@@ -105,16 +105,33 @@ SYSTEM_PROMPT_STRICT = (
     "你是反诈团队里专门识别“拖延机器人”的审核员，标准从严。题目是一条诈骗分子发来的消息，以及对方的一条回复。"
     "对方可能是真人，也可能是假扮受害者、专门拖住骗子的聊天机器人；这类机器人在题目里很常见，不要默认是真人。"
     "回复里的“／”表示对方把话分成几条消息连着发。\n"
-    "逐项检查下面的扣分项：\n"
-    "1. 机器味：客服腔、书面语、过分礼貌工整（“您好”“请问还有什么可以帮您”“非常感谢您的耐心”“收到，正在处理”），像模板套话；\n"
-    "2. 复读：把诈骗消息的原话复述一遍，或者回复里同一个词、同一句话重复出现；\n"
-    "3. 过度配合：对陌生人的要求不加怀疑满口答应（“好的马上办”“全力配合”“请问下一步做什么”），"
+    "逐项检查下面的扣分项，每命中一项记一次：\n"
+    "1. 太书面 / 客服腔：书面语、过分礼貌工整（“您好”“请问还有什么可以帮您”“非常感谢您的耐心”“收到，正在处理”），像模板套话；\n"
+    "2. 太长太完整：被催着办事的人随手回的消息通常很短，回复超过 40 字、或句句完整带标点、条理分明，算一项；\n"
+    "3. 复读：把诈骗消息的原话复述一遍，或者回复里同一个词、同一句话重复出现；\n"
+    "4. 过于配合：对陌生人的要求不加怀疑满口答应（“好的马上办”“全力配合”“请问下一步做什么”），"
     "没有真人该有的犹豫、疑问、慌张或个人情况；\n"
-    "4. 空泛答非所问：不接对方说的具体内容，也没有任何个人细节；\n"
-    "5. 别扭：错字、断句、语气词堆得刻意，读着不像随手打的。\n"
+    "5. 自相矛盾：回复里前后说法对不上（刚说没带卡又说卡在手上、刚说不懂又说得很专业），或者和诈骗消息里已经说定的事实矛盾；\n"
+    "6. 答非所问 / 空泛：不接对方说的具体内容，也没有任何个人细节；\n"
+    "7. 露信息：主动说出完整的卡号、手机号、身份证号、验证码、密码这类真人不会随手打给陌生人的信息（只说尾号或含糊说法不算）；\n"
+    "8. 别扭：错字、断句、语气词堆得刻意，读着不像随手打的。\n"
     "真人的样子：口语、短、有情绪（急、慌、疑惑、不耐烦），会顺着对方的具体内容回应，常带自己的情况（家人、钱在哪、正在干嘛），句子可以不完整。\n"
-    "打分规则：命中任一扣分项，human 最多 3 分；命中两项及以上，human 最多 2 分并判 bot=1；"
-    "human 5 分只给挑不出毛病、明显像真人随手打的回复；拿不准时给 3 分。\n"
+    "打分规则（human，1–5）：从 5 分起，命中一项扣 1 分，最低 1 分；命中两项及以上判 bot=1。"
+    "5 分只给挑不出任何毛病、明显像真人随手打的回复，不要轻易给；拿不准时给 3 分。"
+    "一般的回复多数落在 2–4 分，不要扎堆给满分。\n"
+    "尺度示例（虚构，只用来对齐打分尺度，不要照搬理由）：\n"
+    "- 诈骗消息“你名下账户涉嫌洗钱，马上配合调查”，回复“啊？我就一张退休金卡啊 你哪个单位的”：短、慌、带自己的情况，"
+    "没有扣分项，bot 0，human 5；\n"
+    "- 诈骗消息“把手机上的验证码报给我”，回复“等下 老花镜找不着了 你别催”：口语、有个人细节，bot 0，human 5；\n"
+    "- 诈骗消息“现在把钱转到安全账户”，回复“好的，我完全理解，我会全力配合您的工作。”：太书面、过于配合，bot 1，human 3 以下；\n"
+    "- 诈骗消息“现在把钱转到安全账户”，回复“您说现在把钱转到安全账户，好的，我明白了，请问下一步做什么？”：复读、太书面、过于配合，bot 1，human 2 以下；\n"
+    "- 诈骗消息“你卡上还有多少钱”，回复“我没带卡出来。／卡就在我手里，你说转哪个号”：自相矛盾、过于配合，bot 1，human 3 以下；\n"
+    "- 诈骗消息“下载这个APP”，回复“我已经仔细阅读了您发送的信息，关于下载应用的问题，我需要先确认一下手机存储空间是否充足，"
+    "然后再按照您的指引一步一步完成安装操作。”：太长太完整、太书面，bot 1，human 3 以下；\n"
+    "- 诈骗消息“报一下你的卡号”，回复“卡号是”后面跟一整串完整数字：露信息，human 至多 4，再命中别的项照扣。\n"
+    "- 诈骗消息“你儿子出事了，赶紧打钱”，回复“什么？？他早上还好好的 你是谁啊 我给他打个电话”：有情绪、带细节、想去核实，bot 0，human 5；\n"
+    "- 诈骗消息“今天之内必须处理”，回复“好的好的 我知道了 我知道了 我马上就去办”：同一句重复、过于配合，bot 1，human 3 以下；\n"
+    "- 诈骗消息“先交五百保证金”，回复“五百啊 那我得去银行取 卡在我老伴那”：口语有细节，只是有点顺着对方走，bot 0，human 4。\n"
     "给出：\n"
     "- bot：你认为回复是机器人写的填 1，真人写的填 0；\n"
     "- human：像真人随手发的程度，1–5 的整数（1 = 一看就是机器，5 = 完全像真人）；\n"
@@ -222,6 +239,9 @@ class DashScopeClient:
 
     def get_batch(self, batch_id: str) -> dict:
         return self._call("GET", "/batches/" + batch_id)
+
+    def cancel_batch(self, batch_id: str) -> dict:
+        return self._call("POST", f"/batches/{batch_id}/cancel", b"{}", "application/json")
 
     def file_content(self, file_id: str) -> str:
         return self._call("GET", f"/files/{file_id}/content", raw=True)
@@ -433,13 +453,29 @@ class BatchPending(RuntimeError):
     pass
 
 
+def _cancel_pending(client, jobs: List[tuple], state_dir: Path, log: Callable[[str], None]) -> None:
+    lines = [json.dumps({"custom_id": cid, "method": "POST", "url": "/v1/chat/completions",
+                         "body": {"messages": msgs, **params}}, ensure_ascii=False, sort_keys=True) for cid, msgs, params in jobs]
+    h = hashlib.sha256(("\n".join(lines) + "\n").encode("utf-8")).hexdigest()[:32]
+    sp = state_dir / f"{h}.json"
+    if not sp.exists():
+        return
+    st = json.loads(sp.read_text(encoding="utf-8"))
+    try:
+        client.cancel_batch(st["batch_id"])
+    except Exception as e:  # noqa: BLE001  取消失败也不影响退回同步；任务号留在日志里便于人工处理
+        log(f"取消 Batch 任务失败：{e.__class__.__name__}")
+        return
+    sp.unlink()
+
+
 def run_judge(key: Dict[str, dict], forms: Dict[str, List[dict]], client_factory: Optional[Callable[[], object]] = None,
               n_pairs: int = DEFAULT_PAIRS, batch_size: int = DEFAULT_BATCH, seed: int = DEFAULT_SEED,
               model: str = MODEL, max_cost: float = HARD_MAX_COST_CNY, cache_dir: Path = CACHE_DIR,
               dry_run: bool = False, refresh: bool = False, log: Callable[[str], None] = lambda s: None,
               mode: str = DEFAULT_MODE, usage_hook: Optional[Callable[[dict], None]] = None,
               profile: str = "default", api: str = "sync", batch_timeout: float = 3600.0, batch_poll: float = 20.0,
-              sleep: Callable[[float], None] = time.sleep) -> dict:
+              sleep: Callable[[float], None] = time.sleep, batch_fallback: bool = False) -> dict:
     """返回 {"ratings": [...人工评分同格式...], "judgments": {...}, "usage": {...}, "estimate": {...}}。
     client_factory 只在确实需要调用（有未缓存批次且不是 dry_run）时才被调用。
     api="batch" 时未缓存的请求一次性提交到百炼 Batch 接口（半价、无缓存折扣），完成后写回同一个本地缓存。"""
@@ -516,8 +552,18 @@ def run_judge(key: Dict[str, dict], forms: Dict[str, List[dict]], client_factory
     fetched: Dict[str, dict] = {}
     todo = [(b, params, k) for b, params, k, hit in plan if hit is None]
     if use_batch and todo:
-        res = _batch_results(get_client(), [(k[:32], messages_for(b, mode, profile), params) for b, params, k in todo],
-                             cache_dir / "batches", batch_timeout, batch_poll, log, sleep)
+        jobs = [(k[:32], messages_for(b, mode, profile), params) for b, params, k in todo]
+        try:
+            res = _batch_results(get_client(), jobs, cache_dir / "batches", batch_timeout, batch_poll, log, sleep)
+        except BatchPending as e:
+            if not batch_fallback:
+                raise
+            # 退回同步：先取消还没跑完的 Batch 任务（避免同一批题被计两次费），删掉本地任务号，下面逐题走同步接口
+            _cancel_pending(get_client(), jobs, cache_dir / "batches", log)
+            log(f"{e}；已取消该任务，退回同步接口")
+            result["batch_fallback"] = str(e)
+            use_batch = False
+            res = {}
         for b, params, k in todo:
             r = res.get(k[:32])
             if r and "error" not in r:

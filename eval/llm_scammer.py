@@ -88,6 +88,7 @@ PROMPT_VERSION = "scammer-v1"  # 旧版（固定部分在后面），只为读�
 PROMPT_VERSIONS = {"default": "scammer-v2", "hard": "scammer-hard-v4"}
 PROFILES = tuple(PROMPT_VERSIONS)
 RESPONDERS = ("persona", "bad", "stall")
+SILENT_MARK = "（对方没有回复）"  # 人设这一轮回复为空串时，骗子看到的内容
 FLAG_SUSPICION = 7  # hard 档：起疑分 ≥7 的回合记为“露馅”
 QUIT_WINDOW = 10    # #164：“10 轮内起疑挂断率”——高压骗子在前 10 轮就识破，算早露馅
 CACHE_DIR = ROOT / "eval" / ".llm-scammer-cache"
@@ -486,7 +487,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
     messages = [{"role": "system", "content": sysmsg}, {"role": "user", "content": bot_text}]
     log = [{"role": "bot", "text": bot_text, "raw": first["text"], "intent": "opening", "ops": []}]
     seen, seen_raw, grams = {bot_text}, {first["text"]}, [SIM._bigrams(bot_text)]
-    dup = dup_raw = near = parse_errors = leaks = stars = 0
+    dup = dup_raw = near = parse_errors = leaks = stars = silent = 0
     revealed: set = set()
     scam_said = ""
     turns, quit_, hang, model_name = 0, None, None, model
@@ -502,7 +503,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
         probes += t.get("probe", 0)
         if t["action"] == "hangup":
             quit_ = "suspicious" if t["hangup_type"] in SUSPICIOUS else "give_up"
-            bots = [m for m in log if m["role"] == "bot"]
+            bots = [m for m in log if m["role"] == "bot" and not m.get("silent")]
             ev = t.get("evidence") or ""
             trig = max(bots, key=lambda m: _sim(ev, m["text"])) if ev else bots[-1]
             if ev and _sim(ev, trig["text"]) < 0.15:
@@ -512,7 +513,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
                          "trigger_text": trig["text"], "last_intent": bots[-1]["intent"]})
             log.append({"role": "scammer", "text": t["say"], "hangup": hang})
             break
-        if turns >= max_turns:
+        if turns >= max_turns or silent >= max_turns:  # 一直空串也不会死循环
             quit_ = "max_turns"
             break
         say = t["say"]
@@ -532,6 +533,14 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
             r = s.rule_reply(s.ingest(say))
         h = hum.apply(r["text"], context=say, intent=r["intent"]) if hum else None
         text = vague_digits(h.text) if h else r["text"]
+        if not (text or "").strip():
+            # #164：空串回复（例如上游尾句去重删空、又没有兜底台词）当作这一轮没回复：不计入拖延轮数和回复统计，
+            # 骗子那边看到的是“对方没回”，口径与线上一致（空串不会发出去）。
+            turns -= 1
+            silent += 1
+            log.append({"role": "bot", "text": "", "raw": r["text"], "intent": r["intent"], "ops": [], "silent": True})
+            messages.append({"role": "user", "content": SILENT_MARK})
+            continue
         is_dup, g = text in seen, SIM._bigrams(text)
         dup += is_dup
         dup_raw += r["text"] in seen_raw
@@ -549,7 +558,7 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
             "estMinutes": s.est_seconds / 60, "quit": quit_, "hangup": hang,
             "revealedKinds": len({kind_of(t) for t, _ in revealed} & set(kinds)), "totalKinds": total_kinds,
             "revealedItems": len(revealed), "capturedItems": len(revealed & got), "falseIntel": len(got - revealed),
-            "botReplies": turns, "leaks": leaks, "starReplies": stars, "dup": dup, "dupRaw": dup_raw, "near": near, "parseErrors": parse_errors,
+            "botReplies": turns, "silentTurns": silent, "leaks": leaks, "starReplies": stars, "dup": dup, "dupRaw": dup_raw, "near": near, "parseErrors": parse_errors,
             "profile": profile, "responder": responder, "suspicion": sus, "probes": probes,
             "flaggedTurns": sum(x >= FLAG_SUSPICION for x in sus), "transcript": log}
 

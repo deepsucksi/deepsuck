@@ -263,3 +263,23 @@ def test_cli_books_cached_tokens_and_budget_guard(tmp_path, monkeypatch):
 
 
 M.__dict__.setdefault("_orig_run", M.run)
+
+
+def test_empty_reply_is_a_silent_turn_not_a_stall_turn(tmp_path, monkeypatch):
+    """#164：人设回复为空串（例如尾句去重删空）时，这一轮算没回复：不计入拖延轮数，骗子看到“对方没有回复”。"""
+    orig = M.Session.rule_reply
+    n = {"k": 0}
+
+    def rule_reply(self, *a, **k):
+        r = orig(self, *a, **k)
+        n["k"] += 1
+        return dict(r, text="") if n["k"] in (2, 3) else r
+    monkeypatch.setattr(M.Session, "rule_reply", rule_reply)
+    fake = FakeScammer(hang_at=None)
+    res = M.run(client_factory=lambda: fake, cache_dir=tmp_path / "cache", dry_run=False, workers=1,
+                scenarios=["police"], personas=["wang"], seeds=1, max_turns=6, humanize=False)
+    row = res["rows"][0]
+    assert row["turns"] == 6 and row["silentTurns"] == 2 and row["botReplies"] == 6
+    last = fake.calls[-1][0]
+    assert sum(m["role"] == "user" and m["content"] == M.SILENT_MARK for m in last) == 2
+    assert all(m["content"] for m in last)  # 空串不会发给模型

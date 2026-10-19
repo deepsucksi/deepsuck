@@ -19,6 +19,10 @@
 2. 评委：每组每条（台词, 回复）逐题判（default / strict 档，提示词与 eval/realism_judge.py 相同），指标是露馅率（bot=1 占比）和像真人分。
 判定口径（写在 docs/EVAL.md）：新档要让差组（bad、stall）的起疑挂断率 / 露馅率比好组高至少 30 个百分点，否则继续调。
 
+配对评委（#164 续，--pair-file）：同一批台词上旧 qwen3.7-flash 与新 qwen3.8-flash 语音人设各自的回复（voice.llm_ab 同一次运行
+两个模型的输出，逐轮无状态脚本，台词逐字相同），只过评委（default / strict），看新口径下新旧回复能不能拉开分差：
+    python eval/discrimination_calib.py --pair-file run1.json run2.json --run --judge-api sync --budget-tag <标签>
+
 结果文件只含汇总数字，不含回复原文；好组文件不入库。
 """
 from __future__ import annotations
@@ -182,10 +186,55 @@ def judge_items(calls, groups, seed, per_group: int) -> tuple:
     return key, {"A": rows}, pair
 
 
+# ---------------------------------------------------------------- paired judge（旧 3.7 vs 新 3.8，同一句台词）
+def pair_items(paths: List[Path], models: List[str], seed: int, max_pairs: int = 200) -> tuple:
+    """voice.llm_ab 输出里同一次运行的两个模型逐轮对齐（同一句台词），两边都有回复的才要；题号打乱，key 只记模型。"""
+    import random
+    key, rows, pairs = {}, [], []
+    for p in paths:
+        d = json.loads(Path(p).read_text(encoding="utf-8"))
+        cols = [(d.get("rows") or {}).get(m) or [] for m in models]
+        for k in range(min(len(c) for c in cols) if cols else 0):
+            rs = [c[k] for c in cols]
+            if len({r.get("scammer") for r in rs}) != 1 or not all(r.get("reply") for r in rs):
+                continue
+            pairs.append((rs[0]["scammer"], [r["reply"] for r in rs]))
+    pairs = pairs[:max_pairs]
+    items = [(m, i, R.fill_placeholders(sc), reps[j]) for i, (sc, reps) in enumerate(pairs) for j, m in enumerate(models)]
+    random.Random(seed).shuffle(items)
+    for n, (m, i, sc, rep) in enumerate(items, 1):
+        q = f"P{n:04d}"
+        key[q] = {"form": "A", "condition": m, "pair": i, "persona": "", "scammer_id": "", "scammer_source": "pair",
+                  "humanize_seed": None, "stats": R.text_stats(rep)}
+        rows.append({"id": q, "scammer": sc, "reply": rep})
+    return key, {"A": rows}, len(pairs)
+
+
+def paired_diff(key: Dict[str, dict], ratings: List[dict], models: List[str]) -> dict:
+    """按台词配对：新 − 旧 的像真人分差与露馅率差（models[1] − models[0]），以及新旧谁分高的句数。"""
+    by = defaultdict(dict)
+    for r in ratings:
+        k = key.get(r["id"])
+        if k:
+            by[k["pair"]][k["condition"]] = r
+    both = [v for v in by.values() if all(m in v for m in models[:2])]
+    if not both:
+        return {"pairs": 0}
+    old, new = models[0], models[1]
+    dh = [v[new]["human"] - v[old]["human"] for v in both]
+    db = [v[new]["bot"] - v[old]["bot"] for v in both]
+    return {"pairs": len(both), "human_diff_new_minus_old": round(mean(dh), 3), "detected_diff_new_minus_old": round(mean(db), 3),
+            "new_higher": sum(x > 0 for x in dh), "old_higher": sum(x < 0 for x in dh), "tie": sum(x == 0 for x in dh)}
+
+
 # ---------------------------------------------------------------- main
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="#164 区分度校准（默认只估算）")
-    ap.add_argument("--good-file", type=Path, nargs="+", required=True, help="voice.llm_ab 输出 JSON（qwen3.7-flash 回复，不入库）")
+    ap.add_argument("--good-file", type=Path, nargs="+", default=None, help="voice.llm_ab 输出 JSON（qwen3.7-flash 回复，不入库）")
+    ap.add_argument("--pair-file", type=Path, nargs="+", default=None,
+                    help="配对评委：voice.llm_ab 同一次运行里 --pair-models 两个模型的输出（同一句台词新旧回复各一条）")
+    ap.add_argument("--pair-models", default="qwen3.7-flash,qwen3.8-flash", help="旧,新")
+    ap.add_argument("--batch-fallback", action="store_true", help="Batch 超时后取消任务、退回同步接口")
     ap.add_argument("--good-model", default="qwen3.7-flash")
     ap.add_argument("--calls", type=int, default=14, help="回放多少通（按场景轮流取），默认 14 = 7 场景 × 2")
     ap.add_argument("--judge-n", type=int, default=60, help="评委每组多少条，默认 60")
@@ -209,8 +258,12 @@ def main(argv=None) -> int:
     except L.LedgerBudgetError as e:
         print(str(e), file=sys.stderr)
         return 2
+    if not a.good_file and not a.pair_file:
+        ap.error("需要 --good-file 或 --pair-file")
     corpus = json.loads(SIM.default_corpus_path().read_text(encoding="utf-8"))
-    calls = load_calls(a.good_file, a.good_model, a.calls)
+    calls = load_calls(a.good_file, a.good_model, a.calls) if a.good_file else []
+    if not a.good_file:
+        a.skip_replay = a.skip_judge = True
     profiles = [x for x in a.profiles.split(",") if x]
     res = {"date": M.date.today().isoformat(), "model": M.MODEL, "goodModel": a.good_model, "seed": a.seed,
            "calls": len(calls), "turns": sum(len(c["lines"]) for c in calls),
@@ -268,7 +321,8 @@ def main(argv=None) -> int:
                 try:
                     o = J.run_judge(key, forms, J.default_client_factory(), n_pairs=npairs, mode="item", seed=a.seed,
                                     max_cost=min(left, J.HARD_MAX_COST_CNY), dry_run=not a.run, profile=jp, api=a.judge_api,
-                                    batch_timeout=a.batch_timeout, log=log, usage_hook=lambda u: held.__setitem__("u", u))
+                                    batch_timeout=a.batch_timeout, log=log, usage_hook=lambda u: held.__setitem__("u", u),
+                                    batch_fallback=a.batch_fallback)
                 except J.BatchPending as e:
                     log(f"评委 {jp} 档：{e}")
                     res["judge"][jp] = {"pending": True}
@@ -278,14 +332,48 @@ def main(argv=None) -> int:
                 u = held.get("u")
                 if a.budget_tag and a.run and u and u.get("requests"):
                     L.append(a.budget_tag, f"eval/discrimination_calib.py judge ({a.judge_api})", M.MODEL, u,
-                             f"profile={jp} items={len(forms['A'])}", a.ledger)
+                             f"profile={jp} items={len(forms['A'])} "
+                             f"cacheHit={u.get('cached_tokens', 0) / max(1, u.get('prompt_tokens', 0)):.1%}", a.ledger)
             if a.run:
                 spent += o["usage"]["cost_cny"]
                 sc = R.score(key, o["ratings"])
-                res["judge"][jp] = {"api": a.judge_api, "invalid": o["invalid_items"], "usage": o["usage"],
+                res["judge"][jp] = {"api": a.judge_api, "batchFallback": o.get("batch_fallback"),
+                                    "invalid": o["invalid_items"], "usage": o["usage"],
                                     "conditions": sc["conditions"]}
             else:
                 res["judge"][jp] = {"estimate": o["estimate"]}
+    if a.pair_file:
+        models = [x for x in a.pair_models.split(",") if x][:2]
+        pkey, pforms, npairs = pair_items(a.pair_file, models, a.seed)
+        res["pair"] = {"models": models, "pairs": npairs, "judge": {}}
+        for jp in [x for x in a.judge_profiles.split(",") if x]:
+            left = max(0.0, max_cost - spent)
+            held = {}
+            try:
+                try:
+                    o = J.run_judge(pkey, pforms, J.default_client_factory(), n_pairs=npairs, mode="item", seed=a.seed,
+                                    max_cost=min(left, J.HARD_MAX_COST_CNY), dry_run=not a.run, profile=jp, api=a.judge_api,
+                                    batch_timeout=a.batch_timeout, log=log, usage_hook=lambda u: held.__setitem__("u", u),
+                                    batch_fallback=a.batch_fallback)
+                except J.BatchPending as e:
+                    log(f"配对评委 {jp} 档：{e}")
+                    res["pair"]["judge"][jp] = {"pending": True}
+                    pending = True
+                    continue
+            finally:
+                u = held.get("u")
+                if a.budget_tag and a.run and u and u.get("requests"):
+                    L.append(a.budget_tag, f"eval/discrimination_calib.py pair-judge ({a.judge_api})", M.MODEL, u,
+                             f"profile={jp} models={','.join(models)} items={len(pforms['A'])} "
+                             f"cacheHit={u.get('cached_tokens', 0) / max(1, u.get('prompt_tokens', 0)):.1%}", a.ledger)
+            if a.run:
+                spent += o["usage"]["cost_cny"]
+                sc = R.score(pkey, o["ratings"])
+                res["pair"]["judge"][jp] = {"api": a.judge_api, "batchFallback": o.get("batch_fallback"),
+                                            "invalid": o["invalid_items"], "usage": o["usage"],
+                                            "conditions": sc["conditions"], "paired": paired_diff(pkey, o["ratings"], models)}
+            else:
+                res["pair"]["judge"][jp] = {"estimate": o["estimate"]}
     res["spentCny"] = round(spent, 6)
     if pending:
         print(json.dumps(res, ensure_ascii=False, indent=1))

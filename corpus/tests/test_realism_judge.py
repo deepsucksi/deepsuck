@@ -235,7 +235,7 @@ def test_cached_and_batch_pricing():
 
 
 def test_strict_profile_prompt_and_cache_key():
-    assert "扣分" in J.SYSTEM_PROMPT_STRICT and "复读" in J.SYSTEM_PROMPT_STRICT and "过度配合" in J.SYSTEM_PROMPT_STRICT
+    assert "扣分" in J.SYSTEM_PROMPT_STRICT and "复读" in J.SYSTEM_PROMPT_STRICT and "过于配合" in J.SYSTEM_PROMPT_STRICT
     b = [{"id": "A001", "scammer": "s", "reply": "r"}]
     p = J.request_params(b)
     assert p["enable_thinking"] is False
@@ -337,3 +337,25 @@ def test_sync_records_cached_tokens(tmp_path):
     out = J.run_judge(key, forms, Cached, n_pairs=2, cache_dir=tmp_path, api="sync")
     assert out["usage"]["cached_tokens"] == 1536 * 4
     assert out["usage"]["cost_cny"] == pytest.approx(4 * J.cost_cny(2000, 20, 1536), abs=1e-6)
+
+
+def test_batch_fallback_cancels_and_goes_sync(tmp_path):
+    """#164：Batch 太慢时（--batch-fallback）取消该任务、删掉本地任务号、逐题走同步接口，不会同一批题计两次费。"""
+    key, forms = _data(4)
+    fake = FakeBatchClient(pending_polls=10**6)
+    fake.cancelled = []
+    fake.cancel_batch = lambda bid: fake.cancelled.append(bid) or {"id": bid, "status": "cancelling"}
+    out = J.run_judge(key, forms, lambda: fake, n_pairs=4, cache_dir=tmp_path, profile="strict", api="batch",
+                      batch_timeout=-1, batch_poll=0, sleep=lambda s: None, batch_fallback=True)
+    assert fake.creates == 1 and fake.cancelled == ["batch-1"]
+    assert not list((tmp_path / "batches").glob("*.json"))
+    assert out["usage"]["requests"] == 8 and out["invalid_items"] == 0 and out.get("batch_fallback")
+    assert out["usage"]["cost_cny"] == pytest.approx(J.cost_cny(800, 160), abs=1e-6)  # 同步价，不是半价
+
+
+def test_strict_prompt_lists_all_deductions_and_clears_cache_threshold():
+    p = J.SYSTEM_PROMPT_STRICT
+    for w in ("太书面", "太长", "复读", "过于配合", "自相矛盾", "答非所问", "露信息", "别扭", "不要扎堆给满分"):
+        assert w in p
+    assert J.PROMPT_VERSION_STRICT == "judge-strict-v2"
+    assert len(p) > 1600  # 百炼隐式缓存要求公共前缀 ≥1024 token（实测 v2 约 1130 token）
