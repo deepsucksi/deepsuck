@@ -70,9 +70,20 @@ _DRUN_D = _DD + "(?:" + _DJ + _DM + "){%d,}" % (_DE["minRun"] - 1)  # 以数字�
 _TAILW = "(?:" + "|".join(map(re.escape, _DE["tailWords"])) + ")"
 _MONEYW = "(?:" + "|".join(map(re.escape, _DE["moneyUnits"])) + ")"
 _STAR = re.escape(_DE["masks"])
-_DIGIT_LEAD = re.compile("(" + _DRUN_D + ")" + _DJ + "开头(?:的)?")
-_DIGIT_LEAD_AFTER = re.compile("(开头|打头)(?:是|为)?" + _DJ + "(" + _DRUN_D + ")")
+
+
+def _alt(xs) -> str:
+    return "(?:" + "|".join(re.escape(x) for x in sorted(xs, key=len, reverse=True)) + ")"
+
+
+_HEDGE = _alt(_DE["hedges"])  # #167：数字串前的“好像是”“是”连同数字串一起换，不叠成“好像是好像是6开头的”
+_DIGIT_LEAD = re.compile(_HEDGE + "?(" + _DRUN_D + ")" + _DJ + "开头(?:的)?")
+_DIGIT_LEAD_AFTER = re.compile("(" + _alt(_DE["leadWords"]) + ")(?:" + _HEDGE + "|为)?" + _DJ + "(" + _DRUN_D + ")")
 _DIGIT_MONEY = re.compile(_DRUN + _DJ + _MONEYW)
+_DIGIT_PCT = re.compile(_DRUN + _DJ + _alt(_DE["percentUnits"]))  # #167：60% → 一半
+_DIGIT_COUNT = re.compile(_DRUN + "(?=" + _DJ + _alt(_DE["countUnits"]) + ")")  # #167：等我10分钟 → 等我几分钟
+# #167：不是号码的写法（TRC20）和汉字约数（两三天、一二十分钟）先挪开，过滤完原样放回
+_KEEP = re.compile(_alt(_DE["keep"]) + "|(?<![" + _DE["digits"] + "])" + _alt(_DE["approx"]["pairs"]) + "(?=[" + _DE["approx"]["units"] + "])")
 _DIGIT_TAIL = re.compile(_TAILW + "(?:是|为)?" + _DJ + _DRUN)
 _DIGIT_RUN = re.compile(_DRUN)
 # 打码姓名（#130，与 voice/persona.py 的 _unmask_names 同一规则）：张**、王*明、欧阳**，前面的“姓”一并换掉
@@ -232,31 +243,45 @@ def dedupe_tail(text: str, recent_tails: list, persona_id: Optional[str] = None)
 def vague_digits(text: str) -> str:
     """人设回复发出前的过滤（#121 数字、#130 打码片段与叠词；与 engine.js 的 vagueDigits 逐字一致）。
 
-    1. 连续 3 位及以上的数字（阿拉伯、全角、中文数字，混写、夹空格顿号短横、夹打码星号都算）换成含糊说法：
-       “6222开头” → “好像是6开头的”、“开头是6222” → “开头好像是6”（只留第一位）；“尾号0123”“后面是零零幺三” → “后面几位没听清”；
-       “2000块” → “那么些钱”；其余 → “那几个数没听清”。
+    1. 连续 2 位及以上的数字（#167 从 3 位收紧；阿拉伯、全角、中文数字，混写、夹空格顿号逗号短横、夹打码星号都算）换成含糊说法：
+       “62开头”“好像是62开头的” → “好像是6开头的”、“开头是6222”“前两位是6、2” → “开头好像是6”“前两位好像是6”（只留第一位）；
+       “尾号0123”“后面是零零幺三” → “后面几位没听清”；“2000块” → “那么些钱”；“60%” → “一半”；“10分钟” → “几分钟”；
+       其余 → “那几个数没听清”。不是号码的写法（keep：TRC20）和汉字约数（“两三天”“一二十分钟”）原样保留。
     2. 打码片段：打码姓名（“张**”“王*明”“欧阳**”，前面的“姓”一并换掉）→ “那个名字”，其余带 * 的 → “那个号”（网址 / 邮箱各有说法）。
     3. 叠词去重：相邻的“没听清”类说法合并成一处；句子里已经有“没听清”这类意思时，后面的不再叠一个分句——在句末就去掉，在句中换成“那串数”。
        原文里已经写出来的这类说法同样参与去重。
-    每类说法有几种，按原句字符码之和轮换。放在错别字扰动之后、语音合成之前；单个、两个数字不动。
+    每类说法有几种，按原句字符码之和轮换。放在错别字扰动之后、语音合成之前；单个数字不动。
     """
     if not text:
         return text
     src = str(text)
     h = sum(ord(c) for c in src)
-    s = src
+    kept: list = []
+
+    def _stash(m):
+        kept.append(m.group(0))
+        return "\ue002"
+
+    s = _KEEP.sub(_stash, src)
+
+    def put_back(t: str) -> str:
+        it = iter(kept)
+        return re.sub("\ue002", lambda _m: next(it), t) if kept else t
+
     for p, k in _LITERAL:
         s = s.replace(p, _tok(k))
     s = _DIGIT_LEAD.sub(lambda m: _tok("L", m.group(1)[0]), s)
     s = _DIGIT_LEAD_AFTER.sub(lambda m: m.group(1) + _tok("A", m.group(2)[0]), s)
     s = _DIGIT_TAIL.sub(_tok("T"), s)
     s = _DIGIT_MONEY.sub(_tok("M"), s)
+    s = _DIGIT_PCT.sub(lambda _m: _DE["percent"], s)
+    s = _DIGIT_COUNT.sub(lambda _m: _DE["count"], s)
     s = _DIGIT_RUN.sub(_tok("O"), s)
     s = _SPLIT_BEFORE_NAME.sub("", s)  # #157：上游已换成“那个名字”时（语音 unmask）去掉前面残留的拆字说法
     s = _NAME_MASK.sub(lambda m: m.group(0) if len(m.group(2)) == 1 and m.group(2) in _DE["notSurname"] else _tok("N"), s)
     s = _OTHER_MASK.sub(lambda m: _tok("E" if "@" in m.group() else "U" if re.search(r"[A-Za-z]{2,}\.|\.[A-Za-z]{2,}", m.group()) else "H"), s)
     if "\ue000" not in s:
-        return s
+        return put_back(s)
     s = _MERGE_OT.sub(lambda m: _tok("T" if "\ue000T" in m.group() else "O"), s)
     s = _MERGE_N.sub(lambda m: m.group(1), s)
     parts = _TOK.split(s)  # [文字, 类型, 参数, 文字, 类型, 参数, ..., 文字]
@@ -288,7 +313,7 @@ def vague_digits(text: str) -> str:
         else:
             out.append({"E": _DE["maskEmail"], "U": _DE["maskUrl"]}.get(kind, _DE["mask"]))
         out.append(after)
-    return "".join(out)
+    return put_back("".join(out))
 
 
 def _wrong_digit(t: str) -> str:
@@ -658,7 +683,7 @@ class Session:
         return self.rule_reply(self.ingest(raw_text))
 
     def record_bot(self, text: str, intent: str) -> dict:
-        text = vague_digits(text)  # #121：规则和大模型的回复都不带连续 3 位以上的数字
+        text = vague_digits(text)  # #121、#167：规则和大模型的回复都不带连续 2 位及以上的数字
         safe = R.redact_text(text, X.extract_sensitive(text))
         stall = STALL_SECONDS.get(intent) or 30
         self.est_seconds += stall + _round(utf16_len(safe) * 0.12)

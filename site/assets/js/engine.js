@@ -189,9 +189,15 @@
   var TAILW = '(?:' + DE.tailWords.map(reEsc).join('|') + ')';
   var MONEYW = '(?:' + DE.moneyUnits.map(reEsc).join('|') + ')';
   var STAR = reEsc(DE.masks);
-  var DIGIT_LEAD = new RegExp('(' + DRUN_D + ')' + DJ + '开头(?:的)?', 'g');
-  var DIGIT_LEAD_AFTER = new RegExp('(开头|打头)(?:是|为)?' + DJ + '(' + DRUN_D + ')', 'g');
+  function alt(xs) { return '(?:' + xs.slice().sort(function (a, b) { return b.length - a.length; }).map(reEsc).join('|') + ')'; }
+  var HEDGE = alt(DE.hedges); // #167：数字串前的“好像是”“是”连同数字串一起换，不叠成“好像是好像是6开头的”
+  var DIGIT_LEAD = new RegExp(HEDGE + '?(' + DRUN_D + ')' + DJ + '开头(?:的)?', 'g');
+  var DIGIT_LEAD_AFTER = new RegExp('(' + alt(DE.leadWords) + ')(?:' + HEDGE + '|为)?' + DJ + '(' + DRUN_D + ')', 'g');
   var DIGIT_MONEY = new RegExp(DRUN + DJ + MONEYW, 'g');
+  var DIGIT_PCT = new RegExp(DRUN + DJ + alt(DE.percentUnits), 'g'); // #167：60% → 一半
+  var DIGIT_COUNT = new RegExp(DRUN + '(?=' + DJ + alt(DE.countUnits) + ')', 'g'); // #167：等我10分钟 → 等我几分钟
+  // #167：不是号码的写法（TRC20）和汉字约数（两三天、一二十分钟）先挪开，过滤完原样放回
+  var KEEP = new RegExp(alt(DE.keep) + '|(?<![' + DE.digits + '])' + alt(DE.approx.pairs) + '(?=[' + DE.approx.units + '])', 'g');
   var DIGIT_TAIL = new RegExp(TAILW + '(?:是|为)?' + DJ + DRUN, 'g');
   var DIGIT_RUN = new RegExp(DRUN, 'g');
   // 打码姓名（#130，与 voice/persona.py 的 _unmask_names 同一规则）：张**、王*明、欧阳**，前面的“姓”一并换掉
@@ -221,17 +227,21 @@
     var src = String(text);
     var h = 0;
     for (var ch of src) h += ch.codePointAt(0);
-    var s = src;
+    var kept = [];
+    var s = src.replace(KEEP, function (m) { kept.push(m); return '\uE002'; });
+    var putBack = function (t) { return kept.length ? t.replace(/\uE002/g, function () { return kept.shift(); }) : t; };
     LITERAL.forEach(function (x) { s = s.split(x[0]).join(tok(x[1])); });
     s = s.replace(DIGIT_LEAD, function (m, run) { return tok('L', run.charAt(0)); })
       .replace(DIGIT_LEAD_AFTER, function (m, w, run) { return w + tok('A', run.charAt(0)); })
       .replace(DIGIT_TAIL, tok('T'))
       .replace(DIGIT_MONEY, tok('M'))
+      .replace(DIGIT_PCT, DE.percent)
+      .replace(DIGIT_COUNT, DE.count)
       .replace(DIGIT_RUN, tok('O'))
       .replace(SPLIT_BEFORE_NAME, '') // #157：上游已换成“那个名字”时去掉残留的拆字说法
       .replace(NAME_MASK, function (m, xing, sur) { return sur.length === 1 && DE.notSurname.indexOf(sur) >= 0 ? m : tok('N'); })
       .replace(OTHER_MASK, function (m) { return tok(m.indexOf('@') >= 0 ? 'E' : /[A-Za-z]{2,}\.|\.[A-Za-z]{2,}/.test(m) ? 'U' : 'H'); });
-    if (s.indexOf('\uE000') < 0) return s;
+    if (s.indexOf('\uE000') < 0) return putBack(s);
     s = s.replace(MERGE_OT, function (m) { return tok(m.indexOf('\uE000T') >= 0 ? 'T' : 'O'); })
       .replace(MERGE_N, function (m, first) { return first; });
     var parts = s.split(TOK); // [文字, 类型, 参数, 文字, ...]
@@ -256,7 +266,7 @@
       else out.push(kind === 'E' ? DE.maskEmail : kind === 'U' ? DE.maskUrl : DE.mask);
       out.push(after);
     }
-    return out.join('');
+    return putBack(out.join(''));
   }
 
   function wrongDigit(t) {
@@ -529,7 +539,7 @@
 
   /** 记录机器人回复（规则或 LLM 生成），返回消息对象 */
   Session.prototype.recordBot = function (text, intent) {
-    text = vagueDigits(text); // #121：规则和大模型的回复都不带连续 3 位以上的数字
+    text = vagueDigits(text); // #121、#167：规则和大模型的回复都不带连续 2 位及以上的数字
     var safe = D.redact.redactText(text, D.extractors.extractSensitive(text)); // 机器人输出同样脱敏
     var stall = D.personas.STALL_SECONDS[intent] || 30;
     this.estSeconds += stall + Math.round(safe.length * 0.12);
