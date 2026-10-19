@@ -1,7 +1,7 @@
-# 语音大模型选型（#40，2026-10-19）
+# 语音大模型选型（#40，2026-10-19；#149 起按新规则）
 
-结论：语音默认模型从 `qwen-plus` 改为 **`qwen3.7-flash`**，`enable_thinking=false`（`DEEPSUCK_LLM_THINKING=0`）。
-文字代理（`LLM_MODEL`，Node）和离线评测（`eval/`）仍用 `qwen-plus`，本轮不动；ASR、TTS 也不动。
+现行：语音和电话默认模型 **`qwen3.8-flash`**，`enable_thinking=false`（`DEEPSUCK_LLM_THINKING=0`；qwen3.8-flash 默认开思考，必须显式关）。
+2026-10-19 14:07 负责人定的规则（#145）：全项目用 Qwen 最新系列，用新不用旧。下面 #40 的 A/B 结果保留作历史记录。
 
 ## 方法
 
@@ -30,12 +30,11 @@
 
 ## 选型
 
-规则（俊杰定）：默认 qwen3.8-flash；它在人设不抢话、输出守卫、口语断续、首字延迟四项里有一项明显不如 qwen-plus，就改用 qwen3.7-flash。
+规则（2026-10-19 起，#145）：用最新 Qwen 系列，语音大模型统一 `qwen3.8-flash`。延迟或成本差一点不是退回旧模型的理由，靠调优补
+（关思考、max_tokens、提示词长度、连接复用、地域等）。
 
-- qwen3.8-flash 首字延迟明显更慢：p50 +173 ms（+48%），p90 913 ms，是 qwen-plus 的 2.2 倍，有几轮超过 1.2 s。按规则改用 qwen3.7-flash。
-- qwen3.7-flash 也比 qwen-plus 慢（p50 +88 ms，p90 +170 ms），含「…」的比例从 100% 降到 74%，回复更短；抢话 1/18（qwen-plus 0/18）。
-  好处是大模型成本降到四分之一（每通约 0.0018 元，对比 0.0075 元）。
-- 以后想回退：生产 `.env` 里把 `DEEPSUCK_LLM_MODEL` 改回 `qwen-plus` 再重建 voice 即可，单价按模型自动取表。
+- 优先用最新的 Qwen：上表里 qwen3.8-flash 首字比旧模型慢（p50 538 ms、p90 913 ms），这不作为选旧模型的理由，延迟靠调优补。
+- 大模型单价 0.8 / 2.7 元/百万 token，按上表每通约 0.0071 元（qwen3.7-flash 约 0.0018 元）。
 
 ## 单价（元 / 百万 token，华北 2 北京原价，非思考，最低输入档；2026-10-19 查询）
 
@@ -46,7 +45,7 @@
 | qwen3.8-flash | 0.8 | 2.7 | https://help.aliyun.com/zh/model-studio/qwen3-8-flash |
 
 代码：`voice/guard.py` 的 `LLM_PRICES`，按 `DEEPSUCK_LLM_MODEL` 取价（快照名按前缀）。`PRICE_LLM_IN/OUT_PER_M` 是 Node 代理按 `LLM_MODEL`
-记账用的，只在语音模型和它相同时才套用；语音要单独覆盖用 `VOICE_PRICE_LLM_IN/OUT_PER_M` 或 `PRICE_LLM_TABLE=模型:输入:输出,...`。
+记账用的；语音和成本报告（`voice/cost.py`）只在模型不在单价表里、且与代理同一模型时才套用（#149：表里有的模型一律按官方价）；语音要单独覆盖用 `VOICE_PRICE_LLM_IN/OUT_PER_M` 或 `PRICE_LLM_TABLE=模型:输入:输出,...`。
 
 ## 网络（香港服务器 → 百炼，curl 各 5 次中位数）
 
@@ -58,7 +57,7 @@
 
 - 一通电话内连接复用，每轮网络开销约 1 个 RTT（约 54 ms），占 qwen3.7-flash 首字 p50 的约 12%；每通第一轮多一次握手（约 116 ms）。
 - 换到香港地域每轮约能省 50 ms，但：密钥按地域隔离（北京 Key 在国际站返回 401，香港同样需要单独的业务空间和 Key）；香港按美元计价，
-  qwen-plus 在香港只有「中国香港」部署范围；Paraformer 实时识别只在北京地域提供，ASR 仍要回北京。本轮只测不切。
+  qwen3.8-flash 在中国香港是「全球」部署范围；Paraformer 实时识别只在北京地域提供，ASR 仍要回北京。本轮只测不切。
 
 ## 口语风格新口径与提示词调整（#64，2026-10-19）
 

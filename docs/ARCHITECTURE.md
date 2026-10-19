@@ -29,7 +29,7 @@ flowchart LR
     VOL[("卷: 预算账本 脱敏记录 录音")]
   end
 
-  ASR["Paraformer ASR"] --> LLM["qwen3.7-flash"] --> TTS["CosyVoice"]
+  ASR["Paraformer ASR"] --> LLM["qwen3.8-flash"] --> TTS["CosyVoice"]
   PY["python/deepsuck<br/>Python 核心移植"]
   OFF["personas/ corpus/ eval/<br/>模拟器 噪声评测"]
   GH["GitHub Issue 表单"] --> ACT["intel-intake 工作流<br/>deepsuck.intake"]
@@ -51,7 +51,7 @@ flowchart LR
   VOICE -- "先脱敏再落盘" --> VOL
 ```
 
-语音一轮的数据流：麦克风 → WebRTC（或电话适配器）→ Paraformer 识别 → `deepsuck` 提取并脱敏 → `voice/persona.py` 组系统提示词 → qwen3.7-flash → 输出守卫（不给真实号码、号码逐位读）→ CosyVoice → 回传。网页与电话共用 `voice/app.py` 的 `build_pipeline`。
+语音一轮的数据流：麦克风 → WebRTC（或电话适配器）→ Paraformer 识别 → `deepsuck` 提取并脱敏 → `voice/persona.py` 组系统提示词 → qwen3.8-flash（非思考）→ 输出守卫（不给真实号码、号码逐位读）→ CosyVoice → 回传。网页与电话共用 `voice/app.py` 的 `build_pipeline`。
 
 ## 模块边界
 
@@ -106,7 +106,7 @@ deepsuck/
 │           └── demo.js / intel-page.js / hero-chat.js / i18n.js  # 页面脚本
 ├── server/                   # 可选：零依赖 Node 后端（静态托管 + /api/chat 代理 + 限流/预算护栏）
 ├── python/deepsuck/          # Python 核心移植 + 黑名单客户端 + 骗子模拟器 + STIX 2.1 导出（零依赖，stix2 可选）
-├── voice/                    # 语音演示：Pipecat + DashScope（Paraformer / qwen3.7-flash / CosyVoice）+ SmallWebRTC
+├── voice/                    # 语音演示：Pipecat + DashScope（Paraformer / qwen3.8-flash / CosyVoice）+ SmallWebRTC
 │   ├── app.py                # 入口：浏览器 WebRTC 管线（电话入口按开关挂载）
 │   ├── tuning.py · latency.py · interrupt.py · textagg.py  # 网页/电话两套延迟参数、分回合延迟指标、中文打断策略、子句切分（见 docs/VOICE_LATENCY.md）
 │   ├── telephony/            # 电话接入抽象层：TelephonyAdapter + ws-raw / pipecat-ws 适配器；默认关闭，只接不拨
