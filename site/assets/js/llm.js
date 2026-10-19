@@ -180,15 +180,36 @@
   function polishReply(text) {
     var s = String(text || '');
     RP.formal.forEach(function (p) { s = s.split(p[0]).join(p[1]); });
-    var m = s.match(RP_FIRST);
-    if (m) {
+    for (var i = 0; i < 3; i++) { // “啊？衣服？我好像没收到”：换掉一个，第一句可能还是快速反问
+      var m = s.match(RP_FIRST);
+      if (!m) break;
       var core = m[2].replace(RP_PUNCT, ''), rest = s.slice(m[0].length);
       var n = Array.from(core).length;
-      if (n > 0 && n <= RP.quickQuestionMax && rest.replace(RP_PUNCT, '')) {
-        s = m[1] + m[2].replace(/…+$/, '') + '，' + rest.replace(/^[…，,]+/, '').replace(/^\s+/, '');
-      }
+      if (!(n > 0 && n <= RP.quickQuestionMax && rest.replace(RP_PUNCT, ''))) break;
+      s = m[1] + m[2].replace(/…+$/, '') + '，' + rest.replace(/^[…，,]+/, '').replace(/^\s+/, '');
     }
-    return s;
+    return thinEllipsis(s);
+  }
+  // FNV-1a 32 位（按 UTF-16 码元，与 Python _fnv 一致）
+  function fnv(t) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h >>> 0;
+  }
+  // #131：带“…”的句子按 ellipsisKeepPct 确定性地留一部分，其余句子的“…”换成逗号（句首去掉、句尾换句号），结巴不动
+  var RP_SENT = /[^。？！?!；;\n]+[。？！?!；;]*|\n+/g;
+  function thinEllipsis(s) {
+    return (s.match(RP_SENT) || []).map(function (sent) {
+      if (!/…+|\.{3,}/.test(sent) || fnv(sent) % 100 < RP.ellipsisKeepPct) return sent;
+      return sent.replace(/…+|\.{3,}/g, function (g, a) {
+        var b = a + g.length, prev = a ? sent[a - 1] : '', nxt = b < sent.length ? sent[b] : '';
+        if (prev && prev === nxt) return g;
+        if (!prev.trim() || '，,、'.indexOf(prev) >= 0) return '';
+        if (!nxt) return '。';
+        if ('。？！?!；;，,、'.indexOf(nxt) >= 0) return '';
+        return '，';
+      });
+    }).join('');
   }
 
   function sanitizeReply(text) {
