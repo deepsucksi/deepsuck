@@ -475,7 +475,7 @@ def run_judge(key: Dict[str, dict], forms: Dict[str, List[dict]], client_factory
               dry_run: bool = False, refresh: bool = False, log: Callable[[str], None] = lambda s: None,
               mode: str = DEFAULT_MODE, usage_hook: Optional[Callable[[dict], None]] = None,
               profile: str = "default", api: str = "sync", batch_timeout: float = 3600.0, batch_poll: float = 20.0,
-              sleep: Callable[[float], None] = time.sleep, batch_fallback: bool = False) -> dict:
+              sleep: Callable[[float], None] = time.sleep, batch_fallback: bool = False, workers: int = 1) -> dict:
     """返回 {"ratings": [...人工评分同格式...], "judgments": {...}, "usage": {...}, "estimate": {...}}。
     client_factory 只在确实需要调用（有未缓存批次且不是 dry_run）时才被调用。
     api="batch" 时未缓存的请求一次性提交到百炼 Batch 接口（半价、无缓存折扣），完成后写回同一个本地缓存。"""
@@ -570,9 +570,27 @@ def run_judge(key: Dict[str, dict], forms: Dict[str, List[dict]], client_factory
                 fetched[k] = record(k, r, batch=True)
         if u["cost_cny"] > max_cost:
             raise BudgetError(f"实际费用 {u['cost_cny']:.4f} 元已超过上限 {max_cost} 元")
+    if not use_batch and workers > 1:
+        # 同步接口并发预取（结果写同一个本地缓存与计量；下面的循环再按原顺序读）
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        lock = threading.Lock()
+        get_client()
+
+        def pre(job):
+            b, params, k = job
+            resp = client.chat(messages_for(b, mode, profile), **params)
+            with lock:
+                fetched[k] = record(k, resp, batch=False)
+                if u["cost_cny"] > max_cost:
+                    raise BudgetError(f"实际费用 {u['cost_cny']:.4f} 元已超过上限 {max_cost} 元，停止")
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            list(ex.map(pre, [(b, params, k) for b, params, k, hit in plan if hit is None]))
     invalid = 0
     for b, params, k, hit in plan:
-        if hit is None and use_batch:
+        if hit is None and k in fetched:  # 本次已经调用过（Batch 结果或同步并发预取），已计费
+            hit = fetched[k]
+        elif hit is None and use_batch:
             hit = fetched.get(k)
             if hit is None:  # Batch 里失败的行：不计费、记为无效
                 invalid += len(b)

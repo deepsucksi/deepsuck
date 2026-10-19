@@ -359,3 +359,12 @@ def test_strict_prompt_lists_all_deductions_and_clears_cache_threshold():
         assert w in p
     assert J.PROMPT_VERSION_STRICT == "judge-strict-v2"
     assert len(p) > 1600  # 百炼隐式缓存要求公共前缀 ≥1024 token（实测 v2 约 1130 token）
+
+
+def test_sync_workers_same_result_and_billing(tmp_path):
+    key, forms = _data(6)
+    a = J.run_judge(key, forms, lambda: FakeClient(), n_pairs=6, cache_dir=tmp_path / "a", profile="strict")
+    b = J.run_judge(key, forms, lambda: FakeClient(), n_pairs=6, cache_dir=tmp_path / "b", profile="strict", workers=4)
+    assert a["judgments"] == b["judgments"]
+    assert b["usage"]["requests"] == 12 and b["usage"]["cached_requests"] == 0
+    assert a["usage"]["cost_cny"] == pytest.approx(b["usage"]["cost_cny"])

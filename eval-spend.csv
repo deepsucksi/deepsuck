@@ -26,3 +26,11 @@ time,tag,script,model,requests,prompt_tokens,completion_tokens,cached_tokens,cos
 2026-10-19T15:53:23+08:00,qwen38-baseline-2026-10-19,eval/llm_scammer.py,qwen3.8-flash,364,728956,16824,516608,0.266964,profile=default responder=persona seeds=2 maxTurns=25 personas=wang scenarios=all cacheHit=70.9% ok
 2026-10-19T16:01:20+08:00,qwen38-baseline-2026-10-19,严格评委提示词 token 探测（同步，2+2 次）,qwen3.8-flash,4,4338,122,1024,0.003083,judge-strict-v2 前缀是否过 1024 token 缓存门槛 ok
 2026-10-19T16:10:16+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py judge (sync),qwen3.8-flash,166,39867,5392,0,0.046452,profile=default items=240 cacheHit=0.0% stopped:interrupted（已完成部分已入本地缓存，重跑不重复计费）
+2026-10-19T16:11:36+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py judge (sync),qwen3.8-flash,74,17868,2411,0,0.020804,profile=default items=240 cacheHit=0.0%
+2026-10-19T16:13:01+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py judge (sync),qwen3.8-flash,240,282855,7405,243712,0.075679,profile=strict items=240 cacheHit=86.2%
+2026-10-19T16:14:03+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py pair-judge (sync),qwen3.8-flash,172,40792,5569,0,0.047670,"profile=default models=qwen3.7-flash,qwen3.8-flash items=172 cacheHit=0.0%"
+2026-10-19T16:15:05+08:00,qwen38-baseline-2026-10-19,eval/discrimination_calib.py pair-judge (sync),qwen3.8-flash,172,202128,5368,176128,0.052906,"profile=strict models=qwen3.7-flash,qwen3.8-flash items=172 cacheHit=87.1%"
+2026-10-19T16:16:27+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,29566,3957,0,0.034337,judgeN=60 mode=item profile=default api=sync seed=1000 ok
+2026-10-19T16:17:15+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,142126,3758,122880,0.037831,judgeN=60 mode=item profile=strict api=sync seed=1000 ok
+2026-10-19T16:18:01+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,29431,3962,0,0.034242,judgeN=60 mode=item profile=default api=sync seed=1001 ok
+2026-10-19T16:18:42+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,141991,3787,122880,0.037802,judgeN=60 mode=item profile=strict api=sync seed=1001 ok

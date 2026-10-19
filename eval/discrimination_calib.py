@@ -322,7 +322,7 @@ def main(argv=None) -> int:
                     o = J.run_judge(key, forms, J.default_client_factory(), n_pairs=npairs, mode="item", seed=a.seed,
                                     max_cost=min(left, J.HARD_MAX_COST_CNY), dry_run=not a.run, profile=jp, api=a.judge_api,
                                     batch_timeout=a.batch_timeout, log=log, usage_hook=lambda u: held.__setitem__("u", u),
-                                    batch_fallback=a.batch_fallback)
+                                    batch_fallback=a.batch_fallback, workers=a.workers)
                 except J.BatchPending as e:
                     log(f"评委 {jp} 档：{e}")
                     res["judge"][jp] = {"pending": True}
@@ -354,7 +354,7 @@ def main(argv=None) -> int:
                     o = J.run_judge(pkey, pforms, J.default_client_factory(), n_pairs=npairs, mode="item", seed=a.seed,
                                     max_cost=min(left, J.HARD_MAX_COST_CNY), dry_run=not a.run, profile=jp, api=a.judge_api,
                                     batch_timeout=a.batch_timeout, log=log, usage_hook=lambda u: held.__setitem__("u", u),
-                                    batch_fallback=a.batch_fallback)
+                                    batch_fallback=a.batch_fallback, workers=a.workers)
                 except J.BatchPending as e:
                     log(f"配对评委 {jp} 档：{e}")
                     res["pair"]["judge"][jp] = {"pending": True}

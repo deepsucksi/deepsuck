@@ -1,0 +1,373 @@
+{
+ "date": "2026-10-19",
+ "model": "qwen3.8-flash",
+ "goodModel": "qwen3.7-flash",
+ "seed": 1000,
+ "calls": 14,
+ "turns": 92,
+ "scenarios": [
+  "boss",
+  "campus",
+  "loan",
+  "pig",
+  "police",
+  "refund",
+  "task"
+ ],
+ "groups": [
+  "good",
+  "persona",
+  "stall",
+  "bad"
+ ],
+ "replayEstimate": {
+  "prompt_tokens": 1607556,
+  "completion_tokens": 66240,
+  "cost_cny": 1.4649
+ },
+ "replay": {
+  "default": {
+   "good": {
+    "calls": 14,
+    "suspiciousQuit": 0.07142857142857142,
+    "giveUp": 0.0,
+    "avgHangupTurn": 7,
+    "avgSuspicion": null,
+    "flagRate": null
+   },
+   "persona": {
+    "calls": 14,
+    "suspiciousQuit": 0.0,
+    "giveUp": 0.0,
+    "avgHangupTurn": null,
+    "avgSuspicion": null,
+    "flagRate": null
+   },
+   "stall": {
+    "calls": 14,
+    "suspiciousQuit": 0.14285714285714285,
+    "giveUp": 0.0,
+    "avgHangupTurn": 7,
+    "avgSuspicion": null,
+    "flagRate": null
+   },
+   "bad": {
+    "calls": 14,
+    "suspiciousQuit": 0.21428571428571427,
+    "giveUp": 0.0,
+    "avgHangupTurn": 5.333333333333333,
+    "avgSuspicion": null,
+    "flagRate": null
+   }
+  },
+  "hard": {
+   "good": {
+    "calls": 14,
+    "suspiciousQuit": 0.0,
+    "giveUp": 0.0,
+    "avgHangupTurn": null,
+    "avgSuspicion": 2,
+    "flagRate": 0.0
+   },
+   "persona": {
+    "calls": 14,
+    "suspiciousQuit": 0.0,
+    "giveUp": 0.0,
+    "avgHangupTurn": null,
+    "avgSuspicion": 1.5,
+    "flagRate": 0.0
+   },
+   "stall": {
+    "calls": 14,
+    "suspiciousQuit": 0.0,
+    "giveUp": 0.0,
+    "avgHangupTurn": null,
+    "avgSuspicion": 1,
+    "flagRate": 0.0
+   },
+   "bad": {
+    "calls": 14,
+    "suspiciousQuit": 0.0,
+    "giveUp": 0.0,
+    "avgHangupTurn": null,
+    "avgSuspicion": 4,
+    "flagRate": 0.0
+   }
+  }
+ },
+ "replayUsage": {
+  "prompt_tokens": 0,
+  "completion_tokens": 0,
+  "cached_tokens": 0,
+  "cost_cny": 0.0,
+  "requests": 0,
+  "cached_requests": 735
+ },
+ "judgeItemsPerGroup": 60,
+ "judge": {
+  "default": {
+   "api": "sync",
+   "batchFallback": null,
+   "invalid": 0,
+   "usage": {
+    "prompt_tokens": 17868,
+    "completion_tokens": 2411,
+    "cached_tokens": 0,
+    "cost_cny": 0.020804,
+    "requests": 74,
+    "cached_requests": 166,
+    "cached_prompt_tokens": 39867,
+    "cached_completion_tokens": 5392
+   },
+   "conditions": {
+    "good": {
+     "n": 60,
+     "human_mean": 5.0,
+     "human_ci95": 0.0,
+     "detected_rate": 0.0,
+     "unreadable_rate": 0.0,
+     "human_hist": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 60
+     }
+    },
+    "bad": {
+     "n": 60,
+     "human_mean": 1.25,
+     "human_ci95": 0.11,
+     "detected_rate": 1.0,
+     "unreadable_rate": 0.0,
+     "human_hist": {
+      "1": 45,
+      "2": 15,
+      "3": 0,
+      "4": 0,
+      "5": 0
+     }
+    },
+    "stall": {
+     "n": 60,
+     "human_mean": 4.95,
+     "human_ci95": 0.098,
+     "detected_rate": 0.017,
+     "unreadable_rate": 0.0,
+     "human_hist": {
+      "1": 0,
+      "2": 1,
+      "3": 0,
+      "4": 0,
+      "5": 59
+     }
+    },
+    "persona": {
+     "n": 60,
+     "human_mean": 5.0,
+     "human_ci95": 0.0,
+     "detected_rate": 0.0,
+     "unreadable_rate": 0.183,
+     "human_hist": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 60
+     }
+    }
+   }
+  },
+  "strict": {
+   "api": "sync",
+   "batchFallback": null,
+   "invalid": 0,
+   "usage": {
+    "prompt_tokens": 282855,
+    "completion_tokens": 7405,
+    "cached_tokens": 243712,
+    "cost_cny": 0.075679,
+    "requests": 240,
+    "cached_requests": 0,
+    "cached_prompt_tokens": 0,
+    "cached_completion_tokens": 0
+   },
+   "conditions": {
+    "good": {
+     "n": 60,
+     "human_mean": 4.967,
+     "human_ci95": 0.046,
+     "detected_rate": 0.0,
+     "unreadable_rate": 0.0,
+     "human_hist": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 2,
+      "5": 58
+     }
+    },
+    "bad": {
+     "n": 60,
+     "human_mean": 1.933,
+     "human_ci95": 0.064,
+     "detected_rate": 1.0,
+     "unreadable_rate": 0.0,
+     "human_hist": {
+      "1": 4,
+      "2": 56,
+      "3": 0,
+      "4": 0,
+      "5": 0
+     }
+    },
+    "stall": {
+     "n": 60,
+     "human_mean": 4.5,
+     "human_ci95": 0.206,
+     "detected_rate": 0.067,
+     "unreadable_rate": 0.0,
+     "human_hist": {
+      "1": 0,
+      "2": 4,
+      "3": 0,
+      "4": 18,
+      "5": 38
+     }
+    },
+    "persona": {
+     "n": 60,
+     "human_mean": 4.233,
+     "human_ci95": 0.277,
+     "detected_rate": 0.167,
+     "unreadable_rate": 0.033,
+     "human_hist": {
+      "1": 0,
+      "2": 10,
+      "3": 0,
+      "4": 16,
+      "5": 34
+     }
+    }
+   }
+  }
+ },
+ "pair": {
+  "models": [
+   "qwen3.7-flash",
+   "qwen3.8-flash"
+  ],
+  "pairs": 86,
+  "judge": {
+   "default": {
+    "api": "sync",
+    "batchFallback": null,
+    "invalid": 0,
+    "usage": {
+     "prompt_tokens": 40792,
+     "completion_tokens": 5569,
+     "cached_tokens": 0,
+     "cost_cny": 0.04767,
+     "requests": 172,
+     "cached_requests": 0,
+     "cached_prompt_tokens": 0,
+     "cached_completion_tokens": 0
+    },
+    "conditions": {
+     "qwen3.7-flash": {
+      "n": 86,
+      "human_mean": 5.0,
+      "human_ci95": 0.0,
+      "detected_rate": 0.0,
+      "unreadable_rate": 0.0,
+      "human_hist": {
+       "1": 0,
+       "2": 0,
+       "3": 0,
+       "4": 0,
+       "5": 86
+      }
+     },
+     "qwen3.8-flash": {
+      "n": 86,
+      "human_mean": 5.0,
+      "human_ci95": 0.0,
+      "detected_rate": 0.0,
+      "unreadable_rate": 0.0,
+      "human_hist": {
+       "1": 0,
+       "2": 0,
+       "3": 0,
+       "4": 0,
+       "5": 86
+      }
+     }
+    },
+    "paired": {
+     "pairs": 86,
+     "human_diff_new_minus_old": 0.0,
+     "detected_diff_new_minus_old": 0,
+     "new_higher": 0,
+     "old_higher": 0,
+     "tie": 86
+    }
+   },
+   "strict": {
+    "api": "sync",
+    "batchFallback": null,
+    "invalid": 0,
+    "usage": {
+     "prompt_tokens": 202128,
+     "completion_tokens": 5368,
+     "cached_tokens": 176128,
+     "cost_cny": 0.052906,
+     "requests": 172,
+     "cached_requests": 0,
+     "cached_prompt_tokens": 0,
+     "cached_completion_tokens": 0
+    },
+    "conditions": {
+     "qwen3.7-flash": {
+      "n": 86,
+      "human_mean": 4.93,
+      "human_ci95": 0.054,
+      "detected_rate": 0.0,
+      "unreadable_rate": 0.0,
+      "human_hist": {
+       "1": 0,
+       "2": 0,
+       "3": 0,
+       "4": 6,
+       "5": 80
+      }
+     },
+     "qwen3.8-flash": {
+      "n": 86,
+      "human_mean": 4.895,
+      "human_ci95": 0.086,
+      "detected_rate": 0.012,
+      "unreadable_rate": 0.0,
+      "human_hist": {
+       "1": 0,
+       "2": 1,
+       "3": 0,
+       "4": 6,
+       "5": 79
+      }
+     }
+    },
+    "paired": {
+     "pairs": 86,
+     "human_diff_new_minus_old": -0.035,
+     "detected_diff_new_minus_old": 0.012,
+     "new_higher": 4,
+     "old_higher": 5,
+     "tie": 77
+    }
+   }
+  }
+ },
+ "spentCny": 0.197059,
+ "codeCommit": "e52950a",
+ "note": "#164 区分度校准：好组 = 旧 qwen3.7-flash 语音人设回复（voice.llm_ab 输出，不入库），persona = 文字人设，stall / bad = 规则差组；pair = 同一台词上 qwen3.7-flash 与 qwen3.8-flash 回复配对；只含汇总"
+}

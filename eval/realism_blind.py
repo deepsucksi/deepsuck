@@ -359,6 +359,7 @@ def main(argv=None) -> int:
     sc.add_argument("--judge-api", choices=("sync", "batch"), default="batch",
                     help="batch（默认）= 百炼 Batch 文件接口，半价、异步；sync = 标准同步接口")
     sc.add_argument("--batch-timeout", type=float, default=3600.0, help="Batch 最长等待秒数，超时后重跑会接着等同一任务")
+    sc.add_argument("--judge-workers", type=int, default=6, help="同步接口并发数，默认 6")
     sc.add_argument("--batch-fallback", action="store_true",
                     help="Batch 超时后取消该任务、退回同步接口（不再等）；不加时超时退出，重跑接着等")
     sc.add_argument("--max-cost", type=float, default=1.0, help="费用上限（元），不能超过 1 元")
@@ -403,7 +404,7 @@ def main(argv=None) -> int:
                               batch_size=a.judge_batch, mode=a.judge_mode, seed=a.judge_seed, model=a.judge_model, max_cost=max_cost,
                               cache_dir=J.CACHE_DIR, dry_run=a.dry_run, refresh=a.refresh_cache, log=lambda m: print(m, file=sys.stderr),
                               usage_hook=lambda u: held.__setitem__("u", u), profile=a.judge_profile, api=a.judge_api,
-                              batch_timeout=a.batch_timeout, batch_fallback=a.batch_fallback)
+                              batch_timeout=a.batch_timeout, batch_fallback=a.batch_fallback, workers=a.judge_workers)
         except J.BatchPending as e:
             book("pending:batch")
             print(f"大模型评委未完成：{e}", file=sys.stderr)

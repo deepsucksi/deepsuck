@@ -283,3 +283,33 @@ def test_empty_reply_is_a_silent_turn_not_a_stall_turn(tmp_path, monkeypatch):
     last = fake.calls[-1][0]
     assert sum(m["role"] == "user" and m["content"] == M.SILENT_MARK for m in last) == 2
     assert all(m["content"] for m in last)  # 空串不会发给模型
+
+
+def test_redact_text_masks_required_types_only():
+    from deepsuck import sim as SIM
+    v = SIM.plant(SIM.Rand(1000))
+    t = (f"钱转到 {v['bank_spaced']}，户名{v['name']}，微信{v['wx']} QQ {v['qq']} 身份证110101199003071234 "
+         f"电话{v['phone']} 网址 https://{v['domain']} 钱包 {v['tron']} 支付宝 abc@example.com 卡号{v['bank']}")
+    r = M.redact_text(t, v)
+    for x in (v["bank_spaced"], v["bank"], v["name"], v["wx"], v["qq"], "110101199003071234", "abc@example.com"):
+        assert x not in r
+    for x in (v["phone"], v["domain"], v["tron"]):
+        assert x in r
+    assert M.redact_text("名字叫" + v["name"], v).count(v["name"]) == 0  # 没有上下文也按植入值兜底
+
+
+def test_json_transcripts_are_redacted(tmp_path, monkeypatch):
+    fake = FakeScammer(hang_at=4)
+    out = tmp_path / "r.json"
+    monkeypatch.setattr(M.J, "default_client_factory", lambda *a, **k: (lambda: fake))
+    real_run = M.run
+    monkeypatch.setattr(M, "run", lambda *a, **k: real_run(*a, cache_dir=tmp_path / "cache", **k))  # 不碰仓库里的真缓存
+    assert M.main(["--run", "--scenarios", "police", "--personas", "wang", "--no-rule-baseline", "--json", str(out),
+                   "--json-transcripts"]) == 0
+    d = json.loads(out.read_text(encoding="utf-8"))
+    tr = d["rows"][0]["transcript"]
+    assert tr[0]["role"] == "bot" and "raw" in tr[0] and any(m["role"] == "scammer" for m in tr)
+    from deepsuck import sim as SIM
+    v = SIM.plant(SIM.Rand(1000))
+    assert v["bank"] not in out.read_text(encoding="utf-8").replace(" ", "")
+    assert "transcriptFormat" in d

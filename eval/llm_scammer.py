@@ -563,6 +563,51 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
             "flaggedTurns": sum(x >= FLAG_SUSPICION for x in sus), "transcript": log}
 
 
+# ---------------------------------------------------------------- transcript 脱敏（#164：结果文件里存对话全文）
+REDACT_TYPES = ("bank_card", "name", "id_card", "qq", "wechat", "alipay")  # 电话、钱包、网址按约定不打码（都是虚构值）
+_LONG_CARD = re.compile(r"(?<![0-9])[0-9](?:[ \-]?[0-9]){14,18}(?![0-9])")
+_ID18 = re.compile(r"(?<![0-9A-Za-z])[1-9][0-9]{16}[0-9Xx](?![0-9A-Za-z])")
+
+
+def redact_text(text: str, planted: Optional[dict] = None) -> str:
+    """存 transcript 前的脱敏：提取器认出的银行卡、姓名、身份证、QQ、微信、支付宝按 deepsuck.redact 的规则打码；
+    再兜底本场植入的虚构值（卡号各种写法、户名、微信号、QQ 号）和 15–19 位连续数字（卡号）、18 位身份证号。"""
+    from deepsuck import redact as RD
+    s = str(text or "")
+    if not s:
+        return s
+    spans = [e for e in X.extract(s) if e.get("type") in REDACT_TYPES and e.get("start") is not None]
+    for e in sorted(spans, key=lambda e: e["start"], reverse=True):
+        s = s[:e["start"]] + RD.mask(e["type"], s[e["start"]:e["end"]]) + s[e["end"]:]
+    pv = planted or {}
+    for k, t in (("bank_spaced", "bank_card"), ("bank", "bank_card"), ("bank_cn", "name"), ("name", "name"),
+                 ("wx", "wechat"), ("qq", "qq")):
+        v = pv.get(k)
+        if v and v in s:
+            s = s.replace(v, RD.mask(t, v) if k != "bank_cn" else "*" * len(v))
+    s = _ID18.sub(lambda m: RD.mask_id_card(m.group()), s)
+    s = _LONG_CARD.sub(lambda m: RD.mask_bank_card(m.group()), s)
+    return s
+
+
+def redact_transcript(row: dict) -> List[dict]:
+    """每一轮：骗子存原文（脱敏后），人设存 text（发出去的）和 raw（真人化之前的引擎原文），都脱敏。"""
+    planted = SIM.plant(SIM.Rand(row["seed"]))
+    out = []
+    for m in row.get("transcript") or []:
+        o = {"role": m["role"], "text": redact_text(m.get("text", ""), planted)}
+        if m["role"] == "bot":
+            o.update({"raw": redact_text(m.get("raw", ""), planted), "intent": m.get("intent")})
+            if m.get("silent"):
+                o["silent"] = True
+        elif m.get("hangup"):
+            h = m["hangup"]
+            o["hangup"] = {k: (redact_text(h[k], planted) if isinstance(h.get(k), str) else h.get(k))
+                           for k in ("hangup_type", "category", "evidence", "reason", "turn", "trigger_intent")}
+        out.append(o)
+    return out
+
+
 # ---------------------------------------------------------------- estimate / run
 def estimate_session(corpus: dict, scenario: str, persona: str, seed: int, kinds: List[str], max_turns: int,
                      profile: str = "default") -> dict:
@@ -715,6 +760,7 @@ def summarize(rows: List[dict], scenarios, personas) -> dict:
         "overall": aggregate(rows),
         "byPersona": {p: aggregate([r for r in rows if r["persona"] == p]) for p in personas},
         "byScenario": {s: aggregate([r for r in rows if r["scenario"] == s]) for s in scenarios},
+        "bySeed": {str(k): aggregate([r for r in rows if r["seed"] == k]) for k in sorted({r["seed"] for r in rows})},
         "hangupCategories": dict(Counter(h["category"] for h in sus).most_common()),
         "hangupTypes": dict(Counter(h["hangup_type"] for h in hs).most_common()),
         "triggerIntents": dict(Counter(h["trigger_intent"] for h in sus).most_common()),
@@ -800,6 +846,8 @@ def main(argv=None) -> int:
     ap.add_argument("--json", default=None, help="结果（聚合 + 每场挂断信息，不含对话全文）")
     ap.add_argument("--transcripts", default=None, help="可选：对话全文 JSONL（虚构值，建议不入库）")
     ap.add_argument("--md", default=None)
+    ap.add_argument("--json-transcripts", action="store_true",
+                    help="#164：--json 结果里每场带脱敏后的对话全文（骗子原文；人设 text + 真人化前的 raw）")
     a = ap.parse_args(argv)
     HUMANIZE_OVERRIDES.clear()
     for pid in [x for x in a.handwriting.split(",") if x.strip()]:
@@ -853,7 +901,18 @@ def main(argv=None) -> int:
                                    ensure_ascii=False) + "\n")
     if a.json:
         out = {k: v for k, v in res.items() if k != "rows"}
-        out["rows"] = [{k: v for k, v in r.items() if k != "transcript"} for r in res["rows"]]
+        out["rows"] = [{**{k: v for k, v in r.items() if k != "transcript"},
+                        **({"transcript": redact_transcript(r)} if a.json_transcripts else {})} for r in res["rows"]]
+        # 每场挂断信息里的证据 / 触发句也过一遍脱敏
+        for h in out.get("hangups") or []:
+            pl = SIM.plant(SIM.Rand(h["seed"]))
+            for k in ("evidence", "reason", "trigger_text"):
+                if isinstance(h.get(k), str):
+                    h[k] = redact_text(h[k], pl)
+        if a.json_transcripts:
+            out["transcriptFormat"] = ("rows[i].transcript：按时间顺序的消息列表；role=scammer 为骗子原文（text，挂断那条带 hangup），"
+                                       "role=bot 为人设：text 是发出去的回复（真人化 + 数字过滤之后），raw 是真人化之前的引擎原文，"
+                                       "intent 是引擎意图。银行卡、姓名、身份证、QQ、微信、支付宝已打码；电话、钱包、网址是虚构值，未打码。")
         Path(a.json).write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     if a.md:
         Path(a.md).write_text(md + "\n", encoding="utf-8")
