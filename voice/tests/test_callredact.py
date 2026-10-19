@@ -1,3 +1,4 @@
+import re
 """#140：按通话打码。同一通电话里已提取的姓名、号码再次出现（全名、去姓的名、拆字说法、号码换写法）时，
 进模型、送 TTS、记会话前都要打码。回归用例来自现网探针 KZIZA65L（a97f7f7 上线后，假名）。"""
 import asyncio
@@ -72,7 +73,7 @@ def test_kziza65l_model_input_and_speech_have_no_name():
         spoken = asyncio.run(f.filter(t))
         _clean(spoken)
         assert "那个名字" in spoken, spoken
-    assert speakable(p.redactor.apply(REPLY), calm_tts=True).startswith("那个名字？")
+    assert re.match("那个名字[？…]", speakable(p.redactor.apply(REPLY), calm_tts=True))  # #132：第一句快速反问的问号换成“…”
 
 
 def test_name_said_before_extracted_is_redacted_in_context_too():

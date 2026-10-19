@@ -73,7 +73,8 @@ def test_call_follows_heard_scene_not_backend_scenario():
 
 def test_shots_only_from_heard_scenes_and_texts_unchanged():
     p = P.PERSONA_BY_ID["chen"]
-    allowed = {(x["scammer"], x["reply"]) for x in p["voiceShots"]}
+    # #132：开口就反问的例句每轮按 first_turn_shot 改成接词陈述后拼进提示词，其余原样
+    allowed = {(x["scammer"], P.first_turn_shot(x["reply"], i)) for x in p["voiceShots"] for i in range(5)}
     lines = P.voice_style(p, ["task"], topics={"bank", "url", "phone"})
     shots = [x for x in lines if x.startswith("对方：")]
     assert shots

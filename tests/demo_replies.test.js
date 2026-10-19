@@ -82,7 +82,7 @@ test('sanitizeReply / speakMasked：各类打码值换成自然说法，长引�
     ['网址 www.go***ip.example ，打不开', /你发的那个网址/],
     ['你说“把钱转到国家安全账户核查一下”是啥意思', /^你说把钱转到国家安全账户核查一下是啥意思$/],
     ['你说的“安全账户”在哪', /“安全账户”/],
-    ['安心退”？是这个吗', /^安心退？是这个吗$/]
+    ['安心退”？是这个吗', /^安心退[？…]是这个吗$/]
   ];
   for (const [inp, re] of cases) { const out = L.sanitizeReply(inp); clean(out, inp); assert.match(out, re, inp + ' → ' + out); }
   assert.ok(!/保持打码形式/.test(L.systemPrompt(P.BY_ID.wang, S.BY_ID.refund, 'generic', [])));
