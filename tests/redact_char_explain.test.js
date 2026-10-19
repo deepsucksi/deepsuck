@@ -16,7 +16,8 @@ test('夹具：逐字解释用例逐项一致，正例反例都有', () => {
     assert.deepStrictEqual(R.findNameSpans(c.text, ents), c.spans, c.text);
     const out = R.redactText(c.text, ents);
     assert.strictEqual(out, c.redacted, c.text);
-    assert.strictEqual(out !== c.text, c.expect === 'mask', c.text);
+    if (c.xfail) assert.ok(out.includes(c.leak), '已知缺陷已修好，请去掉 xfail：' + c.text);
+    else assert.strictEqual(out !== c.text, c.expect === 'mask', c.text);
   });
   assert.ok(FX.filter((c) => c.expect === 'mask').length >= 12);
   assert.ok(FX.filter((c) => c.expect === 'keep').length >= 10);
@@ -73,4 +74,21 @@ test('解释紧贴打码姓名（ASR 漏逗号）时补 joiner，人设仍读成
   const out = red(t);
   assert.strictEqual(out, '户名写耳东陈***' + CORE.nameRules.explain.joiner + '******，****');
   assert.strictEqual(E.vagueDigits(out), '户名写那个名字');
+});
+
+test('#185 拆字探针原句与 ASR「龚厂长」：解释段不露单字「伟」「明」', () => {
+  for (const t of ['收款人叫张伟明，弓长张，伟大的伟，明天的明。', '收款人叫张伟明，弓长张，伟大的伟。',
+    '收款人叫张伟明，龚厂长，伟大的伟，明天的明。', '好的，龚厂长，伟大的伟，明天的明，我记下了']) {
+    const out = red(t);
+    ['伟', '明', '**的'].forEach((leak) => assert.ok(!out.includes(leak), t + ' -> ' + out));
+  }
+});
+
+test('#185 已知缺陷（xfail）：ASR「龚厂长」+ 单段解释仍露「伟」，修复归语音（#163）', () => {
+  const xf = FX.filter((c) => c.xfail);
+  assert.ok(xf.length >= 2);
+  for (const c of xf) {
+    assert.ok(c.leak && red(c.text).includes(c.leak), '已经修好，请去掉 xfail：' + c.text);
+    assert.strictEqual(c.expect, 'mask');
+  }
 });

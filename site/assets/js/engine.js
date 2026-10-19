@@ -571,6 +571,7 @@
     [4, 2].some(function (k) { if (d.length > k && masked.slice(-k) === d.slice(-k) && masked.length >= k) { t = d.slice(-k); return true; } return false; });
     if (/[0-9]/.test(t)) t = ''; // #121：号码一个数字都不复述（尾号也不说），带 {t}/{x} 的说法退回“你说的那个…”
     var s = typ === 'name' && raw.slice(0, 1) && masked.indexOf(raw.slice(0, 1)) === 0 ? raw.slice(0, 1) : '';
+    if (s === '姓' || s === '叫') s = ''; // #185「收款人姓和」整段记成户名「姓和」时不念「姓姓」
     var isNum = /^[0-9]+$/.test(t);
     if (((f.indexOf('{t}') >= 0 || f.indexOf('{x}') >= 0) && !t) || (f.indexOf('{x}') >= 0 && !isNum) || (f.indexOf('{s}') >= 0 && !s)) f = SP['default'][0];
     return f.split('{t}').join(t).split('{x}').join(isNum ? wrongDigit(t) : t).split('{s}').join(s).split('{label}').join(item.label);
