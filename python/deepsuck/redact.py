@@ -473,13 +473,67 @@ def redact_dialog_segments(texts: Optional[Iterable[Optional[str]]], roles: Opti
     return [redact_persona(t) if side[i] == "persona" else t for i, t in enumerate(out)]
 
 
+# ---- 拆字报姓（#139）：规则见 core/extractors.json 的 nameRules.split，与 redact.js 共用 ----
+@functools.lru_cache(maxsize=None)
+def _split_rules():
+    nr = load("extractors").get("nameRules") or {}
+    sp = nr.get("split")
+    if not sp or not sp.get("spellings"):
+        return None
+    alts = sorted(sp["spellings"], key=len, reverse=True)
+    src = "(" + "|".join(re.escape(x[:-1]) + sp.get("link", "") + re.escape(x[-1]) for x in alts) + ")"
+    return {
+        "sp": sp,
+        "re": compile_js(src),
+        "sep": compile_js("^(?:" + sp.get("sep", "") + ")"),
+        "stop": compile_js(sp["givenStop"]),
+        "notNames": compile_js(nr["notNames"]) if nr.get("notNames") else None,
+    }
+
+
+def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = None) -> List[dict]:
+    """拆字报姓（「弓长张，三丰」「木子李四」）后紧跟的名：[{start, end, masked}]，名换成等长的 *。
+
+    entities：extract() 的结果；同姓的已提取姓名决定名的长度，与敏感实体重叠的位置不再重复给出。
+    拆字说法以外单独出现的名（「三丰」）不在这里处理。"""
+    s = str(text or "")
+    R = _split_rules()
+    if not R:
+        return []
+    ents = [e for e in (entities or []) if isinstance(e.get("start"), int)]
+    claimed = [(e["start"], e["end"]) for e in ents if e.get("sensitive") is not False]
+    names = [str(e.get("value") or "") for e in ents if e.get("type") == "name" and len(str(e.get("value") or "")) >= 2]
+    sp = R["sp"]
+    out: List[dict] = []
+    for m in R["re"].finditer(s):
+        sur = m.group(1)[-1]
+        pos = m.end() + R["sep"].match(s[m.end():]).end()
+        given = next((n[1:] for n in names if n[0] == sur and s.startswith(n[1:], pos)), "")
+        if not given:
+            while len(given) < int(sp.get("givenMax", 2)) and pos + len(given) < len(s) \
+                    and not R["stop"].match(s[pos + len(given)]):
+                given += s[pos + len(given)]
+            if given and R["notNames"] and R["notNames"].search(given):
+                given = ""
+        end = pos + len(given)
+        if not given or any(a < end and pos < b for a, b in claimed):
+            continue
+        claimed.append((pos, end))
+        out.append({"start": pos, "end": end, "masked": _stars(len(given))})
+    return out
+
+
 def redact_text(text: Optional[str], entities: Optional[Iterable[dict]]) -> str:
     """把文本中的敏感片段替换成脱敏结果（entities 来自 extract()）；
+    拆字报姓后的名一并打码（#139，find_name_spans）；
     另外按上下文给验证码类短数字打码（与实体重叠的交给实体自己的规则）。"""
     s = str(text or "")
     ents = [e for e in (entities or []) if isinstance(e.get("start"), int)]
     lst = [{"start": e["start"], "end": e["end"], "masked": e.get("masked") or mask(e["type"], e["value"])}
            for e in ents if e.get("sensitive") is not False]
+    names = find_name_spans(s, ents)
+    lst += names
+    ents = ents + [dict(n, sensitive=True) for n in names]
     for p in find_otp_spans(s):
         if not any(e["start"] < p["end"] and p["start"] < e["end"] for e in ents):
             lst.append(p)

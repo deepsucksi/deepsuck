@@ -25,7 +25,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Dict, List, Optional
 
-from .core import core_dir
+from .core import core_dir, load
 from .engine import Session
 from .extractors import BANKS
 from .personas import PERSONAS, SCENARIOS
@@ -53,6 +53,18 @@ def code_commit(path: Optional[Path] = None) -> Optional[str]:
     except (OSError, subprocess.CalledProcessError):
         return None
     return rev + ("-dirty" if dirty else "")
+
+
+def split_name(name: str) -> Optional[Dict[str, str]]:
+    """拆字报姓（#139）：「张三丰」-> {"name_split": "弓长张", "name_given": "三丰"}；姓氏没有拆字说法时返回 None。
+
+    拆字说法取自 core/extractors.json 的 nameRules.split.spellings（与打码规则同源）；不消耗随机数。"""
+    if not name or len(name) < 2:
+        return None
+    for sp in (load("extractors").get("nameRules") or {}).get("split", {}).get("spellings", []):
+        if sp[-1] == name[0]:
+            return {"name_split": sp, "name_given": name[1:]}
+    return None
 
 
 def default_scripts_path() -> Path:
