@@ -633,6 +633,164 @@
    "redacted": "验证码发到 138 开头那个手机了"
   }
  ],
+ "splitName": [
+  {
+   "text": "收款户名张三丰，弓长张，三丰",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 12,
+     "end": 14,
+     "masked": "**"
+    }
+   ],
+   "redacted": "收款户名张**，弓长张，**"
+  },
+  {
+   "text": "收款户名张三丰。弓长张三丰。",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 11,
+     "end": 13,
+     "masked": "**"
+    }
+   ],
+   "redacted": "收款户名张**。弓长张**。"
+  },
+  {
+   "text": "弓长张三丰",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 3,
+     "end": 5,
+     "masked": "**"
+    }
+   ],
+   "redacted": "弓长张**"
+  },
+  {
+   "text": "弓长的张，三丰",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 5,
+     "end": 7,
+     "masked": "**"
+    }
+   ],
+   "redacted": "弓长的张，**"
+  },
+  {
+   "text": "户名木子李四",
+   "expect": "mask",
+   "spans": [],
+   "redacted": "户名木子李*"
+  },
+  {
+   "text": "木子李四",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 3,
+     "end": 4,
+     "masked": "*"
+    }
+   ],
+   "redacted": "木子李*"
+  },
+  {
+   "text": "耳东陈小明",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 3,
+     "end": 5,
+     "masked": "**"
+    }
+   ],
+   "redacted": "耳东陈**"
+  },
+  {
+   "text": "收款人耳东陈小明，耳东陈小明",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 12,
+     "end": 14,
+     "masked": "**"
+    }
+   ],
+   "redacted": "收款人耳东陈**，耳东陈**"
+  },
+  {
+   "text": "户名赵明，走肖赵，明。",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 9,
+     "end": 10,
+     "masked": "*"
+    }
+   ],
+   "redacted": "户名赵*，走肖赵，*。"
+  },
+  {
+   "text": "口天吴，一凡，记好了",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 6,
+     "masked": "**"
+    }
+   ],
+   "redacted": "口天吴，**，记好了"
+  },
+  {
+   "text": "他的成长很快，木头桌子，长木凳，李四来了",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "他的成长很快，木头桌子，长木凳，李四来了"
+  },
+  {
+   "text": "弓长张，你好",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "弓长张，你好"
+  },
+  {
+   "text": "木子李，就是李子的李",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "木子李，就是李子的李"
+  },
+  {
+   "text": "儿子小孙子很可爱，木子很多",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "儿子小孙子很可爱，木子很多"
+  },
+  {
+   "text": "长期有效，木材加工厂",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "长期有效，木材加工厂"
+  },
+  {
+   "text": "三丰路营业厅",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "三丰路营业厅"
+  },
+  {
+   "text": "弓长岭",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "弓长岭"
+  }
+ ],
  "otpSegments": [
   {
    "segments": [

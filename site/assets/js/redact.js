@@ -445,6 +445,66 @@
     return out.map(function (t, i) { return side[i] === 'persona' ? redactPersona(t) : t; });
   }
 
+  // ---- 拆字报姓（#139）：规则见 core/extractors.json 的 nameRules.split，与 redact.py 共用 ----
+  var SPLIT = null;
+  function splitRules() {
+    if (SPLIT !== null) return SPLIT;
+    var C = core && core();
+    var nr = C && C.nameRules;
+    var sp = nr && nr.split;
+    if (!sp || !sp.spellings || !sp.spellings.length) return (SPLIT = false);
+    function esc(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    var alts = sp.spellings.slice().sort(function (a, b) { return b.length - a.length; });
+    SPLIT = {
+      sp: sp,
+      re: new RegExp('(' + alts.map(function (x) { return esc(x.slice(0, -1)) + (sp.link || '') + esc(x.slice(-1)); }).join('|') + ')', 'g'),
+      sep: new RegExp('^(?:' + (sp.sep || '') + ')'),
+      stop: new RegExp(sp.givenStop),
+      notNames: nr.notNames ? new RegExp(nr.notNames) : null
+    };
+    return SPLIT;
+  }
+
+  /**
+   * 拆字报姓（「弓长张，三丰」「木子李四」）后紧跟的名：[{start, end, masked}]，名换成等长的 *。
+   * entities：extract() 的结果；同姓的已提取姓名决定名的长度，与敏感实体重叠的位置不再重复给出。
+   * 拆字说法以外单独出现的名（「三丰」）不在这里处理。
+   */
+  function findNameSpans(text, entities) {
+    var s = String(text || '');
+    var R = splitRules();
+    if (!R) return [];
+    var ents = (entities || []).filter(function (e) { return typeof e.start === 'number'; });
+    var claimed = ents.filter(function (e) { return e.sensitive !== false; }).map(function (e) { return [e.start, e.end]; });
+    var names = ents.filter(function (e) { return e.type === 'name' && String(e.value || '').length >= 2; })
+      .map(function (e) { return String(e.value); });
+    var max = R.sp.givenMax == null ? 2 : R.sp.givenMax;
+    var out = [];
+    var m;
+    R.re.lastIndex = 0;
+    while ((m = R.re.exec(s))) {
+      var sur = m[1].slice(-1);
+      var after = m.index + m[0].length;
+      var pos = after + R.sep.exec(s.slice(after))[0].length;
+      var given = '';
+      for (var k = 0; k < names.length; k++) {
+        var n = names[k];
+        if (n.charAt(0) === sur && s.substr(pos, n.length - 1) === n.slice(1)) { given = n.slice(1); break; }
+      }
+      if (!given) {
+        while (given.length < max && pos + given.length < s.length && !R.stop.test(s.charAt(pos + given.length))) {
+          given += s.charAt(pos + given.length);
+        }
+        if (given && R.notNames && R.notNames.test(given)) given = '';
+      }
+      var end = pos + given.length;
+      if (!given || claimed.some(function (c) { return c[0] < end && pos < c[1]; })) continue;
+      claimed.push([pos, end]);
+      out.push({ start: pos, end: end, masked: stars(given.length) });
+    }
+    return out;
+  }
+
   /**
    * 将一段文本中的敏感片段替换成脱敏结果。
    * entities: extractors.extract() 返回的数组（含 start/end/type/value）；
@@ -456,6 +516,8 @@
       .filter(function (e) { return typeof e.start === 'number' && e.sensitive !== false; })
       .map(function (e) { return { start: e.start, end: e.end, masked: e.masked || mask(e.type, e.value) }; });
     var all = (entities || []).filter(function (e) { return typeof e.start === 'number'; });
+    // 拆字报姓后的名（#139）
+    findNameSpans(s, all).forEach(function (n) { list.push(n); all.push({ start: n.start, end: n.end }); });
     findOtpSpans(s).forEach(function (p) {
       var hit = all.some(function (e) { return e.start < p.end && p.start < e.end; });
       if (!hit) list.push(p);
@@ -471,6 +533,7 @@
   return {
     mask: mask,
     redactText: redactText,
+    findNameSpans: findNameSpans,
     findOtpSpans: findOtpSpans,
     findOtpSpansSegments: findOtpSpansSegments,
     redactOtpSegments: redactOtpSegments,

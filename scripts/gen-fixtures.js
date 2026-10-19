@@ -23,6 +23,27 @@ const HZ = require('../site/assets/js/humanize.js');
 const DIR = path.join(__dirname, '..', 'tests', 'fixtures');
 const HEADER = '由 scripts/gen-fixtures.js 从 JS 实现生成（金标准），node 与 pytest 共用；请勿手改，改规则后运行 npm run fixtures。示例数据均为虚构。';
 
+// 拆字报姓（#139）：[文本, 'mask' 应打码 | 'keep' 原样]，姓名均为虚构
+const SPLIT_NAME_CASES = [
+  ['收款户名张三丰，弓长张，三丰', 'mask'],
+  ['收款户名张三丰。弓长张三丰。', 'mask'],
+  ['弓长张三丰', 'mask'],
+  ['弓长的张，三丰', 'mask'],
+  ['户名木子李四', 'mask'],
+  ['木子李四', 'mask'],
+  ['耳东陈小明', 'mask'],
+  ['收款人耳东陈小明，耳东陈小明', 'mask'],
+  ['户名赵明，走肖赵，明。', 'mask'],
+  ['口天吴，一凡，记好了', 'mask'],
+  ['他的成长很快，木头桌子，长木凳，李四来了', 'keep'],
+  ['弓长张，你好', 'keep'],
+  ['木子李，就是李子的李', 'keep'],
+  ['儿子小孙子很可爱，木子很多', 'keep'],
+  ['长期有效，木材加工厂', 'keep'],
+  ['三丰路营业厅', 'keep'],
+  ['弓长岭', 'keep']
+];
+
 // 验证码按上下文打码（#33）：[文本, 'mask' 应打码 | 'keep' 原样（卡号 / 手机号仍由实体规则打码）]，号码均为虚构
 const OTP_CASES = [
   ['您的验证码是472915，5分钟内有效，请勿告诉他人', 'mask'],
@@ -262,6 +283,13 @@ function build() {
       const redacted = R.redactText(text, X.extractSensitive(text));
       const masked = redacted !== R.redactText(text, X.extractSensitive(text).concat([{ start: 0, end: text.length, sensitive: false }]));
       if ((expect === 'mask') !== masked) throw new Error('OTP 用例与预期不符：' + text + ' -> ' + redacted);
+      return { text, expect, spans, redacted };
+    }),
+    splitName: SPLIT_NAME_CASES.map(([text, expect]) => {
+      const ents = X.extractSensitive(text);
+      const spans = R.findNameSpans(text, ents);
+      const redacted = R.redactText(text, ents);
+      if ((expect === 'mask') !== (redacted !== text)) throw new Error('拆字报姓用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
     }),
     otpSegments: OTP_SEG_CASES.map(([segments, expect]) => {
