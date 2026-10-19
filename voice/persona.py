@@ -13,8 +13,8 @@ if str(_PY) not in sys.path:
 
 from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
-from deepsuck.engine import polish_reply, vague_digits  # noqa: E402
-from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, resolve_persona_id  # noqa: E402
+from deepsuck.engine import hold_transfer, polish_reply, vague_digits  # noqa: E402
+from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, TRANSFER_CLAIM, resolve_persona_id  # noqa: E402
 from deepsuck.refs import UR as _UR, drop_unheard, heard_refs  # noqa: E402,F401  #173
 
 INTENT_HINTS: dict = load("personas")["intentHints"]
@@ -348,7 +348,9 @@ HARD_RULES = (
     "1. 这是语音通话：只说简体中文口语，一次 1–2 句，平常十个字上下，最长不超过 20 字；不要用表情、括号动作、列表或 Markdown；语气词偶尔用“嗯”“啊？”就够了。",
     "2. 保持人设，不要出戏，不要承认自己是 AI 或机器人。",
     "3. 绝不说出任何真实或看似真实的验证码、卡号、密码、身份证号、住址；需要时就说找不到、没弄好、要再确认一下。",
-    "4. 绝不真的转账或承诺已经转账成功；不辱骂、不威胁、不包含违法内容。",
+    # #187：长通话里说出“转完了”“转过去了…你那边收到了没”“我先转”。与 llm.js 硬性规则 3 同一句（personas.json transferClaim.rule），
+    # 在固定部分里、每轮不变（#169 前缀缓存）；规则里不举那几句原话，免得模型照着说（#173 的教训）。
+    "4. " + TRANSFER_CLAIM["rule"],
 )
 
 
@@ -565,9 +567,10 @@ def speakable(text: str, calm_tts: bool | None = None) -> str:
 
 
 def guard_output(text: str) -> str:
-    """输出守卫（PolicyGuard）：去掉括号动作/Markdown、数字过滤（#121、#167：连续 2 位及以上的数字含中文数字换成含糊说法）、口语化（#132、#134）、脱敏、抹掉 5 位以上数字串。"""
+    """输出守卫（PolicyGuard）：去掉括号动作/Markdown、不说成已经转账或答应去转（#187）、数字过滤（#121、#167：连续 2 位及以上的数字含中文数字换成含糊说法）、口语化（#132、#134）、脱敏、抹掉 5 位以上数字串。"""
     s = re.sub(r"<think>.*?</think>", "", str(text or ""), flags=re.S)
     s = _BOLD.sub(r"\1", s)
+    s = hold_transfer(s)  # #187：说成已经转了 / 答应去转的分句换成“还在弄，没弄好”（在数字过滤、姓名替换、TTS 之前）
     s = vague_digits(s)
     s = polish_reply(s)  # #132、#134：书面词换口语，第一句快速反问的问号换成“…”
     s = redact_text(s, extract_sensitive(s))

@@ -62,3 +62,44 @@ def test_fallback_skips_recent_and_is_deterministic():
     assert out == dedupe_tail(pool[0], recent, "chen")
     assert dedupe_tail(pool[0], recent) == ""  # 没传人设：删完为空就返回空串
     assert dedupe_tail("行。", ["行"], "mom") in _approved("chen")  # 别名
+
+
+# ---- #188：兜底只从 tailDedupe.fallbackPick 标了的 ask_repeat 里挑（与 JS tests/tail_dedupe.test.js 同一组断言）----
+from deepsuck.engine import vague_digits  # noqa: E402
+
+SCENE_RE = re.compile(r"按钮|红的|绿的|页面|菜单|第[一二三四五六七八九两\d]步|打开|登录|填|链接|APP|发|消息|一条|一段|那段|字")
+
+
+def _picked(pid):
+    p = next(x for x in PERSONAS if x["id"] == pid)
+    return [p["templates"]["ask_repeat"][i] for i in TAIL_DEDUPE["fallbackPick"][pid]]
+
+
+@pytest.mark.parametrize("pid", [p["id"] for p in PERSONAS])
+def test_fallback_pick_marks_only_plain_lines(pid):
+    p = next(x for x in PERSONAS if x["id"] == pid)
+    pick = TAIL_DEDUPE["fallbackPick"].get(pid)
+    assert pick, pid  # 每个人设筛完都至少剩一句
+    for i in pick:
+        x = p["templates"]["ask_repeat"][i]
+        assert isinstance(x, str) and "{" not in x
+        assert not SCENE_RE.search(x), x
+        assert len(re.findall(r"[0-9０-９]", x)) <= 1 and vague_digits(x) == x, x
+
+
+@pytest.mark.parametrize("pid", [p["id"] for p in PERSONAS] + ["mom", "li"])
+def test_fallback_only_from_picked(pid):
+    rid = resolve_persona_id(pid)
+    ok = _picked(rid)
+    for t in ["行。", "好的吧", "你再说一遍。", "嗯…我听着呢", "我看看。"]:
+        assert dedupe_tail(t, [t], pid) in ok
+    out = dedupe_tail("行。", ["行。"] + ok[:2], pid)
+    assert out == "" or (out in ok and out not in ok[:2])
+
+
+def test_fallback_without_pick_falls_back_to_old_pool(monkeypatch):
+    picked = _picked("wang")
+    monkeypatch.setitem(TAIL_DEDUPE, "fallbackPick", {})
+    pool = _approved("wang")
+    outs = {dedupe_tail(t, [t], "wang") for t in ["行。", "好的吧", "你再说一遍。", "嗯…我听着呢", "我看看。", "a", "b", "c"]}
+    assert outs <= set(pool) and outs - set(picked)  # 没有标记时用原来的整池（含带场景的句子）
