@@ -77,7 +77,7 @@ gh pr checks -R $R <PR号> --watch
 - **一个分支对应一个独立的 worktree**。
 - **绝不在共用的检出目录 `/opt/deepsuck-dev` 和 `/workspace/deepsuck` 里 checkout 或提交**，也不在里面改文件、不动里面未提交的东西。
 - 生产目录 `/opt/deepsuck` 只用来执行下面的部署命令，不在里面改文件、切分支或提交。
-- 只推自己的分支，不推、不改别人的分支；PR 合并（或关闭）后用 `git worktree remove` 删掉对应的 worktree，再 `git worktree prune`。
+- 只推自己的分支；PR 合并（或关闭）后删掉对应的 worktree。
 - **每完成一个阶段就推一次自己的分支**，别攒本地提交。
 
 VPS：

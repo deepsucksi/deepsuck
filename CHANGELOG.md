@@ -2,7 +2,7 @@
 
 ## 未发布
 
-- 开发规范补充进程停止与 worktree 规矩（#196）：docs/CONTRIBUTING-dev.md 写明共享电脑上不按名字 pkill / killall，只用自己记下的 PID 停自己启动的进程；worktree 合并后 `git worktree remove` 并 `git worktree prune`，只推自己的分支。
+- 开发规范补充停止进程规矩（#196）：docs/CONTRIBUTING-dev.md 写明共享电脑上不按名字 pkill / killall，只用自己记下的 PID 停自己启动的进程。
 - ASR 切开的号码片段送模型前也打码（#186，#145）：`voice/callredact.py` 新增 `redact_digit_fragments`，把对方本段和前两段连起来看，号码语境下（本段或前两段说了卡号 / 账号 / 手机 / 验证码等，或上一段刚报过号码片段）3 位以上的数字片段、没有语境的 7 位以上数字串、共享核心打了一半的号码（622202**），数字换成 *，再经 unmask 读成“那个号”；金额（元、块、万…或前面是转、付、填、金额）、时间、挨着字母的（TRC20）、“两三天”、共享核心完整的打码值不动。`voice/processors.py`：`IntelProcessor.frag_redact` 在每段进来时打本段并回写 session 里对方前两段；新增 `ContextGuard` 放在用户聚合器之后、LLM 之前，调模型前把上下文里全部用户消息再过一遍（已经推进聚合器的前几段在这里改掉），系统、助手消息不动。情报提取仍在 `Session.ingest` 用原文拼接，提取结果不变。新增 `voice/tests/test_digit_fragments.py`（2 段 / 3 段、跨轮、空格、顿号、中文数字，10 条反例）。
 - 人设不得说成已经转账或答应去转（#187）：`llm.js` 硬性规则 3、`voice/persona.py` 硬性规则 4 改成同一句（`personas.json` 的 `transferClaim.rule`：不说成已经转了、钱已经过去了，不问对方收没收到，不答应马上去转，被催就说还在弄、还没弄好），语音侧在固定前缀里、每轮不变（#169 前缀缓存），规则里不举原话。新增发送前确定性过滤 `engine.holdTransfer` / `deepsuck.engine.hold_transfer`（只用于大模型回复：网页 `sanitizeReply`、语音 `guard_output` 的第一步，在错字、数字过滤、姓名替换、TTS 之前）：命中的分句整句换成“还在弄，没弄好”/“还没弄好，还在弄”，否定、引述对方的话、假设、问细节、转圈不动；已批台词 1322 条全部原样通过。三端共用 `tests/fixtures/transfer_claim.json`（正例 33、反例 36）。实跑 `eval/transfer_claim_live.py`（qwen3.8-flash，网页 10 次 + 语音 10 次）过滤后 0 次，约 0.015 元。
 - 去重兜底只用不带具体场景的 ask_repeat（#188）：`personas.json` 的 `tailDedupe.fallbackPick` 标出每个人设可用的下标（wang 1、2，chen 0、1、5，lin 0，zheng 0、1、2、5），`dedupe_tail` / `dedupeTail` 删空后只从这些里挑，没标时回退原来的整池；台词原文没改。`tests/fixtures/tail_dedupe.json` 重新生成。
