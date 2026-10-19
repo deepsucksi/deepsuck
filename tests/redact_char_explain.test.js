@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const R = require('../site/assets/js/redact.js');
+const E = require('../site/assets/js/engine.js');
 const X = require('../site/assets/js/extractors.js');
 const CORE = require('../site/assets/core/extractors.json');
 const FX = require('./fixtures/redact.json').charExplain;
@@ -38,7 +39,7 @@ test('拆字报姓 + 逐字解释名：弓长张，伟大的伟 / 耳东陈，�
 test('「X是 / 就是 XX的X」与连续多段', () => {
   assert.strictEqual(red('伟是伟大的伟，晨是早晨的晨'), '******，******');
   assert.strictEqual(red('就是伟大的伟'), '就是****');
-  assert.strictEqual(red('伟大的伟早晨的晨'), '********');
+  assert.strictEqual(red('伟大的伟早晨的晨'), '****，****');
   assert.strictEqual(red('立早章，文章的章，晓得的晓，帆船的帆'), '立早章，文章的章，****，****');
 });
 
@@ -56,4 +57,20 @@ test('共享核心：nameRules.explain 字段齐全', () => {
   const ex = CORE.nameRules.explain;
   ['han', 'link', 'tail', 'wordMin', 'wordMax', 'leads', 'strongLeads', 'particle', 'sep', 'anchorGap'].forEach((k) => assert.ok(k in ex, k));
   assert.ok(ex.strongLeads.every((x) => ex.leads.includes(x)));
+});
+
+test('回归：「伟大的伟」不能打成「**的伟」，整段打掉，人设不会读成「那个号的伟」', () => {
+  ['弓长张，伟大的伟', '收款人叫张伟晨，伟大的伟', '收款户名张伟晨，弓长张，伟大的伟，早晨的晨', '伟是伟大的伟，晨是早晨的晨'].forEach((t) => {
+    const out = red(t);
+    assert.ok(!/\*的|的伟|的晨/.test(out), t + ' -> ' + out);
+    const said = E.vagueDigits(out);
+    assert.ok(!/的伟|的晨|号的/.test(said), t + ' -> ' + said);
+  });
+});
+
+test('解释紧贴打码姓名（ASR 漏逗号）时补 joiner，人设仍读成「那个名字」', () => {
+  const t = '户名写耳东陈陈东屿东是东方的东，岛屿的屿';
+  const out = red(t);
+  assert.strictEqual(out, '户名写耳东陈***' + CORE.nameRules.explain.joiner + '******，****');
+  assert.strictEqual(E.vagueDigits(out), '户名写那个名字');
 });

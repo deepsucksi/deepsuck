@@ -614,10 +614,12 @@
       claimed.push([pos, end]);
       out.push({ start: pos, end: end, masked: stars(given.length) });
     }
+    var ex = (explainRules() || {}).ex || {};
     units.forEach(function (u) {
       if (u.keep || claimed.some(function (c) { return c[0] < u.end && u.start < c[1]; })) return;
+      var glue = claimed.some(function (c) { return c[1] === u.start; }) ? (ex.joiner || '') : '';
       claimed.push([u.start, u.end]);
-      out.push({ start: u.start, end: u.end, masked: stars(u.end - u.start) });
+      out.push({ start: u.start, end: u.end, masked: glue + stars(u.end - u.start) });
     });
     out.sort(function (a, b) { return a.start - b.start; });
     return out;

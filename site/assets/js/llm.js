@@ -110,6 +110,8 @@
   var SPLIT_BEFORE_NAME = new RegExp(SPLIT_PRE + '(?=〔?' + NDE.name + ')', 'g');
   var NAME_MASK_RE = new RegExp(SPLIT_PRE + '?(姓)?(' + NDE.compoundSurnames.join('|') + '|[\u4e00-\u9fff])' +
     '(?:[*＊](?:(?![' + NDE.nameTailStop + '])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊]))', 'g');
+  // #158：逐字解释（「晓是知晓的晓」）整段打成 *，紧跟在打码姓名后面时算这个名字的一部分（与 engine.vagueDigits 的 MERGE_N 一致），不当成号码
+  var NAME_TAIL_RE = new RegExp('(〔?' + NDE.name + '〕?)(?:[ \u3000…,，、.．·~～\\-—]{1,2}[*＊]+(?![0-9A-Za-z*＊]))+', 'g');
   function maskedPhrase(tok) {
     var t = String(tok);
     if (/[A-Za-z0-9]\.\.\.[A-Za-z0-9]/.test(t) && !/[*＊]/.test(t)) return '你发的那个钱包地址';
@@ -121,7 +123,8 @@
   function maskNames(text, bracket) {
     var w = bracket ? '〔' + NDE.name + '〕' : NDE.name;
     return String(text || '').replace(NAME_MASK_RE, function (m, xing, sur) { return sur.length === 1 && NDE.notSurname.indexOf(sur) >= 0 ? m : w; })
-      .replace(SPLIT_BEFORE_NAME, '');
+      .replace(SPLIT_BEFORE_NAME, '')
+      .replace(NAME_TAIL_RE, '$1');
   }
   /** 把文本里的打码值换成自然说法；bracket=true 时加〔〕（给模型看的代称） */
   function speakMasked(text, bracket) {

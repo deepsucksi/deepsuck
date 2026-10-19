@@ -638,11 +638,13 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
             continue
         claimed.append((pos, end))
         out.append({"start": pos, "end": end, "masked": _stars(len(given))})
+    joiner = ((_explain_rules() or {}).get("ex") or {}).get("joiner") or ""
     for u in units:
         if u["keep"] or any(a < u["end"] and u["start"] < b for a, b in claimed):
             continue
+        glue = joiner if any(b == u["start"] for _, b in claimed) else ""
         claimed.append((u["start"], u["end"]))
-        out.append({"start": u["start"], "end": u["end"], "masked": _stars(u["end"] - u["start"])})
+        out.append({"start": u["start"], "end": u["end"], "masked": glue + _stars(u["end"] - u["start"])})
     out.sort(key=lambda e: e["start"])
     return out
 
