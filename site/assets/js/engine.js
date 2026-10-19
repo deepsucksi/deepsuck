@@ -145,7 +145,12 @@
   var DIGIT_TAIL = new RegExp(TAILW + '(?:是|为)?' + DJ + DRUN, 'g');
   var DIGIT_RUN = new RegExp(DRUN, 'g');
   // 打码姓名（#130，与 voice/persona.py 的 _unmask_names 同一规则）：张**、王*明、欧阳**，前面的“姓”一并换掉
-  var NAME_MASK = new RegExp('(姓)?(' + DE.compoundSurnames.join('|') + '|[\u4e00-\u9fff])' +
+  // #157：拆字报姓的说法（耳东陈***）跟着打码姓名一起换掉；拆字说法读 extractors.json 的 nameRules.split（只读）
+  var SPL = D.personas.SPLIT_NAME;
+  var SPLIT_PRE = '(?:(?:' + SPL.spellings.slice().sort(function (a, b) { return b.length - a.length; })
+    .map(function (x) { return reEsc(x.slice(0, -1)); }).join('|') + ')' + SPL.link + ')';
+  var SPLIT_BEFORE_NAME = new RegExp(SPLIT_PRE + '(?=' + reEsc(DE.name) + ')', 'g');
+  var NAME_MASK = new RegExp(SPLIT_PRE + '?(姓)?(' + DE.compoundSurnames.join('|') + '|[\u4e00-\u9fff])' +
     '(?:[' + STAR + '](?:(?![' + DE.nameTailStop + '])[\u4e00-\u9fff](?![' + STAR + ']))?(?![0-9A-Za-z' + STAR + '])|[' + STAR + ']{2,4}(?![0-9A-Za-z' + STAR + ']))', 'g');
   var OTHER_MASK = new RegExp('[A-Za-z0-9_.:/@\\-]*[' + STAR + ']+[A-Za-z0-9_.:/@\\-' + STAR + ']*', 'g');
   var LITERAL = DE.tail.map(function (p) { return [p, 'T']; }).concat(DE.other.map(function (p) { return [p, 'O']; }))
@@ -173,6 +178,7 @@
       .replace(DIGIT_TAIL, tok('T'))
       .replace(DIGIT_MONEY, tok('M'))
       .replace(DIGIT_RUN, tok('O'))
+      .replace(SPLIT_BEFORE_NAME, '') // #157：上游已换成“那个名字”时去掉残留的拆字说法
       .replace(NAME_MASK, function (m, xing, sur) { return sur.length === 1 && DE.notSurname.indexOf(sur) >= 0 ? m : tok('N'); })
       .replace(OTHER_MASK, function (m) { return tok(m.indexOf('@') >= 0 ? 'E' : /[A-Za-z]{2,}\.|\.[A-Za-z]{2,}/.test(m) ? 'U' : 'H'); });
     if (s.indexOf('\uE000') < 0) return s;
