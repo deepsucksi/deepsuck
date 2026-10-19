@@ -1,5 +1,6 @@
 <!doctype html>
-<!-- DeepSuck — Open Graph 图模板（1200×630，R11 视觉）。由 scripts/og.js 用无头 Chrome 渲染为 site/assets/og*.png。?v=home|demo|intel -->
+<!-- DeepSuck — Open Graph 图模板（1200×630，R11 视觉）。由 scripts/og.js 用无头 Chrome 渲染为 site/assets/og*.png。?v=home|demo|intel
+     人设名单与人数、场景数由 og.js 从 site/assets/core/personas.json、scenarios.json 读出，经 window.__OG 注入，这里不写死。 -->
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -26,6 +27,7 @@
   .foot{position:absolute;left:80px;right:80px;bottom:52px;display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:22px;font-family:"IBM Plex Mono","Noto Sans Mono CJK SC",ui-monospace,Menlo,monospace;font-size:19px;color:var(--muted)}
   .v-intel h1{font-size:64px}
   .foot b{font-weight:400;color:var(--accent)}
+  .cast{position:relative;margin-top:26px;font-size:24px;line-height:1.5;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -34,6 +36,7 @@
   <div class="brand"><span class="mark"><img src="../../site/assets/brand/on-hold-mono-256.png" alt=""></span><img class="word" src="../../site/assets/brand/wordmark.svg" alt="DeepSuck"></div>
   <p class="eyebrow" id="eyebrow">开源 · 防御性研究 · 中文场景优先</p>
   <h1 id="title">让骗子把时间<em>浪费在 AI 身上</em></h1>
+  <p class="cast" id="cast" hidden></p>
   <div class="chat" id="chat">
     <div class="b r">转到安全账户，马上！</div>
     <div class="b s">你等一下，我拿笔记。卡号你一个字一个字发我？</div>
@@ -41,9 +44,12 @@
   <div class="foot"><span id="foot"><b>622202*********3445</b> · 139****2233 · 已拖住 14:32</span><span>deepsuck.si</span></div>
 </div>
 <script>
+  // og.js 注入：{ personas: ['王阿姨', …]（personas.json 顺序）, scenarios: 场景数 }
+  var OG = window.__OG || { personas: [], scenarios: 0 };
   var V = {
-    demo: { eyebrow: '沙盒演示 · 你扮演骗子', title: '试试能不能<em>骗到王阿姨</em>',
-      foot: '<b>7 个场景</b> · 3 个人设 · 浏览器本地运行 · 无需 API Key' },
+    demo: { eyebrow: '沙盒演示 · 你扮演骗子', title: '试试能不能<em>骗到' + (OG.personas[0] || '王阿姨') + '</em>',
+      cast: OG.personas.join(' · '),
+      foot: '<b>' + OG.scenarios + ' 个场景</b> · ' + OG.personas.length + ' 个人设 · 浏览器本地运行 · 无需 API Key' },
     intel: { eyebrow: '公开诈骗情报库', title: '诈骗电话、钱包、网址<em>公开可查</em>',
       foot: '<b>JSON / CSV</b> · 银行卡与姓名部分打码 · 可申诉下架', chat: false }
   }[new URLSearchParams(location.search).get('v')];
@@ -52,6 +58,7 @@
     document.getElementById('title').innerHTML = V.title;
     document.getElementById('foot').innerHTML = V.foot;
     if (V.chat === false) document.getElementById('chat').remove();
+    if (V.cast) { var c = document.getElementById('cast'); c.textContent = V.cast; c.hidden = false; }
     document.body.className = 'v-' + new URLSearchParams(location.search).get('v');
   }
 </script>

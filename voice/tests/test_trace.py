@@ -391,3 +391,44 @@ def test_cross_turn_card_digits_are_redacted_via_session(tmp_path):
     assert s.intel, "拼接应识别出卡号"
     assert "62220212" not in raw and "345678" not in raw, raw
     assert [r["n"] for r in _lines(t.path) if r["type"] == "turn"] == [1, 2, 3]
+
+
+def test_split_otp_across_asr_segments_is_redacted_on_disk(tmp_path):
+    """#92：验证码被 ASR 切成「验证码是 38」「27 15」两段，落盘时同一说话方相邻分段连起来判断，两段都打码。"""
+    from deepsuck.engine import Session
+    from deepsuck.rng import mulberry32
+
+    env = _env(tmp_path)
+    s = Session(scenario="refund", persona="lin", rng=mulberry32(1), now=lambda: 0)
+    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="refund", model="m", env=env)
+    t.session = s
+    for line in ["验证码是 38", "27 15", "那你先转 3000 元", "快点"]:
+        a = s.ingest(line)
+        t.observe({"type": "scammer", "text": a["redacted"], "turn": a["turn"], "intent": "generic",
+                   "tactics": [], "newIntel": a["newIntel"]})
+        t.observe({"type": "bot", "text": "嗯", "intent": "generic"})
+    t.end("client_hangup")
+    turns = [r for r in _lines(t.path) if r["type"] == "turn"]
+    assert [r["asr"] for r in turns] == ["验证码是 **", "** **", "那你先转 3000 元", "快点"]
+
+
+def test_split_otp_without_session_uses_trace_history(tmp_path):
+    """没有会话对象时，用本通已记下的同一说话方分段判断；人设回复单独按人设自己的分段判断。
+    （#96 起没同意的通话不存文字，这里用已同意的通话验证打码。）"""
+    env = _env(tmp_path)
+    t = TR.CallTrace(channel="web", consent=True, persona="lin", scenario="refund", model="m", env=env)
+    for n, (sc, bot) in enumerate([("你的校验码是三八", "验证码是"), ("二七", "我看看"), ("一五", "好")], 1):
+        t.observe({"type": "scammer", "text": sc, "turn": n, "intent": "generic", "tactics": [], "newIntel": []})
+        t.observe({"type": "bot", "text": bot, "intent": "generic"})
+    t.end("client_hangup")
+    turns = [r for r in _lines(t.path) if r["type"] == "turn"]
+    assert [r["asr"] for r in turns] == ["你的校验码是**", "**", "**"]
+    assert [r["reply"] for r in turns] == ["验证码是", "我看看", "好"]   # 不跨说话方拼接
+
+
+def test_seg_redact_slice_matches_whole_call():
+    segs = ["验证码是", "38", "嗯", "27", "15", "好的", "金额 5000", "下午 3 点"]
+    from deepsuck.redact import redact_otp_segments
+    whole = redact_otp_segments(segs)
+    for i in range(len(segs)):
+        assert TR.seg_redact(segs, [i]) == [whole[i]]

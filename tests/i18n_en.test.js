@@ -108,7 +108,7 @@ const PAGES = [
   { name: '首页', url: '/index.html?lang=en', wait: () => document.getElementById('botSpeaker').textContent.trim() && document.getElementById('clueTitle').textContent.trim() },
   { name: '沙盒（开场）', url: '/demo.html?lang=en&fast=1', wait: () => document.querySelector('#msgs .msg.bot:not(.typing)') },
   { name: '沙盒（自动演示 + 看板 + 提交框）', url: '/demo.html?lang=en&fast=1&autoplay=4&summary=1&submit=1', wait: () => document.body.getAttribute('data-autoplay-done') === '1' && document.getElementById('summaryModal').open },
-  { name: '沙盒（李大爷 · 冒充公检法）', url: '/demo.html?lang=en&fast=1&scenario=police&persona=li&autoplay=3', wait: () => document.body.getAttribute('data-autoplay-done') === '1' },
+  { name: '沙盒（郑老板 · 冒充公检法）', url: '/demo.html?lang=en&fast=1&scenario=police&persona=zheng&autoplay=3', wait: () => document.body.getAttribute('data-autoplay-done') === '1' },
   { name: '情报库', url: '/intel.html?lang=en', wait: () => document.querySelector('#results .icard2') && document.querySelector('#typeStats .stat') },
   { name: '404', url: '/404.html?lang=en', wait: null },
   { name: '不存在的地址（GitHub Pages 回落到 404.html）', url: '/no-such-page?lang=en', wait: null },

@@ -171,6 +171,7 @@ def _otp_rules():
         "edge": compile_js(o["edge"]),
         "blockBefore": compile_js(o["blockBefore"]),
         "unitAfter": compile_js(o["unitAfter"]),
+        "segJoin": compile_js(o.get("segJoin") or "^$"),
     }
 
 
@@ -181,9 +182,13 @@ def find_otp_spans(text: Optional[str]) -> List[dict]:
     手机号、卡号（位数超出）、金额、尾号、订单号、与关键词无关的数字都不算。
     """
     R = _otp_rules()
-    s = str(text or "")
     if not R:
         return []
+    return _find_otp(R, str(text or ""), ())
+
+
+def _find_otp(R, s: str, bounds) -> List[dict]:
+    """bounds：拼接文本里各分段的接缝位置（#92），接缝两侧的数字串之间只有 segJoin 时可连成一串。"""
     o = R["o"]
     kws = [(m.start(), m.end()) for m in R["kw"].finditer(s)]
     if not kws:
@@ -193,8 +198,9 @@ def find_otp_spans(text: Optional[str]) -> List[dict]:
         n = len(R["digit"].findall(m.group(0)))
         g = groups[-1] if groups else None
         # 两段都不超过 joinPartMax 位、中间只有「，」「、」时连成一串（「4 7 2，9 1 5」）
-        if (g and g["last"] <= o["joinPartMax"] and n <= o["joinPartMax"] and g["n"] + n <= o["maxLen"]
-                and R["join"].search(s[g["end"]:m.start()])):
+        if g and g["n"] + n <= o["maxLen"] and (
+                (g["last"] <= o["joinPartMax"] and n <= o["joinPartMax"] and R["join"].search(s[g["end"]:m.start()]))
+                or (any(g["end"] <= b <= m.start() for b in bounds) and R["segJoin"].search(s[g["end"]:m.start()]))):
             g["end"], g["n"], g["last"] = m.end(), g["n"] + n, n
         else:
             groups.append({"start": m.start(), "end": m.end(), "n": n, "last": n})
@@ -231,6 +237,73 @@ def find_otp_spans(text: Optional[str]) -> List[dict]:
                 break
         if near:
             out.append({"start": a, "end": b, "masked": R["digit"].sub("*", s[a:b])})
+    return out
+
+
+def otp_seg_window() -> int:
+    """跨分段验证码判断看前后几段（redact.otp.segWindow，#92）。"""
+    R = _otp_rules()
+    return int(R["o"].get("segWindow", 2)) if R else 0
+
+
+def find_otp_spans_segments(texts: Optional[Iterable[Optional[str]]], window: Optional[int] = None) -> List[List[dict]]:
+    """跨 ASR 分段找验证码（#92）：texts 是同一通电话、同一说话方按时间排的连续分段。
+
+    以每段为中心、连同前后各 window（默认 redact.otp.segWindow）段用 segJoiner 拼接，按 find_otp_spans 的同一套规则
+    再找一遍，命中的数字串按分段切开映射回窗口里的各段（各窗口结果取并集：第 i 段的结果只取决于前后各 2×window 段）。返回与 texts 等长的列表，每项是该段的 [{start, end, masked}]（段内下标，已合并）。
+    单段内的结果也包含在内；与实体的重叠由调用方处理——建议对逐段 redact_text 之后的文本调用（打码值紧挨 * 不会被当成验证码）。
+    """
+    segs = ["" if t is None else str(t) for t in (texts or [])]
+    R = _otp_rules()
+    hits: List[List[tuple]] = [[] for _ in segs]
+    if not R or not segs:
+        return [[] for _ in segs]
+    o = R["o"]
+    w = max(0, int(o.get("segWindow", 2) if window is None else window))
+    joiner = o.get("segJoiner", " ")
+    seen = set()
+    for c in range(len(segs)):
+        win = (max(0, c - w), min(len(segs), c + w + 1))
+        if win in seen:
+            continue
+        seen.add(win)
+        idx = list(range(*win))
+        offs, bounds, pos = [], [], 0
+        for k, i in enumerate(idx):
+            if k:
+                bounds.append(pos)
+                pos += len(joiner)
+                bounds.append(pos)
+            offs.append(pos)
+            pos += len(segs[i])
+        joined = joiner.join(segs[i] for i in idx)
+        for sp in _find_otp(R, joined, bounds):
+            for k, i in enumerate(idx):
+                a, b = max(sp["start"], offs[k]), min(sp["end"], offs[k] + len(segs[i]))
+                if a < b:
+                    hits[i].append((a - offs[k], b - offs[k]))
+    out: List[List[dict]] = []
+    for i, hs in enumerate(hits):
+        merged: List[list] = []
+        for a, b in sorted(hs):
+            if merged and a <= merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], b)
+            else:
+                merged.append([a, b])
+        out.append([{"start": a, "end": b, "masked": R["digit"].sub("*", segs[i][a:b])} for a, b in merged])
+    return out
+
+
+def redact_otp_segments(texts: Optional[Iterable[Optional[str]]], window: Optional[int] = None) -> List[str]:
+    """把 find_otp_spans_segments 命中的数字换成 *（长度不变）后返回各段文本（#92）。
+
+    对逐段 redact_text 之后的文本再调用即可；可重复调用（已打码的 * 不再匹配）。"""
+    segs = ["" if t is None else str(t) for t in (texts or [])]
+    out = []
+    for s, sps in zip(segs, find_otp_spans_segments(segs, window)):
+        for p in sorted(sps, key=lambda x: x["start"], reverse=True):
+            s = s[: p["start"]] + p["masked"] + s[p["end"]:]
+        out.append(s)
     return out
 
 

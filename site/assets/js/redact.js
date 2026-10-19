@@ -164,7 +164,8 @@
       gapBlock: new RegExp(o.gapBlock),
       edge: new RegExp(o.edge),
       blockBefore: new RegExp(o.blockBefore),
-      unitAfter: new RegExp(o.unitAfter)
+      unitAfter: new RegExp(o.unitAfter),
+      segJoin: new RegExp(o.segJoin || '^$')
     };
     return OTP;
   }
@@ -178,8 +179,12 @@
    */
   function findOtpSpans(text) {
     var R = otpRules();
-    var s = String(text || '');
     if (!R) return [];
+    return findOtp(R, String(text || ''), []);
+  }
+
+  // bounds：拼接文本里各分段的接缝位置（#92），接缝两侧的数字串之间只有 segJoin 时可连成一串
+  function findOtp(R, s, bounds) {
     var o = R.o, kws = [], m;
     R.kw.lastIndex = 0;
     while ((m = R.kw.exec(s))) { kws.push([m.index, m.index + m[0].length]); if (!m[0].length) R.kw.lastIndex++; }
@@ -191,7 +196,9 @@
     var groups = [];
     runs.forEach(function (r) {
       var g = groups[groups.length - 1];
-      if (g && g.last <= o.joinPartMax && r.n <= o.joinPartMax && g.n + r.n <= o.maxLen && R.join.test(s.slice(g.end, r.start))) {
+      var gap = g ? s.slice(g.end, r.start) : '';
+      var seam = g && bounds.some(function (b) { return g.end <= b && b <= r.start; });
+      if (g && g.n + r.n <= o.maxLen && ((g.last <= o.joinPartMax && r.n <= o.joinPartMax && R.join.test(gap)) || (seam && R.segJoin.test(gap)))) {
         g.end = r.end; g.n += r.n; g.last = r.n;
       } else groups.push({ start: r.start, end: r.end, n: r.n, last: r.n });
     });
@@ -223,6 +230,73 @@
   }
 
   /**
+   * 跨 ASR 分段找验证码（#92）：texts 是同一通电话、同一说话方按时间排的连续分段。
+   * 以每段为中心、连同前后各 window（默认 redact.otp.segWindow）段用 segJoiner 拼接，按 findOtpSpans 的同一套规则
+   * 再找一遍，命中的数字串按分段切开映射回窗口里的各段（各窗口结果取并集：第 i 段的结果只取决于前后各 2×window 段）。返回与 texts 等长的数组，每项是该段的 [{start, end, masked}]（段内下标，已合并）。
+   * 建议对逐段 redactText 之后的文本调用（打码值紧挨 * 不会被当成验证码）。
+   */
+  function findOtpSpansSegments(texts, window) {
+    var segs = (texts || []).map(function (t) { return t == null ? '' : String(t); });
+    var R = otpRules();
+    var hits = segs.map(function () { return []; });
+    if (!R || !segs.length) return hits;
+    var o = R.o;
+    var w = Math.max(0, parseInt(window == null ? (o.segWindow == null ? 2 : o.segWindow) : window, 10) || 0);
+    var joiner = o.segJoiner == null ? ' ' : o.segJoiner;
+    var seen = {};
+    for (var c = 0; c < segs.length; c++) {
+      var lo = Math.max(0, c - w), hi = Math.min(segs.length, c + w + 1);
+      if (seen[lo + ',' + hi]) continue;
+      seen[lo + ',' + hi] = true;
+      var idx = [], offs = [], bounds = [], pos = 0;
+      for (var i = lo; i < hi; i++) idx.push(i);
+      idx.forEach(function (i, k) {
+        if (k) { bounds.push(pos); pos += joiner.length; bounds.push(pos); }
+        offs.push(pos);
+        pos += segs[i].length;
+      });
+      var joined = idx.map(function (i) { return segs[i]; }).join(joiner);
+      findOtp(R, joined, bounds).forEach(function (sp) {
+        idx.forEach(function (i, k) {
+          var a = Math.max(sp.start, offs[k]), b = Math.min(sp.end, offs[k] + segs[i].length);
+          if (a < b) hits[i].push([a - offs[k], b - offs[k]]);
+        });
+      });
+    }
+    return hits.map(function (hs, i) {
+      hs.sort(function (x, y) { return x[0] - y[0] || x[1] - y[1]; });
+      var merged = [];
+      hs.forEach(function (h) {
+        var t = merged[merged.length - 1];
+        if (t && h[0] <= t[1]) t[1] = Math.max(t[1], h[1]);
+        else merged.push([h[0], h[1]]);
+      });
+      return merged.map(function (h) {
+        R.digit.lastIndex = 0;
+        return { start: h[0], end: h[1], masked: segs[i].slice(h[0], h[1]).replace(R.digit, '*') };
+      });
+    });
+  }
+
+  /** 跨分段验证码判断看前后几段（redact.otp.segWindow，#92） */
+  function otpSegWindow() {
+    var R = otpRules();
+    return R ? (R.o.segWindow == null ? 2 : R.o.segWindow) : 0;
+  }
+
+  /** 把 findOtpSpansSegments 命中的数字换成 *（长度不变）后返回各段文本（#92）；可重复调用。 */
+  function redactOtpSegments(texts, window) {
+    var segs = (texts || []).map(function (t) { return t == null ? '' : String(t); });
+    var spans = findOtpSpansSegments(segs, window);
+    return segs.map(function (s, i) {
+      spans[i].slice().sort(function (a, b) { return b.start - a.start; }).forEach(function (p) {
+        s = s.slice(0, p.start) + p.masked + s.slice(p.end);
+      });
+      return s;
+    });
+  }
+
+  /**
    * 将一段文本中的敏感片段替换成脱敏结果。
    * entities: extractors.extract() 返回的数组（含 start/end/type/value）；
    * 另外按上下文给验证码类短数字打码（与实体重叠的交给实体自己的规则）。
@@ -249,6 +323,9 @@
     mask: mask,
     redactText: redactText,
     findOtpSpans: findOtpSpans,
+    findOtpSpansSegments: findOtpSpansSegments,
+    redactOtpSegments: redactOtpSegments,
+    otpSegWindow: otpSegWindow,
     maskBankCard: maskBankCard,
     formatCardGroups: formatCardGroups,
     maskPhone: maskPhone,
