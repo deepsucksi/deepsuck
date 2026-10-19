@@ -411,7 +411,7 @@
         setProxyStatus(function () { return L('已检测到代理：', 'Proxy detected: ') + j.model + ' @ ' + j.provider; });
         if (!localStorage.getItem('deepsuck.llm') && !FAST) { state.engine = 'proxy'; state.session.engineName = engineName(); renderPanel(); toast(L('检测到已配置的大模型代理，已切换到 ', 'Configured LLM proxy detected; switched to ') + j.model); }
       } else if (j) {
-        setProxyStatus(function () { return L('代理在线，但未配置 API Key（编辑 .env 中的 DASHSCOPE_API_KEY）', 'Proxy online, but no API key configured (edit DASHSCOPE_API_KEY in .env)'); });
+        setProxyStatus(function () { return L('代理在线，但未配置 API Key（编辑 .env 中的 LLM_API_KEY，见 docs/QUICKSTART.md）', 'Proxy online, but no API key configured (set LLM_API_KEY in .env; see docs/QUICKSTART.md)'); });
       } else throw new Error();
     }).catch(function () { setProxyStatus(function () { return L('未检测到代理（纯静态托管时正常）。运行 npm start 可启用。', 'No proxy detected (normal for static hosting). Run npm start to enable it.'); }); });
   }
