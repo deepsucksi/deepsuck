@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- 人设数字收紧（#80）：`personas.json` 的 `intentHints.coop_step` 不再允许人设给出“至多两位数字”的虚构信息，改为只能含糊地说个大概（“好像是…开头的”“后面几位看不清”），不报出任何具体的数字或数字串，提示里也不放具体数字例子（#77 发现提示词里的数字例子会被模型照说）。voiceShots 里骗子说的金额保留；规则引擎里故意看错数字的台词（王阿姨“像9又像4”、小林“前两位是5、2”、郑老板“像七又像一”）保留，新增 `python/tests/test_digit_tighten.py` 确认每句至多两位、同一人设全说一遍也凑不成验证码（4 位）、手机号或卡号，提取器与验证码打码都不触发；coop_step 规则台词除界面字样外不含数字。core-data.js、fixtures 重新生成；docs/EVAL.md 同步。
 - 人设统一（#11）：`site/assets/core/personas.json` 成为人设唯一数据源，四位人设与首页一一对应：01 王阿姨 · 退休老人（`wang`）、02 小陈妈妈 · 宝妈（`chen`，新增）、03 小林 · 刚毕业学生（`lin`，台词按刚毕业上班调整）、04 郑老板 · 个体小老板（`zheng`，新增）。李大爷（`li`）下线，完整资料归档到 `personas/archive/li.json`；顶层 `aliases` 做别名映射：`li` → `wang`，`xiaochen` / `mom` → `chen`，`shop_owner` → `zheng`，旧链接仍可用。
   - 删去 `personas/prompts/*.yaml` 与 `personas/voice_traits.yaml`：提示词资料并入各人设的 `prompt` 字段、共用规则并入顶层 `promptRules`、语音说话特征（含 #47 的接电话那一声 `opening`）并入 `voiceTraits`；旧版（含周伯）存档在 `personas/archive/prompts-v0.json`。`personas.prompt`、`personas.voice_traits`、`voice/persona.py`、评测脚本都改读 personas.json，不再需要 PyYAML。
   - 首页“四位人设”一行、卡片 `data-persona` 改为四个新 id；卡片的沙盒与体验链接带 `?persona=<id>` 直达。体验页人设选项改成与首页同样的编号、身份和头像卡片（`/api/config` 新增 `no` / `role` / `photo` / `aliases`），语音镜像带上 round6 头像。
