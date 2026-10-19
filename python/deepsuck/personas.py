@@ -22,6 +22,7 @@ STALL_SECONDS: dict = _P["stallSeconds"]
 SPEAK_INTEL: dict = _P["speakIntel"]
 # 人设回复发出前的数字过滤配置（issue #121）；engine.vague_digits 使用
 DIGIT_ECHO: dict = _P["digitEcho"]
+REPLY_POLISH: dict = _P["replyPolish"]  # 大模型回复口语化后处理（#132、#134），engine.polish_reply 使用
 
 SCENARIOS = _S["scenarios"]
 SCENARIO_BY_ID = {s["id"]: s for s in SCENARIOS}

@@ -16,7 +16,7 @@ from .core import load, utf16_len
 from . import extractors as X
 from . import redact as R
 from . import tactics as T
-from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, DIGIT_ECHO, resolve_persona_id
+from .personas import PERSONAS, PERSONA_BY_ID, SCENARIOS, SCENARIO_BY_ID, STALL_SECONDS, SPEAK_INTEL, DIGIT_ECHO, REPLY_POLISH, resolve_persona_id
 
 REPORT_SCHEMA = "deepsuck.intel-report/v0.1"
 VERSION = "0.4.0"
@@ -90,6 +90,71 @@ _CLAUSE_END = "？?！!。；;，,…\n"
 
 def _tok(kind: str, arg: str = "") -> str:
     return "\ue000" + kind + arg + "\ue001"
+
+
+# ---- 大模型回复口语化（#132、#134，配置在 personas.json 的 replyPolish；JS 在 llm.js 的 polishReply，两边逐字一致）----
+_RP_FORMAL = [(a, b) for a, b in REPLY_POLISH["formal"]]
+_RP_QMAX = int(REPLY_POLISH["quickQuestionMax"])
+_RP_FIRST = re.compile(r"^(\s*)([^。？?！!；;\n]*?)([？?]+)")
+_RP_PUNCT = re.compile(r"[…。？?！!，,、；;.\s~～]")
+_RP_KEEP = int(REPLY_POLISH["ellipsisKeepPct"])
+_RP_SENT = re.compile(r"[^。？！?!；;\n]+[。？！?!；;]*|\n+")
+_RP_ELL = re.compile(r"…+|\.{3,}")
+
+
+def polish_reply(text: str) -> str:
+    """大模型回复发出前的口语化：书面词（“具体”“请问”“是否”…）换成口语说法；第一句是快速反问（去标点不超过
+    quickQuestionMax 个字，如“衣服？…哪件啊”）且后面还有话时，第一句的问号换成逗号（“衣服，哪件啊”），问题留给后半句。
+    换成逗号不换“…”：#131 要把带“…”的句子压在 40–60%，这里不再添“…”。
+    只用于大模型回复（语音 guard_output、网页 sanitizeReply），规则引擎的已批准台词不过这一道。"""
+    s = str(text or "")
+    for a, b in _RP_FORMAL:
+        s = s.replace(a, b)
+    for _ in range(3):  # “啊？衣服？我好像没收到”：换掉一个，第一句可能还是快速反问
+        m = _RP_FIRST.match(s)
+        if not m:
+            break
+        core = _RP_PUNCT.sub("", m.group(2))
+        rest = s[m.end():]
+        if not (0 < len(core) <= _RP_QMAX and _RP_PUNCT.sub("", rest)):
+            break
+        s = m.group(1) + m.group(2).rstrip("…") + "，" + rest.lstrip("…，,").lstrip()
+    return _thin_ellipsis(s)
+
+
+def _fnv(text: str) -> int:
+    """FNV-1a 32 位，按 UTF-16 码元算（JS 端 charCodeAt 同一结果），用来确定性地挑句子。"""
+    h = 0x811C9DC5
+    b = text.encode("utf-16-le")
+    for i in range(0, len(b), 2):
+        h ^= b[i] | (b[i + 1] << 8)
+        h = (h * 0x01000193) & 0xFFFFFFFF
+    return h
+
+
+def _thin_ellipsis(s: str) -> str:
+    """#131：带“…”的句子按 ellipsisKeepPct 确定性地留一部分（按句子文字的哈希挑），没留下的句子把“…”换成逗号
+    （句首去掉，句尾去掉或换句号）；“退…退款”这种重复字中间的“…”是结巴，不动（这句照样算带“…”）。"""
+    out = []
+    for sent in _RP_SENT.findall(s):
+        if not _RP_ELL.search(sent) or _fnv(sent) % 100 < _RP_KEEP:
+            out.append(sent)
+            continue
+        def sub(m, sent=sent):
+            a, b = m.start(), m.end()
+            prev = sent[a - 1] if a else ""
+            nxt = sent[b] if b < len(sent) else ""
+            if prev and prev == nxt:
+                return m.group(0)
+            if not prev.strip() or prev in "，,、":
+                return ""
+            if not nxt:
+                return "。"
+            if nxt in "。？！?!；;，,、":
+                return ""
+            return "，"
+        out.append(_RP_ELL.sub(sub, sent))
+    return "".join(out)
 
 
 def vague_digits(text: str) -> str:

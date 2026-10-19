@@ -185,9 +185,9 @@ def test_system_prompt_uses_voice_style_and_shots():
     wang = P.PERSONA_BY_ID["wang"]
     assert wang["voiceStyle"][0] in sp
     shots = [x for x in wang["voiceShots"] if x["scenario"] == "refund"]
-    assert shots and shots[0]["reply"] in sp
+    assert shots and any(P.first_turn_shot(shots[0]["reply"], i) in sp for i in range(5))  # #132：反问例句改成接词陈述再拼
     other = [x for x in wang["voiceShots"] if x["scenario"] != "refund"]
-    assert all(x["reply"] not in sp for x in other)
+    assert all(P.first_turn_shot(x["reply"], i) not in sp for x in other for i in range(5))
     assert "不用感叹号" in sp
     # 字段缺失时退回原提示词，不报错
     assert P.voice_style({}, "refund") == []
