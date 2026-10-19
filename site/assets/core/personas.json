@@ -477,7 +477,7 @@
         ],
         "selfRefRate": 0.3,
         "punctStyle": "comma",
-        "emojiComma": 0.18,
+        "emojiComma": 0.0,
         "digressions": [
           "水开了，我去关一下",
           "我把电视声音关小点",
@@ -3362,6 +3362,8 @@
         "钱包",
         "地址"
       ],
+      "digressionPropsComment": "跑题句里的道具词（issue #129）：人设背景里没有的东西不能编（吃药、买菜、广场舞、外孙……）。跑题句含其中任何一个词就不用，除非这个词在该预设的 propsOk 里（propsOk 按 personas.json 各人设 prompt.background 写：带娃的宝妈、和室友合住的小林、看店送货的郑老板）。只改跑题句怎么选，不改句子文字。",
+      "digressionProps": ["药", "买菜", "菜市场", "广场舞", "外孙", "孙子", "孙女", "老伴", "锅", "烧着水", "水开", "电视", "猫", "狗", "快递", "奶粉", "宝宝", "外卖", "室友", "客人", "盘货", "送货", "娃", "孩子", "幼儿园"],
       "spokenDigits": "幺零〇一二两三四五六七八九拐洞"
     },
     "profiles": {
@@ -3387,7 +3389,7 @@
         "shapeTypos": true,
         "punctStyle": "comma",
         "split": 0.3,
-        "emojiComma": 0.15,
+        "emojiComma": 0.0,
         "emojis": [
           "🌹",
           "👍",
@@ -3429,6 +3431,7 @@
           "宝宝把我手机抢走了刚才",
           "幼儿园群里又在接龙"
         ],
+        "propsOk": ["娃", "孩子", "幼儿园"],
         "typoPer100": 2.0,
         "handwritingTypoPer100": 6.0,
         "handwriting": false,
@@ -3461,6 +3464,7 @@
           "等下我室友喊我拿外卖",
           "我这边在面试间隙"
         ],
+        "propsOk": ["室友"],
         "typoPer100": 1.0,
         "handwritingTypoPer100": 3.0,
         "handwriting": false,
@@ -3492,13 +3496,14 @@
           "刚才送货的来了",
           "店里网不太好"
         ],
+        "propsOk": ["客人", "送货", "进货"],
         "typoPer100": 2.0,
         "handwritingTypoPer100": 6.0,
         "handwriting": false,
         "shapeTypos": false,
         "punctStyle": "comma",
         "split": 0.2,
-        "emojiComma": 0.05,
+        "emojiComma": 0.0,
         "emojis": [
           "👍",
           "[强]",

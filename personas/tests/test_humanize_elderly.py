@@ -116,12 +116,16 @@ def test_punct_style_fixed_per_persona():
                         assert False, (pid, out)
 
 
-def test_split_and_emoji_comma_for_elders_only():
+def test_split_for_elders_and_no_emoji_anywhere():
+    # #129：文字回复不再加表情（各预设 emojiComma 为 0）；老人照常拆条
     lines = engine_pool("wang")
     h = Humanizer(profile="wang", seed=11)
-    outs = [h.apply(lines[i % len(lines)], intent="generic") for i in range(300)]
+    outs = [h.apply(lines[i % len(lines)], context="你好", intent="generic") for i in range(300)]
     assert sum(len(r.parts) > 1 for r in outs) > 40
-    assert sum("emoji" in r.ops for r in outs) > 20
+    assert not any("emoji" in r.ops or EMOJI_RE.search(r.text) for r in outs)
+    for pid in ("chen", "zheng", "retiree", "shop_owner"):
+        hz = Humanizer(profile=pid, seed=3)
+        assert not any(EMOJI_RE.search(hz.apply(x, context="你好").text) for x in engine_pool("wang")[:150])
     for r in outs:
         assert all(p.strip() for p in r.parts)
     g = Humanizer(profile="lin", seed=11)
@@ -162,7 +166,7 @@ def test_no_digression_after_cooperative_reply():
         h = Humanizer(profile="wang", seed=s, weights={"digress": 50})
         for it in COOP_INTENTS:
             assert "digress" not in h.apply("好，我照你说的点了，现在出来一个绿色的勾", intent=it).ops
-    assert any("digress" in Humanizer(profile="wang", seed=s, weights={"digress": 50}).apply("嗯嗯你说", intent="generic").ops
+    assert any("digress" in Humanizer(profile="wang", seed=s, weights={"digress": 50}).apply("嗯嗯你说", context="你好", intent="generic").ops
                for s in range(20))
     assert not any("打游戏" in d for d in PERSONA_PROFILES["lin"]["digressions"])
 
