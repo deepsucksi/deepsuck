@@ -28,6 +28,28 @@
     return null;
   }
 
+  // #114：从骗子原话里认场景（core/scenarios.json 的 heardCues，与 Python engine.py、voice/persona.py 同一词表）。
+  // 规则回复里的称呼 {call} 只按骗子已经说出口的场景取，不按后台选的场景取。
+  var HEARD = (D.scenarios && D.scenarios.HEARD_CUES) || {};
+  var SCENE_CUES = {};
+  Object.keys(HEARD.scenes || {}).forEach(function (k) { SCENE_CUES[k] = new RegExp(HEARD.scenes[k]); });
+  var SCENE_IMPLIES = HEARD.implies || {};
+  function scenesIn(text) {
+    var t = String(text || '');
+    return Object.keys(SCENE_CUES).filter(function (k) { return SCENE_CUES[k].test(t); });
+  }
+  /** 骗子说过的话里认出的场景，按第一次出现的先后；认出前一个场景时，implies 里的也算说过 */
+  function heardScenes(texts) {
+    var out = [];
+    (texts || []).forEach(function (t) {
+      t = String(t || '');
+      scenesIn(t).sort(function (a, b) { return t.search(SCENE_CUES[a]) - t.search(SCENE_CUES[b]); }).forEach(function (k) {
+        [k].concat(SCENE_IMPLIES[k] || []).forEach(function (x) { if (out.indexOf(x) < 0) out.push(x); });
+      });
+    });
+    return out;
+  }
+
   function Session(opts) {
     opts = opts || {};
     this.scenario = D.scenarios.BY_ID[opts.scenario] || D.scenarios.SCENARIOS[0];
@@ -136,8 +158,22 @@
     return this.persona.templates[intent] || this.persona.templates.generic;
   };
 
+  Session.prototype.heardScenes = function () {
+    return heardScenes(this.messages.filter(function (m) { return m.role === 'scammer'; }).map(function (m) { return m.text; }));
+  };
+
+  /** 称呼：按骗子已经说出口的场景取（第一个有称呼的）；称呼本身会带出骗子没说的场景（例如“客服”“警官”）就不用 */
+  Session.prototype.salutation = function () {
+    var heard = this.heardScenes(), call = this.persona.call || {};
+    for (var i = 0; i < heard.length; i++) {
+      var c = call[heard[i]] || '';
+      if (c && scenesIn(c).every(function (y) { return heard.indexOf(y) >= 0; })) return c;
+    }
+    return '';
+  };
+
   Session.prototype.fill = function (tpl, vars) {
-    var call = this.persona.call[this.scenario.id] || '';
+    var call = this.salutation();
     vars = vars || {};
     return tpl.replace(/\{(\w+)\}/g, function (_, k) {
       if (k === 'call') return call;
@@ -459,5 +495,5 @@
     });
   };
 
-  return { Session: Session, goalOf: goalOf, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION };
+  return { Session: Session, goalOf: goalOf, scenesIn: scenesIn, heardScenes: heardScenes, REPORT_SCHEMA: REPORT_SCHEMA, VERSION: VERSION };
 });
