@@ -117,8 +117,14 @@ grep -q '^deepsuck-redact|user.info|INFO no changes: files_scanned=7 consented=7
 ! grep -q '3827\|验证码\|banner' "$LOGFILE" || fail "container stderr leaked into log"
 pass "redact-backfill rows_changed=0 -> INFO, container stderr not logged"
 reset; FAKE_EXEC_OUT="$J3" bash "$RB"
-grep -q '^deepsuck-redact|user.warning|WARN re-redacted stored traces: files_scanned=9 consented=7 files_changed=2 rows_changed=3 fields_changed=4' "$LOGFILE" || fail "rows>0 -> WARN"
+grep -q '^deepsuck-redact|user.warning|WARN re-redacted stored traces/transcripts: files_scanned=9 consented=7 files_changed=2 rows_changed=3 fields_changed=4' "$LOGFILE" || fail "rows>0 -> WARN"
 pass "redact-backfill rows_changed>0 -> WARN with counts"
+JT='{"consented": 7, "dir_exists": true, "fields_changed": 0, "files_changed": 0, "files_scanned": 7, "rows_changed": 0, "transcripts": {"dir_exists": true, "files_scanned": 30, "files_changed": 5, "fields_changed": 8, "skipped_recent": 0, "skipped_bad": 0}}'
+reset; FAKE_EXEC_OUT="$JT" bash "$RB"
+grep -q 'user.warning|WARN re-redacted stored traces/transcripts: .* rows_changed=0 .*transcripts_files_scanned=30 transcripts_files_changed=5 transcripts_fields_changed=8' "$LOGFILE" || fail "transcripts changes -> WARN"
+reset; FAKE_EXEC_OUT="${JT/\"fields_changed\": 8/\"fields_changed\": 0}" bash "$RB"
+grep -q 'user.info|INFO no changes: .*transcripts_fields_changed=0' "$LOGFILE" || fail "transcripts 0 -> INFO"
+pass "redact-backfill logs transcripts counts (#125)"
 reset; FAKE_EXEC_OUT="$J3" bash "$RB" --dry-run
 grep -q '^docker exec deepsuck-voice-1 python -m voice.redact_backfill --dry-run$' "$CALLS" || fail "dry-run passes --dry-run"
 grep -q 'user.warning|WARN \[dry-run\] would re-redact' "$LOGFILE" || fail "dry-run log"

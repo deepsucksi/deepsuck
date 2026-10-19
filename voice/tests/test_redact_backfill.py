@@ -93,3 +93,68 @@ def test_bot_rows_and_card_fragments():
     assert new[1]["asr"] == "卡号 **** 开头" and new[1]["reply"] == "****开头…尾号****对吧"
     assert new[2]["asr"] == "我是 138 开头的号码" and new[2]["reply"] == "***开头…后面是****"
     assert new[0] == rows[0] and n == 2
+
+
+# ---------------- 文字记录（#125） ----------------
+def _tdoc():
+    return {"schema": "deepsuck.report/v1", "channel": "web", "intel": [{"type": "bank_card", "masked": "622202*********3445"}],
+            "transcript": [{"role": "scammer", "text": "验证码收到没有", "at": 0, "intent": None, "tactics": []},
+                           {"role": "bot", "text": "嗯…验证码是472？", "at": 1, "intent": "otp_stall", "tactics": []},
+                           {"role": "scammer", "text": "我是 138 开头的号码，先转 300 元", "at": 2, "intent": None, "tactics": []},
+                           {"role": "bot", "text": "138开头…后面是零零幺三", "at": 3, "intent": "generic", "tactics": []},
+                           {"role": "bot", "text": "我只有五百块，三点半到", "at": 4, "intent": "generic", "tactics": []}]}
+
+
+def _wj(p, doc, mtime=1_000_000):
+    p.write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
+    os.chmod(p, 0o600)
+    os.utime(p, (mtime, mtime))
+
+
+def test_transcripts_dry_run_backup_rewrite_and_idempotent(tmp_path):
+    tr, td = tmp_path / "traces", tmp_path / "transcripts"
+    tr.mkdir()
+    td.mkdir()
+    _wj(td / "20261019-114231-web-AAAAAAAA.json", _tdoc())
+    _wj(td / "20261019-114232-web-BBBBBBBB.json", {"transcript": [{"role": "scammer", "text": "你好"}]})
+    (td / "20261019-114233-web-CCCCCCCC.json").write_text("{坏", encoding="utf-8")
+    os.utime(td / "20261019-114233-web-CCCCCCCC.json", (1_000_000, 1_000_000))
+    _wj(td / "20261019-114234-web-DDDDDDDD.json", _tdoc(), mtime=2_000_000)   # 太新，跳过
+    s = BF.run(tr, dry_run=True, transcripts=td, now=2_000_100)
+    t = s["transcripts"]
+    assert (t["files_scanned"], t["files_changed"], t["fields_changed"], t["skipped_bad"], t["skipped_recent"]) == (4, 1, 2, 1, 1)
+    assert json.loads((td / "20261019-114231-web-AAAAAAAA.json").read_text(encoding="utf-8")) == _tdoc()
+    bak = tmp_path / "bak.tar"
+    s = BF.run(tr, dry_run=False, transcripts=td, backup=bak, now=2_000_100)
+    assert s["transcripts"]["files_changed"] == 1 and s["backup_files"] == 1
+    with tarfile.open(bak) as tf:
+        assert tf.getnames() == ["transcripts/20261019-114231-web-AAAAAAAA.json"]
+    p = td / "20261019-114231-web-AAAAAAAA.json"
+    d = json.loads(p.read_text(encoding="utf-8"))
+    assert [m["text"] for m in d["transcript"]] == ["验证码收到没有", "嗯…验证码是***？", "我是 138 开头的号码，先转 300 元",
+                                                   "***开头…后面是****", "我只有五百块，三点半到"]
+    assert d["intel"] == _tdoc()["intel"] and d["channel"] == "web"
+    assert p.stat().st_mtime == 1_000_000 and oct(p.stat().st_mode & 0o777) == "0o600"
+    assert p.read_text(encoding="utf-8") == json.dumps(d, ensure_ascii=False, indent=1)
+    assert BF.run(tr, dry_run=True, transcripts=td, now=2_000_100)["transcripts"]["fields_changed"] == 0
+
+
+def test_transcripts_same_rule_as_trace():
+    from deepsuck.redact import redact_dialog_segments
+    doc = _tdoc()
+    new, n = BF.redact_transcript(doc)
+    msgs = doc["transcript"]
+    assert [m["text"] for m in new["transcript"]] == redact_dialog_segments([m["text"] for m in msgs], [m["role"] for m in msgs])
+    assert n == 2 and BF.redact_transcript({"x": 1}) == ({"x": 1}, 0)
+
+
+def test_main_reports_transcripts_and_can_skip(tmp_path, capsys):
+    tr, td = tmp_path / "traces", tmp_path / "transcripts"
+    tr.mkdir()
+    td.mkdir()
+    _wj(td / "a.json", _tdoc())
+    assert BF.main(["--dir", str(tr), "--transcripts", str(td), "--dry-run"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["transcripts"]["fields_changed"] == 2 and "472" not in json.dumps(out)
+    assert BF.main(["--dir", str(tr), "--no-transcripts", "--dry-run"]) == 0
+    assert "transcripts" not in json.loads(capsys.readouterr().out)

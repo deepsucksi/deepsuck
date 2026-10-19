@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 每日重跑 trace 脱敏兜底（GitHub #107，#92 后续）：由 deepsuck-redact.timer 每天 20:30（+08:00）调度，
+# 每日重跑 trace 与文字记录（#125）脱敏兜底（GitHub #107，#92 后续）：由 deepsuck-redact.timer 每天 20:30（+08:00）调度，
 # 在 20:40 成本汇总之前。在运行中的 voice 容器里执行 python -m voice.redact_backfill（只改已同意通话，
 # 只把新规则命中的数字换成 *，保留修改时间；规则随镜像更新）。
 #
@@ -42,15 +42,21 @@ if not isinstance(d, dict) or not d.get("dir_exists"):
     print("NODIR"); sys.exit(0)
 keys = ("files_scanned", "consented", "files_changed", "rows_changed", "fields_changed", "skipped_not_consented",
         "skipped_unknown_consent", "skipped_recent", "skipped_changed")
-print(" ".join("%s=%d" % (k, int(d.get(k) or 0)) for k in keys))') || line=BAD
+s = " ".join("%s=%d" % (k, int(d.get(k) or 0)) for k in keys)
+t = d.get("transcripts")
+if isinstance(t, dict):  # #125：文字记录（DATA_DIR/voice/transcripts）
+    s += " " + " ".join("transcripts_%s=%d" % (k, int(t.get(k) or 0))
+                        for k in ("files_scanned", "files_changed", "fields_changed", "skipped_recent", "skipped_bad"))
+print(s)') || line=BAD
 case "$line" in
   BAD) log err "$TAG" "voice.redact_backfill output is not the expected JSON"; exit 1 ;;
   NODIR) log err "$TAG" "trace dir missing in $CONTAINER"; exit 1 ;;
 esac
-rows=$(printf '%s\n' "$line" | sed -n 's/.*rows_changed=\([0-9]*\).*/\1/p')
-if [ "${rows:-0}" -gt 0 ]; then
+rows=$(printf '%s\n' "$line" | sed -n 's/.* rows_changed=\([0-9]*\).*/\1/p')
+tfields=$(printf '%s\n' "$line" | sed -n 's/.*transcripts_fields_changed=\([0-9]*\).*/\1/p')
+if [ "${rows:-0}" -gt 0 ] || [ "${tfields:-0}" -gt 0 ]; then
   if [ "$DRY_RUN" = 1 ]; then verb="would re-redact"; else verb="re-redacted"; fi
-  log warning "$TAG" "$verb stored traces: $line"
+  log warning "$TAG" "$verb stored traces/transcripts: $line"
 else
   log info "$TAG" "no changes: $line"
 fi
