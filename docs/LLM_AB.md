@@ -45,7 +45,7 @@
 | qwen3.8-flash | 0.8 | 2.7 | https://help.aliyun.com/zh/model-studio/qwen3-8-flash |
 
 代码：`voice/guard.py` 的 `LLM_PRICES`，按 `DEEPSUCK_LLM_MODEL` 取价（快照名按前缀）。`PRICE_LLM_IN/OUT_PER_M` 是 Node 代理按 `LLM_MODEL`
-记账用的，只在语音模型和它相同时才套用；语音要单独覆盖用 `VOICE_PRICE_LLM_IN/OUT_PER_M` 或 `PRICE_LLM_TABLE=模型:输入:输出,...`。
+记账用的；语音和成本报告（`voice/cost.py`）只在模型不在单价表里、且与代理同一模型时才套用（#149：表里有的模型一律按官方价）；语音要单独覆盖用 `VOICE_PRICE_LLM_IN/OUT_PER_M` 或 `PRICE_LLM_TABLE=模型:输入:输出,...`。
 
 ## 网络（香港服务器 → 百炼，curl 各 5 次中位数）
 

@@ -70,6 +70,12 @@ def llm_price_table(env=None) -> Dict[str, Tuple[float, float]]:
     return table
 
 
+def llm_price_known(model: str, env=None) -> bool:
+    """单价表（含 PRICE_LLM_TABLE）里有这个模型（精确名或快照前缀）。"""
+    table = llm_price_table(env)
+    return model in table or any(model.startswith(k + "-") for k in table)
+
+
 def llm_price(model: str, env=None) -> Tuple[float, float]:
     """按模型取（输入, 输出）单价。精确名优先，其次最长前缀（快照名）；查不到按表里最贵的算（预算宁高勿低）。"""
     table = llm_price_table(env)
@@ -102,8 +108,10 @@ class Prices:
             except (TypeError, ValueError):
                 return default
 
-        # PRICE_LLM_* 是 Node 代理按 LLM_MODEL 记账用的；语音换了别的模型时不能沿用，否则预算算错
-        same = model == (e.get("LLM_MODEL") or PROXY_LLM_MODEL)
+        # PRICE_LLM_* 是 Node 代理按 LLM_MODEL 记账用的；语音换了别的模型时不能沿用，否则预算算错。
+        # #149：单价表里有的模型一律按表（官方价），不让 .env 里遗留的旧单价（如 qwen-plus 的输出 2）盖掉；
+        # 只有表里没有的模型才沿用 PRICE_LLM_*。要强制覆盖用 VOICE_PRICE_LLM_* 或 PRICE_LLM_TABLE。
+        same = model == (e.get("LLM_MODEL") or PROXY_LLM_MODEL) and not llm_price_known(model, e)
         p_in = f("VOICE_PRICE_LLM_IN_PER_M", f("PRICE_LLM_IN_PER_M", p_in) if same else p_in)
         p_out = f("VOICE_PRICE_LLM_OUT_PER_M", f("PRICE_LLM_OUT_PER_M", p_out) if same else p_out)
         out = cls(f("PRICE_ASR_PER_SEC", 0.00024), f("PRICE_TTS_PER_10K_CHARS", 0.8) / 10000, p_in, p_out, model)

@@ -276,10 +276,14 @@ def asr_price_per_sec(env=None) -> float:
 
 
 def proxy_prices(env=None) -> Tuple[str, float, float]:
-    """文字代理：server/index.js 用 LLM_MODEL + PRICE_LLM_IN/OUT_PER_M（默认 qwen3.8-flash 0.8 / 2.7，#148）。"""
+    """文字代理：按 LLM_MODEL（默认 qwen3.8-flash，#148）查 guard.LLM_PRICES（qwen3.8-flash 0.8 / 2.7）。
+    #149：表里有的模型按官方价算，不用 .env 里可能遗留的 PRICE_LLM_IN/OUT_PER_M；表里没有的模型才用这两项（再没有按最贵算）。
+    要强制覆盖用 PRICE_LLM_TABLE。"""
     e = _env(env)
     model = e.get("LLM_MODEL") or G.PROXY_LLM_MODEL
     p_in, p_out = G.llm_price(model, e)
+    if G.llm_price_known(model, e):
+        return model, p_in, p_out
     return model, _fenv(e, "PRICE_LLM_IN_PER_M", p_in), _fenv(e, "PRICE_LLM_OUT_PER_M", p_out)
 
 
@@ -533,7 +537,8 @@ def build_report(day: str, *, traces: Optional[Path], data: Optional[Path], usag
     return {**today, "baseline": b, "sources": sources,
             "prices": {"asr_per_sec": asr_price_per_sec(env),
                        "llm_default": dict(zip(("in_per_m", "out_per_m"), llm_prices(None, env))),
-                       "llm_default_model": _env(env).get("DEEPSUCK_LLM_MODEL") or G.DEFAULT_LLM_MODEL}}
+                       "llm_default_model": _env(env).get("DEEPSUCK_LLM_MODEL") or G.DEFAULT_LLM_MODEL,
+                       "proxy": dict(zip(("model", "in_per_m", "out_per_m"), proxy_prices(env)))}}
 
 
 # ---------------------------------------------------------------- 输出

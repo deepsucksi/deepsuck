@@ -139,6 +139,12 @@ def test_chat_budget_and_eval_spend(tmp_path):
                                              "2026-10-19,corpus,68,0.25,复测\n2026-10-18,voice,40,9,昨天\n", encoding="utf-8")
     r = report(tmp_path)
     assert r["items"]["proxy"] == pytest.approx(F38[0] + 0.5 * F38[1])
+    assert r["sources"]["chat_budget"]["model"] == "qwen3.8-flash"
+    assert r["prices"]["proxy"] == {"model": "qwen3.8-flash", "in_per_m": 0.8, "out_per_m": 2.7}
+    assert r["prices"]["llm_default"] == {"in_per_m": 0.8, "out_per_m": 2.7}
+    # #149：生产 .env 里遗留 qwen-plus 的单价（0.8 / 2）时，qwen3.8-flash 仍按 0.8 / 2.7
+    r = report(tmp_path, env={"LLM_MODEL": "qwen3.8-flash", "PRICE_LLM_IN_PER_M": "0.8", "PRICE_LLM_OUT_PER_M": "2"})
+    assert r["items"]["proxy"] == pytest.approx(F38[0] + 0.5 * F38[1])
     assert r["items"]["eval"] == pytest.approx(0.45)
     assert len(r["eval_rows"]) == 2
 

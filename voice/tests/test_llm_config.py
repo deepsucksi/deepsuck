@@ -34,9 +34,11 @@ def test_proxy_price_only_for_same_model():
     p = G.Prices.from_env(env=prod)
     assert (p.llm_in_per_m, p.llm_out_per_m) == (0.2, 0.8)          # 代理单价不套到别的模型
     p = G.Prices.from_env(env=dict(prod, DEEPSUCK_LLM_MODEL="qwen3.8-flash", PRICE_LLM_IN_PER_M="0.9"))
-    assert p.llm_in_per_m == 0.9                                    # 同一模型时沿用
+    assert (p.llm_in_per_m, p.llm_out_per_m) == (0.8, 2.7)          # #149：表里有的模型按官方价，遗留的 PRICE_LLM_* 不盖
+    p = G.Prices.from_env(env={"LLM_MODEL": "x-new", "DEEPSUCK_LLM_MODEL": "x-new", "PRICE_LLM_IN_PER_M": "0.9"})
+    assert p.llm_in_per_m == 0.9                                    # 表里没有的同一模型才沿用代理单价
     p = G.Prices.from_env(env={"PRICE_LLM_IN_PER_M": "5"})            # LLM_MODEL 未设 = 代理默认 qwen3.8-flash（#148）
-    assert p.llm_in_per_m == 5.0                                    # 与语音默认同一模型，沿用代理单价
+    assert p.llm_in_per_m == 0.8
     p = G.Prices.from_env(env={"LLM_MODEL": "qwen3.7-flash", "PRICE_LLM_IN_PER_M": "5"})
     assert p.llm_in_per_m == 0.8                                    # 模型不同就查表
     p = G.Prices.from_env(env=dict(prod, VOICE_PRICE_LLM_IN_PER_M="0.3", VOICE_PRICE_LLM_OUT_PER_M="1"))
