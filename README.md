@@ -94,7 +94,7 @@ Node.js ≥ 18，零依赖，无需 `npm install`。语音演示、无 Key 时�
 
 ## 参与贡献
 
-欢迎 Issue 与 PR，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。提交前请运行 `npm test`；请勿在 Issue/PR 中提交任何真实、未脱敏的个人信息。
+欢迎 Issue 与 PR，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。第一次参与可以从 [good first issue](https://github.com/deepsucksi/deepsuck/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) 开始，认领与提问方式见 [CONTRIBUTING.md 的「新人任务」](CONTRIBUTING.md#新人任务good-first-issue)。提交前请运行 `npm test`；请勿在 Issue/PR 中提交任何真实、未脱敏的个人信息。
 
 ## 致谢
 
