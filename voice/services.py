@@ -168,7 +168,7 @@ class CosyVoiceTTSService(TTSService):
                 return
             await self.start_tts_usage_metrics(text)
             if self._meter is not None:
-                self._meter.tts(len(text))
+                self._meter.tts(len(text), text=text)
             pcm = ds.synthesize(text, voice=self._settings.voice, model=self._settings.model,
                                 sample_rate=sr, rate=self._rate, key=self._key, connect=self._connect,
                                 instruction=self._instruction)
@@ -332,7 +332,7 @@ class CosyVoiceStreamTTSService(WebsocketTTSService):
                 raise RuntimeError("合成任务已失败")
             await self.start_tts_usage_metrics(text)
             if self._meter is not None:
-                self._meter.tts(len(text))
+                self._meter.tts(len(text), text=text)
             await self._websocket.send(json.dumps(ds.continue_task_text(self._task_id, text)))
             if pause:
                 # 这一句合成完就结束任务，task-finished 时插静音；回合继续

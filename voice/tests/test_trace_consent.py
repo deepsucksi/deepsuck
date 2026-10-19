@@ -10,7 +10,8 @@ from voice import trace as TR
 # 没同意的通话里允许出现的字符串字段（编号、时间、人设、渠道、模型、音色、版本、枚举）；其余字符串一律算文字
 ALLOWED_STR = {"type", "t", "ts", "started_at", "ended_at", "id", "call_id", "channel", "persona", "persona_id",
                "scenario", "model", "engine", "asr_model", "tts_model", "tts_voice", "code", "promptVersion", "fk",
-               "reason", "exit_reason", "kind", "during", "stage", "ice", "conn", "gather", "path", "scrubbed_at"}
+               "reason", "exit_reason", "kind", "during", "stage", "ice", "conn", "gather", "path", "scrubbed_at",
+               "llm_model"}
 SECRET_WORDS = ("客服", "卡号", "6222", "3445", "张", "答非所问", "喂", "哪位", "别催", "嗯", "说明")
 
 
@@ -216,3 +217,31 @@ def test_scrub_cli(tmp_path, capsys):
         assert json.loads(capsys.readouterr().out)["files"] == 0
     finally:
         os.environ.pop("TRACE_DIR", None)
+
+
+def test_no_consent_v3_call_rows_only_usage(tmp_path):
+    """v3（#94）新加的 call 行和 end 行字段，没同意的通话里也只有用量和元数据。"""
+    from voice import guard as G
+
+    env = _env(tmp_path)
+    tk = G.VoiceBudget().reserve(0.0)
+    t = TR.CallTrace(channel="web", consent=False, persona="wang", scenario="refund", model="qwen-flash", env=env,
+                     tts_voice="v-wang", asr_model="asr-x", tts_model="tts-x", usage_fn=lambda: dict(tk.usage),
+                     calls_fn=tk.kinds, feedback_key="k")
+    tk.tag("喂？哪位", "opening")
+    tk.tts(4, text="喂？哪位")
+    tk.asr(2.0)
+    tk.llm(300, 12)
+    tk.tts(6, text="卡号再说一遍")
+    tk.tts(2, kind="filler", text="嗯…")
+    _talk(t)
+    tk.tag("我先挂了", "farewell")
+    tk.tts(4, text="我先挂了")
+    t.end("client_hangup", usage=dict(tk.usage))
+    _assert_no_text(t.path)
+    rows = _lines(t.path)
+    calls = [r for r in rows if r["type"] == "call"]
+    assert {c["kind"] for c in calls} == {"opening", "asr", "reply", "filler", "farewell"}
+    assert sum(c["tts_billed_chars"] for c in calls) == rows[-1]["usage_total"]["tts_billed_chars"] > 0
+    end = rows[-1]
+    assert (end["persona"], end["channel"], end["asr_model"], end["tts_model"]) == ("wang", "web", "asr-x", "tts-x")

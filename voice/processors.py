@@ -395,7 +395,7 @@ async def synth_fillers(persona_id: str, voice, sample_rate: int, synth=None, ca
         try:
             buf = bytearray()
             if meter is not None:
-                meter.tts(len(line))
+                meter.tts(len(line), kind="filler", text=line)
             async for chunk in synth(line, voice=voice_name, sample_rate=sample_rate, **extra):
                 buf.extend(chunk)
             pcm = trim_silence(bytes(buf), sample_rate)

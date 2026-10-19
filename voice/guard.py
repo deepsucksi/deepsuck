@@ -133,29 +133,87 @@ class Limits:
         )
 
 
+def _is_hanzi(ch: str) -> bool:
+    o = ord(ch)
+    return (0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF or 0xF900 <= o <= 0xFAFF
+            or 0x20000 <= o <= 0x3134F)
+
+
+def tts_billed_chars(text) -> int:
+    """CosyVoice 计费字符数：汉字（简体、繁体、日文汉字、韩文汉字）算 2 个，其他字符（标点、字母、数字、空格、
+    假名、谚文）算 1 个。用实际送去合成的原文算（脱敏之前）。
+    出处（2026-10-19 查阅）：百炼「实时语音合成」https://help.aliyun.com/zh/model-studio/realtime-tts-user-guide
+    （CosyVoice 字符计数规则）；CosyVoice 接口说明 https://help.aliyun.com/zh/isi/user-guide/siso-text-to-speech-synthesis-for-cosyvoice-interface-description
+    （「1个汉字计为 2个字符；1个英文字母、标点或句子中间的空格计为 1个字符」，计量字段 measureLength）。"""
+    t = "" if text is None else str(text)
+    return sum(2 if _is_hanzi(c) else 1 for c in t)
+
+
+TICKET_KEYS = ("asr_sec", "tts_chars", "tts_billed_chars", "llm_in", "llm_out")
+
+
 class Ticket:
-    """一局通话的预占额度与实际花费。"""
+    """一局通话的预占额度与实际花费。
+
+    usage 是整局合计；by_kind 按调用用途（reply / filler / opening / disclosure / farewell / asr …）分开记，
+    给通话追踪 v3 的 type="call" 行用（docs/TRACE_SCHEMA.md），各 kind 之和等于 usage。"""
 
     def __init__(self, budget: "VoiceBudget", resv: float, sid: str):
         self.budget, self.resv, self.sid = budget, resv, sid
         self.spent = 0.0
-        self.usage = {"asr_sec": 0.0, "tts_chars": 0, "llm_in": 0, "llm_out": 0}
+        self.usage = {"asr_sec": 0.0, "tts_chars": 0, "tts_billed_chars": 0, "llm_in": 0, "llm_out": 0}
+        self.by_kind: Dict[str, Dict[str, float]] = {}
+        self._tags: List[list] = []  # [剩余文字, kind]：开场白、告别语等下一次合成时按文字认出用途
         self.closed = False
 
+    def _kind(self, kind: str, key: str, v) -> None:
+        d = self.by_kind.setdefault(kind or "reply", {k: 0 for k in TICKET_KEYS})
+        d[key] += v
+
+    def tag(self, text, kind: str) -> None:
+        """登记一段即将合成的文字的用途（opening / disclosure / farewell）；TTS 服务分句合成时按子串认领。"""
+        t = "".join(str(text or "").split())
+        if t:
+            self._tags.append([t, kind])
+
+    def _claim(self, text) -> Optional[str]:
+        t = "".join(str(text or "").split())
+        if not t:
+            return None
+        for tag in self._tags:
+            if t in tag[0]:
+                tag[0] = tag[0].replace(t, "", 1)
+                if not any(c.isalnum() for c in tag[0]):
+                    self._tags.remove(tag)
+                return tag[1]
+        return None
+
     # 计量回调（服务里调用）
-    def asr(self, seconds: float) -> None:
+    def asr(self, seconds: float, kind: str = "asr") -> None:
         self.usage["asr_sec"] += seconds
+        self._kind(kind, "asr_sec", seconds)
         self._charge(seconds * self.budget.prices.asr_per_sec)
 
-    def tts(self, chars: int) -> None:
+    def tts(self, chars: int, kind: Optional[str] = None, text=None) -> None:
+        """chars：送去合成的字数（len）；text：原文（算计费字符数、认领 tag 用）。kind 不给时按 tag 认，认不出算 reply。"""
+        billed = tts_billed_chars(text) if text is not None else int(chars)
+        kind = kind or self._claim(text) or "reply"
         self.usage["tts_chars"] += chars
+        self.usage["tts_billed_chars"] += billed
+        self._kind(kind, "tts_chars", chars)
+        self._kind(kind, "tts_billed_chars", billed)
         self._charge(chars * self.budget.prices.tts_per_char)
 
-    def llm(self, tokens_in: int, tokens_out: int) -> None:
+    def llm(self, tokens_in: int, tokens_out: int, kind: str = "reply") -> None:
         self.usage["llm_in"] += tokens_in
         self.usage["llm_out"] += tokens_out
+        self._kind(kind, "llm_in", tokens_in)
+        self._kind(kind, "llm_out", tokens_out)
         p = self.budget.prices
         self._charge((tokens_in * p.llm_in_per_m + tokens_out * p.llm_out_per_m) / 1e6)
+
+    def kinds(self) -> Dict[str, Dict[str, float]]:
+        return {k: dict(v) for k, v in self.by_kind.items()}
 
     def _charge(self, cny: float) -> None:
         self.spent += cny

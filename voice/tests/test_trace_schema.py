@@ -70,7 +70,7 @@ END_FIELDS = ("schema_version", "call_id", "started_at", "ended_at", "duration_s
 def test_turn_and_end_schema_fields(tmp_path):
     t = _call(_env(tmp_path))
     rows = _lines(t.path)
-    assert all(r["schema_version"] == TR.SCHEMA_VERSION == 2 and r["call_id"] == t.id for r in rows)
+    assert all(r["schema_version"] == TR.SCHEMA_VERSION == 3 and r["call_id"] == t.id for r in rows)
     st = rows[0]
     assert st["type"] == "start" and st["persona_id"] == "wang" and st["tts_voice"] == "v-wang"
     assert st["asr_model"] == "asr-x" and st["tts_model"] == "tts-x" and st["fk"] and "key" not in json.dumps(st)
@@ -89,7 +89,10 @@ def test_turn_and_end_schema_fields(tmp_path):
     for f in END_FIELDS:
         assert f in end, f
     assert end["exit_reason"] == "client_hangup" and end["duration_sec"] == 30.0 and end["consent"] is True
-    assert end["usage_total"] == {"llm_in_tokens": 1700, "llm_out_tokens": 55, "asr_audio_sec": 12.0, "tts_chars": 40}
+    # v2 的名字全部保留，v3 只新增（tts_billed_chars 和定稿名）
+    assert end["usage_total"] == {"llm_in_tokens": 1700, "llm_out_tokens": 55, "asr_audio_sec": 12.0, "tts_chars": 40,
+                                  "tts_billed_chars": 0, "prompt_tokens": 1700, "completion_tokens": 55,
+                                  "asr_seconds": 12.0}
     assert end["interrupted_turns"] == 1 and end["turns"] == 2 and end["cost_cny"] == 0.0123
     assert end["started_at"] == st["started_at"] and end["ended_at"] > end["started_at"]
 
@@ -152,7 +155,7 @@ def test_audio_dir_and_days_configurable(tmp_path):
     # 默认：录音和文字同目录、同天数
     assert TR.audio_dir(_env(tmp_path)) == TR.trace_dir(_env(tmp_path)) and TR.audio_days(_env(tmp_path)) == 30
     d = TR.describe(env)
-    assert d["audioDir"] == str(tmp_path / "audio") and d["audioDays"] == 7 and d["schema"] == 2
+    assert d["audioDir"] == str(tmp_path / "audio") and d["audioDays"] == 7 and d["schema"] == 3
 
 
 def test_usage_by_day_and_flagged(tmp_path, capsys):
@@ -162,7 +165,7 @@ def test_usage_by_day_and_flagged(tmp_path, capsys):
     b = _call(env, consent=True, clock=Clock(1_790_000_000.0 + 86400))
     assert TR.feedback(b.id, "第二轮答非所问", 2, env=env, key="key", now=1_790_000_000.0 + 86400 + 60) == {"ok": True}
     rep = TR.usage_by_day(env=env)
-    assert rep["schema_version"] == 2 and [d["date"] for d in rep["days"]] == ["2026-09-21", "2026-09-22"]
+    assert rep["schema_version"] == 3 and [d["date"] for d in rep["days"]] == ["2026-09-21", "2026-09-22"]
     d1, d2 = rep["days"]
     assert d1["calls"] == 1 and d1["consent_calls"] == 0 and d2["consent_calls"] == 1 and d2["flagged_calls"] == 1
     assert d1["llm_in_tokens"] == 1700 and d1["llm_out_tokens"] == 55 and d1["asr_audio_sec"] == 12.0
