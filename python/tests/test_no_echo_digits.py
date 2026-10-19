@@ -30,7 +30,7 @@ def echoes(text):
 
 def test_probe_lines_have_no_digit_runs_after_filter():
     out = [vague_digits(t) for t in PROBES]
-    assert out == ["嗯…验证码是那几个数没听清？", "好像是6开头的…后面几位没听清对吧", "好像是1开头的…后面几位没听清"]
+    assert re.fullmatch("嗯…验证码是(?:那几个数没听清|那串数没记住|那几位没看清)？", out[0]) and re.fullmatch("(?:好像是|像是|记得是)6开头的…(?:后面几位没听清|后面几位没看清|后面几个没记住)对吧", out[1]) and re.fullmatch("(?:好像是|像是|记得是)1开头的…(?:后面几位没听清|后面几位没看清|后面几个没记住)", out[2]), out  # #130：说法轮换
     for o in out:
         assert not echoes(o), o
 
@@ -42,7 +42,7 @@ def test_probe_lines_have_no_digit_runs_after_filter():
 def test_every_form_of_digit_run_is_vague(text):
     out = vague_digits(text)
     assert not echoes(out), (text, out)
-    assert re.search("没听清|开头", out), out
+    assert re.search("没听清|没看清|没记住|开头", out), out
 
 
 @pytest.mark.parametrize("text", ["好像是6开头的", "分期是12期还是24期？", "我刚才那 5 块钱", "两三百块", "等我一下", "一二十分钟吧"])

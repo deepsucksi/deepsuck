@@ -128,28 +128,79 @@
   var PURE_STALL = ['otp_stall', 'urgency_stall', 'tech_trouble', 'slow_walk', 'ask_repeat', 'misunderstand', 'info_stall', 'generic'];
   var DIGIT_TYPES = ['bank_card', 'phone', 'alipay', 'qq'];
   /** 把尾号报错一位（让对方纠正）：末两位不同则对调，否则末位 +1 */
-  // 人设回复发出前的数字过滤（issue #121，与 python/deepsuck/engine.py 的 vague_digits 一致）
+  // 人设回复发出前的过滤（#121 数字、#130 打码片段与叠词；与 python/deepsuck/engine.py 的 vague_digits 逐字一致）
   var DE = D.personas.DIGIT_ECHO;
   function reEsc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
   var DD = '[' + DE.digits + ']';
   var DJ = '[' + DE.joiners + ']{0,2}';
   var DM = '[' + DE.digits + reEsc(DE.masks) + ']'; // 数字或打码星号
   var DRUN = '(?=' + DM + '*' + DD + ')' + DM + '(?:' + DJ + DM + '){' + (DE.minRun - 1) + ',}';
+  var DRUN_D = DD + '(?:' + DJ + DM + '){' + (DE.minRun - 1) + ',}'; // 以数字开头的串（留第一位用）
   var TAILW = '(?:' + DE.tailWords.map(reEsc).join('|') + ')';
   var MONEYW = '(?:' + DE.moneyUnits.map(reEsc).join('|') + ')';
-  var DIGIT_LEAD = new RegExp('(' + DD + '(?:' + DJ + DM + '){' + (DE.minRun - 1) + ',})' + DJ + '开头(?:的)?', 'g');
+  var STAR = reEsc(DE.masks);
+  var DIGIT_LEAD = new RegExp('(' + DRUN_D + ')' + DJ + '开头(?:的)?', 'g');
+  var DIGIT_LEAD_AFTER = new RegExp('(开头|打头)(?:是|为)?' + DJ + '(' + DRUN_D + ')', 'g');
   var DIGIT_MONEY = new RegExp(DRUN + DJ + MONEYW, 'g');
   var DIGIT_TAIL = new RegExp(TAILW + '(?:是|为)?' + DJ + DRUN, 'g');
   var DIGIT_RUN = new RegExp(DRUN, 'g');
-  /** 连续 3 位及以上的数字（阿拉伯、全角、中文数字，混写也算）换成含糊说法；只留“好像是6开头的”这样的单个数字。
-   *  放在错别字扰动之后、语音合成之前。 */
+  // 打码姓名（#130，与 voice/persona.py 的 _unmask_names 同一规则）：张**、王*明、欧阳**，前面的“姓”一并换掉
+  var NAME_MASK = new RegExp('(姓)?(' + DE.compoundSurnames.join('|') + '|[\u4e00-\u9fff])' +
+    '(?:[' + STAR + '](?:(?![' + DE.nameTailStop + '])[\u4e00-\u9fff](?![' + STAR + ']))?(?![0-9A-Za-z' + STAR + '])|[' + STAR + ']{2,4}(?![0-9A-Za-z' + STAR + ']))', 'g');
+  var OTHER_MASK = new RegExp('[A-Za-z0-9_.:/@\\-]*[' + STAR + ']+[A-Za-z0-9_.:/@\\-' + STAR + ']*', 'g');
+  var LITERAL = DE.tail.map(function (p) { return [p, 'T']; }).concat(DE.other.map(function (p) { return [p, 'O']; }))
+    .sort(function (x, y) { return y[0].length - x[0].length; });
+  var HEARD = new RegExp(DE.heardAlready.map(reEsc).join('|'));
+  var TOK = /\uE000([A-Za-z]+)([^\uE001]*)\uE001/;
+  var SEPCH = ' \u3000…,，、.．·~～-—';
+  var CLAUSE_END = '？?！!。；;，,…\n';
+  var SEPCLS = SEPCH.replace(/[\]\\^-]/g, '\\$&'); // 字符类里用：- 要转义
+  var MERGE_OT = new RegExp('\uE000[OT]\uE001(?:[' + SEPCLS + ']*\uE000[OT]\uE001)+', 'g');
+  var MERGE_N = new RegExp('(\uE000(?:N|H)\uE001)(?:[' + SEPCLS + ']*\uE000(?:N|H)\uE001)+', 'g');
+  var TRAIL = new RegExp('[' + (SEPCH + CLAUSE_END).replace(/[\]\\^-]/g, '\\$&') + ']+$');
+  function tok(kind, arg) { return '\uE000' + kind + (arg || '') + '\uE001'; }
+  /** 人设回复发出前的过滤：数字串 → 含糊说法（只留单个数字），打码片段 → “那个名字”“那个号”，叠在一起的“没听清”合并成一处。
+   *  说法按原句字符码之和轮换。放在错别字扰动之后、语音合成之前。 */
   function vagueDigits(text) {
     if (!text) return text;
-    return String(text)
-      .replace(DIGIT_LEAD, function (m, run) { return DE.lead.split('{d}').join(run.charAt(0)) + '的'; })
-      .replace(DIGIT_TAIL, DE.tail)
-      .replace(DIGIT_MONEY, DE.money)
-      .replace(DIGIT_RUN, DE.other);
+    var src = String(text);
+    var h = 0;
+    for (var ch of src) h += ch.codePointAt(0);
+    var s = src;
+    LITERAL.forEach(function (x) { s = s.split(x[0]).join(tok(x[1])); });
+    s = s.replace(DIGIT_LEAD, function (m, run) { return tok('L', run.charAt(0)); })
+      .replace(DIGIT_LEAD_AFTER, function (m, w, run) { return w + tok('A', run.charAt(0)); })
+      .replace(DIGIT_TAIL, tok('T'))
+      .replace(DIGIT_MONEY, tok('M'))
+      .replace(DIGIT_RUN, tok('O'))
+      .replace(NAME_MASK, function (m, xing, sur) { return sur.length === 1 && DE.notSurname.indexOf(sur) >= 0 ? m : tok('N'); })
+      .replace(OTHER_MASK, function (m) { return tok(m.indexOf('@') >= 0 ? 'E' : /[A-Za-z]{2,}\.|\.[A-Za-z]{2,}/.test(m) ? 'U' : 'H'); });
+    if (s.indexOf('\uE000') < 0) return s;
+    s = s.replace(MERGE_OT, function (m) { return tok(m.indexOf('\uE000T') >= 0 ? 'T' : 'O'); })
+      .replace(MERGE_N, function (m, first) { return first; });
+    var parts = s.split(TOK); // [文字, 类型, 参数, 文字, ...]
+    var plain = parts.filter(function (_, i) { return i % 3 === 0; }).join('');
+    var fullUsed = HEARD.test(plain);
+    var out = [parts[0]];
+    var n = 0;
+    for (var i = 1; i < parts.length; i += 3) {
+      var kind = parts[i], arg = parts[i + 1], after = parts[i + 2];
+      var k = n++;
+      var pick = function (lst) { return lst[(h + k) % lst.length]; };
+      var prev = out[out.length - 1];
+      if (kind === 'O' || kind === 'T') {
+        if (!fullUsed) { out.push(pick(kind === 'T' ? DE.tail : DE.other)); fullUsed = true; }
+        else if ((!after || CLAUSE_END.indexOf(after.charAt(0)) >= 0) && (!prev || (SEPCH + CLAUSE_END).indexOf(prev.charAt(prev.length - 1)) >= 0)) {
+          out[out.length - 1] = prev.replace(TRAIL, ''); // 自成一个分句的多余一处：连前面的标点一起去掉
+        } else out.push(pick(DE.short));
+      } else if (kind === 'L') out.push(pick(DE.lead).split('{d}').join(arg) + '的');
+      else if (kind === 'A') out.push(pick(DE.leadAfter).split('{d}').join(arg));
+      else if (kind === 'M') out.push(pick(DE.money));
+      else if (kind === 'N') out.push(DE.name);
+      else out.push(kind === 'E' ? DE.maskEmail : kind === 'U' ? DE.maskUrl : DE.mask);
+      out.push(after);
+    }
+    return out.join('');
   }
 
   function wrongDigit(t) {

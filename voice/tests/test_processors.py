@@ -1,3 +1,4 @@
+import re
 import asyncio
 
 from pipecat.frames.frames import (
@@ -87,7 +88,7 @@ def test_bot_text_tap_records_guarded_reply():
 
 
 def test_guard_text_filter():
-    assert asyncio.run(GuardTextFilter().filter("**好的** 尾号 ****7890")) == "好的 后面几位没听清"
+    assert re.fullmatch("好的 (?:后面几位没听清|后面几位没看清|后面几个没记住)", asyncio.run(GuardTextFilter().filter("**好的** 尾号 ****7890")))
 
 
 def test_synth_fillers_cached(tmp_path):
