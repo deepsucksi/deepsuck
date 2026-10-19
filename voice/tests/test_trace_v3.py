@@ -55,6 +55,23 @@ def test_ticket_kinds_and_tags():
         assert abs(sum(v[key] for v in k.values()) - tk.usage[key]) < 1e-9, key
 
 
+def test_tag_claim_survives_tts_preprocessing():
+    """线上开场白「喂？…哪位啊」经 calm / split_pause 后送去合成的是「喂？，哪位啊」或分成两句，照样认成 opening。"""
+    from voice.persona import calm, split_pause
+
+    tk = G.VoiceBudget().reserve(0.0)
+    tk.tag("喂？…哪位啊", "opening")
+    sent, _ = split_pause(calm("喂？…哪位啊"))
+    tk.tts(len(sent), text=sent)
+    assert tk.kinds() == {"opening": tk.kinds()["opening"]} and not tk._tags
+    tk.tag("喂？…哪位啊", "opening")
+    for part in ("喂？", "哪位啊"):
+        tk.tts(len(part), text=part)
+    assert set(tk.kinds()) == {"opening"} and not tk._tags
+    tk.tts(1, text="。")  # 纯标点不认领，算 reply
+    assert tk.kinds()["reply"]["tts_chars"] == 1
+
+
 def _call(env, consent=True, channel="web"):
     """一通模拟通话：Ticket 由“服务”按真实调用顺序计量，CallTrace 从看板通知切轮。"""
     tk = G.VoiceBudget().reserve(0.0)
