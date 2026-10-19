@@ -24,6 +24,7 @@ SPEAK_INTEL: dict = _P["speakIntel"]
 DIGIT_ECHO: dict = _P["digitEcho"]
 REPLY_POLISH: dict = _P["replyPolish"]  # 大模型回复口语化后处理（#132、#134），engine.polish_reply 使用
 TAIL_DEDUPE: dict = _P["tailDedupe"]  # 跨轮去重（#153），engine.dedupe_tail 使用
+TRANSFER_CLAIM: dict = _P["transferClaim"]  # #187：不说成已经转账或答应去转（规则句 + engine.hold_transfer 过滤）
 
 SCENARIOS = _S["scenarios"]
 SCENARIO_BY_ID = {s["id"]: s for s in SCENARIOS}
