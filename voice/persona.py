@@ -522,8 +522,13 @@ NAME_PHRASE = "那个名字"
 # “……户名那个号”）。锚和星号之间可以有“是 / 为 / ：”和空格（念的时候“是”“为”去掉，冒号保留）。星号后面要是还跟着一个字
 # （“户名*明”“收款人**华”，脱敏只留了名里的一个字）一并换掉，不露姓名里的任何字；“的 / 和 / 卡 / ，”这类字照旧保留。
 # 只认星号：“户名和账号”“收款人信息”“我名下有房”不动；星号后面紧跟数字 / 字母（打码号码）不算姓名。
+# 转账动词（转给、汇给、转入、存到、转到、打到、汇到）后面紧跟的星号也是收款人姓名（#214 审查，负责人定的：「转到* / ** / ***」是 name）
+_NAME_ANCHOR_WORDS = ("户名", "收款人", "名下", "对方叫", "转给", "汇给", "转入", "存到", "转到", "打到", "汇到")
 _NAME_ANCHOR = re.compile(
-    r"(户名|收款人|名下|对方叫)\s*(?:是|为)?\s*([:：]?)\s*[*＊]+(?![0-9A-Za-z０-９*＊])([\u4e00-\u9fff](?![*＊]))?")
+    r"(" + "|".join(_NAME_ANCHOR_WORDS) + r")\s*(?:是|为)?\s*([:：]?)\s*[*＊]+(?![0-9A-Za-z０-９*＊])([\u4e00-\u9fff](?![*＊]))?")
+# #214 复审：_NAME_MASKED 把星号前一个字当姓一起换掉，「转给***」念成「转那个名字」、「收款人***」念成「收款那个名字」，意思变了。
+# 星号前是这些字（动词、介词、「人」「下」）时只换星号，保留前字；它们基本不当姓，保留也不露姓名里的字。
+_KEEP_LEAD = set("给到入叫是为在跟向找下人")
 # 星号紧跟“名下”（“转到**名下”）：星号是名字，不是号码；前面的字（“到”）不当姓吃掉
 _STARS_BEFORE_MINGXIA = re.compile(r"(?<![0-9A-Za-z０-９*＊])[*＊]+(?=名下)")
 _NAME_ANCHOR_KEEP = set("的地得之是为和与跟及或同在名下卡账户号码行开吧呢啊吗了呀哦嘛也都就还")
@@ -538,17 +543,65 @@ def _unmask_names(s: str) -> str:
         # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓），不在表里的再看 _NOT_SURNAME
         if masked_lead_not_surname(m, m.group(2), _NOT_SURNAME):
             return m.group(0)
+        if not m.group(1) and m.group(2) in _KEEP_LEAD:  # #214 复审：保留星号前的动词 / 介词（「转给那个名字」）
+            return m.group(2) + NAME_PHRASE
         return NAME_PHRASE
     s = _STARS_BEFORE_MINGXIA.sub(NAME_PHRASE, _NAME_ANCHOR.sub(anchor, s))
     return _NAME_MASKED.sub(rep, s)
 
 
-def unmask(text: str) -> str:
+# #214 复审：ASR 分段时星号可能单独成一段，或在这一段开头（「转给」/「***」、「卡号是」/「***，户名***」）。这一段开头的星号
+# 按上一段的结尾判断：姓名锚 / 转账动词结尾念「那个名字」，号码词结尾念「那个号」；都不是时，对方到现在只报过名字（refs 只有
+# name）也念「那个名字」，其余照旧念「那个号」。
+_LEAD_STARS = re.compile(r"^\s*[*＊]+(?![0-9A-Za-z０-９*＊])")
+_PREV_NAME_END = re.compile("(?:" + "|".join(_NAME_ANCHOR_WORDS) + r"|姓)\s*(?:是|为|叫)?\s*[:：]?\s*$")
+_PREV_NUMBER_END = re.compile(r"(?:验证码|校验码|动态码|卡号|银行卡号?|尾号|密码|账号|帐号|手机号码?|电话号码?|号码|身份证号?|QQ号?|微信号|支付宝账?号?)"
+                              r"\s*(?:是|为)?\s*[:：]?\s*$")
+
+
+def lead_stars_kind(prev: str, refs=None):
+    """这一段开头的星号该算什么：按上一段（prev）结尾，"name" / "number"；拿不准时看 refs（只有 name → "name"），否则 None。"""
+    p = str(prev or "")
+    if _PREV_NAME_END.search(p):
+        return "name"
+    if _PREV_NUMBER_END.search(p):
+        return "number"
+    if refs is not None and "name" in refs and "number" not in refs:
+        return "name"
+    return None
+
+
+def unmask(text: str, prev: str = "", refs=None) -> str:
     """把打码值换成自然说法：姓名类打码换成“那个名字”（#136，见 _unmask_names）；号码类换成“那个号”（前面已经说了“尾号”就说
-    “那几位”）。不留任何星号，也不带出可见的数字。"""
+    “那几位”）。不留任何星号，也不带出可见的数字。prev / refs：ASR 分段时上一段的话和对方报过的代称种类，用来判断这一段开头的
+    星号（#214 复审，见 lead_stars_kind）。"""
+    s = str(text or "")
+    m = _LEAD_STARS.match(s)
+    if m and (prev or refs is not None) and lead_stars_kind(prev, refs) == "name":
+        s = s[:m.start()] + re.match(r"^\s*", s).group(0) + NAME_PHRASE + s[m.end():]
+
     def rep(m: re.Match) -> str:
         return "那几位" if _TAIL_WORD.search(m.string[:m.start()]) else "那个号"
-    return _MASKED.sub(rep, _unmask_names(str(text or "")))
+    return _MASKED.sub(rep, _unmask_names(s))
+
+
+def split_lead_refs(texts):
+    """#214 复审：按 ASR 分段算 heard_refs 时，这一段开头的星号按上一段结尾判断（「卡号是」/「***，户名***」前半是号码）。
+    返回（交给共享核心 heard_refs 的各段，额外的代称种类）：开头星号判成号码时从这一段去掉、记一个 number；判成姓名时记 name。"""
+    out, extra, prev = [], set(), ""
+    for t in texts:
+        t = t or ""
+        m = _LEAD_STARS.match(t)
+        if m and prev:
+            kind = lead_stars_kind(prev)
+            if kind == "number":
+                extra.add("number")
+                t = t[m.end():]
+            elif kind == "name":
+                extra.add("name")
+        out.append(t)
+        prev = t or prev
+    return out, extra
 
 
 # 号码逐位读（送 TTS 前）：连续 3 位以上的数字按位读，1 读“幺”；金额、日期、数量照旧按数值读。

@@ -47,7 +47,7 @@ from pipecat.utils.text.base_text_filter import BaseTextFilter
 from .callredact import CallRedactor, redact_digit_fragments
 from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
                       speakable, system_prompt, unmask)
-from .persona import NAME_PHRASE, drop_given_after_split  # noqa: E402  #215 拆字解释：已批说法「那个名字」
+from .persona import NAME_PHRASE, drop_given_after_split, split_lead_refs  # noqa: E402  #215 拆字解释：已批说法「那个名字」；分段星号
 
 Notify = Callable[[dict], Awaitable[None]]
 
@@ -369,8 +369,8 @@ class IntelProcessor(FrameProcessor):
             return False
         fixed = redact_digit_fragments([msgs[i]["content"] for i in idx])
         changed = False
-        for i, t in zip(idx, fixed):
-            t = unmask(self.redactor.apply(t))
+        for k, (i, t) in enumerate(zip(idx, fixed)):
+            t = unmask(self.redactor.apply(t), prev=fixed[k - 1] if k else "")  # #214 复审：分段开头的星号看上一段
             if t != msgs[i]["content"]:
                 msgs[i] = {**msgs[i], "content": t}
                 changed = True
@@ -385,7 +385,8 @@ class IntelProcessor(FrameProcessor):
     def heard_refs(self) -> set:
         """#173：对方到现在报过的代称种类（"name" / "number" / "url" / "wallet"…）：对方的话里出现过的打码值（共享核心
         deepsuck.refs.heard_refs，与网页 llm.js 同一套）加上已提取的情报。从 session 算，和上下文截断无关。"""
-        out = heard_refs(m.get("text", "") for m in getattr(self.session, "messages", []) or [] if m.get("role") == "scammer")
+        texts, extra = split_lead_refs(m.get("text", "") for m in getattr(self.session, "messages", []) or [] if m.get("role") == "scammer")
+        out = heard_refs(texts) | extra  # #214 复审：分段开头的星号按上一段结尾算（「卡号是」/「***，户名***」）
         for goal, kind in (("bank", "number"), ("phone", "number"), ("name", "name"), ("url", "url"), ("wallet", "wallet")):
             if self.session.have_goal(goal):
                 out.add(kind)
@@ -471,7 +472,8 @@ class IntelProcessor(FrameProcessor):
         self.update_prompt()
         # 与网页版一致：只把脱敏后的文本交给大模型（卡号等原值只留在本进程内存）
         # 打码值（130****8600）改成“尾号8600”再给模型，免得模型照着念出星号
-        frame.text = unmask(a["redacted"])
+        scam = [m.get("text", "") for m in getattr(self.session, "messages", []) or [] if m.get("role") == "scammer"]
+        frame.text = unmask(a["redacted"], prev=scam[-2] if len(scam) > 1 else "", refs=self.heard_refs())  # #214 复审：分段开头的星号看上一段
         await self.push_frame(frame, direction)
 
     async def _check_blocklist(self):

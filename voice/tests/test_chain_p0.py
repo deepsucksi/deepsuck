@@ -166,6 +166,7 @@ def _cases():
     for t in F["number_and_name"]["texts"]:
         add("号码+户名", [t], "both")
         add("号码+户名 分段", ["卡号是***，", "户名***"], "both")
+        add("号码+户名 分段", ["卡号是", "***，户名***"], "both")  # #214 复审第 2 条：分段开头的星号按上一段「卡号是」算号码
         add("号码+户名 分段", ["卡号是", "***，户名", "***"], "both")
     # 户名 / 收款人 / 名下 / 对方叫 紧跟星号（#215 人设侧）
     for t in ("户名***", "户名**", "户名*", "收款人***", "收款人**", "对方叫***", "他名下**", "户名：**", "户名为***"):
@@ -217,3 +218,41 @@ def test_huming_after_card_number_says_name():
 @pytest.mark.xfail(reason="依赖 #214（「卡号是***」的「是」不当姓，靠共享核心 stars_not_name）", strict=False)
 def test_card_number_and_huming_full():
     assert P.unmask("卡号是***，户名***") == "卡号是那个号，户名那个名字"
+
+
+# ---- #214 复审（b411fbe）并进来的三条 ----------------------------------------------------------------------------
+@pytest.mark.parametrize("text,want", [
+    # 第 3 条：星号前的动词 / 「人」不当姓吞掉
+    ("转给***", "转给那个名字"), ("收款人***", "收款人那个名字"), ("转到*名下", "转到那个名字名下"), ("汇给**", "汇给那个名字"),
+    ("转入**", "转入那个名字"), ("存到**", "存到那个名字"), ("打到**的卡上", "打到那个名字的卡上"), ("转给**的账户", "转给那个名字的账户"),
+    ("转到**名下", "转到那个名字名下"),
+    # 第 1 条整句部分：户名后的星号
+    ("户名***", "户名那个名字"), ("户名：**", "户名：那个名字"), ("户名为**", "户名那个名字"),
+    # 前字是真姓时照旧整个换掉，不露姓
+    ("户名和*", "户名那个名字"), ("转给王*明", "转给那个名字"), ("转到张**", "转到那个名字"),
+])
+def test_keep_lead_char(text, want):
+    assert P.speakable(text, calm_tts=False) == want
+
+
+@pytest.mark.parametrize("text,prev,refs,want", [
+    # 第 1 条：单独一段（或段首）的纯星号按上一段 / refs 念
+    ("***", "转给", None, "那个名字"), ("**", "汇给", None, "那个名字"), ("***", "户名", None, "那个名字"),
+    ("**", "户名是", None, "那个名字"), ("***", "收款人", None, "那个名字"), ("**的卡上", "打到", None, "那个名字的卡上"),
+    ("***", "验证码是", None, "那个号"), ("***，户名***", "卡号是", None, "那个号，户名那个名字"),
+    ("***", "", {"name"}, "那个名字"), ("***", "", {"name", "number"}, "那个号"), ("***", "", {"number"}, "那个号"),
+    ("***", "", None, "那个号"),
+])
+def test_lead_stars_by_prev_segment(text, prev, refs, want):
+    assert P.unmask(text, prev=prev, refs=refs) == want
+
+
+@pytest.mark.parametrize("segs,want", [
+    # 第 2 条：「卡号是」/「***，户名***」refs 要同时有 number 和 name
+    (["卡号是", "***，户名***"], {"number", "name"}),
+    (["转给", "***"], {"name"}),
+    (["户名", "**"], {"name"}),
+])
+def test_heard_refs_split_segments(segs, want):
+    _, r = problems(segs, "none")
+    assert want <= r["refs"], (segs, r)
