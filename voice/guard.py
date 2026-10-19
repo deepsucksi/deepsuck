@@ -44,8 +44,8 @@ def _env_i(name: str, default: int) -> int:
 # 来源（2026-10-19 查询）：
 #   qwen-plus      https://help.aliyun.com/zh/model-studio/qwen-plus       输入≤128K：0.8 / 2
 #   qwen3.7-flash  https://help.aliyun.com/zh/model-studio/qwen3-7-flash   输入≤32K：0.2 / 0.8
-#   qwen3.8-flash  https://help.aliyun.com/zh/model-studio/qwen3-8-flash   输入≤1M：0.8 / 2.7
-# 每轮输入约 1–3K token，都落在最低一档。快照名（如 qwen-plus-2025-12-01）按前缀取价。
+#   qwen3.8-flash  https://help.aliyun.com/zh/model-studio/qwen3-8-flash   0.8 / 2.7（不分档；缓存命中输入 0.1）
+# qwen-plus、qwen3.7-flash 两行只为旧 trace 记账保留；现用模型一律 qwen3.8-flash（#145）。每轮输入约 1–3K token，都落在最低一档。快照名（如 qwen-plus-2025-12-01）按前缀取价。
 # 覆盖优先级：VOICE_PRICE_LLM_IN/OUT_PER_M（语音专用）> PRICE_LLM_IN/OUT_PER_M（Node 代理那份，只在语音模型
 # 与代理的 LLM_MODEL 相同时才套用）> PRICE_LLM_TABLE="模型:输入:输出,..." > 下表。
 LLM_PRICES: Dict[str, Tuple[float, float]] = {
@@ -53,8 +53,8 @@ LLM_PRICES: Dict[str, Tuple[float, float]] = {
     "qwen3.7-flash": (0.2, 0.8),
     "qwen3.8-flash": (0.8, 2.7),
 }
-DEFAULT_LLM_MODEL = "qwen3.7-flash"   # 语音默认模型（#40 选型，见 docs/LLM_AB.md）
-PROXY_LLM_MODEL = "qwen-plus"         # Node 文字代理 LLM_MODEL 的默认值（server/index.js）
+DEFAULT_LLM_MODEL = "qwen3.8-flash"   # 语音默认模型（#149：全项目用 Qwen 最新系列，见 docs/LLM_AB.md）
+PROXY_LLM_MODEL = "qwen3.8-flash"     # Node 文字代理 LLM_MODEL 的默认值（server/index.js，#148）
 
 
 def llm_price_table(env=None) -> Dict[str, Tuple[float, float]]:
@@ -68,6 +68,12 @@ def llm_price_table(env=None) -> Dict[str, Tuple[float, float]]:
             except ValueError:
                 pass
     return table
+
+
+def llm_price_known(model: str, env=None) -> bool:
+    """单价表（含 PRICE_LLM_TABLE）里有这个模型（精确名或快照前缀）。"""
+    table = llm_price_table(env)
+    return model in table or any(model.startswith(k + "-") for k in table)
 
 
 def llm_price(model: str, env=None) -> Tuple[float, float]:
@@ -86,8 +92,8 @@ class Prices:
     """单价（元）。默认值为 2026-10 百炼北京地域原价，以控制台为准。"""
     asr_per_sec: float = 0.00024      # paraformer-realtime-v2
     tts_per_char: float = 0.0001      # cosyvoice-v3-flash：1 元 / 万字符
-    llm_in_per_m: float = 0.2         # qwen3.7-flash 输入：元 / 百万 token
-    llm_out_per_m: float = 0.8        # qwen3.7-flash 输出
+    llm_in_per_m: float = 0.8         # qwen3.8-flash 输入：元 / 百万 token
+    llm_out_per_m: float = 2.7        # qwen3.8-flash 输出
     llm_model: str = DEFAULT_LLM_MODEL
 
     @classmethod
@@ -102,8 +108,10 @@ class Prices:
             except (TypeError, ValueError):
                 return default
 
-        # PRICE_LLM_* 是 Node 代理按 LLM_MODEL 记账用的；语音换了别的模型时不能沿用，否则预算算错
-        same = model == (e.get("LLM_MODEL") or PROXY_LLM_MODEL)
+        # PRICE_LLM_* 是 Node 代理按 LLM_MODEL 记账用的；语音换了别的模型时不能沿用，否则预算算错。
+        # #149：单价表里有的模型一律按表（官方价），不让 .env 里遗留的旧单价（如 qwen-plus 的输出 2）盖掉；
+        # 只有表里没有的模型才沿用 PRICE_LLM_*。要强制覆盖用 VOICE_PRICE_LLM_* 或 PRICE_LLM_TABLE。
+        same = model == (e.get("LLM_MODEL") or PROXY_LLM_MODEL) and not llm_price_known(model, e)
         p_in = f("VOICE_PRICE_LLM_IN_PER_M", f("PRICE_LLM_IN_PER_M", p_in) if same else p_in)
         p_out = f("VOICE_PRICE_LLM_OUT_PER_M", f("PRICE_LLM_OUT_PER_M", p_out) if same else p_out)
         out = cls(f("PRICE_ASR_PER_SEC", 0.00024), f("PRICE_TTS_PER_10K_CHARS", 0.8) / 10000, p_in, p_out, model)

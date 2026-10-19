@@ -1,7 +1,7 @@
 """语音大模型 A/B（#40）：同一组诈骗脚本，按真实管线的方式（Session → 意图门控 → 系统提示词 → 流式请求 → 输出守卫）
 跑几个模型，比较人设不抢话、数字泄露、口语断续风格、输出守卫触发、首字延迟和每通成本。
 
-    python -m voice.llm_ab --models qwen-plus,qwen3.7-flash,qwen3.8-flash --out ab.json
+    python -m voice.llm_ab --models qwen3.8-flash --out ab.json
 
 会真实调用百炼（按量计费，每个模型约 44 次请求、合计几分钱）。思考模式一律关（enable_thinking=false）。
 脚本：voice/static/scam_playbooks.json 7 个场景每个阶段的第一句（王阿姨），每个场景末尾再加一句让对方报卡号/尾号的话
@@ -365,7 +365,7 @@ async def main_async(models: List[str], out: Optional[str], base: str, thinking:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m voice.llm_ab", description=__doc__.splitlines()[0])
-    ap.add_argument("--models", default="qwen-plus,qwen3.7-flash,qwen3.8-flash")
+    ap.add_argument("--models", default="qwen3.8-flash")
     ap.add_argument("--base", default=os.environ.get("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"))
     ap.add_argument("--out")
     ap.add_argument("--repeat", type=int, default=1, help="整组脚本跑几遍（统计合并）")

@@ -1,7 +1,7 @@
 """真实 DashScope 冒烟测试（需要 DASHSCOPE_API_KEY，会产生极少量费用）。
 
 python -m voice.smoke [--out screenshots/wangayi-sample.wav]
-  1) qwen-plus（OpenAI 兼容）以王阿姨人设回复一句；
+  1) 语音大模型（DEEPSUCK_LLM_MODEL，默认 qwen3.8-flash，非思考；OpenAI 兼容）以王阿姨人设回复一句；
   2) CosyVoice（longlaoyi_v3）把这句话合成为 16k WAV；
   3) Paraformer 实时识别把这段 WAV 再转回文字（往返校验）。
 """
@@ -17,12 +17,14 @@ import urllib.request
 import wave
 
 from .dashscope_ws import persona_voice, synthesize, transcribe_pcm
+from .guard import DEFAULT_LLM_MODEL
 from .persona import scenes_in, system_prompt, topics_in
 
 
 def chat(prompt: str, persona: str = "wang", scenario: str = "refund") -> str:
     base = os.environ.get("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-    body = {"model": os.environ.get("LLM_MODEL", "qwen-plus"), "max_tokens": 80, "temperature": 0.8,
+    body = {"model": os.environ.get("DEEPSUCK_LLM_MODEL") or DEFAULT_LLM_MODEL, "max_tokens": 80, "temperature": 0.8,
+            "enable_thinking": False,
             "messages": [{"role": "system", "content": system_prompt(persona, scenario, topics=topics_in(prompt),
                                                                     scenes=sorted(scenes_in(prompt)))},
                          {"role": "user", "content": prompt}]}
@@ -36,7 +38,7 @@ def chat(prompt: str, persona: str = "wang", scenario: str = "refund") -> str:
 async def main_async(out: str) -> int:
     t0 = time.time()
     reply = chat("阿姨您好，我是淘宝客服，您买的商品有质量问题，要给您双倍理赔，您先下载个APP。")
-    print(f"[1] qwen-plus ✓ {time.time() - t0:.1f}s：{reply}")
+    print(f"[1] {os.environ.get('DEEPSUCK_LLM_MODEL') or DEFAULT_LLM_MODEL} ✓ {time.time() - t0:.1f}s：{reply}")
     t0 = time.time()
     _vs = persona_voice("wang")
     pcm = b"".join([c async for c in synthesize(reply, voice=_vs.voice, model=_vs.model,
