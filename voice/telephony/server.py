@@ -89,7 +89,10 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
     trace = TR.CallTrace(channel="phone", consent=TR.SIP_CONSENT, persona=session.persona["id"], scenario=session.scenario["id"],
                          model=os.environ.get("DEEPSUCK_LLM_MODEL", DEFAULT_LLM_MODEL) if engine == "llm" else "rule",
                          engine=engine, caller=call.from_number, tts_voice=_pv(session.persona["id"]).voice,
-                         usage_fn=(lambda: dict(ticket.usage)) if ticket is not None else None)
+                         asr_model=os.environ.get("DEEPSUCK_ASR_MODEL", "paraformer-realtime-v2"),
+                         tts_model=_pv(session.persona["id"]).model or os.environ.get("DEEPSUCK_TTS_MODEL", ""),
+                         usage_fn=(lambda: dict(ticket.usage)) if ticket is not None else None,
+                         calls_fn=ticket.kinds if ticket is not None else None)
     trace.session = session
     reason = {"v": ""}
     bg_fill: Optional[asyncio.Task] = None
@@ -136,6 +139,9 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
         msg = voice_opening(session)  # 机器人先开口：只说“喂？哪位”，不按场景预设
         if context is not None:
             context.add_message({"role": "assistant", "content": msg["text"]})
+        if ticket is not None:  # 通话追踪 v3：按文字认出开场白 / 提示语的合成用量
+            ticket.tag(disclosure_text(), "disclosure")
+            ticket.tag(msg["text"], "opening")
         frames = [TTSSpeakFrame(t) for t in (disclosure_text(), msg["text"]) if t]
         await task.queue_frames(frames)
 
@@ -157,6 +163,8 @@ async def run_call(websocket, adapter: TelephonyAdapter, call: CallInfo, *, engi
                 reason["v"] = reason["v"] or why
                 if intel is not None:
                     intel.closing = True
+                if ticket is not None:
+                    ticket.tag(G.END_TEXT[why], "farewell")
                 await task.queue_frames([TTSSpeakFrame(G.END_TEXT[why]), EndFrame()])
                 await asyncio.sleep(8)
                 await task.cancel()
