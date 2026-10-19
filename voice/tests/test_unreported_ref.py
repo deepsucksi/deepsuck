@@ -77,5 +77,10 @@ def test_unreported_line_offline_and_topics():
     assert P.unreported_line(["number", "name"], set()) == ""
     assert "电话" in P.unreported_line(["number"], {"phone"}) and "户名" not in P.unreported_line(["number", "name"], {"phone"})
     assert P.unreported_line([], {"bank"}) == ""
+    assert "不用每句都问" in P.unreported_line(["name"], {"bank"})
+    # 第一轮只应一声，不加这一行
+    on = P.system_prompt("wang", "police", "generic", topics={"bank"}, first_turn=True, unreported=["number", "name"])
+    off = P.system_prompt("wang", "police", "generic", topics={"bank"}, unreported=["number", "name"])
+    assert "对方到现在还没报过" not in on and "对方到现在还没报过" in off
     # 离线 system_prompt（不传 unreported）不变
     assert "对方到现在还没报过" not in P.system_prompt("wang", "police", "generic", topics={"bank"})

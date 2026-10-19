@@ -353,16 +353,20 @@ def unreported_line(unreported, topics=None) -> str:
     if not unreported or topics is None:
         return ""
     topics = set(topics)
-    what, refs, asks = [], [], []
+    what, refs, asks, eg = [], [], [], []
     nums = [x for x in _NUMBER_TOPICS if x[0] in topics]
     if "number" in unreported and nums:
         what.append("、".join(x[1] for x in nums)); refs.append(REF_WORDS["number"]); asks += [x[2] for x in nums]
+        eg += ["“你说的那个号”", "“把那个号报一下”"]
     if "name" in unreported and "bank" in topics:
         what.append("户名"); refs.append(REF_WORDS["name"]); asks.append("“户名是谁”")
+        eg.append("“户名是那个名字”")
     if not what:
         return ""
-    return (f"对方到现在还没报过{'，也没报过'.join(what)}：不要说{''.join(f'“{x}”' for x in refs)}“你说的那个…”这种像他已经报过的话，"
-            f"也不要说已经记下了；要问就直接问，比如{''.join(asks)}。")
+    ban = "".join(f"“{x}”" for x in refs)
+    return (f"对方到现在还没报过{'，也没报过'.join(what)}：{ban}这几个字这一轮一个都不要说（{''.join(eg)}"
+            f"都不行，听着像他已经报过），也不要说已经记下了。真要问就直接问（比如{''.join(asks)}），"
+            f"不用每句都问，上一句问过的这句别再问。")
 
 
 def said_first_line(said_first: str) -> str:
@@ -435,7 +439,8 @@ def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: st
     turn += extra
     if said_first:
         turn.append(said_first_line(said_first))
-    if unreported_line(unreported, topics):
+    # 第一轮只应一声（first_turn_rule），不加这一行，免得一开口就问卡号、户名
+    if not first_turn and unreported_line(unreported, topics):
         turn.append(unreported_line(unreported, topics))
     turn.append(first_turn_rule() if first_turn else FOLLOW_UP_RULE)
     return "\n".join(fixed), "\n".join(turn)
