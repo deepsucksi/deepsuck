@@ -306,7 +306,7 @@ async def run_script(http, url, key, model, sc, thinking=False, call: int = 0) -
     from deepsuck.rng import mulberry32
     from pipecat.processors.aggregators.llm_context import LLMContext
 
-    from voice.persona import gate_intent, guard_output, voice_opening
+    from voice.persona import gate_intent, guard_output, unmask, voice_opening
     from voice.processors import IntelProcessor
 
     s = Session(scenario=sc["scenario"], persona=sc["persona"], rng=mulberry32(11), now=lambda: 0)
@@ -321,7 +321,9 @@ async def run_script(http, url, key, model, sc, thinking=False, call: int = 0) -
         ip.intent = gate_intent(s.fresh_intent(s.choose_intent(a)), s)
         s.last_intent = ip.intent
         examples = set(PROMPT_DIGIT_EXAMPLES) | prompt_digits(ip.update_prompt())
-        ctx.add_message({"role": "user", "content": a["redacted"]})
+        # #130：与现网一致（voice/processors.py 交给模型的是 unmask(a["redacted"])），打码值先换成“那个名字”“那个号”；
+        # 原来直接喂打码文本，模型照抄“张**”，再被 unmask / speakable 念成“张那个号”
+        ctx.add_message({"role": "user", "content": unmask(a["redacted"])})
         res = await stream_reply(http, url, key, model, ctx.get_messages(), thinking)
         row = {"model": model, "persona": sc["persona"], "scenario": sc["scenario"], "scammer": line, "turn": turn,
                "call": call, "intent": ip.intent, "leak_check": sc["leak_check"]}

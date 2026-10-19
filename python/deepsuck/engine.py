@@ -66,29 +66,91 @@ _DD = "[" + _DE["digits"] + "]"
 _DJ = "[" + _DE["joiners"] + "]{0,2}"
 _DM = "[" + _DE["digits"] + re.escape(_DE["masks"]) + "]"  # 数字或打码星号
 _DRUN = "(?=" + _DM + "*" + _DD + ")" + _DM + "(?:" + _DJ + _DM + "){%d,}" % (_DE["minRun"] - 1)
+_DRUN_D = _DD + "(?:" + _DJ + _DM + "){%d,}" % (_DE["minRun"] - 1)  # 以数字开头的串（留第一位用）
 _TAILW = "(?:" + "|".join(map(re.escape, _DE["tailWords"])) + ")"
 _MONEYW = "(?:" + "|".join(map(re.escape, _DE["moneyUnits"])) + ")"
-_DIGIT_LEAD = re.compile("(" + _DD + "(?:" + _DJ + _DM + "){%d,})" % (_DE["minRun"] - 1) + _DJ + "开头(?:的)?")
+_STAR = re.escape(_DE["masks"])
+_DIGIT_LEAD = re.compile("(" + _DRUN_D + ")" + _DJ + "开头(?:的)?")
+_DIGIT_LEAD_AFTER = re.compile("(开头|打头)(?:是|为)?" + _DJ + "(" + _DRUN_D + ")")
 _DIGIT_MONEY = re.compile(_DRUN + _DJ + _MONEYW)
 _DIGIT_TAIL = re.compile(_TAILW + "(?:是|为)?" + _DJ + _DRUN)
 _DIGIT_RUN = re.compile(_DRUN)
+# 打码姓名（#130，与 voice/persona.py 的 _unmask_names 同一规则）：张**、王*明、欧阳**，前面的“姓”一并换掉
+_NAME_MASK = re.compile("(姓)?(" + "|".join(_DE["compoundSurnames"]) + "|[\u4e00-\u9fff])"
+                        "(?:[" + _STAR + "](?:(?![" + _DE["nameTailStop"] + "])[\u4e00-\u9fff](?![" + _STAR + "]))?(?![0-9A-Za-z" + _STAR + "])|[" + _STAR + "]{2,4}(?![0-9A-Za-z" + _STAR + "]))")
+_OTHER_MASK = re.compile("[A-Za-z0-9_.:/@\\-]*[" + _STAR + "]+[A-Za-z0-9_.:/@\\-" + _STAR + "]*")
+_LITERAL = sorted([(p, "T") for p in _DE["tail"]] + [(p, "O") for p in _DE["other"]], key=lambda x: -len(x[0]))
+_HEARD = re.compile("|".join(map(re.escape, _DE["heardAlready"])))
+_TOK = re.compile("\ue000([A-Za-z]+)([^\ue001]*)\ue001")
+_SEPCH = " \u3000…,，、.．·~～-—"
+_MERGE_OT = re.compile("\ue000[OT]\ue001(?:[" + re.escape(_SEPCH) + "]*\ue000[OT]\ue001)+")
+_MERGE_N = re.compile("(\ue000(?:N|H)\ue001)(?:[" + re.escape(_SEPCH) + "]*\ue000(?:N|H)\ue001)+")
+_CLAUSE_END = "？?！!。；;，,…\n"
+
+
+def _tok(kind: str, arg: str = "") -> str:
+    return "\ue000" + kind + arg + "\ue001"
 
 
 def vague_digits(text: str) -> str:
-    """人设回复发出前的数字过滤（issue #121，与 engine.js 的 vagueDigits 一致）。
+    """人设回复发出前的过滤（#121 数字、#130 打码片段与叠词；与 engine.js 的 vagueDigits 逐字一致）。
 
-    连续 3 位及以上的数字（阿拉伯、全角、中文数字，混写、中间夹空格顿号短横也算）一律换成含糊说法：
-    “6222开头” → “好像是6开头的”（只留第一位）；“尾号0123”“后面是零零幺三” → “后面几位没听清”；“2000块” → “那么些钱”；其余 → “那几个数没听清”。
-    夹在数字里的打码星号（“6222 **** 3456”）算同一串。
-    放在错别字扰动之后、语音合成之前；单个、两个数字不动（“好像是6开头的”“12期”照常）。
+    1. 连续 3 位及以上的数字（阿拉伯、全角、中文数字，混写、夹空格顿号短横、夹打码星号都算）换成含糊说法：
+       “6222开头” → “好像是6开头的”、“开头是6222” → “开头好像是6”（只留第一位）；“尾号0123”“后面是零零幺三” → “后面几位没听清”；
+       “2000块” → “那么些钱”；其余 → “那几个数没听清”。
+    2. 打码片段：打码姓名（“张**”“王*明”“欧阳**”，前面的“姓”一并换掉）→ “那个名字”，其余带 * 的 → “那个号”（网址 / 邮箱各有说法）。
+    3. 叠词去重：相邻的“没听清”类说法合并成一处；句子里已经有“没听清”这类意思时，后面的不再叠一个分句——在句末就去掉，在句中换成“那串数”。
+       原文里已经写出来的这类说法同样参与去重。
+    每类说法有几种，按原句字符码之和轮换。放在错别字扰动之后、语音合成之前；单个、两个数字不动。
     """
     if not text:
         return text
-    s = _DIGIT_LEAD.sub(lambda m: _DE["lead"].replace("{d}", m.group(1)[0]) + "的", str(text))
-    s = _DIGIT_TAIL.sub(_DE["tail"], s)
-    s = _DIGIT_MONEY.sub(_DE["money"], s)
-    s = _DIGIT_RUN.sub(_DE["other"], s)
-    return s
+    src = str(text)
+    h = sum(ord(c) for c in src)
+    s = src
+    for p, k in _LITERAL:
+        s = s.replace(p, _tok(k))
+    s = _DIGIT_LEAD.sub(lambda m: _tok("L", m.group(1)[0]), s)
+    s = _DIGIT_LEAD_AFTER.sub(lambda m: m.group(1) + _tok("A", m.group(2)[0]), s)
+    s = _DIGIT_TAIL.sub(_tok("T"), s)
+    s = _DIGIT_MONEY.sub(_tok("M"), s)
+    s = _DIGIT_RUN.sub(_tok("O"), s)
+    s = _NAME_MASK.sub(lambda m: m.group(0) if len(m.group(2)) == 1 and m.group(2) in _DE["notSurname"] else _tok("N"), s)
+    s = _OTHER_MASK.sub(lambda m: _tok("E" if "@" in m.group() else "U" if re.search(r"[A-Za-z]{2,}\.|\.[A-Za-z]{2,}", m.group()) else "H"), s)
+    if "\ue000" not in s:
+        return s
+    s = _MERGE_OT.sub(lambda m: _tok("T" if "\ue000T" in m.group() else "O"), s)
+    s = _MERGE_N.sub(lambda m: m.group(1), s)
+    parts = _TOK.split(s)  # [文字, 类型, 参数, 文字, 类型, 参数, ..., 文字]
+    plain = "".join(parts[0::3])
+    full_used = bool(_HEARD.search(plain))
+    out = [parts[0]]
+    n = 0
+    for i in range(1, len(parts), 3):
+        kind, arg, after = parts[i], parts[i + 1], parts[i + 2]
+        k = n
+        n += 1
+        pick = lambda lst, k=k: lst[(h + k) % len(lst)]  # noqa: E731
+        if kind in ("O", "T"):
+            if not full_used:
+                out.append(pick(_DE["tail"] if kind == "T" else _DE["other"]))
+                full_used = True
+            elif (not after or after[0] in _CLAUSE_END) and (not out[-1] or out[-1][-1] in _SEPCH + _CLAUSE_END):
+                out[-1] = out[-1].rstrip(_SEPCH + _CLAUSE_END)  # 自成一个分句的多余一处：连前面的标点一起去掉
+            else:
+                out.append(pick(_DE["short"]))
+        elif kind == "L":
+            out.append(pick(_DE["lead"]).replace("{d}", arg) + "的")
+        elif kind == "A":
+            out.append(pick(_DE["leadAfter"]).replace("{d}", arg))
+        elif kind == "M":
+            out.append(pick(_DE["money"]))
+        elif kind == "N":
+            out.append(_DE["name"])
+        else:
+            out.append({"E": _DE["maskEmail"], "U": _DE["maskUrl"]}.get(kind, _DE["mask"]))
+        out.append(after)
+    return "".join(out)
 
 
 def _wrong_digit(t: str) -> str:

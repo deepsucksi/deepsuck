@@ -1,3 +1,4 @@
+import re
 """通话留存与开场告知语：默认只留脱敏文字、不留音频；KEEP_AUDIO 天数上限 7；过期清理。全部离线。"""
 import asyncio
 import json
@@ -73,7 +74,8 @@ def test_transcript_is_redacted_by_shared_module(tmp_path):
     from deepsuck.redact import redact_persona
     text = vague_digits(f"好的，卡号是{CARD}对吧")  # #121：record_bot 先过数字过滤再脱敏
     # #120：存储时人设侧再过连续数字兜底（这里过滤后已没有数字）
-    assert d["transcript"][1]["text"] == redact_persona(redact_text(text, extract_sensitive(text))) == "好的，卡号是那几个数没听清对吧"
+    assert d["transcript"][1]["text"] == redact_persona(redact_text(text, extract_sensitive(text)))
+    assert re.fullmatch("好的，卡号是(?:那几个数没听清|那串数没记住|那几位没看清)对吧", d["transcript"][1]["text"]) 
     assert oct(os.stat(p).st_mode & 0o777) == "0o600"
 
 

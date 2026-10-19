@@ -105,7 +105,7 @@ def test_calm_tts_text():
     assert calm("嗯……", pauses=False) == "嗯"
     assert calm("退…退款？哪…哪个啊。。。") == "退…退款？哪…哪个啊…"
     assert speakable("好的！", calm_tts=False) == "好的！"
-    assert speakable("卡号是 6222 **** 3456！") == "卡号是 那几个数没听清。"  # #121：号码整串换成含糊说法
+    assert re.fullmatch("卡号是 (?:那几个数没听清|那串数没记住|那几位没看清)。", speakable("卡号是 6222 **** 3456！"))  # #121：号码整串换成含糊说法
 
 
 def test_voice_prompt_is_restrained():
@@ -202,8 +202,8 @@ def test_speakable_reads_numbers_digitwise_and_no_stars():
     # #121：语音合成前的数字过滤——号码、开头几位、尾号都不念，只留一个数字
     assert not re.search(r"[0-9零幺一二三四五六七八九]{2,}", s), s
     assert say_digits("幺三零…你说130开头") == "幺三零…你说幺三零开头"  # say_digits 本身不变，过滤在它前面
-    assert speakable("号码是130开头的吧", calm_tts=True) == "号码是好像是1开头的吧"
-    assert "那么些钱" in speakable("要我转300元？", calm_tts=True)
+    assert re.fullmatch("号码是(?:好像是|像是|记得是)1开头的吧", speakable("号码是130开头的吧", calm_tts=True))
+    assert re.search("那么些钱|那笔钱", speakable("要我转300元？", calm_tts=True))
     assert "300" not in speakable("先转300过去？", calm_tts=True)
     assert "2026" not in speakable("2026年的事", calm_tts=True)
     assert speakable("先转5块？", calm_tts=True) == "先转5块？"  # 单个、两个数字照旧
@@ -255,4 +255,4 @@ def test_unmask_masked_names_say_that_name_not_number_phrase():
     assert unmask("QQ 28******10") == "QQ 那个号"
     assert unmask("张**1234") == "张那个号"  # 星号后跟数字是号码，不是姓名
     assert unmask("转到 621700*********0123，户名李**") == "转到 那个号，户名那个名字"
-    assert speakable("卡号622202*********3445", calm_tts=True) == "卡号那几个数没听清"
+    assert re.fullmatch("卡号(?:那几个数没听清|那串数没记住|那几位没看清)", speakable("卡号622202*********3445", calm_tts=True))

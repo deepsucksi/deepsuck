@@ -1,3 +1,4 @@
+import re
 from voice.persona import FILLERS, guard_output, speakable, system_prompt
 
 
@@ -11,12 +12,12 @@ def test_guard_strips_and_masks():
     assert guard_output("<think>x</think>好的（笑）**行**") == "好的行"
     assert "123456" not in guard_output("验证码是123456")
     # #121：夹着脱敏星号的号码也是一串数字，整串换成含糊说法（不再留开头、尾号）
-    assert guard_output("卡号6222 **** **** 7890") == "卡号那几个数没听清"
+    assert re.fullmatch("卡号(?:那几个数没听清|那串数没记住|那几位没看清)", guard_output("卡号6222 **** **** 7890"))  # #130：说法轮换
     assert guard_output("bi***t***.top") == "bi***t***.top"  # 不是数字的打码值不动
 
 
 def test_speakable_never_reads_masked_tail():
-    assert speakable("尾号 ****7890") == "后面几位没听清"
+    assert re.fullmatch("(?:后面几位没听清|后面几位没看清|后面几个没记住)", speakable("尾号 ****7890"))
 
 
 def test_fillers_for_every_persona():
