@@ -3,7 +3,7 @@
     # 只估算 token 与费用（默认，不调用、不联网）：
     python eval/llm_scammer.py
     # 显式打开，实跑并写结果：
-    python eval/llm_scammer.py --run --json eval/results-llm-scammer.json --md /tmp/llm-scammer.md
+    python eval/llm_scammer.py --run --json eval/results-llm-scammer.json --md /workspace/deepsuck-audit/eval194/llm-scammer.md
 
 设计：
 - 骗子：百炼 DashScope 的 qwen3.8-flash（2026-10-19 起；之前是 qwen-plus）（OpenAI 兼容接口，非思考模式，JSON 输出）。系统提示取自
@@ -40,7 +40,10 @@
   --persona-layout cache（默认，固定行在最前、本轮可变行在历史之后）/ web（与网页 buildMessages 完全相同）；
 - --pairing rotate：每个场景一场、人设按场景轮流（--seeds k 时第 k 轮整体错开一位），llm 被骗方默认用它，一轮 7 场；
 - 汇总多记：套出至少一条情报（引擎提取到骗子暴露的值）的场数 intelSessions、骗子至少暴露一条的场数 revealedSessions、
-  人设平均回复字数 avgReplyChars；费用按骗子 / 被骗方分开记（usage.by）。
+  人设平均回复字数 avgReplyChars（去掉空白后的字数）；费用按骗子 / 被骗方分开记（usage.by）；
+- 预算（审核意见）：每次发请求前 Meter.reserve 先检查“已花 + 在途预留 + 本次预估余量”是否会超过上限，超了置停止标志，
+  之后所有场都不再发请求；任务用 submit 提交，停下时 shutdown(cancel_futures=True) 取消排队的场；中途停下时结果带
+  stoppedByBudget=true、stopReason、unfinished；--transcripts 的 JSONL 也打码保存。
 """
 from __future__ import annotations
 
@@ -53,7 +56,7 @@ import sys
 import threading
 import zlib
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from datetime import date
 from pathlib import Path
 from statistics import mean
@@ -460,8 +463,18 @@ def cache_key(messages: List[dict], params: dict, version: str = PROMPT_VERSION)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
+def request_margin_cny(messages: List[dict], params: dict) -> float:
+    """单次请求的预估余量：输入按每汉字 1 token（偏保守）且不算缓存折扣，输出按 max_tokens 打满。"""
+    est_in = sum(J.estimate_tokens(str(m.get("content") or "")) for m in messages)
+    return J.cost_cny(est_in, int(params.get("max_tokens") or MAX_OUT_TOKENS))
+
+
 class Meter:
-    """线程安全的费用计量；超过上限抛 BudgetError。"""
+    """线程安全的费用计量（#194 审核后改为发请求前先检查）。
+
+    reserve()：每次真正发请求之前调用。已停止，或“已花 + 在途请求的预留 + 本次预估余量”超过上限时，置停止标志并抛
+    BudgetError，这次请求不发；否则给本次请求预留余量。add()：请求返回后按实际 usage 记账、释放预留；实际费用超限也置停止标志。
+    停止标志一旦置上，所有场的后续请求都在 reserve() 处拒绝。"""
 
     def __init__(self, max_cost: float):
         self.max_cost = max_cost
@@ -469,9 +482,37 @@ class Meter:
         self.u = {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0, "cost_cny": 0.0, "requests": 0,
                   "cached_requests": 0}
         self.by: Dict[str, dict] = {}
+        self.stopped = False
+        self.stop_reason: Optional[str] = None
+        self.reserved = 0.0
+        self.refused = 0  # 因为到上限而没有发出的请求数
 
-    def add(self, pt: int, ct: int, cached: int = 0, who: str = "scammer") -> None:
+    def stop(self, reason: str) -> None:
         with self.lock:
+            self._stop(reason)
+
+    def _stop(self, reason: str) -> None:
+        if not self.stopped:
+            self.stopped, self.stop_reason = True, reason
+
+    def reserve(self, margin: float) -> float:
+        with self.lock:
+            if not self.stopped and self.u["cost_cny"] + self.reserved + margin > self.max_cost:
+                self._stop(f"已花 {self.u['cost_cny']:.4f} 元 + 在途预留 {self.reserved:.4f} 元 + 本次预估 {margin:.4f} 元"
+                           f" 会超过上限 {self.max_cost} 元，停止发请求")
+            if self.stopped:
+                self.refused += 1
+                raise BudgetError(self.stop_reason)
+            self.reserved += margin
+            return margin
+
+    def release(self, margin: float) -> None:
+        with self.lock:
+            self.reserved = max(0.0, self.reserved - margin)
+
+    def add(self, pt: int, ct: int, cached: int = 0, who: str = "scammer", reserved: float = 0.0) -> None:
+        with self.lock:
+            self.reserved = max(0.0, self.reserved - reserved)
             b = self.by.setdefault(who, {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0, "requests": 0})
             b["prompt_tokens"] += pt
             b["completion_tokens"] += ct
@@ -484,7 +525,8 @@ class Meter:
             self.u["requests"] += 1
             self.u["cost_cny"] = J.cost_cny(self.u["prompt_tokens"], self.u["completion_tokens"], self.u["cached_tokens"])
             if self.u["cost_cny"] > self.max_cost:
-                raise BudgetError(f"实际费用 {self.u['cost_cny']:.4f} 元已超过上限 {self.max_cost} 元，停止")
+                self._stop(f"实际费用 {self.u['cost_cny']:.4f} 元已超过上限 {self.max_cost} 元，停止")
+                raise BudgetError(self.stop_reason)
 
     def cached(self) -> None:
         with self.lock:
@@ -509,7 +551,13 @@ class Caller:
         if self.get_client is None:
             raise CacheMiss(k)
         client = self.get_client()
-        resp = client.chat(messages, **params)
+        margin = self.meter.reserve(request_margin_cny(messages, params)) if self.meter else 0.0
+        try:
+            resp = client.chat(messages, **params)
+        except BaseException:
+            if self.meter:
+                self.meter.release(margin)
+            raise
         pt, ct, cached = J.usage_tokens(resp.get("usage") or {})
         hit = {"model": resp.get("model") or params["model"], "content": resp.get("content", ""),
                "usage": {"prompt_tokens": pt, "completion_tokens": ct, "cached_tokens": cached},
@@ -519,7 +567,7 @@ class Caller:
         tmp.write_text(json.dumps(hit, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         tmp.replace(p)
         if self.meter:
-            self.meter.add(pt, ct, cached, self.who)
+            self.meter.add(pt, ct, cached, self.who, margin)
         return hit
 
 
@@ -850,16 +898,41 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
         return job, run_session(*job, corpus, legacy["scenarios"][job[0]]["intel"], caller, model, max_turns, humanize,
                                 profile, responder, persona_call=pcaller, **extra)
 
-    with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
-        for job, row in ex.map(work, todo):
-            rows[job] = row
-            log(f"  {job[0]}/{job[1]}/{job[2]}: {row['turns']} 轮, {row['quit']}")
-    ordered = [rows[j] for j in jobs]
+    # submit + 遇到超限就 shutdown(cancel_futures=True)：排队的场直接取消，已在跑的场下一次请求在 Meter.reserve 处被拒
+    ex = ThreadPoolExecutor(max_workers=max(1, workers))
+    err: Optional[BaseException] = None
+    try:
+        futs = {ex.submit(work, job): job for job in todo}
+        pending = set(futs)
+        while pending and err is None:
+            done, pending = wait(pending, return_when=FIRST_EXCEPTION)
+            for f in done:
+                if f.cancelled():
+                    continue
+                e = f.exception()
+                if e is not None:
+                    err = err or e
+                    continue
+                job, row = f.result()
+                rows[job] = row
+                log(f"  {job[0]}/{job[1]}/{job[2]}: {row['turns']} 轮, {row['quit']}")
+        if err is not None:
+            meter.stop(str(err) if isinstance(err, BudgetError) else f"出错停止：{err.__class__.__name__}")
+    finally:
+        ex.shutdown(wait=True, cancel_futures=True)
+    if err is not None and not isinstance(err, BudgetError):
+        raise err
+    stopped = isinstance(err, BudgetError)
+    ordered = [rows[j] for j in jobs if j in rows]
     meter.u["cost_cny"] = round(meter.u["cost_cny"], 6)
     meter.u["cache_hit_rate"] = round(meter.u["cached_tokens"] / meter.u["prompt_tokens"], 4) if meter.u["prompt_tokens"] else None
     if meter.by:
         meter.u["by"] = meter.by
-    result.update({"usage": meter.u, "rows": ordered})
+    meter.u["refused_requests"] = meter.refused
+    # 超限中途停下：只汇总已跑完的场，结果里明确标出（stoppedByBudget），未跑完的场列在 unfinished
+    result.update({"usage": meter.u, "rows": ordered, "stoppedByBudget": stopped,
+                   "stopReason": meter.stop_reason if stopped else None,
+                   "unfinished": ["/".join(map(str, j)) for j in jobs if j not in rows]})
     result.update(summarize(ordered, scenarios, personas))
     return result
 
@@ -951,7 +1024,8 @@ def to_markdown(res: dict) -> str:
     pp = res["config"].get("personaPrompt")
     names = {"llm": f"大模型骗子（{res['config']['model']}，{res['config'].get('profile', 'default')} 档，"
                     f"被骗方 {res['config'].get('responder', 'persona')}"
-                    + (f"，人设提示词 {pp['label']}，平均回复 {res['overall'].get('avgReplyChars', 0):.1f} 字" if pp else "") + "）"}
+                    + (f"，人设提示词 {pp['label']}，平均回复 {res['overall'].get('avgReplyChars', 0):.1f} 字（去掉空白后的字数）"
+                       if pp else "") + "）"}
     if res.get("ruleBaseline"):
         rb = dict(res["ruleBaseline"])
         rb.setdefault("giveUp", 1 - rb.get("suspiciousQuit", 0) - rb.get("maxTurnsHit", 0))
@@ -967,6 +1041,11 @@ def to_markdown(res: dict) -> str:
     if cat:
         parts.append("**起疑挂断的露馅类别**：" + "，".join(f"{CATEGORIES[k].split('：')[0]} {v}" for k, v in cat.items()))
         parts.append("**露馅回复的引擎意图**：" + "，".join(f"{k} {v}" for k, v in res["triggerIntents"].items()))
+    if res.get("stoppedByBudget"):
+        parts.insert(0, f"**超限中途停止（stoppedByBudget=true）**：{res.get('stopReason')}。下面只汇总已跑完的 "
+                        f"{len(res.get('rows') or [])} 场，未完成：{'、'.join(res.get('unfinished') or []) or '无'}。")
+    if pp:
+        parts.append("平均回复字数（avgReplyChars）：人设发出的每条回复去掉空白后的字数取平均，不含开场白和空串轮。")
     u = res.get("usage") or {}
     parts.append(f"费用：{u.get('requests', 0)} 次请求（本地缓存命中 {u.get('cached_requests', 0)}），输入 {u.get('prompt_tokens', 0)} token"
                  f"（百炼缓存命中 {u.get('cached_tokens', 0)}）、输出 {u.get('completion_tokens', 0)} token，约 {u.get('cost_cny', 0):.4f} 元；"
@@ -1007,7 +1086,7 @@ def main(argv=None) -> int:
     ap.add_argument("--refresh", action="store_true", help="忽略缓存重新请求")
     ap.add_argument("--no-rule-baseline", action="store_true", help="不跑同条件的规则骗子对照")
     ap.add_argument("--json", default=None, help="结果（聚合 + 每场挂断信息，不含对话全文）")
-    ap.add_argument("--transcripts", default=None, help="可选：对话全文 JSONL（虚构值，建议不入库）")
+    ap.add_argument("--transcripts", default=None, help="可选：对话全文 JSONL（打码保存，规则同 --json-transcripts；建议不入库）")
     ap.add_argument("--md", default=None)
     ap.add_argument("--json-transcripts", action="store_true",
                     help="#164：--json 结果里每场带脱敏后的对话全文（骗子原文；人设 text + 真人化前的 raw）")
@@ -1063,7 +1142,10 @@ def main(argv=None) -> int:
     except BaseException:
         book("stopped:error")
         raise
-    book("ok")
+    book("stopped:budget" if res.get("stoppedByBudget") else "ok")
+    if res.get("stoppedByBudget"):
+        print(f"超限中途停止（stoppedByBudget=true）：{res.get('stopReason')}；已完成 {len(res['rows'])} 场，"
+              f"未完成 {len(res['unfinished'])} 场，结果照写并带标志", file=sys.stderr)
     if res["dry_run"]:
         print(json.dumps(res["estimate"], ensure_ascii=False, indent=1))
         return 0
@@ -1072,11 +1154,15 @@ def main(argv=None) -> int:
                                            res["config"].get("pairing", "full"))
     md = to_markdown(res)
     print(md)
+    for out_path in (a.transcripts, a.json, a.md):
+        if out_path:
+            Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     if a.transcripts:
+        # 对话全文 JSONL 也打码保存（与 --json-transcripts 同一套 redact_transcript）
         with open(a.transcripts, "w", encoding="utf-8") as f:
             for r in res["rows"]:
-                f.write(json.dumps({k: r[k] for k in ("scenario", "persona", "seed", "quit", "transcript")},
-                                   ensure_ascii=False) + "\n")
+                f.write(json.dumps({**{k: r[k] for k in ("scenario", "persona", "seed", "quit")},
+                                    "transcript": redact_transcript(r)}, ensure_ascii=False) + "\n")
     if a.json:
         out = {k: v for k, v in res.items() if k != "rows"}
         out["rows"] = [{**{k: v for k, v in r.items() if k != "transcript"},
@@ -1094,7 +1180,7 @@ def main(argv=None) -> int:
         Path(a.json).write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     if a.md:
         Path(a.md).write_text(md + "\n", encoding="utf-8")
-    return 0
+    return 2 if res.get("stoppedByBudget") else 0
 
 
 if __name__ == "__main__":

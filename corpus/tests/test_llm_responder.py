@@ -180,3 +180,101 @@ def test_transcript_redaction_llm_rows(tmp_path):
     blob = json.dumps(t, ensure_ascii=False)
     planted = M.SIM.plant(M.SIM.Rand(res["rows"][0]["seed"]))
     assert planted["bank"] not in blob.replace(" ", "") and "6222021234567890123" not in blob
+
+
+# ---------------------------------------------------------------- 预算：到上限立即停（审核意见）
+class CostlyLLM(FakeLLM):
+    """每次请求按 usage 计 0.05 元左右（6 万输入 token），并记下发请求那一刻 Meter 是否已经停止。"""
+
+    def __init__(self, holder, **kw):
+        super().__init__(hang_at=50, **kw)
+        self.holder, self.sent_after_stop, self.n = holder, 0, 0
+
+    def chat(self, messages, **params):
+        m = self.holder.get("m")
+        self.n += 1
+        if m is not None and m.stopped:
+            self.sent_after_stop += 1
+        r = super().chat(messages, **params)
+        r["usage"] = {"prompt_tokens": 60000, "completion_tokens": 100}
+        return r
+
+
+def _budget_run(tmp_path, monkeypatch, max_cost, workers=2, **kw):
+    monkeypatch.setattr(M, "estimate_session", lambda *a, **k: {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0,
+                                                                "responder_prompt_tokens": 0, "responder_completion_tokens": 0})
+    holder = {}
+    fake = CostlyLLM(holder)
+    res = M.run(scenarios=[s["id"] for s in M.SCENARIOS], personas=None, seeds=1, client_factory=lambda: fake,
+                cache_dir=tmp_path / "cache", dry_run=False, workers=workers, profile="hard", responder="llm",
+                max_cost=max_cost, meter_hook=lambda m: holder.__setitem__("m", m), **kw)
+    return res, fake, holder["m"]
+
+
+def test_budget_stops_before_sending(tmp_path, monkeypatch):
+    res, fake, m = _budget_run(tmp_path, monkeypatch, max_cost=0.3, workers=1)
+    assert res["stoppedByBudget"] is True and res["stopReason"] and m.stopped
+    assert fake.sent_after_stop == 0  # 停止标志置上以后，所有场都没有再发请求
+    assert fake.n == m.u["requests"] and m.refused >= 1
+    # 发请求前先检查（含单次预估余量）：最多只有最后一个在途请求按实际 usage 越过上限一次
+    assert m.u["cost_cny"] <= 0.3 + 0.05 * 2
+    assert res["unfinished"] and len(res["rows"]) + len(res["unfinished"]) == 7
+    assert res["usage"]["refused_requests"] == m.refused
+
+
+def test_budget_concurrent_only_inflight(tmp_path, monkeypatch):
+    res, fake, m = _budget_run(tmp_path, monkeypatch, max_cost=0.3, workers=4)
+    # 并发时，停止那一刻已经通过检查、正在路上的请求（至多 workers - 1 个）会返回；之后没有新请求
+    assert res["stoppedByBudget"] and fake.sent_after_stop <= 3 and fake.n == m.u["requests"]
+    assert m.u["cost_cny"] <= 0.3 + 0.05 * 4
+
+
+def test_budget_margin_refuses_first_request(tmp_path, monkeypatch):
+    res, fake, m = _budget_run(tmp_path, monkeypatch, max_cost=0.0005)
+    assert fake.n == 0 and m.u["requests"] == 0  # 单次请求的预估余量就超了：一个请求都不发
+    assert res["stoppedByBudget"] is True and res["rows"] == [] and len(res["unfinished"]) == 7
+
+
+def test_budget_cancels_queued_sessions(tmp_path, monkeypatch):
+    res, fake, m = _budget_run(tmp_path, monkeypatch, max_cost=0.12, workers=1)
+    assert fake.sent_after_stop == 0 and res["stoppedByBudget"]
+    assert len(res["unfinished"]) == 7 and fake.n <= 3  # 第一场里就停，排队的 6 场被取消，没有各多付一次
+
+
+def test_meter_reserve_and_stop_flag():
+    m = M.Meter(0.01)
+    r = m.reserve(0.004)
+    assert m.reserved == r
+    m.add(1000, 10, 0, "scammer", r)
+    assert m.reserved == 0 and not m.stopped
+    with pytest.raises(M.BudgetError):
+        m.reserve(0.02)
+    assert m.stopped
+    with pytest.raises(M.BudgetError):
+        m.reserve(0.0)  # 停了以后再小的请求也不发
+    assert m.refused == 2
+
+
+def test_cli_partial_result_flag(tmp_path, monkeypatch):
+    holder = {}
+    fake = CostlyLLM(holder)
+    orig = M.run
+    monkeypatch.setattr(M, "estimate_session", lambda *a, **k: {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0,
+                                                                "responder_prompt_tokens": 0, "responder_completion_tokens": 0})
+    monkeypatch.setattr(M, "run", lambda *a, **k: orig(*a, **{**k, "cache_dir": tmp_path / "cache",
+                                                              "meter_hook": lambda m: (holder.__setitem__("m", m), k["meter_hook"](m))}))
+    monkeypatch.setattr(M.J, "default_client_factory", lambda *a, **k: (lambda: fake))
+    out = tmp_path / "audit" / "eval194"
+    rc = M.main(["--run", "--profile", "hard", "--responder", "llm", "--seeds", "1", "--max-cost", "0.2",
+                 "--workers", "1", "--budget-tag", "t194", "--ledger", str(tmp_path / "spend.csv"), "--no-rule-baseline",
+                 "--json", str(out / "a.json"), "--json-transcripts", "--transcripts", str(out / "a.jsonl"), "--md", str(out / "a.md")])
+    assert rc == 2 and fake.sent_after_stop == 0
+    res = json.loads((out / "a.json").read_text(encoding="utf-8"))
+    assert res["stoppedByBudget"] is True and res["unfinished"]
+    assert "stoppedByBudget=true" in (out / "a.md").read_text(encoding="utf-8")
+    assert "去掉空白后的字数" in (out / "a.md").read_text(encoding="utf-8")
+    assert "stopped:budget" in (tmp_path / "spend.csv").read_text(encoding="utf-8")
+    for line in (out / "a.jsonl").read_text(encoding="utf-8").splitlines():
+        row = json.loads(line)
+        planted = M.SIM.plant(M.SIM.Rand(row["seed"]))
+        assert planted["bank"] not in line.replace(" ", "")  # 对话全文 JSONL 也打码
