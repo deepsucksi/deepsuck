@@ -282,7 +282,7 @@ async def run_bot(connection, persona: str, scenario: str, engine: str, *, limit
     call_id = ""
     try:
         session = Session(scenario=scenario, persona=persona, engine=f"voice-{engine}")
-        # 通话追踪：脱敏文字每通都存；勾选同意才录两轨录音。编号与 /api/offer 返回给页面的一致
+        # 通话追踪：勾选同意才存脱敏文字和两轨录音，没同意只记用量（#96）。编号与 /api/offer 返回给页面的一致
         trace = TR.CallTrace(channel="web", consent=consent, persona=session.persona["id"],
                              scenario=session.scenario["id"], model=LLM_MODEL if engine == "llm" else "rule",
                              engine=engine, trace_id=trace_id, asr_model=ASR_MODEL, tts_model=TTS_MODEL,

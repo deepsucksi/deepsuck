@@ -62,7 +62,7 @@ services:
       VOICE_TRANSCRIPT_DAYS: ${VOICE_TRANSCRIPT_DAYS:-30}
       KEEP_AUDIO: ${KEEP_AUDIO:-0}
       KEEP_AUDIO_DAYS: ${KEEP_AUDIO_DAYS:-7}
-      # 通话追踪（voice/trace.py，docs/TRACE_SCHEMA.md；脱敏文字每通都存，勾选同意才录音）：独立命名卷 voice-traces，30 天自动删，
+      # 通话追踪（voice/trace.py，docs/TRACE_SCHEMA.md；勾选同意才存录音和脱敏文字，没同意只记用量）：独立命名卷 voice-traces，30 天自动删，
       # 超过 TRACE_MAX_MB 或磁盘剩余低于 TRACE_MIN_FREE_MB 停录音（文字照存）。读取接口要 TRACE_ADMIN_TOKEN（.env），
       # Caddy 对公网的 /api/traces* 一律 404
       VOICE_TRACE: ${VOICE_TRACE:-1}
