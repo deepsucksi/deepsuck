@@ -2,6 +2,8 @@
 import asyncio
 
 import pytest
+
+from voice import persona as P
 from pipecat.processors.aggregators.llm_context import LLMContext
 
 from deepsuck.engine import Session
@@ -61,7 +63,7 @@ def test_tts_segments_match_record(text):
     g = ReaskGuard(s)
     f = GuardTextFilter(None, reask=g)
     spoken = "".join(asyncio.run(f.filter(x)) for x in _segments(text))
-    rec = g.text(text)
+    rec = g.text(P.guard_output(text))  # 与 BotTextTap 一致：先守卫（含 #205 hold_transfer 整分句改写）再去重
     norm = lambda t: "".join(c for c in t if c not in " ，,。…？?")
     assert norm(spoken) == norm(rec), (spoken, rec)
     asyncio.run(f.handle_interruption())
