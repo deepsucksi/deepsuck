@@ -131,7 +131,7 @@
     "户名和电话"
   ],
   "personaReply": {
-    "comment": "#201 人设侧姓名替换（网页 llm.js sanitizeReply / maskNames / speakMasked、engine.js vagueDigits；Python deepsuck.refs.mask_names / speak_masked、deepsuck.engine.vague_digits；语音 voice/persona.py guard_output → unmask、speakable）判断星号前的字是不是姓时读共用字表 site/assets/core/name_stopchars.json，不另抄一份。keep：人设原话经过替换和发出前过滤后原样不变（以前「户名和账号」「收款人信息」「户名和开户行」被替成「那个名字」）。notSurname：星号前的字按字表不是姓（「有」后面 4 个及以上星号），不能念成「那个名字」；speak 是 speakMasked / speak_masked 的结果，vague 是 vagueDigits / vague_digits 和语音 unmask 的结果。name：真名（含以可能的真姓「和」「姓」「有」开头的）经 sanitizeReply、语音 guard_output → unmask 后是 reply，原名一个字都不留。maskedName：上游已打码的姓名经 maskNames、speakMasked、vagueDigits、语音 unmask 后都是 reply；拿不准一律当姓名（可能是真姓的字后面只跟 1–3 个星号时正好是脱敏后的 2–4 字姓名）。tests/name_stopchars_persona.test.js、python/tests/test_name_stopchars_persona.py、voice/tests/test_name_stopchars_guard.py 共用。",
+    "comment": "#201 人设侧姓名替换（网页 llm.js sanitizeReply / maskNames / speakMasked、engine.js vagueDigits；Python deepsuck.refs.mask_names / speak_masked、deepsuck.engine.vague_digits；语音 voice/persona.py guard_output → unmask、speakable）判断星号前的字是不是姓时读共用字表 site/assets/core/name_stopchars.json，不另抄一份。keep：人设原话经过替换和发出前过滤后原样不变（以前「户名和账号」「收款人信息」「户名和开户行」被替成「那个名字」）。notSurname：星号前的字按字表不是姓（「有」后面 4 个及以上星号），不能念成「那个名字」；speak 是 speakMasked / speak_masked 的结果，vague 是 vagueDigits / vague_digits 和语音 unmask 的结果。name：真名（含以可能的真姓「和」「姓」「有」开头的）经 sanitizeReply、语音 guard_output → unmask 后是 reply，原名一个字都不留。maskedName：上游已打码的姓名经 maskNames、speakMasked、vagueDigits、语音 unmask 后都是 reply；拿不准一律当姓名（可能是真姓的字后面只跟 1–3 个星号时正好是脱敏后的 2–4 字姓名）。tests/name_stopchars_persona.test.js、python/tests/test_name_stopchars_persona.py、voice/tests/test_name_stopchars_guard.py 共用。 #206：不是姓的字后面跟星号再跟一个字（「对*明」）时一律当姓名（宁可多遮）。",
     "keep": [
       "户名和账号",
       "收款人信息",
@@ -200,6 +200,22 @@
       {
         "text": "收款人信**",
         "reply": "收款人那个名字"
+      },
+      {
+        "text": "对*明",
+        "reply": "那个名字"
+      },
+      {
+        "text": "户名对*明",
+        "reply": "户名那个名字"
+      },
+      {
+        "text": "你说的没*强",
+        "reply": "你说的那个名字"
+      },
+      {
+        "text": "户名是*明",
+        "reply": "户名那个名字"
       }
     ]
   }
