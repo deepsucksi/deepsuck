@@ -183,7 +183,7 @@ def test_cli_default_off_and_llm_with_fake_client(tmp_path, monkeypatch, capsys)
     assert R.main(["score", "--key", keyf, "--judge", "llm", "--dry-run"]) == 0
     assert fake.calls == []
     res_path = tmp_path / "judge.json"
-    assert R.main(["score", "--key", keyf, "--judge", "llm", "--json", str(res_path)]) == 0
+    assert R.main(["score", "--key", keyf, "--judge", "llm", "--judge-api", "sync", "--json", str(res_path)]) == 0
     res = json.loads(res_path.read_text(encoding="utf-8"))["llm_judge"]
     assert len(fake.calls) == 12 and res["items"] == 12 and res["mode"] == "item" and "代理指标" in res["note"]
     assert set(res["score"]["conditions"]) == {"raw", "humanized"}
@@ -221,3 +221,119 @@ def test_item_mode_sees_one_item_only(tmp_path):
     assert len(fake_b.calls) == 2  # 不同模式不共用缓存
     with pytest.raises(ValueError):
         J.run_judge(key, forms, None, dry_run=True, cache_dir=tmp_path, mode="x")
+
+
+# ---------------------------------------------------------------- #164：严格档、缓存计费、Batch
+def test_cached_and_batch_pricing():
+    assert J.PRICE_CACHED_INPUT_PER_M == 0.1 and J.BATCH_PRICE_FACTOR == 0.5
+    full = J.cost_cny(10_000, 1_000)
+    assert J.cost_cny(10_000, 1_000, 8_000) == pytest.approx((2_000 * 0.8 + 8_000 * 0.1 + 1_000 * 2.7) / 1e6)
+    assert J.cost_cny(10_000, 1_000, 99_999) == pytest.approx((10_000 * 0.1 + 1_000 * 2.7) / 1e6)  # 命中数不超过输入
+    assert J.cost_cny(10_000, 1_000, 8_000, batch=True) == pytest.approx(full / 2)              # Batch 半价、无缓存折扣
+    assert J.usage_tokens({"prompt_tokens": 9, "completion_tokens": 2, "prompt_tokens_details": {"cached_tokens": 5}}) == (9, 2, 5)
+    assert J.usage_tokens({"prompt_tokens": 9, "completion_tokens": 2}) == (9, 2, 0)
+
+
+def test_strict_profile_prompt_and_cache_key():
+    assert "扣分" in J.SYSTEM_PROMPT_STRICT and "复读" in J.SYSTEM_PROMPT_STRICT and "过度配合" in J.SYSTEM_PROMPT_STRICT
+    b = [{"id": "A001", "scammer": "s", "reply": "r"}]
+    p = J.request_params(b)
+    assert p["enable_thinking"] is False
+    assert J.cache_key(b, p, "item", "strict") != J.cache_key(b, p, "item", "default")
+    assert J.cache_key(b, p, "item") == J.cache_key(b, p, "item", "default")  # 默认档的旧缓存仍可命中
+    m = J.messages_for(b, "item", "strict")
+    assert m[0] == {"role": "system", "content": J.SYSTEM_PROMPT_STRICT}  # 固定提示词在最前面
+    with pytest.raises(ValueError):
+        J.run_judge({}, {"A": []}, profile="strict", mode="batch")
+
+
+class FakeBatchClient(FakeClient):
+    """模拟百炼 Batch：上传 → 创建 → 前 pending_polls 次查询 in_progress → completed；第 fail_index 行返回错误。"""
+
+    def __init__(self, pending_polls=1, fail_index=None):
+        super().__init__()
+        self.uploads, self.creates, self.polls = [], 0, 0
+        self.pending_polls, self.fail_index = pending_polls, fail_index
+
+    def upload_batch_file(self, data, filename="x.jsonl"):
+        self.uploads.append([json.loads(x) for x in data.decode("utf-8").splitlines()])
+        return "file-1"
+
+    def create_batch(self, fid, metadata=None):
+        self.creates += 1
+        return {"id": "batch-1", "status": "validating"}
+
+    def get_batch(self, bid):
+        self.polls += 1
+        if self.polls <= self.pending_polls:
+            return {"id": bid, "status": "in_progress"}
+        return {"id": bid, "status": "completed", "output_file_id": "out-1"}
+
+    def file_content(self, fid):
+        out = []
+        for i, line in enumerate(self.uploads[-1]):
+            if i == self.fail_index:
+                out.append({"custom_id": line["custom_id"], "response": {"status_code": 400, "body": {}}, "error": {"code": "x"}})
+                continue
+            r = self.chat(line["body"]["messages"], **{k: v for k, v in line["body"].items() if k != "messages"})
+            out.append({"custom_id": line["custom_id"], "response": {"status_code": 200, "request_id": "rq", "body": {
+                "model": "qwen3.8-flash", "usage": r["usage"], "choices": [{"message": {"content": r["content"]}}]}},
+                "error": None})
+        return "\n".join(json.dumps(x, ensure_ascii=False) for x in out) + "\n"
+
+
+def test_batch_api_half_price_cache_and_resume(tmp_path):
+    key, forms = _data(6)
+    fake = FakeBatchClient(pending_polls=2, fail_index=0)
+    out = J.run_judge(key, forms, lambda: fake, n_pairs=6, cache_dir=tmp_path, profile="strict", api="batch",
+                      batch_poll=0, sleep=lambda s: None)
+    lines = fake.uploads[0]
+    assert fake.creates == 1 and len(lines) == 12
+    body = lines[0]["body"]
+    assert body["enable_thinking"] is False and body["model"] == "qwen3.8-flash"  # 顶层参数，不在 extra_body 里
+    assert body["messages"][0]["content"] == J.SYSTEM_PROMPT_STRICT
+    assert out["usage"]["requests"] == 11 and out["invalid_items"] == 1           # 失败行不计费、记无效
+    assert out["usage"]["cost_cny"] == pytest.approx(J.cost_cny(1100, 220) / 2, abs=1e-6)
+    assert out["usage"]["cached_tokens"] == 0 and out["api"] == "batch"
+    # 再跑：成功的 11 题走本地缓存，只把失败的 1 题重新提交
+    fake2 = FakeBatchClient(pending_polls=0)
+    again = J.run_judge(key, forms, lambda: fake2, n_pairs=6, cache_dir=tmp_path, profile="strict", api="batch",
+                        batch_poll=0, sleep=lambda s: None)
+    assert len(fake2.uploads[0]) == 1 and again["usage"]["cached_requests"] == 11 and again["invalid_items"] == 0
+
+
+def test_batch_timeout_then_resume_without_resubmitting(tmp_path):
+    fake = FakeBatchClient(pending_polls=10**6)
+    clock = iter(range(0, 10**6, 100))
+    with pytest.raises(J.BatchPending):
+        J._batch_results(fake, [("a", [{"role": "user", "content": "诈骗消息：转账\n回复：好的"}], {"model": "m"})], tmp_path, 250, 0,
+                         lambda s: None, sleep=lambda s: None, clock=lambda: next(clock))
+    assert fake.creates == 1
+    fake.pending_polls = 0
+    fake.polls = 0
+    res = J._batch_results(fake, [("a", [{"role": "user", "content": "诈骗消息：转账\n回复：好的"}], {"model": "m"})], tmp_path, 250, 0,
+                           lambda s: None, sleep=lambda s: None)
+    assert fake.creates == 1 and "a" in res  # 同一份输入接着等同一任务，没有重复提交
+
+
+def test_batch_budget_refuses_before_upload(tmp_path, monkeypatch):
+    key, forms = _data(6)
+    monkeypatch.setattr(J, "PRICE_INPUT_PER_M", 100000.0)
+
+    def factory():
+        raise AssertionError("must not create a client")
+    with pytest.raises(J.BudgetError):
+        J.run_judge(key, forms, factory, cache_dir=tmp_path, api="batch")
+
+
+def test_sync_records_cached_tokens(tmp_path):
+    key, forms = _data(2)
+
+    class Cached(FakeClient):
+        def chat(self, messages, **params):
+            r = super().chat(messages, **params)
+            r["usage"] = {"prompt_tokens": 2000, "completion_tokens": 20, "prompt_tokens_details": {"cached_tokens": 1536}}
+            return r
+    out = J.run_judge(key, forms, Cached, n_pairs=2, cache_dir=tmp_path, api="sync")
+    assert out["usage"]["cached_tokens"] == 1536 * 4
+    assert out["usage"]["cost_cny"] == pytest.approx(4 * J.cost_cny(2000, 20, 1536), abs=1e-6)

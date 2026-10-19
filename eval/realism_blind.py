@@ -352,6 +352,11 @@ def main(argv=None) -> int:
     sc.add_argument("--judge-batch", type=int, default=10, help="批量模式下每次请求放几道题（同一份表），默认 10")
     sc.add_argument("--judge-seed", type=int, default=1)
     sc.add_argument("--judge-model", default="qwen3.8-flash")
+    sc.add_argument("--judge-profile", choices=("default", "strict"), default="default",
+                    help="评委提示词：default = judge-v3-item（旧口径）；strict = #164 严格档（机器味、复读、过度配合扣分）")
+    sc.add_argument("--judge-api", choices=("sync", "batch"), default="batch",
+                    help="batch（默认）= 百炼 Batch 文件接口，半价、异步；sync = 标准同步接口")
+    sc.add_argument("--batch-timeout", type=float, default=3600.0, help="Batch 最长等待秒数，超时后重跑会接着等同一任务")
     sc.add_argument("--max-cost", type=float, default=1.0, help="费用上限（元），不能超过 1 元")
     sc.add_argument("--dry-run", action="store_true", help="只估算 token 与费用，不调用")
     sc.add_argument("--budget-tag", default=None, help="费用台账标签：同标签累计不超过 --total-budget，每次运行逐笔记入 eval-spend.csv")
@@ -386,13 +391,19 @@ def main(argv=None) -> int:
         def book(status: str) -> None:
             u = held.get("u")
             if a.budget_tag and not a.dry_run and u and u.get("requests"):
-                L.append(a.budget_tag, "eval/realism_blind.py score --judge llm", a.judge_model, u,
-                         f"judgeN={a.judge_n} mode={a.judge_mode} seed={a.judge_seed} {status}", ledger)
+                L.append(a.budget_tag, f"eval/realism_blind.py score --judge llm ({a.judge_api})", a.judge_model, u,
+                         f"judgeN={a.judge_n} mode={a.judge_mode} profile={a.judge_profile} api={a.judge_api} "
+                         f"seed={a.judge_seed} {status}", ledger)
         try:
             out = J.run_judge(key, read_forms(forms_dir), J.default_client_factory(), n_pairs=a.judge_n,
                               batch_size=a.judge_batch, mode=a.judge_mode, seed=a.judge_seed, model=a.judge_model, max_cost=max_cost,
                               cache_dir=J.CACHE_DIR, dry_run=a.dry_run, refresh=a.refresh_cache, log=lambda m: print(m, file=sys.stderr),
-                              usage_hook=lambda u: held.__setitem__("u", u))
+                              usage_hook=lambda u: held.__setitem__("u", u), profile=a.judge_profile, api=a.judge_api,
+                              batch_timeout=a.batch_timeout)
+        except J.BatchPending as e:
+            book("pending:batch")
+            print(f"大模型评委未完成：{e}", file=sys.stderr)
+            return 4
         except J.BudgetError as e:
             book("stopped:budget")
             print(f"拒绝运行：{e}", file=sys.stderr)
@@ -403,7 +414,8 @@ def main(argv=None) -> int:
             return 3
         book("ok")
         judge = {"note": "代理指标：大模型评委的判断，不能代替人工盲测，可能有评委偏差",
-                 "model": out["model"], "mode": out["mode"], "date": out["date"], "seed": out["seed"], "estimate": out["estimate"],
+                 "model": out["model"], "mode": out["mode"], "profile": out["profile"], "api": out["api"],
+                 "date": out["date"], "seed": out["seed"], "estimate": out["estimate"],
                  "dry_run": out["dry_run"]}
         if not out["dry_run"]:
             judge.update({"items": len(out["ratings"]), "invalid_items": out["invalid_items"], "usage": out["usage"],
