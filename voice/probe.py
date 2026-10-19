@@ -374,7 +374,7 @@ def main(argv=None) -> int:
     ap.add_argument("--relay", choices=["tcp", "tls"],
                     help="只走 TURN 中继：tcp = turn:...?transport=tcp，tls = turns:（凭据从 /api/ice 现取）")
     ap.add_argument("--consent", action="store_true",
-                    help="同意保存录音（通话追踪；脱敏文字每通都存）；服务端返回的通话编号打印在 trace_id")
+                    help="同意保存录音（通话追踪；同意才存录音和脱敏文字）；服务端返回的通话编号打印在 trace_id")
     ap.add_argument("--flag", metavar="说明",
                     help="挂断后模拟页面“这通有问题”提交这句说明（并用错口令试一次，应 403）；结果在 feedback")
     a = ap.parse_args(argv)
