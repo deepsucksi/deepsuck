@@ -151,3 +151,45 @@ def test_persona_lines_untouched():
                 walk(v, f"{path}[{i}]")
     walk(_PJ, "")
     assert not bad, bad
+
+
+# ---- #219 情报复审必改 3、4 --------------------------------------------------------------------------------------
+# 必改 3：粗体星号 + 拆字 / 逐字解释。负责人定的顺序：先 guard_output（drop_name_explain 先生效），姓名替换在它之后。
+# main d798641 实测：「收款人是**弓长张**」→「收款人那个名字那个名字」（不露字）；#219 5285347 回归成「收款人那个名字长那个名字」。
+@pytest.mark.parametrize("text,want,main_d798641", [
+    ("收款人是**弓长张**", "收款人那个名字", "收款人那个名字那个名字"),
+    ("**伟大的伟**对吧", "那个名字对吧", "那个号伟大的那个名字对吧"),
+    ("收款人是**弓长张，伟大的伟**对吧", "收款人那个名字对吧", None),
+])
+@pytest.mark.parametrize("mode", ["整句", "逐字流式", "三字流式"])
+def test_bold_stars_with_explain_r219(text, want, main_d798641, mode):
+    whole, parts = chunks(text, mode)
+    for out in whole + ["".join(parts)]:
+        for c in "弓长张伟大的":
+            assert c not in out, (out, c)
+        assert "那个号" not in out and "*" not in out, out
+    if whole:
+        assert whole[0] == want
+        if main_d798641:  # 相对 main 不回退：main 不露的现在也不露，且只用「那个名字」
+            assert set(main_d798641.replace(NP, "")) >= set(whole[0].replace(NP, ""))
+
+
+# 必改 4：引号、空格、逗号、前置「X，」「X——」变体（负责人定：拿不准就打码）
+@pytest.mark.parametrize("text,leak", [
+    ("伟大的“伟”对吧", "伟"), ("伟大的「伟」对吧", "伟"), ("伟大的『伟』对吧", "伟"), ("伟大的'伟'对吧", "伟"),
+    ('伟大的"伟"对吧', "伟"), ("伟大的‘伟’对吧", "伟"),
+    ("伟大的 伟对吧", "伟"), ("伟大的，伟对吧", "伟"), ("伟，伟大的伟", "伟"), ("伟——伟大的伟", "伟"),
+    ("“伟”，伟大的伟", "伟"), ("弓长 张，伟大的伟", "张伟"), ("收款人是弓 长 张", "弓长张"), ("收款人是弓  长张，明天的明", "长张明"),
+])
+@pytest.mark.parametrize("mode", ["整句", "逐字流式", "三字流式"])
+def test_explain_variants_r219(text, leak, mode):
+    whole, parts = chunks(text, mode)
+    for out in whole + ["".join(parts)]:
+        for c in leak:
+            assert c not in out, (out, c)
+        assert NP in out and "那个号" not in out, out
+
+
+@pytest.mark.parametrize("text", ["伟大的祖国", "尔东陈列馆", "宫长张罗了一桌菜", "伟大的伟人", "东方的东西", "这个**很重要**"])
+def test_variants_counterexamples_r219(text):
+    assert NP not in P.speakable(text, calm_tts=False)

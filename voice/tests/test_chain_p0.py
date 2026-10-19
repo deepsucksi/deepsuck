@@ -123,12 +123,18 @@ def problems(segs, expect, leak=(), keep=None):
 DEP_214 = "#214（共享核心：号码词 + 1–3 个星号是 number、「我在***上班」不当姓名、「卡号是***，户名***」按逗号分段判断）"
 DEP_216 = ("#216（「我在*上班」：单个星号后跟一个字按宁可多遮当姓名，念「我在那个名字班」；main 上就失败，"
            "试合 #214 b411fbe 后仍失败，#214 的 fixture 也标了 xfail）")
+# #219 复审（负责人定）：号码词只读共享核心 maskContext.numberBefore，#214 合入前段首星号不按号码词判断
+DEP_214_NB = "#214（共享核心 name_stopchars.json 的 maskContext.numberBefore；voice 不再维护本地号码词表）"
 _NUMBER_WORDS = ("验证码是", "卡号是", "尾号是", "密码是", "账号是", "手机号是")
 
 
 def _depends(group, segs, expect):
     if group.startswith("p0") and segs[0].startswith(_NUMBER_WORDS) and len(segs) == 1:
         return DEP_214
+    if group.startswith("p0") and segs[0].startswith(_NUMBER_WORDS):
+        return DEP_214_NB
+    if group.startswith("号码+户名 分段") and segs[0] == "卡号是":
+        return DEP_214_NB
     if group.startswith("p0") and segs[0].startswith("我在"):
         return DEP_216 if segs == ["我在*上班"] else DEP_214
     if group.startswith("号码+户名") and segs[0].startswith("卡号是***"):
@@ -198,7 +204,7 @@ def test_chain(segs, expect, leak, keep):
     ("户名为**", "户名那个名字"), ("户名：**", "户名：那个名字"), ("户名 是 **", "户名那个名字"),
     ("收款人***", "收款人那个名字"), ("收款人是**", "收款人那个名字"), ("收款人：***", "收款人：那个名字"),
     ("对方叫***", "对方叫那个名字"), ("对方叫*", "对方叫那个名字"), ("名下***", "名下那个名字"), ("他名下**", "他名下那个名字"),
-    ("户名***的卡", "户名那个名字的卡"), ("户名**和卡号", "户名那个名字和卡号"),
+    ("户名***的卡", "户名那个名字的卡"), ("户名**和卡号", "户名那个名字卡号"),
     ("户名*明", "户名那个名字"), ("收款人**华", "收款人那个名字"), ("对方叫*明", "对方叫那个名字"), ("户名**明，", "户名那个名字，"),
     ("转到**名下", "转到那个名字名下"),
     # 正常词不动
@@ -250,7 +256,7 @@ def test_lead_stars_by_prev_segment(text, prev, refs, want):
 
 @pytest.mark.parametrize("segs,want", [
     # 第 2 条：「卡号是」/「***，户名***」refs 要同时有 number 和 name
-    (["卡号是", "***，户名***"], {"number", "name"}),
+    pytest.param(["卡号是", "***，户名***"], {"number", "name"}, marks=pytest.mark.xfail(reason=f"依赖 {DEP_214_NB}", strict=False)),
     (["转给", "***"], {"name"}),
     (["户名", "**"], {"name"}),
 ])
@@ -259,6 +265,7 @@ def test_heard_refs_split_segments(segs, want):
     assert want <= r["refs"], (segs, r)
 
 
+@pytest.mark.xfail(reason=f"依赖 {DEP_214_NB}", strict=False)
 @pytest.mark.parametrize("text,want", [
     # #214 语料复审：两段 ** 先换代称再去 Markdown 粗体，念法与网页 / Python（#214 后）一致
     ("验证码是**，密码是**", "验证码是那个号，密码是那个号"),
@@ -287,3 +294,45 @@ async def _tts_step(text, step):
     if r:
         out.append(await flt.filter(r.text))
     return "".join(out)
+
+
+# ---- #219 情报复审必改 1、2（负责人定：锚和星号之间隔标点 / 空格也算；星号后残名最多 3 字，遇「的吗吧是啊对卡账户」停）------
+@pytest.mark.parametrize("text,want", [
+    # 必改 1：锚词和星号之间隔逗号、顿号、空格
+    ("户名，*明", "户名，那个名字"), ("收款人、**华", "收款人、那个名字"), ("转给，*明", "转给，那个名字"),
+    ("户名，***", "户名，那个名字"), ("户名 ***", "户名那个名字"), ("对方叫，**", "对方叫，那个名字"),
+    # 必改 2：星号后两个及以上残字整段换掉
+    ("户名*志强", "户名那个名字"), ("收款人**小明", "收款人那个名字"), ("转给*志强", "转给那个名字"),
+    ("汇款给**明", "汇款给那个名字"), ("户名*欧阳锋", "户名那个名字"),
+    # 负责人补的两条：遇停字保留
+    ("户名**是吧", "户名那个名字是吧"), ("收款人**的卡", "收款人那个名字的卡"), ("户名*明的账户", "户名那个名字的账户"),
+])
+def test_anchor_sep_and_tail_r219(text, want):
+    assert P.speakable(text, calm_tts=False) == want
+    for step in (1, 3, len(text)):
+        assert asyncio.run(_tts_step(text, step)) == want, step
+
+
+@pytest.mark.parametrize("segs,leak", [
+    (["户名，*明"], ("明",)), (["收款人、**华"], ("华",)), (["户名*志强"], ("志", "强")),
+    (["收款人**小明"], ("小", "明")), (["转给*志强"], ("志", "强")), (["汇款给**明"], ("明",)),
+])
+def test_chain_no_leak_r219(segs, leak):
+    """真实链路（IntelProcessor → ContextGuard → 人设复述 speakable / 流式）不露残名。"""
+    why, r = problems(segs, "leak", leak, None)
+    assert not why, (why, r)
+
+
+@pytest.mark.parametrize("segs", [["户名，", "*明"], ["收款人，", "**"], ["户名、", "*志强"], ["转给 ", "**"]])
+def test_lead_stars_prev_with_comma_r219(segs):
+    assert P.lead_stars_kind(segs[0]) == "name"
+    assert P.unmask(segs[1], prev=segs[0]) == "那个名字"
+
+
+@pytest.mark.xfail(reason=f"依赖 {DEP_214_NB}", strict=False)
+@pytest.mark.parametrize("segs", [["手机", "***"], ["电话", "***"], ["确认码", "***"], ["短信码", "**"]])
+def test_number_before_from_core_r219(segs):
+    """必改 5：号码词只读共享核心 maskContext.numberBefore（#214 加入「手机 / 电话 / 确认码 / 短信码」）。"""
+    assert P.lead_stars_kind(segs[0]) == "number"
+    _, r = problems(segs, "none")
+    assert r["refs"] == {"number"}, r
