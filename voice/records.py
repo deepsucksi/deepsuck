@@ -1,6 +1,6 @@
 """通话留存：默认只保存脱敏后的文字记录，不保存任何原始音频。
 
-- 文字记录：通话结束时写 Session.report()（与网页版导出同一格式）。转写和机器人回复进入会话时
+- 文字记录：只在通话方明确同意（consent 恰为 True）时，通话结束写 Session.report()（与网页版导出同一格式）。转写和机器人回复进入会话时
   已经脱敏（Session.ingest / record_bot）；落盘前这里再对每条文字直接调用仓库共享的
   deepsuck.redact.redact_text(text, extract_sensitive(text))（见 docs/INTEL.md「脱敏接口」），
   voice/ 不另写任何脱敏规则。卡号等原值只在进程内存里，不会写进记录。
@@ -96,8 +96,19 @@ def _private_write(path: Path, data: bytes) -> None:
         f.write(data)
 
 
-def save_transcript(session, call_id: str, channel: str, env=None, now: Optional[float] = None) -> Optional[Path]:
-    """写脱敏文字记录（Session.report()）。关闭或会话为空时返回 None。"""
+def transcript_allowed(consent) -> bool:
+    """文字记录只在明确同意时写（#127）：consent 必须恰为 True。
+
+    False / None / 字符串（包括电话线路固定的 "sip-text-only"）一律不写。网页和电话两条通道都经 save_transcript 走这一处。
+    """
+    return consent is True
+
+
+def save_transcript(session, call_id: str, channel: str, env=None, now: Optional[float] = None, *,
+                    consent) -> Optional[Path]:
+    """写脱敏文字记录（Session.report()）。consent 必填、不为 True、关闭或会话为空时返回 None。"""
+    if not transcript_allowed(consent):
+        return None
     if not transcripts_enabled(env) or not getattr(session, "messages", None):
         return None
     from deepsuck.extractors import extract_sensitive
