@@ -95,7 +95,7 @@ function createBudget(opts) {
     record: function (resv, raw, est, meta) {
       roll();
       reserved = Math.max(0, reserved - (resv || 0));
-      var u = normUsage(raw), estimated = false, usage = raw;
+      var u = normUsage(raw), estimated = false, usage = numericLeaves(raw);
       if (!u) {
         if (!est) return null;
         estimated = true;
@@ -107,8 +107,13 @@ function createBudget(opts) {
       st.reasoningTokens += u.reasoning; st.cachedTokens += u.cached;
       if (estimated) st.estimatedCalls++;
       st.spentCny = +(st.spentCny + c).toFixed(6);
-      var rec = Object.assign({ ts: new Date().toISOString(), day: st.day }, meta || {},
-        { estimated: estimated, usage: usage, cny: c, prices: { inPerM: prices.inPerM, outPerM: prices.outPerM } });
+      // #178：台账行只写白名单字段（LEDGER_FIELDS），meta 里只取 model / failed，不写对话、IP、会话、UA
+      meta = meta || {};
+      var rec = { ts: new Date().toISOString(), day: st.day };
+      if (typeof meta.model === 'string') rec.model = meta.model.slice(0, 64);
+      rec.estimated = estimated;
+      if (meta.failed === true) rec.failed = true;
+      rec.usage = usage; rec.cny = c; rec.prices = { inPerM: +prices.inPerM, outPerM: +prices.outPerM };
       appendLedger(rec);
       save();
       return rec;
@@ -120,6 +125,25 @@ function createBudget(opts) {
     },
     flush: function () { save(true); }
   };
+}
+
+/** 逐次台账一行允许的字段（#178） */
+var LEDGER_FIELDS = ['ts', 'day', 'model', 'estimated', 'failed', 'usage', 'cny', 'prices'];
+
+/** usage 只留数字叶子（#178）：上游若在 usage 里塞字符串、数组、布尔等一律丢掉，空的子对象也丢掉；最多 3 层 */
+function numericLeaves(o, depth) {
+  depth = depth || 0;
+  if (!o || typeof o !== 'object' || Array.isArray(o) || depth > 2) return {};
+  var out = {};
+  Object.keys(o).forEach(function (k) {
+    var v = o[k];
+    if (typeof v === 'number' && isFinite(v)) out[k] = v;
+    else if (v && typeof v === 'object' && !Array.isArray(v)) {
+      var sub = numericLeaves(v, depth + 1);
+      if (Object.keys(sub).length) out[k] = sub;
+    }
+  });
+  return out;
 }
 
 /** 上游 usage → {in, out, reasoning, cached}；不是对象或没有 token 数时返回 null */
@@ -151,4 +175,4 @@ function parseOrigins(s) {
   return String(s || '').split(',').map(function (x) { return x.trim().replace(/\/+$/, ''); }).filter(Boolean);
 }
 
-module.exports = { cnDay: cnDay, createLimiter: createLimiter, createBudget: createBudget, estimateTokens: estimateTokens, normUsage: normUsage, parseOrigins: parseOrigins };
+module.exports = { cnDay: cnDay, createLimiter: createLimiter, createBudget: createBudget, estimateTokens: estimateTokens, normUsage: normUsage, numericLeaves: numericLeaves, LEDGER_FIELDS: LEDGER_FIELDS, parseOrigins: parseOrigins };

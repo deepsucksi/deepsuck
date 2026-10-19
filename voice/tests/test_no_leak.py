@@ -44,7 +44,7 @@ class RecCtx(LLMContext):
 def _dynamic(prompt: str) -> list:
     """提示词里随场景/意图/对话变化的部分：角色行、本轮策略行、例句。固定规则（含“不要先提平台、网址……”）不算。"""
     lines = prompt.split("\n")
-    out = [x for x in lines if x.startswith("角色：") or x.startswith("本轮建议策略") or x.startswith("对方已经提到")]
+    out = [x for x in lines if x.startswith("角色：") or x.startswith("本轮建议策略") or x.startswith(P.MISS_HEAD)]
     if any(x.startswith("说话口气参考") for x in lines):
         i = next(i for i, x in enumerate(lines) if x.startswith("说话口气参考"))
         out += [x for x in lines[i + 1:] if x.startswith("对方：") or x.startswith("你：")]
@@ -76,7 +76,7 @@ def test_small_talk_never_steers_to_unmentioned_topics(pid, sid):
         for sp in prompts:
             assert scen["title"] not in sp and scen["desc"] not in sp  # 场景名和描述不进人设提示词
             assert P.NO_LEAK_RULE in sp
-            assert "仍希望诱导" not in sp and "对方已经提到" not in sp  # 对方没提过的情报不进“想要”的清单
+            assert "仍希望诱导" not in sp and P.MISS_HEAD not in sp  # 对方没提过的情报不进“想要”的清单
             for line in _dynamic(sp):
                 assert not FORBIDDEN.search(line), (pid, sid, seed, line)
 
@@ -128,10 +128,11 @@ def test_missing_goals_only_after_mention():
     p = IntelProcessor(s, context=ctx)
     s.ingest("你好，交个朋友")
     sp = p.update_prompt()
-    assert "对方已经提到" not in sp and p.prompt_sha and len(p.prompt_sha) == 8
+    assert P.MISS_HEAD not in sp and p.prompt_sha and len(p.prompt_sha) == 8
     s.ingest("你下载这个APP看看")
     sp = p.update_prompt()
-    assert "对方已经提到、但还没说清楚的：网址/下载链接" in sp and "钱包" not in sp.split("对方已经提到")[1].split("\n")[0]
+    assert P.MISS_HEAD + "网址/下载链接" in sp and "钱包" not in sp.split(P.MISS_HEAD)[1].split("\n")[0]
+    assert "对方没说过的，不要说成他说过" in sp
 
 
 def test_voice_shots_filtered_by_topic():

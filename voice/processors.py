@@ -14,6 +14,7 @@ import asyncio
 import hashlib
 import os
 import random
+import re
 import time
 from pathlib import Path
 from typing import Awaitable, Callable, Dict, List, Optional
@@ -43,12 +44,58 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
 from .callredact import CallRedactor
-from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_scenes, session_topics, speakable, system_prompt,
-                      unmask)
+from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_scenes, prompt_parts, session_topics, speakable,
+                      system_prompt, unmask)
 
 Notify = Callable[[dict], Awaitable[None]]
 
 GOAL_LABEL = {"bank": "收款银行卡号", "wallet": "加密钱包地址", "phone": "联系电话", "url": "网址/下载链接", "name": "收款人姓名"}
+
+
+# #169：历史窗口。上下文里（不含第一轮）超过 HISTORY_TRIM_AT 轮时，整块丢掉最老的 HISTORY_DROP 轮（一次丢一块，
+# 两次截断之间前缀不变，能吃前缀缓存）。接电话那一声和对方第一段话（自我介绍）连同人设的第一条回复固定保留。
+# 情报、缺项、话题、场景、称呼都从 session 算（session.messages 不截），按通话打码名单在 CallRedactor 里，都不受影响；
+# 人设在被丢掉的几轮里说过的关键事实（哪家银行、多少钱、用过的借口）摘出来，放进每轮可变部分。
+HISTORY_TRIM_AT = 12
+HISTORY_DROP = 4
+FACTS_MAX = 6
+_FACT = re.compile(r"银行|[工农建招交中]行|邮储|信用社|支付宝|微信|余额|存款|工资|退休金|"
+                   r"[0-9零一二两三四五六七八九十百千万]+\s*(?:块|元|万|千)|"
+                   r"在外面|没带|找不到|没电|信号|开会|上班|下班|店里|医院|老伴|孩子|宝宝|老公|儿子|女儿|忘了|记不清|不在家|在家")
+_ARABIC = re.compile(r"[0-9０-９]{2,}")
+_FIRST_SENT = re.compile(r"[^。？！?!；;\n]+[。？！?!；;…]*")
+
+
+def persona_facts(text: str, redactor=None) -> list:
+    """人设一条回复里带关键事实的句子（已按通话打码、去掉阿拉伯数字串，每句不超过 30 字）。"""
+    t = str(text or "")
+    if redactor is not None:
+        t = redactor.apply(t)
+    t = _ARABIC.sub("几", unmask(t))
+    out = []
+    for m in _FIRST_SENT.finditer(t):
+        x = m.group(0).strip().strip("…").strip()
+        if x and _FACT.search(x) and "*" not in x and "＊" not in x:
+            out.append(x[:30])
+    return out
+
+
+def window_history(rest: list, trim_at: int = HISTORY_TRIM_AT, drop: int = HISTORY_DROP):
+    """rest：不含 system 的上下文消息。返回 (保留的消息, 丢掉的消息)。按 user 消息分轮；第一条 user 之前的
+    （接电话那一声）和第一轮（对方自我介绍 + 人设第一条回复）固定保留；其余超过 trim_at 轮时整块丢最老的 drop 轮。"""
+    starts = [i for i, m in enumerate(rest) if m.get("role") == "user"]
+    if len(starts) <= 1:
+        return list(rest), []
+    head = rest[:starts[1]]
+    body = rest[starts[1]:]
+    bstarts = [i - starts[1] for i in starts[1:]] + [len(body)]
+    rounds = [body[bstarts[k]:bstarts[k + 1]] for k in range(len(bstarts) - 1)]
+    dropped = []
+    while len(rounds) + 1 > trim_at:
+        for r in rounds[:drop]:
+            dropped += r
+        rounds = rounds[drop:]
+    return list(head) + [m for r in rounds for m in r], dropped
 
 
 async def _noop(_msg: dict) -> None:
@@ -248,6 +295,8 @@ class IntelProcessor(FrameProcessor):
         self.on_heard = None     # 回调：听到骗子说话（看门狗用来判断静默）
         self.closing = False     # 护栏触发挂断后不再处理新转写（不再调用大模型）
         self.prompt_sha = ""     # 本轮系统提示词的短哈希（通话追踪记录用）
+        self.facts: List[str] = []   # #169：人设在已截掉的几轮里说过的关键事实（打码后），每轮放进可变部分
+        self.dropped_rounds = 0      # #169：历史窗口累计丢掉的消息条数（追踪用）
         # #95：第一句说法示例按“本通随机值 + 对方第一句话”挑。对方开口常是同一句“喂，你好…”，只按原话挑会每通都一样
         self.opener_salt = os.urandom(4).hex()
         # 意图门控：只接对方已经说过的话（rule 模式经 Session.intent_gate 生效，llm 模式在下面直接调用）
@@ -281,20 +330,37 @@ class IntelProcessor(FrameProcessor):
                 self.context.set_messages(msgs)
         return a
 
+    def have_labels(self) -> List[str]:
+        """对方已经报过、已提取的情报种类（GOAL_LABEL 的名称），从 session.intel 算，和上下文截断无关。"""
+        return [GOAL_LABEL[g] for g in GOAL_LABEL if self.session.have_goal(g)]
+
     def update_prompt(self) -> str:
+        """#169：上下文排成 [固定部分 system] + 历史（窗口内）+ [本轮可变部分 system]，当前这段转写由聚合器接在最后。
+        固定部分每轮基本不变，历史一次截一整块，所以前面一长段在相邻两轮之间相同，可以吃百炼的前缀缓存。"""
         topics = session_topics(self.session)
         # 只提对方已经提到、但还没拿到的情报；对方没提过的（例如杀猪盘里还没说平台）不进提示词
         missing = [GOAL_LABEL.get(g, g) for g in self.session.missing_goals() if GOAL_TOPIC.get(g) in topics]
         first = sum(1 for m in getattr(self.session, "messages", []) if m.get("role") == "scammer") <= 1
         heard = next((m.get("text", "") for m in getattr(self.session, "messages", []) if m.get("role") == "scammer"), "")
-        sp = system_prompt(self.session.persona["id"], self.session.scenario["id"], self.intent, missing,
-                           said_first=self.said_first, topics=topics, first_turn=first,
-                           scenes=heard_scenes(self.session), opener_key=f"{self.opener_salt}|{heard}")
-        self.prompt_sha = hashlib.sha1(sp.encode("utf-8")).hexdigest()[:8]
+        rest = None
         if self.context is not None:
             msgs = list(self.context.get_messages())
-            rest = msgs[1:] if msgs and msgs[0].get("role") == "system" else msgs
-            self.context.set_messages([{"role": "system", "content": sp}] + rest)
+            hist = [m for m in (msgs[1:] if msgs and msgs[0].get("role") == "system" else msgs) if m.get("role") != "system"]
+            rest, dropped = window_history(hist)
+            if dropped:
+                self.dropped_rounds += len(dropped)
+                for m in dropped:
+                    if m.get("role") == "assistant" and isinstance(m.get("content"), str):
+                        self.facts += [x for x in persona_facts(m["content"], self.redactor) if x not in self.facts]
+                self.facts = self.facts[-FACTS_MAX:]
+        fixed, turn = prompt_parts(self.session.persona["id"], self.session.scenario["id"], self.intent, missing,
+                                   said_first=self.said_first, topics=topics, first_turn=first,
+                                   scenes=heard_scenes(self.session), opener_key=f"{self.opener_salt}|{heard}",
+                                   have=self.have_labels(), facts=self.facts)
+        sp = fixed + "\n" + turn
+        self.prompt_sha = hashlib.sha1(sp.encode("utf-8")).hexdigest()[:8]
+        if self.context is not None:
+            self.context.set_messages([{"role": "system", "content": fixed}] + rest + [{"role": "system", "content": turn}])
         return sp
 
     def pick_filler(self) -> Optional[bytes]:

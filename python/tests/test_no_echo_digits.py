@@ -38,15 +38,16 @@ def test_probe_lines_have_no_digit_runs_after_filter():
 @pytest.mark.parametrize("text", [
     "验证码 4 7 2 9", "一三八 零零 幺三", "6二22开头的", "幺三八开头", "卡号 6222 **** **** 7890", "尾号 ****7890",
     "130****8600？尾号是8600？", "最后四位是3445吧", "后三位幺三八", "末尾０１２３", "4、7、2对吧", "138-0013",
+    "好像是62开头的", "六二开头", "前两位是6、2", "4，7对吧",  # #167：两位也算露号
 ])
 def test_every_form_of_digit_run_is_vague(text):
     out = vague_digits(text)
     assert not echoes(out), (text, out)
-    assert re.search("没听清|没看清|没记住|开头", out), out
+    assert re.search("没听清|没看清|没记住|开头|好像是", out), out
 
 
-@pytest.mark.parametrize("text", ["好像是6开头的", "分期是12期还是24期？", "我刚才那 5 块钱", "两三百块", "等我一下", "一二十分钟吧"])
-def test_single_and_double_digits_untouched(text):
+@pytest.mark.parametrize("text", ["好像是6开头的", "我刚才那 5 块钱", "两三百块", "等我一下", "一二十分钟吧"])
+def test_single_digits_and_cn_approx_untouched(text):  # #167：两位数字不再放过（“12期”→“几期”），汉字约数照常
     assert vague_digits(text) == text
 
 
@@ -82,8 +83,9 @@ def test_speak_intel_never_says_digits():
 
 
 # 已批准台词里唯一带“两个数字挨着”的人设自报码（小林 otp_stall，自己编的前两位，不是复述对方）。
-# 不改已有台词；过滤规则是连续 3 位及以上，所以这句照常发出。要不要换掉由负责人决定（见 PR 说明）。
-APPROVED_PAIRS = {"码我看到了，前两位是5、2，后面被通知横幅挡住了，我划一下。"}
+# 不改已有台词；#167 起过滤收紧到连续 2 位，这句发出时变成“前两位好像是5，…”，所以下面的会话检查不再跳过。
+# 台词本身要不要换掉由负责人决定（见 #167 PR 说明）。
+APPROVED_PAIRS: set = set()
 
 
 def test_rule_replies_never_echo_digits_in_a_session():
