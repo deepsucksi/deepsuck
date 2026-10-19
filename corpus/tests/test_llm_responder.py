@@ -371,3 +371,77 @@ def test_caller_accounts_when_cache_write_fails(tmp_path, monkeypatch):
 
 def test_margin_counts_digits_per_token():
     assert M._margin_tokens("1234567890") == 10 + 8 and M._margin_tokens("abcd") == 2 + 8
+
+
+# ---------------------------------------------------------------- 三审必改 1：骗子一侧把整张卡号拆成几段报
+SPLITS = {
+    "space2": ["打到这张卡6222 0212 3456", "7890 123"],
+    "dash3": ["卡号6217-0012", "3456-7890", "123"],
+    "plain2": ["卡号是6217123456", "789012345"],
+}
+
+
+class SplitScammerLLM(FakeLLM):
+    """骗子从第 2 轮起按 parts 一段一段报卡号，之后照常说话；人设只说不含数字的话。"""
+
+    def __init__(self, parts, hang_at=8):
+        super().__init__(replies=["啊？你说慢点", "我找找笔", "嗯嗯"], hang_at=hang_at)
+        self.parts = parts
+
+    def chat(self, messages, **params):
+        if "response_format" in params:
+            k = sum(m["role"] == "assistant" for m in messages) + 1
+            if 2 <= k < 2 + len(self.parts):
+                self.scam_calls.append((messages, params))
+                d = {"say": self.parts[k - 2], "action": "continue", "suspicion": 2}
+                return {"content": json.dumps(d, ensure_ascii=False), "model": "fake",
+                        "usage": {"prompt_tokens": 200, "completion_tokens": 20}}
+        return super().chat(messages, **params)
+
+
+def _split_digits(parts):
+    return re.sub(r"[^0-9]", "", "".join(parts))
+
+
+@pytest.mark.parametrize("name", sorted(SPLITS))
+def test_cli_scammer_split_card_redacted(tmp_path, monkeypatch, name):
+    parts = SPLITS[name]
+    card = _split_digits(parts)
+    assert 16 <= len(card) <= 19
+    fake = SplitScammerLLM(parts)
+    orig = M.run
+    monkeypatch.setattr(M, "run", lambda *a, **k: orig(*a, **{**k, "cache_dir": tmp_path / "cache"}))
+    monkeypatch.setattr(M.J, "default_client_factory", lambda *a, **k: (lambda: fake))
+    out = tmp_path / "eval194"
+    rc = M.main(["--run", "--profile", "hard", "--responder", "llm", "--seeds", "1", "--scenarios", "police",
+                 "--personas", "wang", "--workers", "1", "--no-rule-baseline", "--ledger", str(tmp_path / "spend.csv"),
+                 "--json", str(out / "a.json"), "--json-transcripts", "--transcripts", str(out / "a.jsonl"),
+                 "--md", str(out / "a.md")])
+    assert rc == 0
+    for fn in ("a.json", "a.jsonl", "a.md"):
+        blob = (out / fn).read_text(encoding="utf-8")
+        assert card not in re.sub(r"[\s\-]", "", blob), fn
+        assert card not in re.sub(r"[^0-9]", "", blob), fn
+    res = json.loads((out / "a.json").read_text(encoding="utf-8"))
+    rows = [res["rows"][0]["transcript"]] + [json.loads(x)["transcript"] for x in (out / "a.jsonl").read_text(encoding="utf-8").splitlines()]
+    for tr in rows:
+        said = [m["text"] for m in tr if m["role"] == "scammer"]
+        # 真的报出来了（能按打码后的形状找到每一段），而且各段里不剩数字
+        hits = [t for t in said if any(re.sub(r"[0-9]", "*", p) == t for p in parts)]
+        assert len(hits) == len(parts), said
+        assert not any(re.search(r"[0-9]", t) for t in hits)
+
+
+def test_redact_split_side_otp_with_chatter_and_no_overmask():
+    side = M.redact_split_side(["验证码是47", "（模型没按格式）29 卡号…… 电话……", "13"])
+    assert not any(re.search(r"[0-9]", t) for t in side), side
+    plain = ["我是公安局的，第2次通知你", "转5000元到安全账户", "明天3点前"]
+    assert M.redact_split_side(plain) == plain
+    # 中间隔着别的说话方的分段不算相邻：只按本方顺序拼
+    row = {"seed": 1000, "transcript": [
+        {"role": "scammer", "text": SPLITS["dash3"][0]}, {"role": "bot", "text": "啊？", "intent": "x"},
+        {"role": "scammer", "text": SPLITS["dash3"][1]}, {"role": "bot", "text": "慢点", "intent": "x"},
+        {"role": "scammer", "text": SPLITS["dash3"][2]}]}
+    out = M.redact_transcript(row)
+    assert not any(re.search(r"[0-9]", m["text"]) for m in out if m["role"] == "scammer")
+    assert M.redact_split_side(M.redact_split_side(SPLITS["space2"])) == M.redact_split_side(SPLITS["space2"])

@@ -729,15 +729,91 @@ def redact_text(text: str, planted: Optional[dict] = None, persona: bool = False
     return _fallback(s, planted)
 
 
+# #194 三审：骗子一侧没有 redact_persona 那样的兜底；共享核心的 redact_card_segments 只认带语境的卡号片段（「6222开头」
+# 「尾号0123」），整张卡被直接拆成几段报（「6222 0212 3456」「7890 123」、「6217-0012」「3456-7890」「123」、
+# 「卡号是6217123456」「789012345」）时认不出来。这里只在本脚本落盘时给骗子一侧补两层兜底（宁可多遮，不改共享核心）：
+# 1) 跨段卡号：同一角色按时间顺序相邻的几段（最多 2×segWindow+1 段），前一段以数字串收尾、后一段以数字串开头
+#    （首尾只允许夹 _SPLIT_EDGE_MAX 字以内的别的话），连起来的位数（已打码的 * 也算位）达到 _SPLIT_CARD_MIN 位，
+#    就把这几段数字串全部换成 *；
+# 2) 夹着别的话的分段验证码：窗口内某段有验证码关键词，各段 1–4 位的短数字串合计 4–8 位且分在至少两段里，全部换成 *。
+_SPLIT_RUN = re.compile(r"[0-9０-９*＊](?:[ \-－—]{0,2}[0-9０-９*＊])*")
+_SPLIT_DIGIT = re.compile(r"[0-9０-９]")
+_SPLIT_POS = re.compile(r"[0-9０-９*＊]")
+_SPLIT_EDGE_MAX = 8
+_SPLIT_CARD_MIN = 15  # 银行卡 16–19 位，放宽到 15 位（宁可多遮）；超过 19 位的整串也遮
+_SPLIT_OTP_KW = re.compile(r"验证码|校验码|动态码|短信码|确认码|安全码|密码|[Cc]ode|CODE")
+_SPLIT_OTP_RUN = (1, 4)
+_SPLIT_OTP_TOTAL = (4, 8)
+
+
+def _runs(t: str) -> List[tuple]:
+    """段内的数字串 (start, end, 位数)：位数含已打码的 *。纯 * 的串只算位、不用再遮。"""
+    return [(m.start(), m.end(), len(_SPLIT_POS.findall(m.group(0)))) for m in _SPLIT_RUN.finditer(t)]
+
+
+def _mask_span(t: str, a: int, b: int) -> str:
+    return t[:a] + _SPLIT_DIGIT.sub("*", t[a:b]) + t[b:]
+
+
+def redact_split_side(texts: List[str], window: Optional[int] = None) -> List[str]:
+    """同一说话方、按时间排的分段做跨段兜底（见上）。只把数字换成 *，长度不变，可重复执行。"""
+    from deepsuck import redact as RD
+    segs = list(texts)
+    n = len(segs)
+    w = RD.otp_seg_window() if window is None else window
+    span = max(1, 2 * max(0, int(w)) + 1)
+    runs = [_runs(t) for t in segs]
+    marks: List[set] = [set() for _ in segs]
+    # 1) 跨段卡号：从第 i 段的最后一个数字串开始往后接
+    for i in range(n):
+        if not runs[i] or len(segs[i]) - runs[i][-1][1] > _SPLIT_EDGE_MAX:
+            continue
+        chain, total = [(i, runs[i][-1])], runs[i][-1][2]
+        for j in range(i + 1, min(n, i + span)):
+            if not runs[j] or runs[j][0][0] > _SPLIT_EDGE_MAX:
+                break
+            first = runs[j][0]
+            chain.append((j, first))
+            total += first[2]
+            if total >= _SPLIT_CARD_MIN:
+                for k, r in chain:
+                    marks[k].add((r[0], r[1]))
+            # 中间段只能是一个数字串（前后最多夹几个字），否则这串到此为止
+            if len(runs[j]) > 1 or len(segs[j]) - first[1] > _SPLIT_EDGE_MAX:
+                break
+    # 2) 夹着别的话的分段验证码
+    lo, hi = _SPLIT_OTP_RUN
+    for c in range(n):
+        idx = range(max(0, c - w), min(n, c + w + 1))
+        if not any(_SPLIT_OTP_KW.search(segs[k]) for k in idx):
+            continue
+        short = [(k, r) for k in idx for r in runs[k] if lo <= r[2] <= hi and _SPLIT_DIGIT.search(segs[k][r[0]:r[1]])]
+        tot = sum(r[2] for _, r in short)
+        if len({k for k, _ in short}) >= 2 and _SPLIT_OTP_TOTAL[0] <= tot <= _SPLIT_OTP_TOTAL[1]:
+            for k, r in short:
+                marks[k].add((r[0], r[1]))
+    out = []
+    for t, ms in zip(segs, marks):
+        for a, b in ms:
+            t = _mask_span(t, a, b)
+        out.append(t)
+    return out
+
+
 def redact_transcript(row: dict) -> List[dict]:
     """整场对话脱敏后再落盘：先逐段走共享核心 redact_text，再按时间顺序、按角色整场跑 redact_dialog_segments
-    （验证码、卡号被拆成几段时连起来认），最后兜底。只存发出去的 text，不存 raw 原文。"""
+    （验证码、卡号被拆成几段时连起来认），骗子一侧再过 redact_split_side（整张卡直接拆成几段、夹着别的话的分段验证码），
+    最后兜底。只存发出去的 text，不存 raw 原文。"""
     from deepsuck import redact as RD
     planted = SIM.plant(SIM.Rand(row["seed"]))
     msgs = list(row.get("transcript") or [])
     roles = ["scammer" if m["role"] == "scammer" else "persona" for m in msgs]
     texts = [RD.redact_text(str(m.get("text") or ""), X.extract(str(m.get("text") or ""))) for m in msgs]
     texts = RD.redact_dialog_segments(texts, roles)
+    # 骗子一侧的跨段兜底（三审必改 1、建议 2）；人设一侧已有 redact_persona
+    sidx = [i for i, r in enumerate(roles) if r == "scammer"]
+    for i, t in zip(sidx, redact_split_side([texts[i] for i in sidx])):
+        texts[i] = t
     out = []
     for m, t in zip(msgs, texts):
         o = {"role": m["role"], "text": _fallback(t, planted)}
@@ -1217,7 +1293,7 @@ def main(argv=None) -> int:
         if a.json_transcripts:
             out["transcriptFormat"] = ("rows[i].transcript：按时间顺序的消息列表；role=scammer 为骗子原文（text，挂断那条带 hangup），"
                                        "role=bot 为人设：text 是发出去的回复（过滤之后），intent 是本轮意图；不保存模型 / 引擎原文。"
-                                       "全部按共享核心 deepsuck.redact 打码（redact_text + 跨段 redact_dialog_segments，人设侧 redact_persona），"
+                                       "全部按共享核心 deepsuck.redact 打码（redact_text + 跨段 redact_dialog_segments，人设侧 redact_persona，骗子侧跨段兜底 redact_split_side），"
                                        "银行卡、姓名、身份证、QQ、微信、支付宝、电话、验证码等都已打码。")
         Path(a.json).write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     if a.md:
