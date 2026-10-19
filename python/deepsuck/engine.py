@@ -368,7 +368,8 @@ def vague_digits(text: str) -> str:
     s = _DIGIT_COUNT.sub(lambda _m: _DE["count"], s)
     s = _DIGIT_RUN.sub(_tok("O"), s)
     s = _SPLIT_BEFORE_NAME.sub("", s)  # #157：上游已换成“那个名字”时（语音 unmask）去掉前面残留的拆字说法
-    s = _NAME_MASK.sub(lambda m: m.group(0) if len(m.group(2)) == 1 and m.group(2) in _DE["notSurname"] else _tok("N"), s)
+    # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「我只有****块钱」的「有」不是姓），不在表里的再看 notSurname
+    s = _NAME_MASK.sub(lambda m: m.group(0) if X.masked_lead_not_surname(m, m.group(2), _DE["notSurname"]) else _tok("N"), s)
     s = _OTHER_MASK.sub(lambda m: _tok("E" if "@" in m.group() else "U" if re.search(r"[A-Za-z]{2,}\.|\.[A-Za-z]{2,}", m.group()) else "H"), s)
     if "\ue000" not in s:
         return put_back(s)

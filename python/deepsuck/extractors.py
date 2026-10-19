@@ -66,6 +66,37 @@ def _stop_name(n: str, m=None, start: Optional[int] = None) -> bool:
     return bool(after.match(rest))
 
 
+def stop_surname(c: str, rest: str = "") -> Optional[bool]:
+    """#201 人设侧共用（refs.mask_names、engine.vague_digits、voice unmask）：打码姓名「c**」里星号前那个字 c 在共用字表里时，
+    按字表判断它在 rest（c 后面的文字，从星号起）前面算不算「不当姓」：surname=false → True；surname=true → rest 匹配 after
+    才 True，否则 False（拿不准就当姓名，照样换成「那个名字」）。c 不在字表里返回 None，由调用方按自己的 notSurname 判断。
+    与 extractors.js 的 stopSurname 一致。"""
+    if c not in NAME_STOPCHARS:
+        return None
+    after = NAME_STOPCHARS[c]
+    return True if after is None else bool(after.match(rest or ""))
+
+
+def masked_lead_not_surname(m, sur: str, fallback: str) -> bool:
+    """#201：打码姓名正则（_NAME_MASK 一类，星号紧跟在姓 sur 后面）匹配到 m 时，sur 是不是「不当姓」。复姓一律算姓；
+    单字先查共用字表（stop_surname），不在表里的再看 fallback（personas.json 的 notSurname 等）。
+    拿不准就当姓名：可能是真姓的字（surname=true）后面只跟 1–3 个星号时，正好是脱敏后的 2–4 字姓名（「户名有志强」→「户名有**」），
+    不放行；4 个及以上星号（「我只有****块钱」）才按字表的 after 放行。"""
+    if len(sur) != 1:
+        return False
+    star = re.search("[*＊]", m.group(0))
+    rest = m.string[m.start() + (star.start() if star else len(m.group(0))):]
+    st = stop_surname(sur, rest)
+    if st is None:
+        return sur in fallback
+    if st and NAME_STOPCHARS[sur] is not None and _SHORT_STARS.match(rest):
+        return False
+    return st
+
+
+_SHORT_STARS = re.compile("[*＊]{1,3}(?![*＊])")
+
+
 _NAME_DIGITS = "零一二三四五六七八九"
 
 
