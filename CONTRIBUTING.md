@@ -4,11 +4,49 @@
 
 ## 提交流程
 
-1. 先开或认领一个 issue（缺陷、功能建议、情报数据问题都有模板）；想法还不成熟可以先到 [Discussions](https://github.com/deepsucksi/deepsuck/discussions) 聊。
+1. 先开或认领一个 issue（缺陷、功能建议、情报数据问题都有模板；第一次参与可以从[新人任务](#新人任务good-first-issue)开始）；想法还不成熟可以先到 [Discussions](https://github.com/deepsucksi/deepsuck/discussions) 聊。
 2. Fork 仓库，从最新 `main` 拉一个分支，命名 `<area>/<issue>-<slug>`，如 `intel/33-otp-redact`（area：`site` `voice` `intel` `corpus` `infra` `docs`）。一个分支只做一件事。
 3. 提交信息用 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/v1.0.0/)：`feat(intel): …`、`fix(site): …`、`docs: …`。
 4. 开 PR 到 `main`，按模板填写并写上 `Closes #N`。CI 全绿后由维护者 squash 合并，PR 标题就是最终提交标题。
 5. 行为有变化时，在 [CHANGELOG.md](CHANGELOG.md)「未发布」下补一条。
+
+## 新人任务（good first issue）
+
+第一次参与，建议从带 [`good first issue`](https://github.com/deepsucksi/deepsuck/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) 标签的 issue 开始；需要更多人手、但不一定适合新人的任务标 [`help wanted`](https://github.com/deepsucksi/deepsuck/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22help%20wanted%22)。
+
+### 什么算新人任务
+
+一个 issue 打上 `good first issue` 前需同时满足：
+
+1. **范围小**：改动集中在 1–2 个文件，熟悉仓库后半天以内能完成。网站、文档和测试类的小问题优先。
+2. **不碰 `deploy/`**：部署、服务器配置、CI 密钥和费用护栏都不在新人任务范围内。
+3. **不需要云服务密钥**：不依赖云端语音或大模型接口，规则引擎和本地测试就能验证。
+4. **不碰人设台词和情报数据**：`personas/`、`site/assets/core/personas.json` 等人设与台词，`corpus/` 话术语料，`site/data/intel.json` 情报数据，提取器与脱敏规则、schema，以及 `eval/`、`docs/EVAL.md` 里的评测数字，都需要先了解项目背景，由维护者处理。
+5. **本地能验证**：`npm test` 能覆盖改动（涉及 Python 时再加 `npm run test:py`），issue 里写明要跑的命令和要通过的测试。
+6. **写清楚、有人带**：用「新人任务」模板写明背景、要做什么、涉及文件、怎么验证、完成标准、预估难度和联系人；联系人在 48 小时内回复评论。
+
+### 怎么认领
+
+1. 在 issue 下留言说明你想做（例如「我来做这个」），等维护者把 issue 分配给你再开工，避免两个人做同一件事。
+2. 同一时间只认领一个新人任务，做完再领下一个。
+3. 做不完或卡住了，直接在 issue 里说明进度。认领后两周没有 PR 也没有进度评论，维护者会取消分配，并把标签改为 `help wanted`，留给其他人。
+
+### 怎么提 PR
+
+1. 按上面的「提交流程」：fork 仓库，从最新 `main` 拉分支 `<area>/<issue>-<slug>`（如 `site/83-skip-link`），一个 PR 只解决一个 issue。
+2. 提交前本地跑 `npm test`，确认全部通过；提交信息与 PR 标题用 Conventional Commits，如 `fix(site): 沙盒页补跳到正文链接`。
+3. PR 描述按模板填写，写上 `Closes #N`；UI 改动附桌面与手机截图；行为有变化时在 [CHANGELOG.md](CHANGELOG.md)「未发布」下补一行。
+4. CI 全绿、维护者审核通过后 squash 合并。审核意见直接在 PR 里回复并追加提交即可。
+
+### 在哪里提问
+
+- 关于某个任务本身（范围、做法、验收）：在该 issue 下评论，联系人会回复。
+- 环境搭建、本地跑不起来、不知道从哪里入手：到 Discussions 的[「问答」](https://github.com/deepsucksi/deepsuck/discussions/categories/%E9%97%AE%E7%AD%94)分类发帖。
+- 请不要在 issue、PR 或讨论区贴出密钥、`.env` 内容或任何真实个人信息。
+
+### 维护者：开新人任务
+
+用「新人任务」模板（[`.github/ISSUE_TEMPLATE/good-first-issue.yml`](.github/ISSUE_TEMPLATE/good-first-issue.yml)）新建 issue，模板会自动加 `good first issue`，提交后再补 `area:*`。开之前先在仓库里核实问题确实存在，并对照上面的六条。
 
 ## 开发
 
