@@ -1,0 +1,101 @@
+{
+  "comment": "#216 打码金额：1-4 个星号后接 块/块钱/元，回复念量词说法（台词待审批），heard_refs 记 number。tests/amount_stars.test.js 与 python/tests/test_amount_stars.py 共用",
+  "cases": [
+    {
+      "id": "stars1-块",
+      "text": "我卡里就剩*块了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars1-块钱",
+      "text": "我卡里就剩*块钱了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars1-元",
+      "text": "我卡里就剩*元了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars2-块",
+      "text": "我卡里就剩**块了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars2-块钱",
+      "text": "我卡里就剩**块钱了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars2-元",
+      "text": "我卡里就剩**元了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars3-块",
+      "text": "我卡里就剩***块了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars3-块钱",
+      "text": "我卡里就剩***块钱了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars3-元",
+      "text": "我卡里就剩***元了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars4-块",
+      "text": "我卡里就剩****块了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars4-块钱",
+      "text": "我卡里就剩****块钱了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars4-元",
+      "text": "我卡里就剩****元了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    }
+  ]
+}

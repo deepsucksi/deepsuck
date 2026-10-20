@@ -40,18 +40,24 @@ _NAME_DUP = re.compile("(〔?" + NAME + "〕?)(?:" + _EXP["sep"] + "(?:就是|�
 _MASKED = re.compile(r"(?:[A-Za-z0-9]+…)?(?:[0-9]{2,6}[ \u00a0](?=[*＊]))*[A-Za-z0-9_.:/@+#?=&%~\-]*[*＊][A-Za-z0-9_.:/@+#?=&%~\-*＊]*(?:[ \u00a0][0-9*＊]+)*"
                      r"|[A-Za-z0-9]{2,}\.\.\.[A-Za-z0-9]{2,}")
 REF_ORDER = ("name", "number", "url", "wallet", "email")
+# 打码金额（「****块钱」「**元」）：1-4 个星号后接 块/块钱/元，念量词说法，heard_refs 记 number（不当姓名）。
+# 说法是台词，待审批；与 llm.js AMOUNT_STARS_RE / AMOUNT_PHRASE 一致
+AMOUNT_PHRASE = "那么点"
+_AMOUNT_STARS = re.compile("(?<![0-9A-Za-z*＊])[*＊]{1,4}(?:块钱|块|元)")
 _REF_KIND = {UR["phrase"][k]: k for k in REF_ORDER}
 
 
 def mask_names(text: str, bracket: bool = False) -> str:
     """打码姓名换成“那个名字”（#130 / #157 / #158 / #172），与 llm.js maskNames 一致。"""
     w = "〔" + NAME + "〕" if bracket else NAME
+    amount = "〔" + UR["phrase"]["number"] + "〕" if bracket else AMOUNT_PHRASE
 
     def rep(m: re.Match) -> str:
         # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json，不在表里的再看 notSurname
         return m.group(0) if masked_lead_not_surname(m, m.group(2), _DE["notSurname"]) else w
 
-    s = _NAME_MASK.sub(rep, str(text or ""))
+    s = _AMOUNT_STARS.sub(lambda _m: amount, str(text or ""))  # 打码金额先换，免得「剩*块」被当成姓名
+    s = _NAME_MASK.sub(rep, s)
     s = _SPLIT_BEFORE_NAME.sub("", s)
     s = _NAME_TAIL.sub(r"\1", s)
     s = _EXPLAIN_NAME.sub(lambda _m: w, s)

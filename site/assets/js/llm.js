@@ -137,6 +137,10 @@
   var CLAUSE_SEP = '，,。；;！？!?\n';
   var NUMBER_CUE = new RegExp('[0-9０-９]|' + UR.numberCue);
   var NAME_DUP_RE = new RegExp('(〔?' + NDE.name + '〕?)(?:' + EXP.sep + '(?:就是|是)?〔?' + NDE.name + '〕?)+', 'g');
+  // 打码金额（「****块钱」「**元」）：1-4 个星号后接 块/块钱/元，念量词说法，heardRefs 记 number（不当姓名）。
+  // 说法是台词，待审批；与 refs.py AMOUNT_PHRASE / _AMOUNT_STARS 一致
+  var AMOUNT_PHRASE = '那么点';
+  var AMOUNT_STARS_RE = /(?<![0-9A-Za-z*＊])[*＊]{1,4}(?:块钱|块|元)/g;
   function maskedPhrase(tok) {
     var t = String(tok);
     if (/[A-Za-z0-9]\.\.\.[A-Za-z0-9]/.test(t) && !/[*＊]/.test(t)) return '你发的那个钱包地址';
@@ -147,8 +151,10 @@
   /** 只换打码姓名（#130 / #157）：要在再跑一遍 redactText 之前做，否则“耳东陈***”会被再打成“耳*****”、当成号码 */
   function maskNames(text, bracket) {
     var w = bracket ? '〔' + NDE.name + '〕' : NDE.name;
+    var amount = bracket ? '〔' + UR.phrase.number + '〕' : AMOUNT_PHRASE;
     // #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓，「和*」「姓*」照样当姓名），不在表里的再看 notSurname
-    var s = String(text || '').replace(NAME_MASK_RE, function (m, xing, sur, off, str) { return D.extractors.maskedLeadNotSurname(m, sur, off, str, NDE.notSurname) ? m : w; })
+    var s = String(text || '').replace(AMOUNT_STARS_RE, function () { return amount; }) // 打码金额先换，免得「剩*块」被当成姓名
+      .replace(NAME_MASK_RE, function (m, xing, sur, off, str) { return D.extractors.maskedLeadNotSurname(m, sur, off, str, NDE.notSurname) ? m : w; })
       .replace(SPLIT_BEFORE_NAME, '')
       .replace(NAME_TAIL_RE, '$1')
       .replace(EXPLAIN_NAME_RE, w); // #172
