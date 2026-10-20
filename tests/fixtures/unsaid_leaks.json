@@ -480,6 +480,56 @@
       ],
       "voice": "叫那个名字",
       "mustMask": "安华"
+    },
+    {
+      "text": "对方叫何必这么急",
+      "redacted": "对方叫何必这么急",
+      "speak": "对方叫何必这么急",
+      "refs": [],
+      "voice": "对方叫何必这么急",
+      "notName": true
+    },
+    {
+      "text": "对方叫何明",
+      "redacted": "对方叫何*",
+      "speak": "对方叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "对方叫那个名字",
+      "mustMask": "何明"
+    },
+    {
+      "text": "他叫何况你",
+      "redacted": "他叫何况你",
+      "speak": "他叫何况你",
+      "refs": [],
+      "voice": "他叫何况你",
+      "notName": true
+    },
+    {
+      "text": "对方叫何时到账",
+      "redacted": "对方叫何时到账",
+      "speak": "对方叫何时到账",
+      "refs": [],
+      "voice": "对方叫何时到账",
+      "notName": true
+    },
+    {
+      "text": "他叫何苦呢",
+      "redacted": "他叫何苦呢",
+      "speak": "他叫何苦呢",
+      "refs": [],
+      "voice": "他叫何苦呢",
+      "notName": true
+    },
+    {
+      "text": "她叫何不先转",
+      "redacted": "她叫何不先转",
+      "speak": "她叫何不先转",
+      "refs": [],
+      "voice": "她叫何不先转",
+      "notName": true
     }
   ]
 }
