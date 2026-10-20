@@ -176,16 +176,17 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
     prof = get_profile(profile)
     pid = session.persona["id"]
     redactor = CallRedactor()  # #140：本通电话的已提取姓名/号码集合，进模型（IntelProcessor）和送 TTS（GuardTextFilter）共用
+    guard = GuardTextFilter(redactor)  # 送 TTS 前的守卫；#184：refs 等 IntelProcessor 建好后接上
     stt = stt or ParaformerSTTService(model=ASR_MODEL, sample_rate=IN_RATE, meter=meter,
                                       max_sentence_silence=prof.asr_max_silence_ms)
     if tts is None:
         vs = persona_voice(pid, TTS_MODEL)
         if os.environ.get("DEEPSUCK_TTS_STREAM", "1") == "0":  # 回退：每句一连接的旧实现
             tts = CosyVoiceTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction, rate=vs.rate,
-                                      text_filters=[GuardTextFilter(redactor)], meter=meter)
+                                      text_filters=[guard], meter=meter)
         else:
             tts = CosyVoiceStreamTTSService(voice=vs.voice, model=vs.model, instruction=vs.instruction, rate=vs.rate,
-                                            text_filters=[GuardTextFilter(redactor)],
+                                            text_filters=[guard],
                                             meter=meter, clause_min_chars=prof.tts_clause_min_chars)
     fillers = {} if fillers is None else fillers
     backchannel = None
@@ -233,6 +234,7 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
                            filler_rate=OUT_RATE, filler_prob=0.0, blocklist=blocklist, backchannel=backchannel,
                            redactor=redactor)
     intel.meter = meter
+    guard.refs = intel.heard_refs  # #184：对方没报过的代称，送 TTS 前换成直说
     tap = BotTextTap(intel)
     # #175：本通最近 3 轮尾句去重（per-call，同 redactor），放在填充音之前：删空的一轮不发文字，填充音不会被取消
     dedupe = TailDedupeProcessor(pid, redactor=redactor)
