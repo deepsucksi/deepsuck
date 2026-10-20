@@ -1,5 +1,5 @@
 {
-  "comment": "#220：星号 / 真名后面紧跟数字（阿拉伯或中文数字）或金额词时，这些字不当残名，金额原样保留；「是**明吗」「王*五」照旧。tests/name_amount.test.js（sanitizeReply）与 python/tests/test_name_amount.py（mask_names→脱敏→speak_masked）共用。 label-*：字段词（收款人 / 户名 / 姓名 / 账户名）各 9 种变体，按情报复审表（pullrequestreview-5583211049）补齐：字段词一个字都不吃，后面不留尾巴，金额原样保留。",
+  "comment": "#220：星号 / 真名后面紧跟数字（阿拉伯或中文数字）或金额词时，这些字不当残名，金额原样保留；「是**明吗」「王*五」照旧。tests/name_amount.test.js（sanitizeReply）与 python/tests/test_name_amount.py（mask_names→脱敏→speak_masked）共用。 label-*：字段词（收款人 / 户名 / 姓名 / 账户名）各 9 种变体，按情报复审表（pullrequestreview-5583211049）补齐：字段词一个字都不吃，后面不留尾巴，金额原样保留。 leak-*：露名必修（原文与已打码两种输入）：引导词加「给」、字段词 + 真名、复姓 + 1–2 字。 fuzz-*：review-227-fuzz 代表句（给 / 是 + 金额不露姓，叫 + 中文金额不丢字）。",
   "cases": [
     {
       "id": "ctx-cn-wubai",
@@ -385,6 +385,142 @@
       "id": "ctx-cn-ji",
       "text": "转给李四几百块",
       "reply": "转给那个名字几百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-01",
+      "text": "我是李四十岁",
+      "reply": "我是那个名字岁",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-02",
+      "text": "给王五三千块",
+      "reply": "给那个名字三千块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-03",
+      "text": "姓名张三",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-04",
+      "text": "张**1234",
+      "reply": "那个名字1234",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-05",
+      "text": "汇给欧阳娜娜两万",
+      "reply": "汇给那个名字两万",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-06",
+      "text": "我是李*十岁",
+      "reply": "我是那个名字岁",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-07",
+      "text": "给王*三千块",
+      "reply": "给那个名字三千块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-08",
+      "text": "姓名张*",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-09",
+      "text": "汇给欧阳**两万",
+      "reply": "汇给那个名字两万",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-10",
+      "text": "给他三千",
+      "reply": "给他三千",
+      "refs": []
+    },
+    {
+      "id": "leak-11",
+      "text": "给银行五百",
+      "reply": "给银行五百",
+      "refs": []
+    },
+    {
+      "id": "leak-12",
+      "text": "给张经理",
+      "reply": "给张经理",
+      "refs": []
+    },
+    {
+      "id": "leak-13",
+      "text": "给马上",
+      "reply": "给马上",
+      "refs": []
+    },
+    {
+      "id": "leak-14",
+      "text": "姓名：张三",
+      "reply": "姓名：那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-15",
+      "text": "是欧阳修吗",
+      "reply": "是那个名字吗",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fuzz-01",
+      "text": "给张明三万",
+      "reply": "给那个名字三万",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fuzz-02",
+      "text": "是李四五百块",
+      "reply": "是那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fuzz-03",
+      "text": "叫王建国两千",
+      "reply": "叫那个名字两千",
       "refs": [
         "name"
       ]

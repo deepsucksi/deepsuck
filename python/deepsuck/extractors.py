@@ -165,7 +165,7 @@ def _clean_name_mid(n: str, m=None, start: Optional[int] = None):
 # 与 extractors.js NAME_CONTEXT_RE / cleanNameContext / findNameContext 一致
 _NC = _C["nameRules"]["nameContext"]
 _NC_TITLES = tuple(sorted(set(_NC["titles"]) | set(_TITLES), key=len, reverse=True))
-_NC_NAME = "([" + _SURNAMES + "](?:(?![" + _NC["givenStop"] + "])[\u4e00-\u9fa5]){1,2}?)"
+_NC_NAME = "((?:" + "|".join(_NC["compoundSurnames"]) + "|[" + _SURNAMES + "])(?:(?![" + _NC["givenStop"] + "])[\u4e00-\u9fa5]){1,2}?)"
 _NC_TITLE_ALT = "|".join(re.escape(t) for t in _NC_TITLES)
 
 
@@ -180,7 +180,10 @@ def _leads(xs) -> str:
 NAME_CONTEXT_RE = _nc_re(_leads(_NC["leads"]), _NC_TITLE_ALT + "|" + _NC["stops"])
 # #222 后续：「张三是吧」——句首或非汉字后面的名字 + 是吧
 NAME_SHIBA_RE = _nc_re("(^|[^\u4e00-\u9fa5])", _NC["shibaTail"])
-NAME_CONTEXT_RES = (NAME_CONTEXT_RE, NAME_SHIBA_RE)
+# #220：「张三三点钟」——句首或非汉字后面的名字 + 中文钟点
+NAME_TIME_RE = _nc_re("(^|[^\u4e00-\u9fa5])", _NC["timeTail"])
+NAME_CONTEXT_RES = (NAME_CONTEXT_RE, NAME_SHIBA_RE, NAME_TIME_RE)
+_NC_ASK_AMOUNT = re.compile("(?:" + _NC["askAmount"] + ")(?:" + _NC["askTail"] + "|[^\u4e00-\u9fa5]|$)")
 
 
 def _clean_name_context(n: str, m=None, start: Optional[int] = None):
@@ -188,7 +191,7 @@ def _clean_name_context(n: str, m=None, start: Optional[int] = None):
     if m is None or start is None:
         return None
     rest = m.string[start + len(n):]
-    if m.group(1) == _NC["askLead"] and not rest.startswith(_NC["askTail"]):
+    if m.group(1) == _NC["askLead"] and not rest.startswith(_NC["askTail"]) and not _NC_ASK_AMOUNT.match(rest):
         return None
     after = m.string[start + 1:]
     if any(after.startswith(t) for t in _NC_TITLES) or rest.startswith(_NC_TITLES):
@@ -343,6 +346,14 @@ def extract(text: Optional[str]) -> List[dict]:
             e["start"], e["end"] = a, b
             if e["sensitive"]:
                 e["obfuscated"] = raw_text[a:b] != e["value"]
+        # #220：规范化会把「张三1000」并成「张31000」，姓名语境再按原文跑一遍，没被占用的名字补上（与 extractors.js 一致）
+        spans = [(e["start"], e["end"]) for e in out if e["sensitive"]]
+        for h in find_name_context(raw_text):
+            if not _overlaps(spans, h["start"], h["end"]):
+                out.append({"type": "name", "label": LABELS.get("name", "name"), "value": h["value"],
+                            "masked": R.mask("name", h["value"]), "start": h["start"], "end": h["end"],
+                            "sensitive": True, "meta": {}})
+                spans.append((h["start"], h["end"]))
     out.sort(key=lambda e: e["start"])
     return out
 
