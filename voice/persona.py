@@ -899,13 +899,13 @@ def _proxy_masked(s: str) -> str:
 
 _AMOUNT_START = re.compile("(?=" + _AMOUNT_AFTER_NAME + ")")
 _NAME_END_AT = re.compile("(?=" + _AMOUNT_AFTER_NAME + "|[" + _CN_NUM + "]+岁)")  # #227 四审：「我是李四十岁」
-_VOICE_LEADS = re.compile(r"(?:(?<![转汇打交还送递发])给|(?:账户名|户名|收款人|姓名)[：:\s]*)(?![*＊])")
+_VOICE_LEADS = re.compile(r"(?:账户名|户名|收款人|姓名)[：:\s]*(?![*＊])")  # 「给 / 是」前缀按负责人定由 #220 在共享规则里补，voice 不另写
 _NAME_STOP = re.compile(r"[，,。；;！!？?、\s]")
 # #227 四审：「张**1234」段首（前面不是汉字 / 数字）单个姓 + 星号 + 数字，姓不念出来，整段按号码念含糊说法
 _SURNAME_STARS_DIGITS = re.compile(r"(?<![\u4e00-\u9fff0-9A-Za-z０-９])[" + _SURNAME_SET + r"](?=[*＊]+[0-9０-９])"
                                    r"(?![*＊]{1,4}(?:[0-9０-９]{1,3}(?![0-9０-９])|[0-9０-９]+\s*(?:块|元|万)))")  # 「李**500」仍按 #222 念「那个名字」
-_NAME_NUM_LEAD = re.compile(r"(?:转给|汇给|打给|给|是|叫|^|(?<=[，,。；;！!？?\s]))(?=[" + _SURNAME_SET + r"])")
-_NAME_NUM_END = re.compile(_AMOUNT_AFTER_NAME + "|[0-9０-９]|[" + _CN_NUM + "]+(?:岁|点)")
+_NAME_NUM_LEAD = re.compile(r"(?:^|(?<=[，,。；;！!？?\s]))(?=[" + _SURNAME_SET + r"])")  # 只管句首（「张三三点钟」）；给 / 是 / 叫 前缀等 #220
+_NAME_NUM_END = re.compile("[" + _CN_NUM + "]+(?:岁|点)")  # 只管岁数 / 钟点；金额停字等 #220
 
 
 def _is_name(cand: str) -> bool:
@@ -935,15 +935,15 @@ def _mask_names_before_digits(s: str) -> str:
         for nc in find_name_context(s[:pos]):
             if nc["end"] == pos:
                 spans.append((nc["start"], nc["end"]))
-    # #227 四审（负责人定，voice 侧补，不改共享 nameContext.leads）：「给」「姓名 / 户名 / 收款人」后面的真名共享规则不认，
+    # #227 四审：「姓名 / 户名 / 收款人」后面的真名共享规则不认，
     # 把候选片段接到共享 lead「我叫」后面再交给 find_name_context 判断，整段都认作名字才打码
     for lm in _VOICE_LEADS.finditer(s):
         a = lm.end()
         for pos in ends + [m.start() for m in _NAME_STOP.finditer(s, a)] + [len(s)]:
             if a < pos <= a + 4 and s[a:pos] not in shared and any(nc["start"] == 2 and nc["end"] == pos - a + 2 for nc in find_name_context("我叫" + s[a:pos])):
                 spans.append((a, pos))
-    # #227 五审（情报 fuzz）：前缀（转给 / 汇给 / 打给 / 给 / 是 / 叫 / 句首）+ 姓 + 1~2 字 + 金额 / 岁 / 点钟：名字长度按「剩下的正好是金额」选，
-    # 候选同样交给共享 find_name_context（接在「我叫」后）确认是名字（「转给王总三万」不动）
+    # #227 五审：句首 姓 + 1~2 字 + 岁数 / 钟点（「张三三点钟」）：名字长度按「剩下的正好是岁数 / 钟点」选，
+    # 候选交给共享 find_name_context（接在「我叫」后）确认是名字
     for lm in _NAME_NUM_LEAD.finditer(s):
         a = lm.end()
         for k in (2, 3):
