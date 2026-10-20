@@ -537,7 +537,7 @@ _NAME_ANCHOR = re.compile(
 _KEEP_LEAD = set("给到入叫是为在跟向找下人")
 # 星号紧跟“名下”（“转到**名下”）：星号是名字，不是号码；前面的字（“到”）不当姓吃掉
 _STARS_BEFORE_MINGXIA = re.compile(r"(?<![0-9A-Za-z０-９*＊])[*＊]+(?=名下)")
-_STARS_AFTER_NAME = re.compile(NAME_PHRASE + "[*＊]+(?![0-9A-Za-z０-９*＊])")
+_STARS_AFTER_NAME = re.compile(NAME_PHRASE + r"\s*[*＊]+(?![0-9A-Za-z０-９*＊])")  # #219：中间隔空格的续段星号（「收款人姓* **」）也是名字
 _NAME_ANCHOR_KEEP = set("的地得之是为和与跟及或同在名下卡账户号码行开吧呢啊吗了呀哦嘛也都就还")
 
 
@@ -561,7 +561,7 @@ def _unmask_names(s: str) -> str:
         return NAME_PHRASE
     s = _STARS_AFTER_NAME.sub(NAME_PHRASE, s)  # #219：已换好的「那个名字」后面残留的粗体星号（「**弓长张，伟大的伟**」）一并去掉，不把「字」当姓
     s = _STARS_BEFORE_MINGXIA.sub(NAME_PHRASE, _KEEP_LEAD_TAIL.sub(NAME_PHRASE, _NAME_ANCHOR.sub(anchor, s)))
-    return _NAME_MASKED.sub(rep, s)
+    return _STARS_AFTER_NAME.sub(NAME_PHRASE, _NAME_MASKED.sub(rep, s))
 
 
 # #214 复审：ASR 分段时星号可能单独成一段，或在这一段开头（「转给」/「***」、「卡号是」/「***，户名***」）。这一段开头的星号

@@ -93,13 +93,15 @@ def problems(segs, expect, leak=(), keep=None):
             why.append(f"refs={sorted(r['refs'])} 无 name")
         if not all(P.NAME_PHRASE in o for o in said):
             why.append("念法不是那个名字")
+        if any("那个号" in o for o in said):  # #219 复审：name 分支也查不念成「那个号」
+            why.append("念成了那个号")
     elif expect == "not_name":
         if "name" in r["refs"]:
             why.append("refs 含 name")
         if any(P.NAME_PHRASE in o for o in outs):
             why.append("念成了那个名字")
     elif expect == "both":
-        if not {"number", "name"} <= r["refs"]:
+        if r["refs"] != {"number", "name"}:
             why.append(f"refs={sorted(r['refs'])} 不含 number+name")
         for o in said:
             head, _, tail = o.rpartition("户名")
@@ -236,7 +238,8 @@ def test_card_number_and_huming_full():
     # 第 1 条整句部分：户名后的星号
     ("户名***", "户名那个名字"), ("户名：**", "户名：那个名字"), ("户名为**", "户名那个名字"),
     # 前字是真姓时照旧整个换掉，不露姓
-    ("户名和*", "户名那个名字"), ("转给王*明", "转给那个名字"), ("转到张**", "转到那个名字"),
+    ("户名和*", "户名那个名字"), ("转给王*明", "转给那个名字"), ("转到张**", "转到那个名字"),    # #219 r2：收紧 name 分支断言后发现的续段星号（「收款人姓和」/「*」拼起来是「收款人姓* *」），不念「那个号」
+    ("收款人姓* *", "收款人那个名字"), ("收款人姓* **", "收款人那个名字"),
 ])
 def test_keep_lead_char(text, want):
     assert P.speakable(text, calm_tts=False) == want
@@ -262,7 +265,7 @@ def test_lead_stars_by_prev_segment(text, prev, refs, want):
 ])
 def test_heard_refs_split_segments(segs, want):
     _, r = problems(segs, "none")
-    assert want <= r["refs"], (segs, r)
+    assert r["refs"] == want, (segs, r)
 
 
 @pytest.mark.xfail(reason=f"依赖 {DEP_214_NB}", strict=False)
