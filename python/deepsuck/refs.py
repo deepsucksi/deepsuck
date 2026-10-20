@@ -44,6 +44,16 @@ REF_ORDER = ("name", "number", "url", "wallet", "email")
 # 说法是台词，待审批；与 llm.js AMOUNT_STARS_RE / AMOUNT_PHRASE 一致
 AMOUNT_PHRASE = "那么点"
 _AMOUNT_STARS = re.compile("(?<![0-9A-Za-z*＊])[*＊]{1,4}(?:块钱|块|元)")
+_SURNAMES = load("extractors")["nameRules"]["surnames"]
+_AMOUNT_NAME_LEAD = re.compile("(?:叫|姓)\\s*[:：]?\\s*$")
+
+
+def _amount_skip(s: str, pos: int) -> bool:
+    """#220 复审：号码语境（numberBefore）、姓名语境（nameBefore / nameAfter、「叫 / 姓」、星号前是常见姓或复姓）优先，不按金额算。"""
+    pre = s[:pos]
+    if stars_name(s, pos) or stars_not_name(s, pos) or _AMOUNT_NAME_LEAD.search(pre):
+        return True
+    return bool(pre) and (pre[-1] in _SURNAMES or any(pre.endswith(c) for c in _DE["compoundSurnames"]))
 _REF_KIND = {UR["phrase"][k]: k for k in REF_ORDER}
 
 
@@ -56,7 +66,7 @@ def mask_names(text: str, bracket: bool = False) -> str:
         # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json，不在表里的再看 notSurname
         return m.group(0) if masked_lead_not_surname(m, m.group(2), _DE["notSurname"]) else w
 
-    s = _AMOUNT_STARS.sub(lambda _m: amount, str(text or ""))  # 打码金额先换，免得「剩*块」被当成姓名
+    s = _AMOUNT_STARS.sub(lambda m: m.group(0) if _amount_skip(m.string, m.start()) else amount, str(text or ""))  # 打码金额先换，免得「剩*块」被当成姓名
     s = _NAME_MASK.sub(rep, s)
     s = _SPLIT_BEFORE_NAME.sub("", s)
     s = _NAME_TAIL.sub(r"\1", s)

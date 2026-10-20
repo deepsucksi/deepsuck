@@ -487,5 +487,5 @@
     return extract(text).filter(function (e) { return e.sensitive; });
   }
 
-  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, starsName: starsName, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
+  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, starsName: starsName, SURNAMES: NR.surnames, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
 });
