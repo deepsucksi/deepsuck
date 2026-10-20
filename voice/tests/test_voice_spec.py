@@ -235,7 +235,7 @@ def test_unmask_masked_names_say_that_name_not_number_phrase():
     assert unmask("欧阳*锋说的") == "那个名字说的"
     assert unmask("户名欧***") == "户名那个名字"
     assert unmask("李*") == "那个名字"
-    assert unmask("他姓张**") == "他那个名字"  # 前面的“姓”一并换掉，不说“姓那个名字”
+    assert unmask("他姓张**") == "他是那个名字"  # #219 四审：「姓」改成「是」（#136 老规则作废）
     for t in ("户名张**", "收款人王*明", "户名欧阳**", "李*", "户名是张**对吧？", "他叫张**"):
         for out in (unmask(t), speakable(t, calm_tts=True)):
             assert "那个名字" in out and "那个号" not in out, (t, out)
