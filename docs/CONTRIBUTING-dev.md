@@ -184,4 +184,6 @@ gitleaks git --redact .                         # 手动扫全部历史
 
 **推送前密钥扫描必须成功；扫描失败或没有运行，一律禁止推送（#229）。** 推荐在仓库公共 git 目录装 pre-push 钩子（`.git/hooks/pre-push`，所有 worktree 共用）：用 gitleaks 8.21.2 和 `.gitleaks.toml` 扫描待推送范围（新分支扫 `origin/main..本地提交`），找不到 gitleaks、版本不对、有命中或出错都退出非零、拒绝推送；再配合上面的 `pre-commit install` 在提交时拦截。
 
+新 worktree 第一步先跑 `pre-commit install`：本地 gitleaks 在提交前拦截，CI 的 node 扫描是第二道关；node 检查没变绿的 PR 一律不合并。
+
 CI 的 node job 也会扫全部历史，命中就失败。确认是误报（比如公开测试地址）才在 `.gitleaks.toml` 的 allowlist 里放行，并在 PR 里写明理由；拿不准先停下来问负责人。
