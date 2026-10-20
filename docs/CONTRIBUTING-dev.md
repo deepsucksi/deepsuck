@@ -170,3 +170,16 @@ gh api "repos/$R/milestones" --jq '.[]|"\(.title): 未完成 \(.open_issues) / �
 ```
 
 日报格式：昨日完成 / 今日计划 / 阻塞与需要决策，每项带 issue 号。
+
+## 密钥扫描（#224）
+
+仓库里只能出现变量名，不能出现值。绝不读取、复制、上传俊杰本机（Mac）上的任何密钥、令牌、`.env` 或配置文件，命令一律不带 machineId。
+
+推送前自己扫一遍：
+
+```bash
+pip install pre-commit && pre-commit install   # 之后每次 git commit 自动扫暂存区
+gitleaks git --redact .                         # 手动扫全部历史
+```
+
+CI 的 node job 也会扫全部历史，命中就失败。确认是误报（比如公开测试地址）才在 `.gitleaks.toml` 的 allowlist 里放行，并在 PR 里写明理由；拿不准先停下来问负责人。
