@@ -191,8 +191,12 @@ def _clean_name_context(n: str, m=None, start: Optional[int] = None):
     if m is None or start is None:
         return None
     rest = m.string[start + len(n):]
-    if m.group(1) == _NC["askLead"] and not rest.startswith(_NC["askTail"]) and not _NC_ASK_AMOUNT.match(rest):
-        return None
+    lead = m.group(1)
+    if lead in _NC["amountLeads"]:
+        # #220：给 / 是 引导时，名字须后面紧跟金额、整词不是常见词（「给黄金三万」「给万一」不算）；「是 + 名字 + 吗」照旧
+        ask = lead == _NC["askLead"] and rest.startswith(_NC["askTail"])
+        if not ask and (not _NC_ASK_AMOUNT.match(rest) or n in _NC["amountLeadNotNames"]):
+            return None
     after = m.string[start + 1:]
     if any(after.startswith(t) for t in _NC_TITLES) or rest.startswith(_NC_TITLES):
         return None

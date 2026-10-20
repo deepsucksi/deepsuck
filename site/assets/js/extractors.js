@@ -152,7 +152,11 @@
   function cleanNameContext(n, m, start) {
     if (!m || start == null) return null;
     var rest = m.input.slice(start + n.length), after = m.input.slice(start + 1);
-    if (m[1] === NC.askLead && rest.indexOf(NC.askTail) !== 0 && !NC_ASK_AMOUNT.test(rest)) return null;
+    if (NC.amountLeads.indexOf(m[1]) >= 0) {
+      // #220：给 / 是 引导时，名字须后面紧跟金额、整词不是常见词（「给黄金三万」「给万一」不算）；「是 + 名字 + 吗」照旧
+      var ask = m[1] === NC.askLead && rest.indexOf(NC.askTail) === 0;
+      if (!ask && (!NC_ASK_AMOUNT.test(rest) || NC.amountLeadNotNames.indexOf(n) >= 0)) return null;
+    }
     for (var i = 0; i < NC_TITLES.length; i++) {
       if (after.indexOf(NC_TITLES[i]) === 0 || rest.indexOf(NC_TITLES[i]) === 0) return null;
     }
