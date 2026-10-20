@@ -11,6 +11,7 @@ import re
 from typing import Dict, List, Tuple
 
 from deepsuck.redact import _explain_rules, mask
+from deepsuck.core import load  # noqa: E402  #216
 
 # 姓氏的拆字说法（报户名时常说“弓长张，三丰”）
 CHAIZI: Dict[str, Tuple[str, ...]] = {
@@ -21,6 +22,9 @@ _COMPOUND = ("欧阳", "司马", "诸葛", "上官", "东方", "慕容", "令狐
 _HAN = re.compile(r"^[\u4e00-\u9fff]{2,6}$")
 _DIGIT_MIN = 5  # 少于 5 位的数字串不按通话记（太容易误伤金额、日期）
 _SEP = r"[\s\-－—–·.]*"
+
+
+_SPACED_SEP = "(?:" + load("personas")["digitEcho"]["spacedStarsSep"] + ")*"
 
 
 def split_name(name: str) -> Tuple[str, str]:
@@ -44,8 +48,11 @@ def name_patterns(name: str) -> List[str]:
         tail = r"(?:" + sep + g + r"|[，,、\s]{0,2}[*＊]{1,4})?" if g else r"(?:[，,、\s]{0,2}[*＊]{1,4})?"
         pats.append(re.escape(cz) + r"(?:的)?" + re.escape(sur) + "?" + tail)
     pats.append(re.escape(name))
+    # #216 P0：字和字之间夹空格 / 分隔符（「好，张 伟 明」「张·伟·明」，半角、全角、制表符，以及 · 、 . - _）也算这个名字
+    pats.append(_SPACED_SEP.join(re.escape(c) for c in name))
     if len(given) >= 2:
         pats.append(g)
+        pats.append(_SPACED_SEP.join(re.escape(c) for c in given))
     return pats
 
 
