@@ -4,7 +4,7 @@
 - 骗子说的话：Session.ingest → extract_sensitive 抽出 name → raw_intel → IntelProcessor.call_redact 让 CallRedactor 学到这个名字，
   送进模型的是「我叫张*」；之后机器人复述（「张三是吧」）由 CallRedactor 打码。
 - 机器人自己说的：GuardTextFilter → speakable → guard_output 里的 redact_text 走同一条规则，念「那个名字」。
-「张三是吧」在对方没报过这个名字时不在共享规则内（见 #223 语音审查），这里只锁住报过之后的行为。"""
+「张三是吧」由 #226 的共享「名字+是吧」规则覆盖。"""
 import asyncio
 
 import pytest
@@ -81,16 +81,31 @@ def test_scammer_said_name_learned_and_echo_masked(said, name, echo, want):
         assert run(echo, red=p.redactor, refs=[said], step=step) == want
 
 
-def test_zhangsan_shiba_not_in_shared_rule():
-    """对方没报过时「张三是吧」不在共享规则内，原样输出（模型自己编的名字）；记录在案，见 #223 语音审查。"""
-    assert not find_name_context("张三是吧")
-    assert run("张三是吧") == "张三是吧"
+@pytest.mark.parametrize("text,want", [("张三是吧", "那个名字是吧"), ("王五是吧", "那个名字是吧"), ("李四是吧", "那个名字是吧")])
+def test_name_shiba_masked_without_prior_mention(text, want):
+    """#226 合入的共享「名字+是吧」规则：对方没报过也打码。"""
+    for refs in (None, ()):
+        for step in (1, 3):
+            assert run(text, refs=refs, step=step) == want
 
 
-def test_transfer_name_amount_unreported_gap():
-    """#216 已知缺口（已接受）：对方没报过名字时「转给李四五百块」不在共享规则内，原样输出。"""
+@pytest.mark.parametrize("text", ["王总是吧", "张经理是吧", "对是吧", "好是吧", "王阿姨是吧"])
+def test_title_shiba_unchanged(text):
+    assert run(text) == text
+
+
+@pytest.mark.parametrize("text", ["户名*元", "户名***元", "户名**元"])
+def test_huming_stars_yuan_reads_name(text):
+    """负责人定：「户名*元」念「户名那个名字」，户名保留，不剩「元」。"""
+    for refs in (None, ()):
+        for step in (1, 3):
+            assert run(text, refs=refs, step=step) == "户名那个名字"
+
+
+def test_transfer_name_amount_unreported_now_masked():
+    """#216 的缺口：共享规则单独看整句仍不认「转给李四五百块」；语音 guard_output 在金额开头截断后用 find_name_context 补上（#227）。"""
     assert not find_name_context("转给李四五百块")
-    assert run("转给李四五百块") == "转给李四五百块"
+    assert run("转给李四五百块") == "转给那个名字五百块"
 
 
 @pytest.mark.parametrize("step", [1, 3, 50])
@@ -167,3 +182,79 @@ def test_raw_masked_name_amount_chain(text, want_prefix):
 def test_number_context_stars_digits_unchanged_semantics(text):
     """号码语境里的星号 + 数字仍按号码念，不当名字。"""
     assert "那个名字" not in P.speakable(text, calm_tts=False)
+
+
+# ---- #227 情报复审（必改）：没打码的原文里真名后面紧跟金额，数字过滤先跑会露姓 ----------------------------------
+@pytest.mark.parametrize("step", [1, 3, 50])
+@pytest.mark.parametrize("refs", [None, ()])
+@pytest.mark.parametrize("text,want", [
+    ("汇给张三三万块", "汇给那个名字三万块"),
+    ("打给王五两千", "打给那个名字两千"),
+    ("转给李四五百块", "转给那个名字五百块"),
+    ("转给王五五百块", "转给那个名字五百块"),   # 名字里带数字字（王五）+ 中文金额
+    ("打给王五", "打给那个名字"),
+])
+def test_raw_name_then_cn_amount(text, want, refs, step):
+    assert P.speakable(text, calm_tts=False) == want
+    assert run(text, refs=refs, step=step) == want
+
+
+@pytest.mark.parametrize("step", [1, 3])
+def test_raw_name_then_arabic_amount_no_surname(step):
+    """「转给李四500」：不露「李」；500 按 #121 / #167 念含糊说法（负责人定：不复述 2 位以上数字）。"""
+    for out in (P.guard_output("转给李四500"), P.speakable("转给李四500", calm_tts=False), run("转给李四500", step=step)):
+        assert out.startswith("转给那个名字") and "李" not in out and "500" not in out and "你发的那个号" not in out
+
+
+@pytest.mark.parametrize("text", ["转给他三千", "打给客服两千", "卡号6222021234567890123"])
+def test_non_name_amounts_unchanged_by_early_mask(text):
+    assert "那个名字" not in P.guard_output(text)
+
+
+@pytest.mark.xfail(strict=False, reason="共享规则缺口（交情报）：lead「给」不在 nameContext.leads 里、复姓+金额不认；"
+                                       "数字过滤后露姓「给王…」")
+@pytest.mark.parametrize("text", ["给王五三千块", "汇给欧阳娜娜两万"])
+def test_shared_rule_gaps_recorded(text):
+    out = P.guard_output(text)
+    assert not any(c in out for c in "王欧娜")
+
+
+# ---- 负责人定：字段词 收款人 / 户名 / 姓名 / 账户名 后的打码姓名，字段词一个字不吃，后面不剩「元」---------------
+@pytest.mark.parametrize("text,want", [
+    ("收款人**元", "收款人那个名字"), ("收款人*元", "收款人那个名字"),
+    ("户名*元", "户名那个名字"), ("户名***元", "户名那个名字"),
+    ("姓名**元", "姓名那个名字"), ("姓名*元", "姓名那个名字"), ("姓名***元", "姓名那个名字"), ("姓名**", "姓名那个名字"),
+    ("姓名：***", "姓名：那个名字"), ("姓名是张**", "姓名是那个名字"),
+    ("账户名**元", "账户名那个名字"), ("账户名*元", "账户名那个名字"), ("账户名：李*", "账户名：那个名字"),
+])
+def test_field_word_kept_no_leftover(text, want):
+    for refs in (None, ()):
+        for step in (1, 3):
+            assert run(text, refs=refs, step=step) == want
+
+
+@pytest.mark.parametrize("text", ["我姓名都忘了", "填姓名的地方"])
+def test_field_word_without_stars_unchanged(text):
+    assert run(text) == text
+
+
+@pytest.mark.parametrize("text,want", [
+    ("收款人**元宝", "收款人那个名字"),     # 不吃「人」
+    ("收款人马**元", "收款人那个名字"),     # 不剩「元」
+    ("户名：高**元", "户名：那个名字"),
+    ("开户名**元", "开户名那个名字"),
+    ("户名*元宝", "户名那个名字"),
+])
+def test_field_word_corpus220_edges(text, want):
+    """与语料 #220 的边界修正对齐。"""
+    for refs in (None, ()):
+        for step in (1, 3):
+            assert run(text, refs=refs, step=step) == want
+
+
+@pytest.mark.parametrize("text,want", [("转给李四五百块", "转给那个名字五百块"), ("转给李四几百块", "转给那个名字几百块")])
+def test_raw_speakable_keeps_first_amount_char(text, want):
+    """情报（#216）：speakable 原文路径不能吞掉金额第一个字。"""
+    for calm in (False, True):
+        assert P.speakable(text, calm_tts=calm) == want
+    assert run(text) == want
