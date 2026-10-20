@@ -847,7 +847,7 @@ python eval/llm_scammer.py --run --profile hard --responder llm --seeds 1 --pers
 
 **本地缓存含原文**：`eval/.llm-scammer-cache/`（已 gitignore）存的是模型请求和回复的原文（骗子和人设两边，含未过滤的验证码、卡号、手机号），重跑不计费要用到它，但它不打码，和上面打码保存的对话记录不是一回事：不要拷出、上传或分享这个目录，要给别人看只给 `--json-transcripts` / `--transcripts` 的输出。
 
-**已知限制**：骗子一侧的跨段兜底只认阿拉伯数字（含全角），中文数字（「六二二二」）拆成几段时仍靠共享核心的语境规则；跨段卡号中间夹着不带数字的骗子消息（「听清了吗」）时跳过接着拼，连续最多跳 2 条，第 3 条就断开（两边各自不足 15 位的数字原样保留），人设回复本来就不计入；数字串前后夹的别的话超过 8 个字、或中间段里有两串以上数字时不往后接；分段验证码要求窗口（前后各 `segWindow` 段）内出现验证码关键词。共享核心 `redact_card_segments` 的跨段识别在 #216 跟进（JS 和 Python 共用用例），网页导出届时一并受益。
+**已知限制**：骗子一侧的跨段兜底只认阿拉伯数字（含全角），中文数字（「六二二二」）拆成几段时仍靠共享核心的语境规则；跨段卡号中间夹着不带数字的骗子消息（「听清了吗」）时跳过接着拼，连续最多跳 2 条，第 3 条就断开（两边各自不足 15 位的数字原样保留），人设回复本来就不计入；跨段拼接最多只覆盖 5 条骗子消息（从卡号第一段那条算起，前后各 `segWindow` 段，`2×2+1`），超出范围的保持原样不打码（例如分成 3 段、每两段之间夹 2 条消息时会超出）；数字串前后夹的别的话超过 8 个字、或中间段里有两串以上数字时不往后接；分段验证码要求窗口（前后各 `segWindow` 段）内出现验证码关键词。共享核心 `redact_card_segments` 的跨段识别在 #216 跟进（JS 和 Python 共用用例），网页导出届时一并受益。
 
 - **提示词**：由网页 `site/assets/js/llm.js` 的 `systemPrompt` / `buildMessages` 直接生成（`eval/persona_prompt_bridge.js` 用 Node 调用），eval 里不放规则副本。`--persona-prompt-ref` 用 `git archive` 取那个 ref 的 `site/assets/js` 和 `site/assets/core`，不切换工作区；同时在 import `deepsuck` 之前把 `DEEPSUCK_CORE_DIR` 指过去，所以 Python 侧的过滤链、规则引擎和提示词读同一份 `personas.json`（含 `eagerAsk.rule`）等共享规则源。骗子台词固定取当前检出，两边相同；
 - **发送前过滤**：与网页代理模式相同的整条链，Python 版 `deepsuck.llmfilter.llm_pipeline`：`sanitizeReply` 两遍（holdTransfer、打码姓名、脱敏、代称、长数字、截断、引号、口语化）→ `dedupe_tail`（最近三条人设回复的尾句）→ `vague_digits`，再经 `Session.record_bot` 脱敏。与 JS 共用用例 `tests/fixtures/llm_sanitize.json`。本轮意图和缺项与 `demo.js` 相同（`choose_intent`、`missing_goals`），开场白用规则引擎，不过 humanize；
