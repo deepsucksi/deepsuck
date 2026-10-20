@@ -281,8 +281,8 @@ def test_field_word_without_stars_unchanged(text):
 
 @pytest.mark.parametrize("text,want", [
     ("收款人**元宝", "收款人那个名字"),     # 不吃「人」
-    ("收款人马**元", "收款人那个名字元"),   # 姓+星号后的「元」保留（同 main，#222）
-    ("户名：高**元", "户名：那个名字元"),
+    ("收款人马**元", "收款人那个名字"),     # 不剩「元」
+    ("户名：高**元", "户名：那个名字"),
     ("开户名**元", "开户名那个名字"),
     ("户名*元宝", "户名那个名字"),
 ])
@@ -313,3 +313,19 @@ def test_shi_name_comma_amount_masked(text, want, step):
 def test_comma_amount_non_names_untouched(text):
     for out in (P.guard_output(text), P.speakable(text, calm_tts=False)):
         assert "那个名字" not in out and out.startswith(text[:2])
+
+
+# #222（负责人定）：语音与文本端（deepsuck.refs.mask_names / llm.js）逐字一致；「元」以文本端为准
+@pytest.mark.parametrize("text", ["收款人马**元", "户名：高**元", "开户名王**元", "姓名张**元", "我只有**块钱"])
+def test_voice_matches_text_path(text):
+    from deepsuck.refs import mask_names
+    from voice.persona import guard_output, speakable
+    want = mask_names(text)
+    assert guard_output(text) == want
+    assert speakable(text) == want
+
+
+def test_starred_amount_reads_namedian():
+    from deepsuck.refs import mask_names
+    from voice.persona import guard_output, speakable
+    assert mask_names("我只有**块钱") == guard_output("我只有**块钱") == speakable("我只有**块钱") == "我只有那么点"

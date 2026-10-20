@@ -29,12 +29,3 @@ def test_voice_openings_from_personas_json():
     from voice.persona import VOICE_OPENINGS
 
     assert VOICE_OPENINGS == {"wang": ["喂？…哪位啊"], "chen": ["喂？…你说"], "lin": ["喂？你好，哪位呀"], "zheng": ["喂，哪个？"]}
-
-
-def test_field_word_surname_stars_keeps_trailing_yuan():
-    # #222：字段词 + 姓 + 星号 + 「元」只换名字，保留「元」（与 main 一致），不露姓
-    for src, want in [("开户名王**元", "开户名那个名字元"), ("收款人马**元", "收款人那个名字元"), ("姓名张**元", "姓名那个名字元")]:
-        for fn in (guard_output, speakable):
-            out = fn(src)
-            assert out == want, (fn.__name__, src, out)
-            assert src[len(want) - 5] not in out
