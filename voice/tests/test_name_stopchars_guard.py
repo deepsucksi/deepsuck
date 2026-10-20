@@ -46,8 +46,10 @@ def test_guard_unmask_keeps_persona_words(text):
 
 @pytest.mark.parametrize("case", PR["notSurname"], ids=[c["text"] for c in PR["notSurname"]])
 def test_unmask_you_not_surname(case):
-    assert unmask(case["text"]) == case["vague"]
-    assert speakable(case["text"], calm_tts=False) == case["vague"]
+    # #222（负责人定）：有「speak」的用例（打码金额「我只有****块钱」）语音与文本端 sanitizeReply 一致，念 speak；「vague」是文本端 vagueDigits 的出口
+    want = case.get("speak", case["vague"])
+    assert unmask(case["text"]) == want
+    assert speakable(case["text"], calm_tts=False) == want
 
 
 @pytest.mark.parametrize("case", PR["name"], ids=[c["text"] for c in PR["name"]])
