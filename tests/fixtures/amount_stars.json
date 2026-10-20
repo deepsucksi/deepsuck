@@ -148,10 +148,11 @@
     {
       "id": "name-huming-1star",
       "text": "户名*元",
-      "reply": "户那个名字",
+      "reply": "户名那么点",
       "refs": [
-        "name"
-      ]
+        "number"
+      ],
+      "note": "#220 负责人定：字段词「户名」保留，星号后紧跟金额词按金额"
     },
     {
       "id": "name-jiao",

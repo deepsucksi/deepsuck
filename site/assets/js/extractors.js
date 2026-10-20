@@ -132,6 +132,39 @@
     return cleanName(n, m, start);
   }
 
+  // #222 P0：姓名语境里的真名（「转给李四」「是李四吗」「我叫张三」），规则见 core/extractors.json nameRules.nameContext。
+  // 与 extractors.py NAME_CONTEXT_RE / _clean_name_context / find_name_context 一致
+  var NC = NR.nameContext;
+  var NC_TITLES = NC.titles.concat(NR.titleSuffix).filter(function (t, i, a) { return a.indexOf(t) === i; })
+    .sort(function (a, b) { return b.length - a.length; });
+  function reEsc(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  var NAME_CONTEXT_RE = new RegExp('(' + NC.leads.slice().sort(function (a, b) { return b.length - a.length; }).join('|') + ')\\s*[:：]?\\s*' +
+    '(?!' + NC.notWords.join('|') + ')' +
+    '([' + NR.surnames + '](?:(?![' + NC.givenStop + '])[\\u4e00-\\u9fa5]){1,2}?)' +
+    '(?=' + NC_TITLES.map(reEsc).join('|') + '|' + NC.stops + ')', 'g');
+  /** 姓名语境里的名字：lead 为「是」时后面必须紧跟「吗」；后面紧跟称呼（「王阿姨」「王小姐」）不算；其余同 cleanName */
+  function cleanNameContext(n, m, start) {
+    if (!m || start == null) return null;
+    var rest = m.input.slice(start + n.length), after = m.input.slice(start + 1);
+    if (m[1] === NC.askLead && rest.indexOf(NC.askTail) !== 0) return null;
+    for (var i = 0; i < NC_TITLES.length; i++) {
+      if (after.indexOf(NC_TITLES[i]) === 0 || rest.indexOf(NC_TITLES[i]) === 0) return null;
+    }
+    var c = cleanName(n, m, start);
+    return c === n ? c : null;
+  }
+  /** #222：只跑姓名语境规则，返回 [{value, start, end, lead}]（语音 IntelProcessor 复用） */
+  function findNameContext(text) {
+    var s = String(text || ''), out = [], m;
+    var re = new RegExp(NAME_CONTEXT_RE.source, 'g');
+    while ((m = re.exec(s)) !== null) {
+      var start = m.index + m[0].length - m[2].length;
+      var v = cleanNameContext(m[2], m, start);
+      if (v) out.push({ value: v, start: start, end: start + v.length, lead: m[1] });
+    }
+    return out;
+  }
+
   /**
    * extract(text) -> Entity[]
    * Entity: { type, label, value, masked, start, end, sensitive, meta }
@@ -224,6 +257,8 @@
     scan(RE.nameMid, 'name', { group: 1, clean: cleanNameMid });
     // #216 P0：人设回复「对方叫李四是吧」「他叫王志强」——人称 + 叫 后面的姓名（必须以常见姓氏开头，规则同 nameMid）
     scan(RE.namePerson, 'name', { group: 1, clean: cleanNameMid });
+    // #222 P0：「转给 / 打给 / 汇给 + 名字」「是 + 名字 + 吗」「我叫 / 我是 + 名字」
+    scan(NAME_CONTEXT_RE, 'name', { group: 2, clean: cleanNameContext });
 
     // 非敏感的上下文情报（不打码、不占用区间）
     scan(RE.amount, 'amount', { sensitive: false, noOverlap: true, meta: function (raw, m) {
@@ -495,5 +530,5 @@
     return extract(text).filter(function (e) { return e.sensitive; });
   }
 
-  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, starsName: starsName, SURNAMES: NR.surnames, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
+  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, starsName: starsName, SURNAMES: NR.surnames, findNameContext: findNameContext, NAME_CONTEXT_RE: NAME_CONTEXT_RE, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
 });

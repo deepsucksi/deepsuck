@@ -1,0 +1,73 @@
+{
+  "comment": "#220：星号 / 真名后面紧跟数字（阿拉伯或中文数字）或金额词时，这些字不当残名，金额原样保留；「是**明吗」「王*五」照旧。tests/name_amount.test.js（sanitizeReply）与 python/tests/test_name_amount.py（mask_names→脱敏→speak_masked）共用。",
+  "cases": [
+    {
+      "id": "ctx-cn-wubai",
+      "text": "转给李四五百块",
+      "reply": "转给那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "ctx-cn-sanwan",
+      "text": "汇给张三三万块",
+      "reply": "汇给那个名字三万块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "ctx-digit-500",
+      "text": "转给李四500",
+      "reply": "转给那个名字500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "ctx-cn-liangqian",
+      "text": "汇给张三两千元",
+      "reply": "汇给那个名字两千元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "masked-cn-liangqian",
+      "text": "转给李*两千",
+      "reply": "转给那个名字两千",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "neg-bank",
+      "text": "转给银行五百",
+      "reply": "转给银行五百",
+      "refs": []
+    },
+    {
+      "id": "neg-title",
+      "text": "转给王总三万",
+      "reply": "转给王总三万",
+      "refs": []
+    },
+    {
+      "id": "keep-tail-ming",
+      "text": "是**明吗",
+      "reply": "那个名字吗",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "keep-wang-wu",
+      "text": "王*五",
+      "reply": "那个名字",
+      "refs": [
+        "name"
+      ]
+    }
+  ]
+}
