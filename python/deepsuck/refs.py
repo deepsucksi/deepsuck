@@ -22,9 +22,14 @@ NAME = _DE["name"]
 
 _SPLIT_PRE = "(?:(?:" + "|".join(re.escape(x[:-1]) for x in sorted(_SPL["spellings"], key=len, reverse=True)) + ")" + _SPL["link"] + ")"
 _SPLIT_BEFORE_NAME = re.compile(_SPLIT_PRE + "(?=〔?" + NAME + ")")
+# #222 后续：星号后面紧跟数字（阿拉伯或中文）/ 金额词时不当残名（「转给李*五百块」不吞「五」），与 llm.js NUM_TAIL_GUARD 一致
+_NUM_TAIL_GUARD = "(?![0-9０-９]|[零一二两三四五六七八九十几][零一二两三四五六七八九十百千万亿块元]|[百千万亿块元])"
+# #222 后续：打码姓名后面紧跟 1–5 位阿拉伯数字的金额（「转给李*500」）仍算姓名，不当号码。与 llm.js AMOUNT_AFTER 一致
+_AMOUNT_AFTER = r"(?=[0-9０-９]{1,5}(?:\.[0-9]{1,2})?(?:块钱|块|元|万|千|百)?(?![0-9０-９A-Za-z*＊]))"
 _NAME_MASK = re.compile(_SPLIT_PRE + "?(姓)?(" + "|".join(_DE["compoundSurnames"]) + "|[\u4e00-\u9fff])"
-                        "(?:[*＊](?:(?![" + _DE["nameTailStop"] + "])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊])"
-                        "(" + _DE["maskedNameTail"] + "(?![*＊0-9A-Za-z]))?)")
+                        "(?:[*＊](?:" + _NUM_TAIL_GUARD + "(?![" + _DE["nameTailStop"] + "])[\u4e00-\u9fff](?![*＊]))?(?:(?![0-9A-Za-z*＊])|" + _AMOUNT_AFTER + ")"
+                        "|[*＊]{2,4}(?:(?![0-9A-Za-z*＊])|" + _AMOUNT_AFTER + ")"
+                        "(" + _NUM_TAIL_GUARD + _DE["maskedNameTail"] + "(?![*＊0-9A-Za-z]))?)")
 # #216 P0：姓和星号之间夹空格 / 分隔符（「张 * *」「张·*·*」「李 - * 」）先收拢成「张**」；号码里的分隔（「138 **** 1234」）不动
 _SEP = _DE["spacedStarsSep"]
 _SPACED_STARS = re.compile("(?<![0-9A-Za-z０-９])([\u4e00-\u9fff])((?:" + _SEP + "*[*＊]){1,4})(?=" + _SEP + "*(?:[^0-9A-Za-z０-９*＊" + _SEP[1:-1] + "]|$))")
@@ -61,9 +66,9 @@ class _NoTail:
 
 
 # #216 P0：星号后紧跟的残名（「是**明吗」「，**明？」）整段算名字；星号前不是汉字时（逗号、句首）也是名字，不念成号码
-_STARS_NAME_TAIL = re.compile("(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{1,4}" + _DE["maskedNameTail"] + "(?![*＊0-9A-Za-z０-９])")
+_STARS_NAME_TAIL = re.compile("(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{1,4}" + _NUM_TAIL_GUARD + _DE["maskedNameTail"] + "(?![*＊0-9A-Za-z０-９])")
 # #216：已经是「那个名字」、后面紧跟的星号（「那个名字***是吧」）一并去掉，不把「字」当姓
-_STARS_AFTER_NAME = re.compile("(〔?" + NAME + "〕?)\\s*[*＊]+(?:" + _DE["maskedNameTail"] + ")?(?![*＊0-9A-Za-z０-９])")
+_STARS_AFTER_NAME = re.compile("(〔?" + NAME + "〕?)\\s*[*＊]+(?:" + _NUM_TAIL_GUARD + _DE["maskedNameTail"] + ")?(?![*＊0-9A-Za-z０-９])")
 _NAME_TAIL = re.compile("(〔?" + NAME + "〕?)(?:[ \u3000…,，、.．·~～\\-—]{1,2}[*＊]+(?![0-9A-Za-z*＊]))+")
 # #172：纯星号的逐字解释（「弓长张，****」「伟是****」「****，****」）
 _HAN = "[\u4e00-\u9fff]"
