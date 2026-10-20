@@ -1,5 +1,5 @@
 {
-  "comment": "#216 打码金额：1-4 个星号后接 块/块钱/元，回复念量词说法（台词待审批），heard_refs 记 number。tests/amount_stars.test.js 与 python/tests/test_amount_stars.py 共用。#220 复审：号码词锚点（numberBefore）、姓名锚点（nameBefore、叫/姓、常见姓）优先于金额规则；5 个及以上星号不当金额，走原规则",
+  "comment": "#216 打码金额：1-4 个星号后接 块/块钱/元，回复念量词说法（台词待审批），heard_refs 记 number。tests/amount_stars.test.js 与 python/tests/test_amount_stars.py 共用。#220 复审：号码词锚点（numberBefore）、姓名锚点（nameBefore、叫/姓、常见姓）优先于金额规则；5 个及以上星号不当金额，走原规则。单字姓只在句首/标点/空白或姓名语境词（叫、姓、户名、收款人、对方、名字等）后才算姓名",
   "cases": [
     {
       "id": "stars1-块",
@@ -191,6 +191,86 @@
       "reply": "我卡里就剩你发的那个号元了",
       "refs": [
         "number"
+      ]
+    },
+    {
+      "id": "common-char-1",
+      "text": "就剩余**块",
+      "reply": "就剩余那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "common-char-2",
+      "text": "还余**块",
+      "reply": "还余那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "common-char-3",
+      "text": "这包**块",
+      "reply": "这包那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "common-char-4",
+      "text": "就剩一包**块",
+      "reply": "就剩一包那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "common-char-5",
+      "text": "差万**元",
+      "reply": "差万那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "name-ctx-surname-1",
+      "text": "收款人马**元",
+      "reply": "收款人那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "name-ctx-surname-2",
+      "text": "对方王**元",
+      "reply": "对方那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "name-ctx-surname-3",
+      "text": "户名：高**元",
+      "reply": "户名：那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "name-ctx-surname-4",
+      "text": "，马**元",
+      "reply": "，那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "name-ctx-surname-5",
+      "text": "上官**元",
+      "reply": "那个名字元",
+      "refs": [
+        "name"
       ]
     }
   ]
