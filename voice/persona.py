@@ -529,8 +529,10 @@ _NAME_ANCHOR_WORDS = ("户名", "收款人", "名下", "对方叫", "转给", "�
 # 残名后面再跟的星号（「收款人是**弓长张**」的收尾 **）一并吃掉。
 _ANCHOR_SEP = r"[\s，,、]*"
 _NAME_TAIL = "(?:(?!账户|名下|[的吗吧是啊对卡])[\u4e00-\u9fff]){1,3}"  # 「名下」也停（「转到*名下」）
+# #219 三审（负责人定）：锚和星号之间隔破折号、引号、空格、标点也算（「户名 —— **明」「收款人“**”」念「那个名字」）
+_ANCHOR_SEP_WIDE = r"[\s，,、。；;：:—\-–…“”「」『』‘’'\"]*"
 _NAME_ANCHOR = re.compile(
-    r"(" + "|".join(_NAME_ANCHOR_WORDS) + r")(" + _ANCHOR_SEP + r"(?:是|为)?" + _ANCHOR_SEP + r"[:：]?" + _ANCHOR_SEP + r")"
+    r"(" + "|".join(_NAME_ANCHOR_WORDS) + r")(" + _ANCHOR_SEP_WIDE + r"(?:是|为)?" + _ANCHOR_SEP_WIDE + r")"
     r"[*＊]+(?![0-9A-Za-z０-９*＊])(?:(" + _NAME_TAIL + r")[*＊]*(?![0-9A-Za-z０-９]))?")
 # #214 复审：_NAME_MASKED 把星号前一个字当姓一起换掉，「转给***」念成「转那个名字」、「收款人***」念成「收款那个名字」，意思变了。
 # 星号前是这些字（动词、介词、「人」「下」）时只换星号，保留前字；它们基本不当姓，保留也不露姓名里的字。
@@ -546,7 +548,23 @@ _KEEP_LEAD_TAIL = re.compile("(?<=[给入叫跟向找人])[*＊]+(?![0-9A-Za-z�
 
 
 def _anchor_rep(m: re.Match) -> str:
-    return m.group(1) + re.sub(r"[是为\s]", "", m.group(2)) + NAME_PHRASE
+    sep = m.group(2)
+    sep = re.sub(r"[是为]", "", sep) if re.search(r"[—\-–…“”「」『』‘’'\"]", sep) else re.sub(r"[是为\s]", "", sep)
+    return m.group(1) + sep + NAME_PHRASE
+
+
+# #219 三审（负责人定）：「姓」也是锚。「姓」后面的星号和残字（最多 3 字，停字同 _NAME_TAIL）连同「姓」一起换掉：
+# 前面是姓名锚（「收款人姓**明」）→「收款人那个名字」；前面是别的主语（「他姓**明」「对方姓*名明」）→「姓」改成「是」：「他是那个名字」。
+_SURNAME_ANCHOR = re.compile(
+    r"姓(" + _ANCHOR_SEP_WIDE + r")[*＊]+(?![0-9A-Za-z０-９*＊])(?:" + _NAME_TAIL + r"[*＊]*(?![0-9A-Za-z０-９]))?")
+_ANCHOR_BEFORE = re.compile("(?:" + "|".join(_NAME_ANCHOR_WORDS) + r")\s*$")
+
+
+def _surname_rep(m: re.Match) -> str:
+    sep = m.group(1)
+    sep = sep if re.search(r"[—\-–…“”「」『』‘’'\"]", sep) else ""
+    head = "" if _ANCHOR_BEFORE.search(m.string[:m.start()]) or not m.string[:m.start()].strip() else "是"
+    return head + sep + NAME_PHRASE
 
 
 def _unmask_names(s: str) -> str:
@@ -560,6 +578,7 @@ def _unmask_names(s: str) -> str:
             return m.group(2) + NAME_PHRASE
         return NAME_PHRASE
     s = _STARS_AFTER_NAME.sub(NAME_PHRASE, s)  # #219：已换好的「那个名字」后面残留的粗体星号（「**弓长张，伟大的伟**」）一并去掉，不把「字」当姓
+    s = _SURNAME_ANCHOR.sub(_surname_rep, s)  # #219 三审：先换「姓**明」
     s = _STARS_BEFORE_MINGXIA.sub(NAME_PHRASE, _KEEP_LEAD_TAIL.sub(NAME_PHRASE, _NAME_ANCHOR.sub(anchor, s)))
     return _STARS_AFTER_NAME.sub(NAME_PHRASE, _NAME_MASKED.sub(rep, s))
 
@@ -724,8 +743,8 @@ def _explain_spans(s: str):
         # 词往前接到标点 / 「的」「是」/ 4 个字为止，「弓长张，日月明的明」的「日」也换掉（宁可多遮）
         word = next((pre[-k:] for k in range(len(pre), len(word), -1) if not re.search("[的是]", pre[-k:])), word)
         start = m.start(2) - len(m.group(0)[len(m.group(1)):m.start(2) - m.start()]) - len(word)
-        # #219：前置「伟，」「伟——」「“伟”，」也算念出了 X（拿不准就打码）
-        lead = re.search(_QUOTE + "?" + re.escape(x) + _QUOTE + "?字?(?:[\\s，,、：:—\\-…]*(?:就是|是))?[\\s，,、：:—\\-…]*$", s[:start])  # 「伟是伟大的伟」「伟，就是伟大的伟」的「伟是」也念出了 X
+        # #219：前置「伟，」「伟——」「“伟”，」「伟。」也算念出了 X（拿不准就打码）
+        lead = re.search(_QUOTE + "?" + re.escape(x) + _QUOTE + "?字?(?:[\\s，,、：:；;。！!？?—\\-…]*(?:就是|是))?[\\s，,、：:；;。！!？?—\\-…]*$", s[:start])  # 「伟是伟大的伟」「伟，就是伟大的伟」的「伟是」也念出了 X
         if lead:
             start = lead.start()
         out.append((start, m.end()))
