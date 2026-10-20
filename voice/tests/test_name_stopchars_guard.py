@@ -21,7 +21,14 @@ def test_guard_keeps_persona_words(text):
 @pytest.mark.parametrize("case", FX["redactMask"], ids=[c["text"] for c in FX["redactMask"]])
 def test_guard_still_masks_real_names(case):
     out = guard_output(case["text"])
-    assert "*" in out or "＊" in out, (case["text"], out)
+    if "那个名字" in out:  # #227：字段词 + 姓 + 星号念「那个名字」，此时原名的姓和名一个字都不能出现
+        text, red = case["text"], case["redacted"]
+        stars = [i for i, c in enumerate(red) if c in "*＊"]
+        assert stars, case
+        name = text[stars[0] - 1:stars[-1] + 1]  # 姓 + 被星号盖住的名
+        assert not any(c in out for c in name), (text, out, name)
+    else:
+        assert "*" in out or "＊" in out, (case["text"], out)
 
 
 # ---- #201 人设侧姓名替换读共用字表（与 tests/name_stopchars_persona.test.js、python/tests/test_name_stopchars_persona.py 同一组）

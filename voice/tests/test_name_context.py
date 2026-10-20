@@ -104,7 +104,7 @@ def test_huming_stars_yuan_reads_name(text):
 
 def test_transfer_name_amount_unreported_now_masked():
     """#216 的缺口：共享规则单独看整句仍不认「转给李四五百块」；语音 guard_output 在金额开头截断后用 find_name_context 补上（#227）。"""
-    assert not find_name_context("转给李四五百块")
+    assert find_name_context("转给李四五百块"), "#220 起共享规则已认整句"
     assert run("转给李四五百块") == "转给那个名字五百块"
 
 
@@ -228,7 +228,6 @@ def test_voice_side_name_leaks_fixed(text, want, refs, step):
     assert run(text, refs=refs, step=step) == want
 
 
-@pytest.mark.xfail(strict=False, reason="等 #220")
 @pytest.mark.parametrize("text,want", [
     ("给王五三千块", "给那个名字三千块"), ("给张明三万", "给那个名字三万"),
     ("是张三五百块", "是那个名字五百块"), ("叫李三三万", "叫那个名字三万"),
@@ -237,7 +236,6 @@ def test_lead_gei_shi_jiao_wait_220(text, want):
     assert P.speakable(text, calm_tts=False) == want
 
 
-@pytest.mark.xfail(strict=False, reason="等 #220")
 @pytest.mark.parametrize("text", ["转给张三1000元", "汇给王五1000元", "打给李明1000元"])
 def test_fuzz_lead_name_arabic_amount_no_surname(text):
     """#227 五审 fuzz 类：转给 / 汇给 / 打给 + 名字 + 1000元 不露姓（数字照 #121 念含糊说法）。"""
@@ -257,7 +255,6 @@ def test_surname_stars_digits_no_surname(step):
         assert "张" not in out and "1234" not in out and "那个名字" not in out
 
 
-@pytest.mark.xfail(strict=False, reason="#216：复姓 + 金额共享规则不认")
 def test_compound_surname_amount_gap():
     out = P.guard_output("汇给欧阳娜娜两万")
     assert not any(c in out for c in "欧阳娜")
@@ -302,3 +299,17 @@ def test_raw_speakable_keeps_first_amount_char(text, want):
     for calm in (False, True):
         assert P.speakable(text, calm_tts=calm) == want
     assert run(text) == want
+
+
+@pytest.mark.parametrize("step", [1, 3])
+@pytest.mark.parametrize("text,want", [("是张伟，500", "是那个名字，"), ("是张伟，五百块", "是那个名字，五百块")])
+def test_shi_name_comma_amount_masked(text, want, step):
+    """#227 fuzz 模板 c：名字和金额之间隔逗号，也不露姓（数字照 #121 念含糊说法）。"""
+    for out in (P.guard_output(text), P.speakable(text, calm_tts=False), run(text, step=step)):
+        assert out.startswith(want) and "张" not in out and "500" not in out
+
+
+@pytest.mark.parametrize("text", ["是的，500", "给你，500", "给钱三万"])
+def test_comma_amount_non_names_untouched(text):
+    for out in (P.guard_output(text), P.speakable(text, calm_tts=False)):
+        assert "那个名字" not in out and out.startswith(text[:2])
