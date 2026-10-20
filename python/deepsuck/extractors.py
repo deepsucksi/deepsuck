@@ -84,8 +84,11 @@ def masked_lead_not_surname(m, sur: str, fallback: str) -> bool:
     不放行；4 个及以上星号（「我只有****块钱」）才按字表的 after 放行。"""
     if len(sur) != 1:
         return False
-    if re.search("[*＊][\u4e00-\u9fff]", m.group(0)):  # #206 星号后面还跟着一个字（「对*明」「王*明」）：一律当姓名（宁可多遮）
+    if re.search("[*＊][\u4e00-\u9fff]", m.group(0)):  # #206 星号后面还跟着一个字（「对*明」「王*明」「转到*明」「卡号是*华」）：一律当姓名（宁可多遮），先于号码语境
         return False
+    star0 = re.search("[*＊]", m.group(0))
+    if stars_not_name(m.string, m.start() + (star0.start() if star0 else 0)):  # #206 第六条探针：号码语境 / 「我在***上班」不当姓名，先于 _SHORT_STARS 兜底
+        return True
     star = re.search("[*＊]", m.group(0))
     rest = m.string[m.start() + (star.start() if star else len(m.group(0))):]
     st = stop_surname(sur, rest)
@@ -97,6 +100,27 @@ def masked_lead_not_surname(m, sur: str, fallback: str) -> bool:
 
 
 _SHORT_STARS = re.compile("[*＊]{1,3}(?![*＊])")
+_MC = load("name_stopchars").get("maskContext") or {}
+_NUMBER_BEFORE = compile_js(_MC.get("numberBefore") or "(?!)")
+_NOT_NAME_AFTER = compile_js(_MC.get("notNameAfter") or "(?!)")
+_NAME_AFTER = compile_js(_MC.get("nameAfter") or "(?!)")
+_NAME_BEFORE = compile_js(_MC.get("nameBefore") or "(?!)")
+
+
+def stars_name(s: str, pos: int) -> bool:
+    """#214 审查：s 里 pos 处开始的星号前面是「户名、收款人、名下、对方叫」或后面跟「名下、的卡、的账户」等，是姓名。与 JS starsName 一致。"""
+    s = str(s)
+    return bool(_NAME_BEFORE.search(s[:pos]) or _NAME_AFTER.match(s, pos))
+
+
+def stars_not_name(s: str, pos: int) -> bool:
+    """#206 第六条探针：s 里 pos 处开始的星号按上下文不当姓名（号码语境「验证码是***」「转到**」，或「我在***上班」）。与 JS starsNotName 一致。"""
+    s = str(s)
+    if stars_name(s, pos):  # #214：「转到**名下」「打到**的卡上」仍是姓名
+        return False
+    return bool(_NUMBER_BEFORE.search(s[:pos]) or _NOT_NAME_AFTER.match(s, pos))
+
+
 
 
 _NAME_DIGITS = "零一二三四五六七八九"
