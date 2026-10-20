@@ -316,7 +316,7 @@ def test_comma_amount_non_names_untouched(text):
 
 
 # #222（负责人定）：语音与文本端（deepsuck.refs.mask_names / llm.js）逐字一致；「元」以文本端为准
-@pytest.mark.parametrize("text", ["收款人马**元", "户名：高**元", "开户名王**元", "姓名张**元", "我只有**块钱"])
+@pytest.mark.parametrize("text", ["收款人马**元", "户名：高**元", "开户名王**元", "姓名张**元", "我只有**块钱", "我只有****块钱"])
 def test_voice_matches_text_path(text):
     from deepsuck.refs import mask_names
     from voice.persona import guard_output, speakable
