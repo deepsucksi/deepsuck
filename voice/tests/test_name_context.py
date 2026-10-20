@@ -211,12 +211,50 @@ def test_non_name_amounts_unchanged_by_early_mask(text):
     assert "那个名字" not in P.guard_output(text)
 
 
-@pytest.mark.xfail(strict=False, reason="共享规则缺口（交情报）：lead「给」不在 nameContext.leads 里、复姓+金额不认；"
-                                       "数字过滤后露姓「给王…」")
-@pytest.mark.parametrize("text", ["给王五三千块", "汇给欧阳娜娜两万"])
-def test_shared_rule_gaps_recorded(text):
-    out = P.guard_output(text)
-    assert not any(c in out for c in "王欧娜")
+@pytest.mark.parametrize("step", [1, 3])
+@pytest.mark.parametrize("refs", [None, ()])
+@pytest.mark.parametrize("text,want", [
+    ("我是李四十岁", "我是那个名字十岁"),   # #227 四审：名字后面紧跟「十岁」
+    ("给王五三千块", "给那个名字三千块"),   # #227 四审：voice 侧补 lead「给」，金额一个字不丢
+    ("姓名张三", "姓名那个名字"),           # #227 四审：字段词后的真名
+    # #227 五审（情报 review 5583446683 必改；name_amount.json 只在未合并的 #220，用例先放 voice 测试）
+    ("姓名*五百块", "姓名那个名字五百块"),   # 字段词 + 星号 + 中文金额不吞金额（同 #220）
+    ("户名**五百块", "户名那个名字五百块"),
+    ("张三三点钟", "那个名字三点钟"),       # r220b：句首名字 + 时间
+    ("给张明三万", "给那个名字三万"),       # 给 / 是 前缀 + 金额
+    ("是张三五百块", "是那个名字五百块"),
+    ("叫李三三万", "叫那个名字三万"),       # 叫 + 中文金额不吞字
+])
+
+def test_voice_side_name_leaks_fixed(text, want, refs, step):
+    assert P.guard_output(text) == want
+    assert P.speakable(text, calm_tts=False) == want
+    assert run(text, refs=refs, step=step) == want
+
+
+@pytest.mark.parametrize("text", ["转给张三1000元", "汇给王五1000元", "打给李明1000元"])
+def test_fuzz_lead_name_arabic_amount_no_surname(text):
+    """#227 五审 fuzz 类：转给 / 汇给 / 打给 + 名字 + 1000元 不露姓（数字照 #121 念含糊说法）。"""
+    for out in (P.guard_output(text), P.speakable(text, calm_tts=False)):
+        assert out.startswith(text[:2] + "那个名字") and text[2] not in out and "1000" not in out
+
+
+@pytest.mark.parametrize("text", ["转给王总三万", "是三万吧", "给你三千块"])
+def test_fuzz_non_names_untouched(text):
+    assert "那个名字" not in P.guard_output(text)
+
+
+@pytest.mark.parametrize("step", [1, 3])
+def test_surname_stars_digits_no_surname(step):
+    """#227 四审：「张**1234」不露「张」，整段按号码念含糊说法。"""
+    for out in (P.guard_output("张**1234"), P.speakable("张**1234", calm_tts=False), run("张**1234", step=step)):
+        assert "张" not in out and "1234" not in out and "那个名字" not in out
+
+
+@pytest.mark.xfail(strict=False, reason="#216：复姓 + 金额共享规则不认")
+def test_compound_surname_amount_gap():
+    out = P.guard_output("汇给欧阳娜娜两万")
+    assert not any(c in out for c in "欧阳娜")
 
 
 # ---- 负责人定：字段词 收款人 / 户名 / 姓名 / 账户名 后的打码姓名，字段词一个字不吃，后面不剩「元」---------------

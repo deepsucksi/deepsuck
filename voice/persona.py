@@ -898,6 +898,22 @@ def _proxy_masked(s: str) -> str:
 
 
 _AMOUNT_START = re.compile("(?=" + _AMOUNT_AFTER_NAME + ")")
+_NAME_END_AT = re.compile("(?=" + _AMOUNT_AFTER_NAME + "|[" + _CN_NUM + "]+岁)")  # #227 四审：「我是李四十岁」
+_VOICE_LEADS = re.compile(r"(?:(?<![转汇打交还送递发])给|(?:账户名|户名|收款人|姓名)[：:\s]*)(?![*＊])")
+_NAME_STOP = re.compile(r"[，,。；;！!？?、\s]")
+# #227 四审：「张**1234」段首（前面不是汉字 / 数字）单个姓 + 星号 + 数字，姓不念出来，整段按号码念含糊说法
+_SURNAME_STARS_DIGITS = re.compile(r"(?<![\u4e00-\u9fff0-9A-Za-z０-９])[" + _SURNAME_SET + r"](?=[*＊]+[0-9０-９])"
+                                   r"(?![*＊]{1,4}(?:[0-9０-９]{1,3}(?![0-9０-９])|[0-9０-９]+\s*(?:块|元|万)))")  # 「李**500」仍按 #222 念「那个名字」
+_NAME_NUM_LEAD = re.compile(r"(?:转给|汇给|打给|给|是|叫|^|(?<=[，,。；;！!？?\s]))(?=[" + _SURNAME_SET + r"])")
+_NAME_NUM_END = re.compile(_AMOUNT_AFTER_NAME + "|[0-9０-９]|[" + _CN_NUM + "]+(?:岁|点)")
+
+
+def _is_name(cand: str) -> bool:
+    return any(nc["start"] == 2 and nc["end"] == len(cand) + 2 for nc in find_name_context("我叫" + cand))
+
+
+# #227 五审：字段词 + （姓）+ 星号 + 中文金额（「姓名*五百块」「户名**五百块」）：星号换「那个名字」，金额一个字不丢（同 #220）
+_FIELD_STARS_AMOUNT = re.compile(r"(账户名|开户名|户名|收款人|姓名)(" + _ANCHOR_SEP_WIDE + r")[" + _SURNAME_SET + r"]?[*＊]+(?=" + _AMOUNT_AFTER_NAME + ")")
 _DIGIT_AFTER = re.compile("[0-9０-９]|" + _AMOUNT_AFTER_NAME)
 
 
@@ -908,27 +924,48 @@ def _mask_names_before_digits(s: str) -> str:
     2) 名字后面紧跟中文金额（「汇给张三三万块」「打给王五两千」）时共享规则认不出整句，就在每个金额开头处截断，
        用共享的 find_name_context 只看前半句，名字正好结束在金额开头的才算（不另写姓名正则）。"""
     spans = []
+    shared = {e.get("value") for e in extract_sensitive(s) if e.get("type") == "name"}  # 共享规则已认的（「户名张三」）照旧交给末尾 redact_text
     for e in extract_sensitive(s):  # 只处理后面紧跟数字 / 中文金额的名字，其余照旧交给末尾的 redact_text
         v = e.get("value") if e.get("type") == "name" else None
         for m in re.finditer(re.escape(v), s) if v else ():
             if _DIGIT_AFTER.match(s, m.end()):
                 spans.append((m.start(), m.end()))
-    for m in _AMOUNT_START.finditer(s):
-        pos = m.start()
+    ends = [m.start() for m in _NAME_END_AT.finditer(s)]
+    for pos in ends:
         for nc in find_name_context(s[:pos]):
             if nc["end"] == pos:
                 spans.append((nc["start"], nc["end"]))
-    for a, b in sorted(set(spans), reverse=True):
-        s = s[:a] + mask("name", s[a:b]) + s[b:]
+    # #227 四审（负责人定，voice 侧补，不改共享 nameContext.leads）：「给」「姓名 / 户名 / 收款人」后面的真名共享规则不认，
+    # 把候选片段接到共享 lead「我叫」后面再交给 find_name_context 判断，整段都认作名字才打码
+    for lm in _VOICE_LEADS.finditer(s):
+        a = lm.end()
+        for pos in ends + [m.start() for m in _NAME_STOP.finditer(s, a)] + [len(s)]:
+            if a < pos <= a + 4 and s[a:pos] not in shared and any(nc["start"] == 2 and nc["end"] == pos - a + 2 for nc in find_name_context("我叫" + s[a:pos])):
+                spans.append((a, pos))
+    # #227 五审（情报 fuzz）：前缀（转给 / 汇给 / 打给 / 给 / 是 / 叫 / 句首）+ 姓 + 1~2 字 + 金额 / 岁 / 点钟：名字长度按「剩下的正好是金额」选，
+    # 候选同样交给共享 find_name_context（接在「我叫」后）确认是名字（「转给王总三万」不动）
+    for lm in _NAME_NUM_LEAD.finditer(s):
+        a = lm.end()
+        for k in (2, 3):
+            cand = s[a:a + k]
+            if len(cand) == k and _NAME_NUM_END.match(s, a + k) and _is_name(cand):
+                spans.append((a, a + k))
+                break
+    best = {}
+    for a, b in spans:  # 同一起点只留最短的（「给王五三千块」不把「三」算进名字，金额一个字不丢）
+        best[a] = min(b, best.get(a, b))
+    for a, b in sorted(best.items(), reverse=True):
+        s = s[:a] + NAME_PHRASE + s[b:]  # 直接换代称：打成「李*」时「*十」会被数字过滤当打码数字吃掉（「我是那个名字岁」）
     return s
 
 
 def guard_output(text: str) -> str:
     """输出守卫（PolicyGuard）：去掉括号动作/Markdown、不说成已经转账或答应去转（#187）、数字过滤（#121、#167：连续 2 位及以上的数字含中文数字换成含糊说法）、口语化（#132、#134）、脱敏、抹掉 5 位以上数字串。"""
     s = re.sub(r"<think>.*?</think>", "", str(text or ""), flags=re.S)
+    s = _FIELD_STARS_AMOUNT.sub(lambda m: m.group(1) + m.group(2) + NAME_PHRASE, s)  # #227 五审：先于姓名锚，免得残名规则把金额吃掉
     s = _proxy_masked(s)  # #214 语料复审：打码星号先换成代称，再去 Markdown 粗体（「验证码是**，密码是**」两段 ** 不当粗体删掉）
     s = _BOLD.sub(r"\1", s)
-    s = _unmask_names(_mask_names_before_digits(drop_name_explain(s)))  # #227：拆字拦截之后、数字过滤之前，紧跟金额的真名先打码；#219：姓名替换在拆字 / 逐字解释拦截之后；#215：拆字报姓 / 逐字解释整体换成「那个名字」（在脱敏、数字过滤之前，免得被打成星号再念成「那个号」）
+    s = _unmask_names(_mask_names_before_digits(_SURNAME_STARS_DIGITS.sub("", drop_name_explain(s))))  # #227：拆字拦截之后、数字过滤之前，紧跟金额的真名先打码；#219：姓名替换在拆字 / 逐字解释拦截之后；#215：拆字报姓 / 逐字解释整体换成「那个名字」（在脱敏、数字过滤之前，免得被打成星号再念成「那个号」）
     s = hold_transfer(s)  # #187：说成已经转了 / 答应去转的分句换成“还在弄，没弄好”（在数字过滤、姓名替换、TTS 之前）
     s = vague_digits(s)
     s = polish_reply(s)  # #132、#134：书面词换口语，第一句快速反问的问号换成“…”
