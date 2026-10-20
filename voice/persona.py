@@ -560,11 +560,43 @@ _SURNAME_ANCHOR = re.compile(
 _ANCHOR_BEFORE = re.compile("(?:" + "|".join(_NAME_ANCHOR_WORDS) + r")\s*$")
 
 
-def _surname_rep(m: re.Match) -> str:
+# #219 四审（负责人定）：「姓」后接「的」时，前面的人称和「姓」一起去掉（「我姓**的卡」→「那个名字的卡」）
+_PRONOUN = "(?:我们|你们|他们|她们|对方|本人|我|你|您|他|她)"
+_PRONOUN_BEFORE = re.compile(_PRONOUN + "$")
+
+
+def _surname_head(m: re.Match, sep: str = "") -> str:
+    """「姓」（连同前面的人称）换成什么，返回 (要从前文删掉的字数, 前缀)。"""
+    before = m.string[:m.start()]
+    if m.string[m.end():].startswith("的"):
+        p = _PRONOUN_BEFORE.search(before)
+        if p:
+            return len(p.group(0)), ""
+    if _ANCHOR_BEFORE.search(before) or not before.strip():
+        return 0, ""
+    return 0, "是"
+
+
+def _sub_surname(rx: re.Pattern, s: str, body) -> str:
+    """像 rx.sub，但允许删掉匹配前面的人称。body(m) 返回 None 表示不替换，否则返回替换文本（不含「姓」的处理结果）。"""
+    out, last = [], 0
+    for m in rx.finditer(s):
+        r = body(m)
+        if r is None:
+            continue
+        cut, head = r[0], r[1]
+        out.append(s[last:m.start() - cut] if m.start() - cut >= last else "")
+        out.append(head)
+        last = m.end()
+    out.append(s[last:])
+    return "".join(out)
+
+
+def _surname_rep(m: re.Match):
     sep = m.group(1)
     sep = sep if re.search(r"[—\-–…“”「」『』‘’'\"]", sep) else ""
-    head = "" if _ANCHOR_BEFORE.search(m.string[:m.start()]) or not m.string[:m.start()].strip() else "是"
-    return head + sep + NAME_PHRASE
+    cut, head = _surname_head(m)
+    return cut, head + sep + NAME_PHRASE
 
 
 def _unmask_names(s: str) -> str:
@@ -573,14 +605,17 @@ def _unmask_names(s: str) -> str:
     def rep(m: re.Match) -> str:
         # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓），不在表里的再看 _NOT_SURNAME
         if masked_lead_not_surname(m, m.group(2), _NOT_SURNAME):
-            return m.group(0)
+            return None
         if not m.group(1) and m.group(2) in _KEEP_LEAD:  # #214 复审：保留星号前的动词 / 介词（「转给那个名字」）
-            return m.group(2) + NAME_PHRASE
-        return NAME_PHRASE
+            return 0, m.group(2) + NAME_PHRASE
+        if m.group(1):  # #219 四审（负责人定，#136 老规则作废）：「他姓张**」→「他是那个名字」，规则同 _surname_rep
+            cut, head = _surname_head(m)
+            return cut, head + NAME_PHRASE
+        return 0, NAME_PHRASE
     s = _STARS_AFTER_NAME.sub(NAME_PHRASE, s)  # #219：已换好的「那个名字」后面残留的粗体星号（「**弓长张，伟大的伟**」）一并去掉，不把「字」当姓
-    s = _SURNAME_ANCHOR.sub(_surname_rep, s)  # #219 三审：先换「姓**明」
+    s = _sub_surname(_SURNAME_ANCHOR, s, _surname_rep)  # #219 三审：先换「姓**明」
     s = _STARS_BEFORE_MINGXIA.sub(NAME_PHRASE, _KEEP_LEAD_TAIL.sub(NAME_PHRASE, _NAME_ANCHOR.sub(anchor, s)))
-    return _STARS_AFTER_NAME.sub(NAME_PHRASE, _NAME_MASKED.sub(rep, s))
+    return _STARS_AFTER_NAME.sub(NAME_PHRASE, _sub_surname(_NAME_MASKED, s, rep))
 
 
 # #214 复审：ASR 分段时星号可能单独成一段，或在这一段开头（「转给」/「***」、「卡号是」/「***，户名***」）。这一段开头的星号
