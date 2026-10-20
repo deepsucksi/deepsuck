@@ -161,6 +161,43 @@ def _clean_name_mid(n: str, m=None, start: Optional[int] = None):
     return _clean_name(n, m, start)
 
 
+# #222 P0：姓名语境里的真名（「转给李四」「是李四吗」「我叫张三」），规则见 core/extractors.json nameRules.nameContext。
+# 与 extractors.js NAME_CONTEXT_RE / cleanNameContext / findNameContext 一致
+_NC = _C["nameRules"]["nameContext"]
+_NC_TITLES = tuple(sorted(set(_NC["titles"]) | set(_TITLES), key=len, reverse=True))
+NAME_CONTEXT_RE = re.compile(
+    "(" + "|".join(sorted(_NC["leads"], key=len, reverse=True)) + r")\s*[:：]?\s*"
+    "(?!" + "|".join(_NC["notWords"]) + ")"
+    "([" + _SURNAMES + "](?:(?![" + _NC["givenStop"] + "])[\u4e00-\u9fa5]){1,2}?)"
+    "(?=" + "|".join(re.escape(t) for t in _NC_TITLES) + "|" + _NC["stops"] + ")")
+
+
+def _clean_name_context(n: str, m=None, start: Optional[int] = None):
+    """姓名语境里的名字：lead 为「是」时后面必须紧跟「吗」；后面紧跟称呼（「王阿姨」「王小姐」）不算；其余同 _clean_name。"""
+    if m is None or start is None:
+        return None
+    rest = m.string[start + len(n):]
+    if m.group(1) == _NC["askLead"] and not rest.startswith(_NC["askTail"]):
+        return None
+    after = m.string[start + 1:]
+    if any(after.startswith(t) for t in _NC_TITLES) or rest.startswith(_NC_TITLES):
+        return None
+    c = _clean_name(n, m, start)
+    return c if c == n else None
+
+
+def find_name_context(text: Optional[str]) -> List[dict]:
+    """#222：只跑姓名语境规则，返回 [{"value", "start", "end", "lead"}]（语音 IntelProcessor 复用）。"""
+    s = str(text or "")
+    out = []
+    for m in NAME_CONTEXT_RE.finditer(s):
+        start = m.start(2)
+        v = _clean_name_context(m.group(2), m, start)
+        if v:
+            out.append({"value": v, "start": start, "end": start + len(v), "lead": m.group(1)})
+    return out
+
+
 def _js_number(x: str):
     f = float(x)
     return int(f) if f.is_integer() else f
@@ -262,6 +299,8 @@ def extract(text: Optional[str]) -> List[dict]:
     scan(RE["nameMid"], "name", group=1, clean=_clean_name_mid)
     # #216 P0：人设回复「对方叫李四是吧」「他叫王志强」——人称 + 叫 后面的姓名（必须以常见姓氏开头，规则同 nameMid）
     scan(RE["namePerson"], "name", group=1, clean=_clean_name_mid)
+    # #222 P0：「转给 / 打给 / 汇给 + 名字」「是 + 名字 + 吗」「我叫 / 我是 + 名字」
+    scan(NAME_CONTEXT_RE, "name", group=2, clean=_clean_name_context)
 
     # 非敏感的上下文情报（不打码、不占用区间）
     scan(RE["amount"], "amount", sensitive=False, no_overlap=True,
