@@ -315,17 +315,42 @@ def test_comma_amount_non_names_untouched(text):
         assert "那个名字" not in out and out.startswith(text[:2])
 
 
-# #222（负责人定）：语音与文本端（deepsuck.refs.mask_names / llm.js）逐字一致；「元」以文本端为准
-@pytest.mark.parametrize("text", ["收款人马**元", "户名：高**元", "开户名王**元", "姓名张**元", "我只有**块钱", "我只有****块钱"])
-def test_voice_matches_text_path(text):
+
+# #222（负责人定）：语音与文本端逐字一致；「元」以文本端为准。期望不硬编码，直接调文本端两个出口取实际输出
+_PARITY = ["我只有**块钱", "我只有****块钱", "收款人马**元", "户名：高**元", "开户名王**元", "姓名张**元"]
+
+
+def _text_py(t):
+    from deepsuck.extractors import extract_sensitive
+    from deepsuck.redact import redact_text
     from deepsuck.refs import mask_names
+    s = mask_names(t)
+    return redact_text(s, extract_sensitive(s))
+
+
+def _text_js(texts):
+    import json, shutil, subprocess
+    from pathlib import Path
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node 不可用")
+    llm = Path(__file__).resolve().parents[2] / "site" / "assets" / "js" / "llm.js"
+    js = "const m=require(%s);process.stdout.write(JSON.stringify(%s.map(t=>m.sanitizeReply(t))))" % (json.dumps(str(llm)), json.dumps(texts, ensure_ascii=False))
+    return json.loads(subprocess.run([node, "-e", js], capture_output=True, text=True, check=True).stdout)
+
+
+@pytest.mark.parametrize("text", _PARITY)
+def test_voice_matches_text_py(text):
     from voice.persona import guard_output, speakable
-    want = mask_names(text)
+    want = _text_py(text)
     assert guard_output(text) == want
     assert speakable(text) == want
 
 
-def test_starred_amount_reads_namedian():
-    from deepsuck.refs import mask_names
+def test_voice_matches_text_js():
     from voice.persona import guard_output, speakable
-    assert mask_names("我只有**块钱") == guard_output("我只有**块钱") == speakable("我只有**块钱") == "我只有那么点"
+    js = _text_js(_PARITY)
+    for t, want in zip(_PARITY, js):
+        assert want == _text_py(t), (t, want)
+        assert guard_output(t) == want, t
+        assert speakable(t) == want, t
