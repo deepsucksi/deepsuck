@@ -10,7 +10,7 @@ import re
 from typing import Iterable
 
 from .core import load
-from .extractors import extract_sensitive, masked_lead_not_surname
+from .extractors import extract_sensitive, masked_lead_not_surname, stars_name, stars_not_name
 from .redact import redact_text
 
 _P = load("personas")
@@ -34,6 +34,7 @@ _SEEN_EXPLAIN = "(?:(?:就是|是)?" + _HAN + "{1,4}" + _EXP["link"] + _HAN + _E
 _LEAD_CHAR = "(?<![^\\s，,、。！？!?；;…:：])(?![" + _DE["notSurname"] + UR["notLead"] + "])" + _HAN + "字?(?:就是|是)"
 _EXPLAIN_NAME = re.compile("(?:" + _SPLIT_FULL + "(?:" + _EXP["sep"] + _SEEN_EXPLAIN + ")?" + _EXP["sep"] + "(?:就是|是)?|" + _LEAD_CHAR + ")" + _STAR_CHAIN)
 _BARE_STARS = re.compile(_STAR_CHAIN)
+_CLAUSE_SEP = "，,。；;！？!?\n"
 _NUMBER_CUE = re.compile("[0-9０-９]|" + UR["numberCue"])
 _NAME_DUP = re.compile("(〔?" + NAME + "〕?)(?:" + _EXP["sep"] + "(?:就是|是)?〔?" + NAME + "〕?)+")
 _MASKED = re.compile(r"(?:[A-Za-z0-9]+…)?(?:[0-9]{2,6}[ \u00a0](?=[*＊]))*[A-Za-z0-9_.:/@+#?=&%~\-]*[*＊][A-Za-z0-9_.:/@+#?=&%~\-*＊]*(?:[ \u00a0][0-9*＊]+)*"
@@ -54,8 +55,20 @@ def mask_names(text: str, bracket: bool = False) -> str:
     s = _SPLIT_BEFORE_NAME.sub("", s)
     s = _NAME_TAIL.sub(r"\1", s)
     s = _EXPLAIN_NAME.sub(lambda _m: w, s)
-    if not _NUMBER_CUE.search(s):
-        s = _BARE_STARS.sub(lambda _m: w, s)
+    # #172：没有数字和号码字样时，单独的纯星号串也是逐字解释的名字。#214：按逗号、句号等分段看号码字样
+    # （「卡号是***，户名***」后一段是姓名）；#206 第六条探针：号码语境（「转到***」）和「我在***上班」除外，
+    # 「转到**名下」「打到**的卡上」一律是姓名
+    def bare(m: re.Match) -> str:
+        st, pos = m.string, m.start()
+        if stars_not_name(st, pos):
+            return m.group(0)
+        if stars_name(st, pos):
+            return w
+        a = max(st.rfind(c, 0, pos) for c in _CLAUSE_SEP) + 1
+        b = min([i for i in (st.find(c, m.end()) for c in _CLAUSE_SEP) if i >= 0] or [len(st)])
+        return m.group(0) if _NUMBER_CUE.search(st[a:b]) else w
+
+    s = _BARE_STARS.sub(bare, s)
     return _NAME_DUP.sub(r"\1", _NAME_TAIL.sub(r"\1", s))
 
 

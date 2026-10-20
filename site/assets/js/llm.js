@@ -134,6 +134,7 @@
   var LEAD_CHAR = '(?<![^\\s，,、。！？!?；;…:：])(?![' + NDE.notSurname + UR.notLead + '])' + HAN + '字?(?:就是|是)';
   var EXPLAIN_NAME_RE = new RegExp('(?:' + SPLIT_FULL + '(?:' + EXP.sep + SEEN_EXPLAIN + ')?' + EXP.sep + '(?:就是|是)?|' + LEAD_CHAR + ')' + STAR_CHAIN, 'g');
   var BARE_STARS_RE = new RegExp(STAR_CHAIN, 'g');
+  var CLAUSE_SEP = '，,。；;！？!?\n';
   var NUMBER_CUE = new RegExp('[0-9０-９]|' + UR.numberCue);
   var NAME_DUP_RE = new RegExp('(〔?' + NDE.name + '〕?)(?:' + EXP.sep + '(?:就是|是)?〔?' + NDE.name + '〕?)+', 'g');
   function maskedPhrase(tok) {
@@ -151,7 +152,16 @@
       .replace(SPLIT_BEFORE_NAME, '')
       .replace(NAME_TAIL_RE, '$1')
       .replace(EXPLAIN_NAME_RE, w); // #172
-    if (!NUMBER_CUE.test(s)) s = s.replace(BARE_STARS_RE, w); // #172：整句没有数字和号码字样时，单独的纯星号串也是逐字解释的名字
+    // #172：没有数字和号码字样时，单独的纯星号串也是逐字解释的名字。#214：按逗号、句号等分段看号码字样（「卡号是***，户名***」后一段是姓名）；
+    // #206 第六条探针：号码语境（「转到***」）和「我在***上班」除外，「转到**名下」「打到**的卡上」一律是姓名。与 refs.mask_names 一致
+    s = s.replace(BARE_STARS_RE, function (m, off, str) {
+      if (D.extractors.starsNotName(str, off)) return m;
+      if (D.extractors.starsName(str, off)) return w;
+      var a = 0, b = str.length, i;
+      for (i = off - 1; i >= 0; i--) if (CLAUSE_SEP.indexOf(str[i]) >= 0) { a = i + 1; break; }
+      for (i = off + m.length; i < str.length; i++) if (CLAUSE_SEP.indexOf(str[i]) >= 0) { b = i; break; }
+      return NUMBER_CUE.test(str.slice(a, b)) ? m : w;
+    });
     return s.replace(NAME_TAIL_RE, '$1').replace(NAME_DUP_RE, '$1');
   }
   /** 把文本里的打码值换成自然说法；bracket=true 时加〔〕（给模型看的代称） */
