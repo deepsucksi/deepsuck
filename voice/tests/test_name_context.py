@@ -13,6 +13,7 @@ from deepsuck.engine import Session
 from deepsuck.extractors import find_name_context
 from deepsuck.refs import heard_refs
 from deepsuck.rng import mulberry32
+from voice import persona as P
 from voice.callredact import CallRedactor
 from voice.processors import GuardTextFilter, IntelProcessor
 from voice.textagg import ClauseTextAggregator
@@ -86,9 +87,83 @@ def test_zhangsan_shiba_not_in_shared_rule():
     assert run("张三是吧") == "张三是吧"
 
 
-@pytest.mark.xfail(strict=False, reason="#216 已知缺口：「转给李四五百块」名字后紧跟金额不在共享规则内；"
-                                       "报过名字后 _unmask_names 单星号分支吞掉「五」，念「转给那个名字百块」（main 上就有）")
-def test_transfer_name_amount():
-    assert run("转给李四五百块") != "转给李四五百块"
+def test_transfer_name_amount_unreported_gap():
+    """#216 已知缺口（已接受）：对方没报过名字时「转给李四五百块」不在共享规则内，原样输出。"""
+    assert not find_name_context("转给李四五百块")
+    assert run("转给李四五百块") == "转给李四五百块"
+
+
+@pytest.mark.parametrize("step", [1, 3, 50])
+@pytest.mark.parametrize("echo,want", [
+    ("转给李四五百块", "转给那个名字五百块"),
+    ("给李四三千", "给那个名字三千"),
+    ("李四两万块", "那个名字两万块"),
+    ("转给李四五百", "转给那个名字五百"),
+    ("李四，五百块", "那个名字，五百块"),
+])
+def test_reported_name_then_amount_keeps_digit(echo, want, step):
+    """#222：报过名字后，名字后面紧跟的中文金额不被吞字（原来念「转给那个名字百块」）。"""
     p, _ = _reported("收款人叫李四")
-    assert run("转给李四五百块", red=p.redactor, refs=["收款人叫李四"]) == "转给那个名字五百块"
+    assert run(echo, red=p.redactor, refs=["收款人叫李四"], step=step) == want
+
+
+@pytest.mark.parametrize("text,want", [
+    ("王*五", "那个名字"),            # 中间打码的三字名，「五」是名字里的字，照旧吃掉
+    ("王*五是吧", "那个名字是吧"),
+    ("户名王*五", "户名那个名字"),
+    ("转给王*五", "转给那个名字"),
+    ("王*二", "那个名字"),
+    ("李*五百块", "那个名字五百块"),   # 数字后面还跟着数字 / 单位：金额，不吃
+    ("李*三千元", "那个名字三千元"),
+    ("打给张*两千", "打给那个名字两千"),
+    ("打给张经理两千", "打给张经理两千"),  # 称呼不是名字，不动
+])
+def test_single_star_amount_vs_middle_mask(text, want):
+    assert P.speakable(text, calm_tts=False) == want
+    assert run(text) == want
+
+
+# ---- #222 追加（情报复查）：报过 / 已打码的名字后面紧跟金额 ----------------------------------------------------
+@pytest.mark.parametrize("step", [1, 3])
+@pytest.mark.parametrize("echo,want", [
+    ("转给李四五百块", "转给那个名字五百块"),
+    ("汇给张三三万块", "汇给那个名字三万块"),
+])
+def test_reported_two_names_amount(echo, want, step):
+    p, _ = _reported("收款人叫李四")
+    p.redactor.add("name", "张三")
+    out = run(echo, red=p.redactor, refs=["收款人叫李四"], step=step)
+    assert out == want
+    assert "那么些钱" not in out
+
+
+@pytest.mark.parametrize("step", [1, 3])
+def test_reported_name_arabic_amount_no_surname_leak(step):
+    """「转给李四500」：不露「李」、不念「你发的那个号」、不留星号。500 本身按 #121 / #167 数字过滤念含糊说法（不在本 PR 改）。"""
+    p, _ = _reported("收款人叫李四")
+    out = run("转给李四500", red=p.redactor, refs=["收款人叫李四"], step=step)
+    assert out.startswith("转给那个名字")
+    assert "李" not in out and "你发的那个号" not in out and "*" not in out
+
+
+@pytest.mark.parametrize("text,want_prefix", [
+    ("转给李*五百块", "转给那个名字五百块"),
+    ("张**三万块", "那个名字三万块"),
+    ("汇给张**三万块", "汇给那个名字三万块"),
+    ("李**500", "那个名字"),
+    ("转给李**500", "转给那个名字"),
+    ("是**明吗", "是那个名字吗"),
+    ("张**三", "那个名字"),          # 残名单字照旧吃掉
+])
+def test_raw_masked_name_amount_chain(text, want_prefix):
+    for refs in (None, ()):
+        for step in (1, 3):
+            out = run(text, refs=refs, step=step)
+            assert out.startswith(want_prefix), out
+            assert not any(c in out for c in "*＊李张明") and "你发的那个号" not in out
+
+
+@pytest.mark.parametrize("text", ["卡号是6222**500", "尾号*500"])
+def test_number_context_stars_digits_unchanged_semantics(text):
+    """号码语境里的星号 + 数字仍按号码念，不当名字。"""
+    assert "那个名字" not in P.speakable(text, calm_tts=False)

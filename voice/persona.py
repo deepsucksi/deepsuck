@@ -561,13 +561,22 @@ _NOT_SURNAME = "号码卡户名姓叫位数是为的了在到个账机话址箱�
 # 单个星号后面那个字碰到 nameTailStop（「李*是吧」的「是」）不吃，与 deepsuck.refs 一致
 _DIGIT_ECHO = load("personas")["digitEcho"]
 _MASKED_NAME_TAIL = _DIGIT_ECHO["maskedNameTail"]
+# #222：单星号后面是金额 / 数量的开头（中文数字后面还跟着数字或单位：「转给李*五百块」「给李*三千」），这个字不当残名吃掉，
+# 免得念成「转给那个名字百块」。只看「数字 + 数字/单位」两个字，单独一个数字（「王*五」中间打码）照旧吃掉，不露名字里的字
+_CN_NUM = "零〇一二两三四五六七八九十"
+_AMOUNT_AFTER_NAME = "[" + _CN_NUM + "][" + _CN_NUM + "百千万亿块元毛角]"
 _NAME_MASKED = re.compile(
     r"(姓)?(" + "|".join(_COMPOUND_SURNAMES) + r"|[\u4e00-\u9fff])"
-    r"(?:[*＊](?:(?![" + _DIGIT_ECHO["nameTailStop"] + r"])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊])"
-    r"(" + _MASKED_NAME_TAIL + r"(?![*＊0-9A-Za-z]))?)")
+    r"(?:[*＊](?:(?![" + _DIGIT_ECHO["nameTailStop"] + r"])(?!" + _AMOUNT_AFTER_NAME + r")[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊])"
+    r"((?!" + _AMOUNT_AFTER_NAME + r")" + _MASKED_NAME_TAIL + r"(?![*＊0-9A-Za-z]))?)")
 # #216 P0：星号前不是汉字（逗号、句首：「户名叫什么来着，**明？」）、后面紧跟残名时也是名字，不念成「那个号明」
-_STARS_NAME_TAIL = re.compile("(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{1,4}" + _MASKED_NAME_TAIL + "(?![*＊0-9A-Za-z０-９])")
+_STARS_NAME_TAIL = re.compile("(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{1,4}(?!" + _AMOUNT_AFTER_NAME + ")" + _MASKED_NAME_TAIL + "(?![*＊0-9A-Za-z０-９])")
 NAME_PHRASE = "那个名字"
+# #222：常见姓 + 1–4 个星号后面直接跟阿拉伯数字（「转给李*500」「李**500」）：报过的名字后面紧跟金额，星号是名字，
+# 不当号码念成「李那几个数没听清」露姓。只认 extractors.json nameRules.surnames 里的姓，星号前是号码语境的（stars_not_name）不动；
+# 数字只认像金额的：1–3 位，或后面跟 块/元/万。「张**1234」（4 位以上、没单位）仍按号码（test_voice_spec 锁定）
+_SURNAME_SET = load("extractors")["nameRules"]["surnames"]
+_NAME_STARS_DIGITS = re.compile(r"(" + "|".join(_COMPOUND_SURNAMES) + r"|[" + _SURNAME_SET + r"])[*＊]{1,4}(?=[0-9０-９]{1,3}(?![0-9０-９])|[0-9０-９]+\s*(?:块|元|万))")
 
 
 # #215：姓名锚（户名 / 收款人 / 名下 / 对方叫）后面紧跟星号时一律念“那个名字”（与 #214 共享核心的姓名锚一致，比号码判断先做）。
@@ -666,6 +675,7 @@ def _unmask_names(s: str) -> str:
             return cut, head + NAME_PHRASE
         return 0, NAME_PHRASE
     s = collapse_spaced_stars(s)  # #216 P0：「好，张 * *」「张·*·*」先收拢成「张**」（号码里的分隔不动）
+    s = _NAME_STARS_DIGITS.sub(lambda m: m.group(0) if stars_not_name(m.string, m.start(0) + len(m.group(1))) else NAME_PHRASE, s)  # #222：「李**500」
     s = _STARS_AFTER_NAME.sub(NAME_PHRASE, s)  # #219：已换好的「那个名字」后面残留的粗体星号（「**弓长张，伟大的伟**」）一并去掉，不把「字」当姓
     s = _sub_surname(_SURNAME_ANCHOR, s, _surname_rep)  # #219 三审：先换「姓**明」
     s = _STARS_BEFORE_MINGXIA.sub(NAME_PHRASE, _KEEP_LEAD_TAIL.sub(NAME_PHRASE, _NAME_ANCHOR.sub(anchor, s)))
