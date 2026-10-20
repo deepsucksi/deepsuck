@@ -123,10 +123,12 @@ class GuardTextFilter(BaseTextFilter):
     async def filter(self, text: str) -> str:
         prev, self._prev_raw = self._prev_raw, text
         text = drop_given_after_split(prev, text)  # #215：上一句以拆字报姓结尾时，这一句开头的名不念
-        out = speakable(self.redactor.apply(text) if self.redactor is not None else text)
-        # #184：放在 speakable（guard_output 里有 hold_transfer，#187）之后，不改动守卫链的顺序
+        text = self.redactor.apply(text) if self.redactor is not None else text
+        # #184：对方没报过的代称换成直说。#219（负责人裁定保留「那个名字」）：只改模型自己写的代称，所以放在 speakable 之前——
+        # 这时打码值还是星号，unmask / _unmask_names / drop_name_explain 换出来的「那个名字」「那个号」占位不会被改写成光秃秃的「名字」。
         if self.refs is not None:
-            out = drop_unsaid(out, self.refs())
+            text = drop_unsaid(text, self.refs())
+        out = speakable(text)
         # #215：TTS 按分句送，「收款人是弓长张，伟大的伟对吧」被切成两句，各自换成「那个名字」；
         # 上一句以「那个名字」结尾、这一句又以它开头时去掉这一个，合起来仍是「收款人是那个名字对吧」
         if self._last.endswith(NAME_PHRASE) and out.startswith(NAME_PHRASE):
@@ -541,7 +543,8 @@ class BotTextTap(FrameProcessor):
         elif isinstance(frame, LLMTextFrame):
             self._buf.append(frame.text)
         elif isinstance(frame, LLMFullResponseEndFrame) and self._buf:
-            text = drop_unsaid(guard_output(self.intel.redactor.apply("".join(self._buf))), self.intel.heard_refs())  # #184：在守卫之后
+            # #184 / #219：drop_unsaid 在守卫之前，只改模型自己写的代称，不动守卫换出来的「那个名字」占位
+            text = guard_output(drop_unsaid(self.intel.redactor.apply("".join(self._buf)), self.intel.heard_refs()))
             self._buf = []
             if text:
                 msg = self.intel.session.record_bot(text, self.intel.intent)
