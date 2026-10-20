@@ -165,3 +165,21 @@ def test_keep_tail_and_must_mask_chain(mode, step, case):
         assert out.endswith(case["keepTail"]), (case["text"], out)
     else:
         assert case["mustMask"] not in out and "那个名字" in out, (case["text"], out)
+
+
+@pytest.mark.parametrize("mode", ["refs_none", "unreported", "reported"])
+@pytest.mark.parametrize("step", [1, 3])
+@pytest.mark.parametrize("case", [c for c in F["cases"] if c.get("voiceExpect")], ids=lambda c: c["text"])
+def test_surname_star_place_chain(mode, step, case):
+    """#221 语音 P0：GuardTextFilter 整条链路「李*那边」念「那个名字那边」，姓不念出来。"""
+    _, p = _proc("reported" if mode == "reported" else "unreported")
+    refs = None if mode == "refs_none" else p.heard_refs
+    out = re.sub(r"\s", "", asyncio.run(_guard(p, case["text"], refs, step)))
+    assert out == re.sub(r"\s", "", case["voiceExpect"]), (case["text"], out)
+
+
+@pytest.mark.parametrize("case", [c for c in F["cases"] if c.get("voiceExpect")], ids=lambda c: c["text"])
+def test_surname_star_place_bot_text_tap(case, monkeypatch):
+    s, p = _proc("unreported")
+    out = asyncio.run(_tap(s, p, case["text"], monkeypatch))
+    assert not re.search(r"[李王张刘]那个", out) and "*" not in out, (case["text"], out)

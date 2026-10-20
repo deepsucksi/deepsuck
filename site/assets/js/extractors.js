@@ -76,6 +76,12 @@
   var MC = STOP.maskContext || {};
   var NUMBER_BEFORE = new RegExp(MC.numberBefore || '(?!)');
   var NOT_NAME_AFTER = new RegExp('^(?:' + (MC.notNameAfter || '(?!)') + ')');
+  var NOT_NAME_AFTER_VERB = new RegExp(MC.notNameAfterVerbBefore || '(?!)');
+  /** #221：「我在***上班」「我在*那边」——只在星号前是位置动词时生效；星号紧跟常见姓（「李*那边」）一律按姓名。与 Python _not_name_after 一致。 */
+  function notNameAfter(str, pos) {
+    if (pos > 0 && NR.surnames.indexOf(str.charAt(pos - 1)) >= 0) return false;
+    return NOT_NAME_AFTER.test(str.slice(pos)) && NOT_NAME_AFTER_VERB.test(str.slice(0, pos));
+  }
   /** #206 第六条探针：str 里 pos 处开始的星号按上下文不当姓名（号码语境「验证码是***」「转到**」，或「我在***上班」）。与 Python stars_not_name 一致。 */
   var NAME_AFTER = new RegExp('^(?:' + (MC.nameAfter || '(?!)') + ')');
   var NAME_BEFORE = new RegExp(MC.nameBefore || '(?!)');
@@ -84,7 +90,7 @@
   function starsNotName(str, pos) {
     str = String(str);
     if (starsName(str, pos)) return false; // #214：「转到**名下」「打到**的卡上」仍是姓名
-    return NUMBER_BEFORE.test(str.slice(0, pos)) || NOT_NAME_AFTER.test(str.slice(pos));
+    return NUMBER_BEFORE.test(str.slice(0, pos)) || notNameAfter(str, pos);
   }
   function maskedLeadNotSurname(m, sur, off, str, fallback) {
     if (sur.length !== 1) return false;

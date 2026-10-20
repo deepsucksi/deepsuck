@@ -530,6 +530,136 @@
       "refs": [],
       "voice": "她叫何不先转",
       "notName": true
+    },
+    {
+      "text": "李*那边",
+      "redacted": "李*那边",
+      "speak": "那个名字那边",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字那边",
+      "voiceExpect": "那个名字那边"
+    },
+    {
+      "text": "王*这边",
+      "redacted": "王*这边",
+      "speak": "那个名字这边",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字这边",
+      "voiceExpect": "那个名字这边"
+    },
+    {
+      "text": "收款人李*那边",
+      "redacted": "收款人李*那边",
+      "speak": "收款人那个名字那边",
+      "refs": [
+        "name"
+      ],
+      "voice": "收款人那个名字那边",
+      "voiceExpect": "收款人那个名字那边"
+    },
+    {
+      "text": "我在*那边",
+      "redacted": "我在*那边",
+      "speak": "我在你发的那个号那边",
+      "refs": [
+        "number"
+      ],
+      "voice": "我在那个号那边",
+      "voiceExpect": "我在那个号那边"
+    },
+    {
+      "text": "李*说",
+      "redacted": "李*说",
+      "speak": "那个名字说",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字说",
+      "voiceExpect": "那个名字说"
+    },
+    {
+      "text": "王*给你",
+      "redacted": "王*给你",
+      "speak": "那个名字给你",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字给你",
+      "voiceExpect": "那个名字给你"
+    },
+    {
+      "text": "张*那里",
+      "redacted": "张*那里",
+      "speak": "那个名字那里",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字那里",
+      "voiceExpect": "那个名字那里"
+    },
+    {
+      "text": "刘*这个人",
+      "redacted": "刘*这个人",
+      "speak": "那个名字这个人",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字这个人",
+      "voiceExpect": "那个名字这个人"
+    },
+    {
+      "text": "李*附近",
+      "redacted": "李*附近",
+      "speak": "那个名字附近",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字附近",
+      "voiceExpect": "那个名字附近"
+    },
+    {
+      "text": "我住*附近",
+      "redacted": "我住*附近",
+      "speak": "我住你发的那个号附近",
+      "refs": [
+        "number"
+      ],
+      "voice": "我住那个号附近",
+      "voiceExpect": "我住那个号附近"
+    },
+    {
+      "text": "他到*那边了",
+      "redacted": "他到*那边了",
+      "speak": "他到你发的那个号那边了",
+      "refs": [
+        "number"
+      ],
+      "voice": "他到那个号那边了",
+      "voiceExpect": "他到那个号那边了"
+    },
+    {
+      "text": "王*这边，你转吧",
+      "redacted": "王*这边，你转吧",
+      "speak": "那个名字这边，你转吧",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字这边，你转吧",
+      "voiceExpect": "那个名字这边，你转吧"
+    },
+    {
+      "text": "李*来了",
+      "redacted": "李*来了",
+      "speak": "那个名字来了",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字来了",
+      "voiceExpect": "那个名字来了"
     }
   ]
 }

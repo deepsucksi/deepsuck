@@ -2716,7 +2716,7 @@
       "东郭",
       "申屠"
     ],
-    "nameTailStop": "是的了吧吗呢啊呀和跟就也都还对说让给转打先再来去天在把往账这那么",
+    "nameTailStop": "是的了吧吗呢啊呀和跟就也都还对说让给转打先再来去天在把往账这那么附",
     "maskedNameTailComment": "#216 P0：打码姓名的星号后面紧跟的残名（脱敏只留了名里的字，「是**明吗」「，**明？」）整段换掉，最多 3 个字，碰到这些字停（停字本身保留）。llm.js maskNames、deepsuck.refs.mask_names、voice/persona.py _unmask_names 共用。",
     "spacedStarsComment": "#216 P0：姓和星号、星号和星号之间夹了空格（半角、全角、制表符）或 · 、 . - _（「好，张 * *」「户名 李 * 」「张·*·*」「张*.*」「李 - * 」）时先收拢成「张**」再按打码姓名处理。姓前面是数字 / 字母、或星号后面隔着分隔符跟数字 / 字母（「138 **** 1234」「6222 **** **** 1234」）的是号码，不动。llm.js、deepsuck.refs、voice/persona.py 共用。",
     "spacedStarsSep": "[ \\u3000\\t·、.\\-_]",

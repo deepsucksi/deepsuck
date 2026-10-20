@@ -50,3 +50,11 @@ test('#221 不丢字：星号后的动词副词、时间词保留；钱明、马
     assert.ok(out.indexOf(c.mustMask) < 0 && /那个名字/.test(out), c.text + ' -> ' + out);
   }
 });
+
+test('#221 语音 P0：「李*那边」「收款人李*那边」不露姓，「我在*那边」照旧不当姓名', () => {
+  for (const c of F.cases.filter((x) => x.voiceExpect)) {
+    const out = L.speakMasked(R.redactText(c.text, E.extract(c.text)));
+    assert.ok(!/[李王张刘](?:你发的)?那个/.test(out) && !/[*＊]/.test(out), c.text + ' -> ' + out);
+    assert.equal(/那个名字/.test(out), /那个名字/.test(c.voiceExpect), c.text + ' -> ' + out);
+  }
+});

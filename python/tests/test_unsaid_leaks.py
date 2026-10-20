@@ -65,3 +65,11 @@ def test_keep_tail_and_must_mask(case):
         assert out.endswith(case["keepTail"]), out
     else:
         assert case["mustMask"] not in out and "那个名字" in out, out
+
+
+@pytest.mark.parametrize("case", [c for c in F["cases"] if c.get("voiceExpect")], ids=lambda c: c["text"])
+def test_surname_star_place_not_leaked(case):
+    """#221 语音 P0：「李*那边」念「那个名字那边」，不露姓；「我在*那边」照旧不当姓名。"""
+    out = speak_masked(redact_text(case["text"], extract_sensitive(case["text"])))
+    assert not re.search(r"[李王张刘](?:你发的)?那个", out) and "*" not in out, out
+    assert ("那个名字" in out) == ("那个名字" in case["voiceExpect"]), out
