@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "comment": "#222 P0：姓名语境（转给 / 打给 / 汇给 + 名字、是 + 名字 + 吗、我叫 / 我是 + 名字）里不带星号的真名抽成 name 并打码；常见词、称呼不误拦。names = extractSensitive / extract_sensitive 抽到的姓名；redacted = redactText / redact_text；reply = llm.js sanitizeReply（网页出口）。py + js 共用（python/tests/test_name_context.py、tests/name_context.test.js）。人名均为虚构。",
+  "comment": "#222 P0：姓名语境（转给 / 打给 / 汇给 + 名字、是 + 名字 + 吗、我叫 / 我是 + 名字）里不带星号的真名抽成 name 并打码；常见词、称呼不误拦。names = extractSensitive / extract_sensitive 抽到的姓名；redacted = redactText / redact_text；reply = llm.js sanitizeReply（网页出口）。py + js 共用（python/tests/test_name_context.py、tests/name_context.test.js）。人名均为虚构。 nc39 起（#222 后续）：名字 + 是吧；职务称呼（王总、张经理、李老师、王阿姨）不当名字。",
   "cases": [
     {
       "id": "nc01",
@@ -295,6 +295,140 @@
       "names": [],
       "redacted": "是马了吗",
       "reply": "是马了吗"
+    },
+    {
+      "id": "nc39",
+      "text": "张三是吧",
+      "names": [
+        "张三"
+      ],
+      "redacted": "张*是吧",
+      "reply": "那个名字是吧"
+    },
+    {
+      "id": "nc40",
+      "text": "李明是吧",
+      "names": [
+        "李明"
+      ],
+      "redacted": "李*是吧",
+      "reply": "那个名字是吧"
+    },
+    {
+      "id": "nc41",
+      "text": "李四是吧",
+      "names": [
+        "李四"
+      ],
+      "redacted": "李*是吧",
+      "reply": "那个名字是吧"
+    },
+    {
+      "id": "nc42",
+      "text": "好的，张三是吧",
+      "names": [
+        "张三"
+      ],
+      "redacted": "好的，张*是吧",
+      "reply": "好的，那个名字是吧"
+    },
+    {
+      "id": "nc43",
+      "text": "对是吧",
+      "names": [],
+      "redacted": "对是吧",
+      "reply": "对是吧"
+    },
+    {
+      "id": "nc44",
+      "text": "好是吧",
+      "names": [],
+      "redacted": "好是吧",
+      "reply": "好是吧"
+    },
+    {
+      "id": "nc45",
+      "text": "明天是吧",
+      "names": [],
+      "redacted": "明天是吧",
+      "reply": "明天是吧"
+    },
+    {
+      "id": "nc46",
+      "text": "三万是吧",
+      "names": [],
+      "redacted": "三万是吧",
+      "reply": "三万是吧"
+    },
+    {
+      "id": "nc47",
+      "text": "王总是吧",
+      "names": [],
+      "redacted": "王总是吧",
+      "reply": "王总是吧"
+    },
+    {
+      "id": "nc48",
+      "text": "张经理是吧",
+      "names": [],
+      "redacted": "张经理是吧",
+      "reply": "张经理是吧"
+    },
+    {
+      "id": "nc49",
+      "text": "这样是吧",
+      "names": [],
+      "redacted": "这样是吧",
+      "reply": "这样是吧"
+    },
+    {
+      "id": "nc50",
+      "text": "你是吧",
+      "names": [],
+      "redacted": "你是吧",
+      "reply": "你是吧"
+    },
+    {
+      "id": "nc51",
+      "text": "马上是吧",
+      "names": [],
+      "redacted": "马上是吧",
+      "reply": "马上是吧"
+    },
+    {
+      "id": "nc52",
+      "text": "王阿姨是吧",
+      "names": [],
+      "redacted": "王阿姨是吧",
+      "reply": "王阿姨是吧"
+    },
+    {
+      "id": "nc53",
+      "text": "李老师是吧",
+      "names": [],
+      "redacted": "李老师是吧",
+      "reply": "李老师是吧"
+    },
+    {
+      "id": "nc54",
+      "text": "高兴是吧",
+      "names": [],
+      "redacted": "高兴是吧",
+      "reply": "高兴是吧"
+    },
+    {
+      "id": "nc55",
+      "text": "转给王总三万",
+      "names": [],
+      "redacted": "转给王总三万",
+      "reply": "转给王总三万"
+    },
+    {
+      "id": "nc56",
+      "text": "打给张经理两千",
+      "names": [],
+      "redacted": "打给张经理两千",
+      "reply": "打给张经理两千"
     }
   ]
 }
