@@ -13,7 +13,8 @@ if str(_PY) not in sys.path:
 
 from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
-from deepsuck.extractors import masked_lead_not_surname  # noqa: E402  #201 共用字表 core/name_stopchars.json
+from deepsuck.extractors import masked_lead_not_surname, stars_not_name  # noqa: E402  #201 共用字表 core/name_stopchars.json
+from deepsuck.refs import _NoTail, collapse_spaced_stars  # noqa: E402  #216
 from deepsuck.engine import hold_transfer, polish_reply, vague_digits  # noqa: E402
 from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, TRANSFER_CLAIM, resolve_persona_id  # noqa: E402
 from deepsuck.refs import UR as _UR, drop_unheard, heard_refs  # noqa: E402,F401  #173
@@ -368,8 +369,9 @@ _UNSAID_ASK = (("number", "bank", "卡号", "“卡号多少”"), ("number", "p
 _UNSAID_FIX = {
     "number": ((re.compile(r"(?:你|您)?(?:刚才)?(?:说|发|报)的那(?:个号码?|张卡|几位)"), "号码"),
                (re.compile(r"那个号码?"), "号码"), (re.compile(r"那张卡"), "卡"), (re.compile(r"那几位"), "号码")),
-    "name": ((re.compile(r"户名(?:是|叫)那个名字"), "户名叫什么"),
-             (re.compile(r"(?:你|您)?(?:刚才)?(?:说|报)的那个名字"), "名字"), (re.compile(r"那个名字"), "名字"),
+    # #216：「那个名字」后面紧跟打码星号（「那个名字***是吧」）时是打码的名字，不改（交给 _unmask_names 念「那个名字」），免得念成「名那个名字」
+    "name": ((re.compile(r"户名(?:是|叫)那个名字(?!\s*[*＊])"), "户名叫什么"),
+             (re.compile(r"(?:你|您)?(?:刚才)?(?:说|报)的那个名字(?!\s*[*＊])"), "名字"), (re.compile(r"那个名字(?!\s*[*＊])"), "名字"),
              (re.compile(r"户名没记全"), "户名还没说")),
 }
 
@@ -555,9 +557,16 @@ _TAIL_WORD = re.compile(r"尾号(?:是)?\s*$")
 _COMPOUND_SURNAMES = ("欧阳", "司马", "诸葛", "上官", "东方", "慕容", "令狐", "皇甫", "夏侯", "尉迟", "公孙", "长孙",
                       "宇文", "司徒", "端木", "独孤", "南宫", "西门", "轩辕", "呼延", "澹台", "百里", "东郭", "申屠")
 _NOT_SURNAME = "号码卡户名姓叫位数是为的了在到个账机话址箱写填尾"
+# #216 P0：星号后紧跟的残名（「是**明吗」）整段换掉（共享核心 digitEcho.maskedNameTail，最多 3 字，停字保留），第 3 组是残名；
+# 单个星号后面那个字碰到 nameTailStop（「李*是吧」的「是」）不吃，与 deepsuck.refs 一致
+_DIGIT_ECHO = load("personas")["digitEcho"]
+_MASKED_NAME_TAIL = _DIGIT_ECHO["maskedNameTail"]
 _NAME_MASKED = re.compile(
     r"(姓)?(" + "|".join(_COMPOUND_SURNAMES) + r"|[\u4e00-\u9fff])"
-    r"(?:[*＊](?:[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊]))")
+    r"(?:[*＊](?:(?![" + _DIGIT_ECHO["nameTailStop"] + r"])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊])"
+    r"(" + _MASKED_NAME_TAIL + r"(?![*＊0-9A-Za-z]))?)")
+# #216 P0：星号前不是汉字（逗号、句首：「户名叫什么来着，**明？」）、后面紧跟残名时也是名字，不念成「那个号明」
+_STARS_NAME_TAIL = re.compile("(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{1,4}" + _MASKED_NAME_TAIL + "(?![*＊0-9A-Za-z０-９])")
 NAME_PHRASE = "那个名字"
 
 
@@ -583,7 +592,7 @@ _NAME_ANCHOR = re.compile(
 _KEEP_LEAD = set("给到入叫是为在跟向找下人")
 # 星号紧跟“名下”（“转到**名下”）：星号是名字，不是号码；前面的字（“到”）不当姓吃掉
 _STARS_BEFORE_MINGXIA = re.compile(r"(?<![0-9A-Za-z０-９*＊])[*＊]+(?=名下)")
-_STARS_AFTER_NAME = re.compile(NAME_PHRASE + r"\s*[*＊]+(?![0-9A-Za-z０-９*＊])")  # #219：中间隔空格的续段星号（「收款人姓* **」）也是名字
+_STARS_AFTER_NAME = re.compile(NAME_PHRASE + r"\s*[*＊]+(?:" + _MASKED_NAME_TAIL + r")?(?![0-9A-Za-z０-９*＊])")  # #219：中间隔空格的续段星号（「收款人姓* **」）也是名字
 _NAME_ANCHOR_KEEP = set("的地得之是为和与跟及或同在名下卡账户号码行开吧呢啊吗了呀哦嘛也都就还")
 
 
@@ -648,7 +657,7 @@ def _unmask_names(s: str) -> str:
 
     def rep(m: re.Match) -> str:
         # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓），不在表里的再看 _NOT_SURNAME
-        if masked_lead_not_surname(m, m.group(2), _NOT_SURNAME):
+        if masked_lead_not_surname(_NoTail(m, m.group(3) or ""), m.group(2), _NOT_SURNAME):  # #216：残名不算「星号后跟着字」
             return None
         if not m.group(1) and m.group(2) in _KEEP_LEAD:  # #214 复审：保留星号前的动词 / 介词（「转给那个名字」）
             return 0, m.group(2) + NAME_PHRASE
@@ -656,10 +665,12 @@ def _unmask_names(s: str) -> str:
             cut, head = _surname_head(m)
             return cut, head + NAME_PHRASE
         return 0, NAME_PHRASE
+    s = collapse_spaced_stars(s)  # #216 P0：「好，张 * *」「张·*·*」先收拢成「张**」（号码里的分隔不动）
     s = _STARS_AFTER_NAME.sub(NAME_PHRASE, s)  # #219：已换好的「那个名字」后面残留的粗体星号（「**弓长张，伟大的伟**」）一并去掉，不把「字」当姓
     s = _sub_surname(_SURNAME_ANCHOR, s, _surname_rep)  # #219 三审：先换「姓**明」
     s = _STARS_BEFORE_MINGXIA.sub(NAME_PHRASE, _KEEP_LEAD_TAIL.sub(NAME_PHRASE, _NAME_ANCHOR.sub(anchor, s)))
-    return _STARS_AFTER_NAME.sub(NAME_PHRASE, _sub_surname(_NAME_MASKED, s, rep))
+    s = _STARS_AFTER_NAME.sub(NAME_PHRASE, _sub_surname(_NAME_MASKED, s, rep))
+    return _STARS_NAME_TAIL.sub(lambda m: m.group(0) if stars_not_name(m.string, m.start()) else NAME_PHRASE, s)  # #216 P0
 
 
 # #214 复审：ASR 分段时星号可能单独成一段，或在这一段开头（「转给」/「***」、「卡号是」/「***，户名***」）。这一段开头的星号

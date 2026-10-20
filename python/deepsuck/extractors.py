@@ -252,6 +252,8 @@ def extract(text: Optional[str]) -> List[dict]:
     scan(RE["mobile"], "phone", meta=lambda *a: {"kind": "mobile"})
     scan(RE["name"], "name", group=1, clean=_clean_name)
     scan(RE["nameMid"], "name", group=1, clean=_clean_name_mid)
+    # #216 P0：人设回复「对方叫李四是吧」「他叫王志强」——人称 + 叫 后面的姓名（必须以常见姓氏开头，规则同 nameMid）
+    scan(RE["namePerson"], "name", group=1, clean=_clean_name_mid)
 
     # 非敏感的上下文情报（不打码、不占用区间）
     scan(RE["amount"], "amount", sensitive=False, no_overlap=True,

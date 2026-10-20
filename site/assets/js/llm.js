@@ -117,7 +117,19 @@
     .map(function (x) { return x.slice(0, -1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|') + ')' + SPL.link + ')';
   var SPLIT_BEFORE_NAME = new RegExp(SPLIT_PRE + '(?=〔?' + NDE.name + ')', 'g');
   var NAME_MASK_RE = new RegExp(SPLIT_PRE + '?(姓)?(' + NDE.compoundSurnames.join('|') + '|[\u4e00-\u9fff])' +
-    '(?:[*＊](?:(?![' + NDE.nameTailStop + '])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊]))', 'g');
+    '(?:[*＊](?:(?![' + NDE.nameTailStop + '])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊])' +
+    '(' + NDE.maskedNameTail + '(?![*＊0-9A-Za-z]))?)', 'g');
+  // #216 P0：姓和星号之间夹空格 / 分隔符（「张 * *」「张·*·*」「李 - * 」）先收拢成「张**」；号码里的分隔（「138 **** 1234」）不动。与 refs.collapse_spaced_stars 一致
+  var SEP = NDE.spacedStarsSep;
+  var SPACED_STARS_RE = new RegExp('(?<![0-9A-Za-z０-９])([\u4e00-\u9fff])((?:' + SEP + '*[*＊]){1,4})(?=' + SEP + '*(?:[^0-9A-Za-z０-９*＊' + SEP.slice(1, -1) + ']|$))', 'g');
+  var SEP_RE = new RegExp(SEP);
+  function collapseSpacedStars(text) {
+    return String(text || '').replace(SPACED_STARS_RE, function (m, lead, stars) { return SEP_RE.test(stars) && NDE.notSurname.indexOf(lead) < 0 ? lead + stars.replace(/[^*＊]/g, '') : m; }); // 星号前那个字基本不当姓（「我在 *上班」「密码 * * *」）时不收拢
+  }
+  // #216 P0：星号后紧跟的残名（「是**明吗」「，**明？」）整段算名字；星号前不是汉字时（逗号、句首）也是名字。与 refs.py 一致
+  var STARS_NAME_TAIL_RE = new RegExp('(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{1,4}' + NDE.maskedNameTail + '(?![*＊0-9A-Za-z０-９])', 'g');
+  // #216：已经是「那个名字」、后面紧跟的星号（「那个名字***是吧」）一并去掉，不把「字」当姓
+  var STARS_AFTER_NAME_RE = new RegExp('(〔?' + NDE.name + '〕?)\\s*[*＊]+(?:' + NDE.maskedNameTail + ')?(?![*＊0-9A-Za-z０-９])', 'g');
   // #158：逐字解释（「晓是知晓的晓」）整段打成 *，紧跟在打码姓名后面时算这个名字的一部分（与 engine.vagueDigits 的 MERGE_N 一致），不当成号码
   var NAME_TAIL_RE = new RegExp('(〔?' + NDE.name + '〕?)(?:[ \u3000…,，、.．·~～\\-—]{1,2}[*＊]+(?![0-9A-Za-z*＊]))+', 'g');
   // #172：逐字解释整段打成纯星号、前面没有打码姓名时（「弓长张，****」「伟是****」「****，****」）也是名字，念“那个名字”，不当号码。
@@ -148,7 +160,12 @@
   function maskNames(text, bracket) {
     var w = bracket ? '〔' + NDE.name + '〕' : NDE.name;
     // #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓，「和*」「姓*」照样当姓名），不在表里的再看 notSurname
-    var s = String(text || '').replace(NAME_MASK_RE, function (m, xing, sur, off, str) { return D.extractors.maskedLeadNotSurname(m, sur, off, str, NDE.notSurname) ? m : w; })
+    var s = collapseSpacedStars(text).replace(STARS_AFTER_NAME_RE, '$1')
+      .replace(NAME_MASK_RE, function (m, xing, sur, tail, off, str) {
+        // #216：残名（tail）不算「星号后跟着字」，只拿姓 + 星号这一段判断
+        return D.extractors.maskedLeadNotSurname(tail ? m.slice(0, m.length - tail.length) : m, sur, off, str, NDE.notSurname) ? m : w;
+      })
+      .replace(STARS_NAME_TAIL_RE, function (m, off, str) { return D.extractors.starsNotName(str, off) ? m : w; })
       .replace(SPLIT_BEFORE_NAME, '')
       .replace(NAME_TAIL_RE, '$1')
       .replace(EXPLAIN_NAME_RE, w); // #172
@@ -417,7 +434,7 @@
     DEFAULTS: DEFAULTS, INTENT_HINTS: INTENT_HINTS,
     missingDirectConfig: missingDirectConfig, restoreDirectConfig: restoreDirectConfig,
     systemPrompt: systemPrompt, heardScenes: heardScenes, heardRefs: heardRefs, dropUnheard: dropUnheard, buildMessages: buildMessages, sanitizeReply: sanitizeReply, polishReply: polishReply,
-    speakMasked: speakMasked, fixQuotes: fixQuotes,
+    speakMasked: speakMasked, collapseSpacedStars: collapseSpacedStars, fixQuotes: fixQuotes,
     chatCompletions: chatCompletions, requestBody: requestBody, viaProxy: viaProxy
   };
 });
