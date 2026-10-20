@@ -143,7 +143,7 @@
   var AMOUNT_STARS_RE = /(?<![0-9A-Za-z*＊])[*＊]{1,4}(?:块钱|块|元)/g;
   var AMOUNT_NAME_LEAD = /(?:叫|姓)\s*[:：]?\s*$/;
   // 单字姓前面是句首 / 标点 / 空白，或姓名语境词，才算姓名（「剩余**块」「这包**块」的 余/包 不是姓）。与 refs._AMOUNT_SURNAME_LEAD 一致
-  var AMOUNT_SURNAME_LEAD = /(?:^|[\s\p{P}\p{S}]|(?:叫|姓|户名|收款人|付款人|联系人|对方|名字|姓名)\s*[:：]?\s*)$/u;
+  var AMOUNT_SURNAME_LEAD = /(?:^|[\s\p{P}\p{S}]|(?:叫|姓|户名|收款人|付款人|联系人|对方|名字|姓名|转给|打给|汇给|给)\s*[:：]?\s*)$/u;
   // #220 复审：号码语境（numberBefore）、姓名语境（nameBefore / nameAfter、「叫 / 姓」、星号前是常见姓或复姓）优先，不按金额算。与 refs._amount_skip 一致
   function amountSkip(str, pos) {
     var pre = str.slice(0, pos), X = D.extractors;

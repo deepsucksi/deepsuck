@@ -47,7 +47,7 @@ _AMOUNT_STARS = re.compile("(?<![0-9A-Za-z*＊])[*＊]{1,4}(?:块钱|块|元)")
 _SURNAMES = load("extractors")["nameRules"]["surnames"]
 _AMOUNT_NAME_LEAD = re.compile("(?:叫|姓)\\s*[:：]?\\s*$")
 # 单字姓前面是句首 / 标点 / 空白，或姓名语境词，才算姓名（「剩余**块」「这包**块」的 余/包 不是姓）。与 llm.js AMOUNT_SURNAME_LEAD 一致
-_AMOUNT_SURNAME_LEAD = re.compile(r"(?:^|[\s\W_]|(?:叫|姓|户名|收款人|付款人|联系人|对方|名字|姓名)\s*[:：]?\s*)$")
+_AMOUNT_SURNAME_LEAD = re.compile(r"(?:^|[\s\W_]|(?:叫|姓|户名|收款人|付款人|联系人|对方|名字|姓名|转给|打给|汇给|给)\s*[:：]?\s*)$")
 
 
 def _amount_skip(s: str, pos: int) -> bool:

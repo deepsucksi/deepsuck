@@ -272,6 +272,54 @@
       "refs": [
         "name"
       ]
+    },
+    {
+      "id": "gei-1",
+      "text": "转给王**块",
+      "reply": "转给那个名字块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "gei-2",
+      "text": "打给李**元",
+      "reply": "打给那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "gei-3",
+      "text": "汇给张**块钱",
+      "reply": "汇给那个名字块钱",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "gei-4",
+      "text": "给马**元",
+      "reply": "给那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "gei-5",
+      "text": "给我**块",
+      "reply": "给我那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "gei-6",
+      "text": "给你**元",
+      "reply": "给你那么点",
+      "refs": [
+        "number"
+      ]
     }
   ]
 }
