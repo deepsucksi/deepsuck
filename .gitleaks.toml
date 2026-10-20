@@ -1,0 +1,8 @@
+# gitleaks 配置：沿用官方默认规则，只放行确认过的测试误报。
+# 本地：pre-commit install 后每次提交自动扫暂存区；手动全历史扫描：gitleaks git --redact .
+[extend]
+useDefault = true
+
+[allowlist]
+description = "公开的钱包测试地址（非密钥），generic-api-key 误报"
+paths = ['''^tests/fixtures/blocklist\.json$''']
