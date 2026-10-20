@@ -3,6 +3,10 @@
 和 Pipecat 默认的 SimpleTextAggregator 相比：不等下一个 token 做前瞻，且在逗号处也能切，
 第一段文本更早到达 TTS。括号/书名号/引号/Markdown 粗体未闭合时不切，保证 GuardTextFilter
 （去括号动作、脱敏）拿到的是完整片段。
+
+#187 / hold_transfer：不足 min_clause_chars 字、又带“转 / 汇”的短句（「转。」「转过去啊。」「转…」）不在句末单独切出去，
+接着攒到下一句一起送，让 GuardTextFilter 里的 hold_transfer 看到「转过去啊。卡号多少」这样的整段；回复结束时 flush 照样送出。
+只有这类短句会多等一句，其余切法不变。
 """
 from __future__ import annotations
 
@@ -12,6 +16,7 @@ from pipecat.utils.text.base_text_aggregator import Aggregation, AggregationType
 
 SENTENCE_END = set("。！？!?；;…\n")
 CLAUSE_END = set("，,、：:")
+_HOLD = set("转汇")  # 含这些字的短句先不单独切（见模块说明）
 _OPEN = {"（": "）", "(": ")", "【": "】", "[": "]", "《": "》", "“": "”", "‘": "’", "<": ">"}
 
 
@@ -42,7 +47,8 @@ class ClauseTextAggregator(BaseTextAggregator):
             self._text += ch
             cut = False
             if ch in SENTENCE_END:
-                cut = self._content_len() > 0 and self._balanced()
+                n = self._content_len()
+                cut = n > 0 and self._balanced() and not (n < self._min and any(c in _HOLD for c in self._text))
             elif ch in CLAUSE_END:
                 cut = self._content_len() >= self._min and self._balanced()
             if cut:
