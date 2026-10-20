@@ -140,10 +140,11 @@
     {
       "id": "name-shoukuanren",
       "text": "收款人**元",
-      "reply": "收款那个名字元",
+      "reply": "收款人那个名字",
       "refs": [
         "name"
-      ]
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
     },
     {
       "id": "name-huming-1star",
@@ -321,6 +322,60 @@
       "refs": [
         "number"
       ]
+    },
+    {
+      "id": "label-zhanghuming",
+      "text": "账户名*元",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-kaihuming",
+      "text": "开户名**元",
+      "reply": "开户名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-shoukuanhuming",
+      "text": "收款户名*元",
+      "reply": "收款户名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-xingming",
+      "text": "姓名*元",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-shoukuanren-colon",
+      "text": "收款人：**元。",
+      "reply": "收款人：那个名字。",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-shoukuanren-1star",
+      "text": "收款人*元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
     }
   ]
 }
