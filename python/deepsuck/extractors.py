@@ -165,11 +165,22 @@ def _clean_name_mid(n: str, m=None, start: Optional[int] = None):
 # 与 extractors.js NAME_CONTEXT_RE / cleanNameContext / findNameContext 一致
 _NC = _C["nameRules"]["nameContext"]
 _NC_TITLES = tuple(sorted(set(_NC["titles"]) | set(_TITLES), key=len, reverse=True))
-NAME_CONTEXT_RE = re.compile(
-    "(" + "|".join(sorted(_NC["leads"], key=len, reverse=True)) + r")\s*[:：]?\s*"
-    "(?!" + "|".join(_NC["notWords"]) + ")"
-    "([" + _SURNAMES + "](?:(?![" + _NC["givenStop"] + "])[\u4e00-\u9fa5]){1,2}?)"
-    "(?=" + "|".join(re.escape(t) for t in _NC_TITLES) + "|" + _NC["stops"] + ")")
+_NC_NAME = "([" + _SURNAMES + "](?:(?![" + _NC["givenStop"] + "])[\u4e00-\u9fa5]){1,2}?)"
+_NC_TITLE_ALT = "|".join(re.escape(t) for t in _NC_TITLES)
+
+
+def _nc_re(lead: str, tail: str) -> re.Pattern:
+    return re.compile(lead + r"\s*[:：]?\s*(?!" + "|".join(_NC["notWords"]) + ")" + _NC_NAME + "(?=" + tail + ")")
+
+
+def _leads(xs) -> str:
+    return "(" + "|".join(sorted(xs, key=len, reverse=True)) + ")"
+
+
+NAME_CONTEXT_RE = _nc_re(_leads(_NC["leads"]), _NC_TITLE_ALT + "|" + _NC["stops"])
+# #222 后续：「张三是吧」——句首或非汉字后面的名字 + 是吧
+NAME_SHIBA_RE = _nc_re("(^|[^\u4e00-\u9fa5])", _NC["shibaTail"])
+NAME_CONTEXT_RES = (NAME_CONTEXT_RE, NAME_SHIBA_RE)
 
 
 def _clean_name_context(n: str, m=None, start: Optional[int] = None):
@@ -190,12 +201,13 @@ def find_name_context(text: Optional[str]) -> List[dict]:
     """#222：只跑姓名语境规则，返回 [{"value", "start", "end", "lead"}]（语音 IntelProcessor 复用）。"""
     s = str(text or "")
     out = []
-    for m in NAME_CONTEXT_RE.finditer(s):
-        start = m.start(2)
-        v = _clean_name_context(m.group(2), m, start)
-        if v:
-            out.append({"value": v, "start": start, "end": start + len(v), "lead": m.group(1)})
-    return out
+    for rx in NAME_CONTEXT_RES:
+        for m in rx.finditer(s):
+            start = m.start(2)
+            v = _clean_name_context(m.group(2), m, start)
+            if v and not any(start < o["end"] and o["start"] < start + len(v) for o in out):
+                out.append({"value": v, "start": start, "end": start + len(v), "lead": m.group(1)})
+    return sorted(out, key=lambda o: o["start"])
 
 
 def _js_number(x: str):
@@ -300,7 +312,8 @@ def extract(text: Optional[str]) -> List[dict]:
     # #216 P0：人设回复「对方叫李四是吧」「他叫王志强」——人称 + 叫 后面的姓名（必须以常见姓氏开头，规则同 nameMid）
     scan(RE["namePerson"], "name", group=1, clean=_clean_name_mid)
     # #222 P0：「转给 / 打给 / 汇给 + 名字」「是 + 名字 + 吗」「我叫 / 我是 + 名字」
-    scan(NAME_CONTEXT_RE, "name", group=2, clean=_clean_name_context)
+    for rx in NAME_CONTEXT_RES:  # #222 后续：名字 + 是吧
+        scan(rx, "name", group=2, clean=_clean_name_context)
 
     # 非敏感的上下文情报（不打码、不占用区间）
     scan(RE["amount"], "amount", sensitive=False, no_overlap=True,

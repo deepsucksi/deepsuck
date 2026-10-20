@@ -121,7 +121,7 @@
       "joiner": "，"
     },
     "nameContext": {
-      "comment": "#222 P0：不带星号的真名在姓名语境里也抽成 name——「转给 / 打给 / 汇给 + 名字」「是 + 名字 + 吗」「我叫 / 我是 + 名字」（自报，与 voice/trace.py _self_name_re 对齐）。名字 = surnames 里的姓 + 1–2 个字，后面必须是 stops（语气词、的、标点、结尾）或称呼；lead 为 askLead（是）时名字后必须紧跟 askTail（吗）。notWords：姓氏开头的常见词整词排除（与 patterns.namePerson 同一张表，另加 王牌）；名字后面紧跟 titles 或 nameRules.titleSuffix 的称呼（「王阿姨」「李警官」「王小姐」）不算。名字以 name_stopchars 的字开头时按字表判断。拿不准的照常打码。extractors.py find_name_context / extractors.js findNameContext 可直接调用（语音 IntelProcessor 复用）。 #220：stops 另含中文数字金额（「转给李四五百块」「汇给张三三万块」，与 refs.NUM_AFTER 的中文数字部分一致）。 givenStop：名字（姓后面的 1–2 个字）不能含这些虚词（「这是成了吗」「是马了吗」不算）。",
+      "comment": "#222 P0：不带星号的真名在姓名语境里也抽成 name——「转给 / 打给 / 汇给 + 名字」「是 + 名字 + 吗」「我叫 / 我是 + 名字」（自报，与 voice/trace.py _self_name_re 对齐）。名字 = surnames 里的姓 + 1–2 个字，后面必须是 stops（语气词、的、标点、结尾）或称呼；lead 为 askLead（是）时名字后必须紧跟 askTail（吗）。notWords：姓氏开头的常见词整词排除（与 patterns.namePerson 同一张表，另加 王牌）；名字后面紧跟 titles 或 nameRules.titleSuffix 的称呼（「王阿姨」「李警官」「王小姐」）不算。名字以 name_stopchars 的字开头时按字表判断。拿不准的照常打码。extractors.py find_name_context / extractors.js findNameContext 可直接调用（语音 IntelProcessor 复用）。 givenStop：名字（姓后面的 1–2 个字）不能含这些虚词（「这是成了吗」「是马了吗」不算）。 #222 后续：名字 + shibaTail（是吧）也算（「张三是吧」），名字前面须是句首或非汉字。称呼（titles + titleSuffix，如 王总、张经理、李老师、王阿姨）一律不当名字，原样输出。 #220：stops 另含中文数字金额（「转给李四五百块」「汇给张三三万块」，与 refs._NUM_TAIL_GUARD 的中文数字部分对应）。",
       "leads": [
         "转给",
         "打给",
@@ -149,7 +149,13 @@
         "何曾",
         "何尝",
         "钱[先到打转款给还都已就要没]",
-        "王牌"
+        "王牌",
+        "高兴",
+        "金额",
+        "白天",
+        "车子",
+        "马路",
+        "钱包"
       ],
       "titles": [
         "阿姨",
@@ -169,10 +175,24 @@
         "阿婆",
         "奶奶",
         "爷爷",
-        "伯伯"
+        "伯伯",
+        "总监",
+        "董事长",
+        "所长",
+        "站长",
+        "会计",
+        "教授",
+        "护士",
+        "校长",
+        "师父",
+        "叔叔",
+        "姐姐",
+        "哥哥",
+        "老总"
       ],
       "givenStop": "了的是在和与就吧啊呢哦么不没过着吗呀嘛啦哈",
-      "stops": "的|吗|啊|呀|吧|呢|哈|啦|嘛|哦|了|[^\\u4e00-\\u9fa5]|$|[零〇一二两三四五六七八九十]*[十百千万亿]|[零〇一二两三四五六七八九十]+(?:块钱|块|元)"
+      "stops": "的|吗|啊|呀|吧|呢|哈|啦|嘛|哦|了|[^\\u4e00-\\u9fa5]|$|[零〇一二两三四五六七八九十]*[十百千万亿]|[零〇一二两三四五六七八九十]+(?:块钱|块|元)",
+      "shibaTail": "是吧"
     }
   },
   "patterns": {

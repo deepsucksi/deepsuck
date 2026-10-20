@@ -138,10 +138,13 @@
   var NC_TITLES = NC.titles.concat(NR.titleSuffix).filter(function (t, i, a) { return a.indexOf(t) === i; })
     .sort(function (a, b) { return b.length - a.length; });
   function reEsc(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-  var NAME_CONTEXT_RE = new RegExp('(' + NC.leads.slice().sort(function (a, b) { return b.length - a.length; }).join('|') + ')\\s*[:：]?\\s*' +
-    '(?!' + NC.notWords.join('|') + ')' +
-    '([' + NR.surnames + '](?:(?![' + NC.givenStop + '])[\\u4e00-\\u9fa5]){1,2}?)' +
-    '(?=' + NC_TITLES.map(reEsc).join('|') + '|' + NC.stops + ')', 'g');
+  var NC_NAME = '([' + NR.surnames + '](?:(?![' + NC.givenStop + '])[\\u4e00-\\u9fa5]){1,2}?)';
+  function ncRe(lead, tail) { return new RegExp(lead + '\\s*[:：]?\\s*(?!' + NC.notWords.join('|') + ')' + NC_NAME + '(?=' + tail + ')', 'g'); }
+  function leads(xs) { return '(' + xs.slice().sort(function (a, b) { return b.length - a.length; }).join('|') + ')'; }
+  var NAME_CONTEXT_RE = ncRe(leads(NC.leads), NC_TITLES.map(reEsc).join('|') + '|' + NC.stops);
+  // #222 后续：「张三是吧」——句首或非汉字后面的名字 + 是吧
+  var NAME_SHIBA_RE = ncRe('(^|[^\\u4e00-\\u9fa5])', NC.shibaTail);
+  var NAME_CONTEXT_RES = [NAME_CONTEXT_RE, NAME_SHIBA_RE];
   /** 姓名语境里的名字：lead 为「是」时后面必须紧跟「吗」；后面紧跟称呼（「王阿姨」「王小姐」）不算；其余同 cleanName */
   function cleanNameContext(n, m, start) {
     if (!m || start == null) return null;
@@ -156,13 +159,15 @@
   /** #222：只跑姓名语境规则，返回 [{value, start, end, lead}]（语音 IntelProcessor 复用） */
   function findNameContext(text) {
     var s = String(text || ''), out = [], m;
-    var re = new RegExp(NAME_CONTEXT_RE.source, 'g');
-    while ((m = re.exec(s)) !== null) {
-      var start = m.index + m[0].length - m[2].length;
-      var v = cleanNameContext(m[2], m, start);
-      if (v) out.push({ value: v, start: start, end: start + v.length, lead: m[1] });
-    }
-    return out;
+    NAME_CONTEXT_RES.forEach(function (rx) {
+      var re = new RegExp(rx.source, 'g');
+      while ((m = re.exec(s)) !== null) {
+        var start = m.index + m[0].length - m[2].length;
+        var v = cleanNameContext(m[2], m, start);
+        if (v && !out.some(function (o) { return start < o.end && o.start < start + v.length; })) out.push({ value: v, start: start, end: start + v.length, lead: m[1] });
+      }
+    });
+    return out.sort(function (a, b) { return a.start - b.start; });
   }
 
   /**
@@ -258,7 +263,7 @@
     // #216 P0：人设回复「对方叫李四是吧」「他叫王志强」——人称 + 叫 后面的姓名（必须以常见姓氏开头，规则同 nameMid）
     scan(RE.namePerson, 'name', { group: 1, clean: cleanNameMid });
     // #222 P0：「转给 / 打给 / 汇给 + 名字」「是 + 名字 + 吗」「我叫 / 我是 + 名字」
-    scan(NAME_CONTEXT_RE, 'name', { group: 2, clean: cleanNameContext });
+    NAME_CONTEXT_RES.forEach(function (rx) { scan(rx, 'name', { group: 2, clean: cleanNameContext }); }); // #222 后续：名字 + 是吧
 
     // 非敏感的上下文情报（不打码、不占用区间）
     scan(RE.amount, 'amount', { sensitive: false, noOverlap: true, meta: function (raw, m) {
@@ -530,5 +535,5 @@
     return extract(text).filter(function (e) { return e.sensitive; });
   }
 
-  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, starsName: starsName, SURNAMES: NR.surnames, findNameContext: findNameContext, NAME_CONTEXT_RE: NAME_CONTEXT_RE, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
+  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, starsName: starsName, SURNAMES: NR.surnames, findNameContext: findNameContext, NAME_CONTEXT_RE: NAME_CONTEXT_RE, NAME_SHIBA_RE: NAME_SHIBA_RE, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
 });

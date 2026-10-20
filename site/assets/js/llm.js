@@ -163,11 +163,10 @@
   // 单字姓前面是句首 / 标点 / 空白，或姓名语境词，才算姓名（「剩余**块」「这包**块」的 余/包 不是姓）。与 refs._AMOUNT_SURNAME_LEAD 一致
   var AMOUNT_SURNAME_LEAD = /(?:^|[\s\p{P}\p{S}]|(?:叫|姓|户名|收款人|付款人|联系人|对方|名字|姓名|转给|打给|汇给|给)\s*[:：]?\s*)$/u;
   // #220 复审：号码语境（numberBefore）、姓名语境（nameBefore / nameAfter、「叫 / 姓」、星号前是常见姓或复姓）优先，不按金额算。与 refs._amount_skip 一致
-  var AMOUNT_LABEL_LEAD = /(?:户名|姓名)\s*[:：]?\s*$/; // 与 refs._AMOUNT_LABEL_LEAD / _AMOUNT_LABEL_END 一致
-  var AMOUNT_LABEL_END = /^[*＊]{1,4}(?:块钱|块|元)(?:(?![\u4e00-\u9fff])|(?=[了吧吗呢啊呀的]))/;
+  // #220 负责人定：「户名*元」整段是名字字段（元可能是名字里的字）→「户名那个名字」，不残留「元」；「户名*元宝」照旧。与 refs._LABEL_STARS_YUAN 一致
+  var LABEL_STARS_YUAN_RE = /(户名|姓名)(\s*[:：]?\s*)[*＊]{1,4}(?:块钱|块|元)(?:(?![\u4e00-\u9fff])|(?=[了吧吗呢啊呀的]))/g;
   function amountSkip(str, pos) {
     var pre = str.slice(0, pos), X = D.extractors;
-    if (AMOUNT_LABEL_LEAD.test(pre) && AMOUNT_LABEL_END.test(str.slice(pos))) return false; // #220 负责人定：「户名*元」按金额（字段词原样保留）；「户名*元宝」仍是名字
     if (X.starsName(str, pos) || X.starsNotName(str, pos) || AMOUNT_NAME_LEAD.test(pre)) return true;
     return !!pre && ((X.SURNAMES.indexOf(pre.slice(-1)) >= 0 && AMOUNT_SURNAME_LEAD.test(pre.slice(0, -1))) || NDE.compoundSurnames.some(function (c) { return pre.slice(-c.length) === c; }));
   }
@@ -184,6 +183,7 @@
     var amount = bracket ? '〔' + UR.phrase.number + '〕' : AMOUNT_PHRASE;
     // #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓，「和*」「姓*」照样当姓名），不在表里的再看 notSurname
     var s = collapseSpacedStars(text) // 1) 先合并带空格的星号
+      .replace(LABEL_STARS_YUAN_RE, function (m, lab, sp) { return lab + sp + w; })
       .replace(AMOUNT_STARS_RE, function (m, off, str) { return amountSkip(str, off) ? m : amount; }) // 2) 打码金额先换，免得「剩*块」被当成姓名
       .replace(STARS_AFTER_NAME_RE, '$1') // 3) #221 姓名规则
       .replace(NAME_MASK_RE, function (m, xing, sur, tail, off, str) {

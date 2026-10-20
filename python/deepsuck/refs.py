@@ -100,15 +100,13 @@ _AMOUNT_NAME_LEAD = re.compile("(?:叫|姓)\\s*[:：]?\\s*$")
 _AMOUNT_SURNAME_LEAD = re.compile(r"(?:^|[\s\W_]|(?:叫|姓|户名|收款人|付款人|联系人|对方|名字|姓名|转给|打给|汇给|给)\s*[:：]?\s*)$")
 
 
-_AMOUNT_LABEL_LEAD = re.compile("(?:户名|姓名)\\s*[:：]?\\s*$")
-_AMOUNT_LABEL_END = re.compile("[*＊]{1,4}(?:块钱|块|元)(?![\u4e00-\u9fff])|[*＊]{1,4}(?:块钱|块|元)(?=[了吧吗呢啊呀的])")
+# #220 负责人定：「户名*元」整段是名字字段（元可能是名字里的字）→「户名那个名字」，不残留「元」；「户名*元宝」照旧。与 llm.js LABEL_STARS_YUAN_RE 一致
+_LABEL_STARS_YUAN = re.compile("(户名|姓名)(\\s*[:：]?\\s*)[*＊]{1,4}(?:块钱|块|元)(?:(?![\u4e00-\u9fff])|(?=[了吧吗呢啊呀的]))")
 
 
 def _amount_skip(s: str, pos: int) -> bool:
     """#220 复审：号码语境（numberBefore）、姓名语境（nameBefore / nameAfter、「叫 / 姓」、星号前是常见姓或复姓）优先，不按金额算。"""
     pre = s[:pos]
-    if _AMOUNT_LABEL_LEAD.search(pre) and _AMOUNT_LABEL_END.match(s, pos):  # #220 负责人定：「户名*元」按金额（字段词原样保留）；「户名*元宝」仍是名字
-        return False
     if stars_name(s, pos) or stars_not_name(s, pos) or _AMOUNT_NAME_LEAD.search(pre):
         return True
     return bool(pre) and ((pre[-1] in _SURNAMES and _AMOUNT_SURNAME_LEAD.search(pre[:-1])) or any(pre.endswith(c) for c in _DE["compoundSurnames"]))
@@ -125,6 +123,7 @@ def mask_names(text: str, bracket: bool = False) -> str:
         return m.group(0) if masked_lead_not_surname(_NoTail(m, m.group(3) or ""), m.group(2), _DE["notSurname"]) else w
 
     s = collapse_spaced_stars(text)  # 1) 先合并带空格的星号
+    s = _LABEL_STARS_YUAN.sub(lambda m: m.group(1) + m.group(2) + w, s)
     s = _AMOUNT_STARS.sub(lambda m: m.group(0) if _amount_skip(m.string, m.start()) else amount, s)  # 2) 打码金额先换，免得「剩*块」被当成姓名
     s = _STARS_AFTER_NAME.sub(r"\1", s)  # 3) #221 姓名规则
     s = _NAME_MASK.sub(rep, s)
