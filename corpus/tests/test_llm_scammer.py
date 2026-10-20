@@ -285,16 +285,16 @@ def test_empty_reply_is_a_silent_turn_not_a_stall_turn(tmp_path, monkeypatch):
     assert all(m["content"] for m in last)  # 空串不会发给模型
 
 
-def test_redact_text_masks_required_types_only():
+def test_redact_text_masks_sensitive_types():
     from deepsuck import sim as SIM
     v = SIM.plant(SIM.Rand(1000))
     t = (f"钱转到 {v['bank_spaced']}，户名{v['name']}，微信{v['wx']} QQ {v['qq']} 身份证110101199003071234 "
          f"电话{v['phone']} 网址 https://{v['domain']} 钱包 {v['tron']} 支付宝 abc@example.com 卡号{v['bank']}")
     r = M.redact_text(t, v)
-    for x in (v["bank_spaced"], v["bank"], v["name"], v["wx"], v["qq"], "110101199003071234", "abc@example.com"):
+    # #194 二审：落盘一律走共享核心 deepsuck.redact，电话、网址、钱包也按核心规则打码
+    for x in (v["bank_spaced"], v["bank"], v["name"], v["wx"], v["qq"], "110101199003071234", "abc@example.com",
+              v["phone"], v["domain"], v["tron"]):
         assert x not in r
-    for x in (v["phone"], v["domain"], v["tron"]):
-        assert x in r
     assert M.redact_text("名字叫" + v["name"], v).count(v["name"]) == 0  # 没有上下文也按植入值兜底
 
 
@@ -308,7 +308,7 @@ def test_json_transcripts_are_redacted(tmp_path, monkeypatch):
                    "--json-transcripts"]) == 0
     d = json.loads(out.read_text(encoding="utf-8"))
     tr = d["rows"][0]["transcript"]
-    assert tr[0]["role"] == "bot" and "raw" in tr[0] and any(m["role"] == "scammer" for m in tr)
+    assert tr[0]["role"] == "bot" and all("raw" not in m for m in tr) and any(m["role"] == "scammer" for m in tr)
     from deepsuck import sim as SIM
     v = SIM.plant(SIM.Rand(1000))
     assert v["bank"] not in out.read_text(encoding="utf-8").replace(" ", "")
