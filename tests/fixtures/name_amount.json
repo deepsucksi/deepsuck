@@ -1,0 +1,685 @@
+{
+  "comment": "#220：星号 / 真名后面紧跟数字（阿拉伯或中文数字）或金额词时，这些字不当残名，金额原样保留；「是**明吗」「王*五」照旧。tests/name_amount.test.js（sanitizeReply）与 python/tests/test_name_amount.py（mask_names→脱敏→speak_masked）共用。 label-*：字段词（收款人 / 户名 / 姓名 / 账户名）各 9 种变体，按情报复审表（pullrequestreview-5583211049）补齐：字段词一个字都不吃，后面不留尾巴，金额原样保留。 leak-*：露名必修（原文与已打码两种输入）：引导词加「给」、字段词 + 真名、复姓 + 1–2 字。 fuzz-*：review-227-fuzz 代表句（给 / 是 + 金额不露姓，叫 + 中文金额不丢字）。 fp-*：「给钱 + 金额」不当名字（fed9849 新增误伤），「是钱三吗」「给钱学森三万」照样打码；给 / 是 引导：钱 + 金额、常见词（黄金 / 白菜 / 周末 / 林子 / 金子 / 高价 / 江湖 / 朱古力 / 万一）不当名字，名字与金额间可隔一个标点或空格（「是张伟，500」）。",
+  "cases": [
+    {
+      "id": "ctx-cn-wubai",
+      "text": "转给李四五百块",
+      "reply": "转给那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "ctx-cn-sanwan",
+      "text": "汇给张三三万块",
+      "reply": "汇给那个名字三万块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "ctx-digit-500",
+      "text": "转给李四500",
+      "reply": "转给那个名字500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "ctx-cn-liangqian",
+      "text": "汇给张三两千元",
+      "reply": "汇给那个名字两千元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "masked-cn-liangqian",
+      "text": "转给李*两千",
+      "reply": "转给那个名字两千",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "neg-bank",
+      "text": "转给银行五百",
+      "reply": "转给银行五百",
+      "refs": []
+    },
+    {
+      "id": "neg-title",
+      "text": "转给王总三万",
+      "reply": "转给王总三万",
+      "refs": []
+    },
+    {
+      "id": "keep-tail-ming",
+      "text": "是**明吗",
+      "reply": "那个名字吗",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "keep-wang-wu",
+      "text": "王*五",
+      "reply": "那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-01",
+      "text": "收款人*元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-02",
+      "text": "收款人**元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-03",
+      "text": "收款人**明",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-04",
+      "text": "收款人**",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-05",
+      "text": "收款人*五百块",
+      "reply": "收款人那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-06",
+      "text": "收款人**五百块",
+      "reply": "收款人那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-07",
+      "text": "收款人李*500",
+      "reply": "收款人那个名字500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-08",
+      "text": "收款人李*",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-09",
+      "text": "收款人张**",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-10",
+      "text": "户名*元",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-11",
+      "text": "户名**元",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-12",
+      "text": "户名**明",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-13",
+      "text": "户名**",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-14",
+      "text": "户名*五百块",
+      "reply": "户名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-15",
+      "text": "户名**五百块",
+      "reply": "户名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-16",
+      "text": "户名李*500",
+      "reply": "户名那个名字500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-17",
+      "text": "户名李*",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-18",
+      "text": "户名张**",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-19",
+      "text": "姓名*元",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-20",
+      "text": "姓名**元",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-21",
+      "text": "姓名**明",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-22",
+      "text": "姓名**",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-23",
+      "text": "姓名*五百块",
+      "reply": "姓名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-24",
+      "text": "姓名**五百块",
+      "reply": "姓名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-25",
+      "text": "姓名李*500",
+      "reply": "姓名那个名字500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-26",
+      "text": "姓名李*",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-27",
+      "text": "姓名张**",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-28",
+      "text": "账户名*元",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-29",
+      "text": "账户名**元",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-30",
+      "text": "账户名**明",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-31",
+      "text": "账户名**",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-32",
+      "text": "账户名*五百块",
+      "reply": "账户名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-33",
+      "text": "账户名**五百块",
+      "reply": "账户名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-34",
+      "text": "账户名李*500",
+      "reply": "账户名那个名字500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-35",
+      "text": "账户名李*",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-36",
+      "text": "账户名张**",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-37",
+      "text": "收款人**元宝",
+      "reply": "收款人那个名字元宝",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-38",
+      "text": "收款人欧阳**元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-39",
+      "text": "收款人马**元宝",
+      "reply": "收款人那个名字元宝",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "ctx-cn-ji",
+      "text": "转给李四几百块",
+      "reply": "转给那个名字几百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-01",
+      "text": "我是李四十岁",
+      "reply": "我是那个名字岁",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-02",
+      "text": "给王五三千块",
+      "reply": "给那个名字三千块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-03",
+      "text": "姓名张三",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-04",
+      "text": "张**1234",
+      "reply": "那个名字1234",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-05",
+      "text": "汇给欧阳娜娜两万",
+      "reply": "汇给那个名字两万",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-06",
+      "text": "我是李*十岁",
+      "reply": "我是那个名字岁",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-07",
+      "text": "给王*三千块",
+      "reply": "给那个名字三千块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-08",
+      "text": "姓名张*",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-09",
+      "text": "汇给欧阳**两万",
+      "reply": "汇给那个名字两万",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-10",
+      "text": "给他三千",
+      "reply": "给他三千",
+      "refs": []
+    },
+    {
+      "id": "leak-11",
+      "text": "给银行五百",
+      "reply": "给银行五百",
+      "refs": []
+    },
+    {
+      "id": "leak-12",
+      "text": "给张经理",
+      "reply": "给张经理",
+      "refs": []
+    },
+    {
+      "id": "leak-13",
+      "text": "给马上",
+      "reply": "给马上",
+      "refs": []
+    },
+    {
+      "id": "leak-14",
+      "text": "姓名：张三",
+      "reply": "姓名：那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "leak-15",
+      "text": "是欧阳修吗",
+      "reply": "是那个名字吗",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fuzz-01",
+      "text": "给张明三万",
+      "reply": "给那个名字三万",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fuzz-02",
+      "text": "是李四五百块",
+      "reply": "是那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fuzz-03",
+      "text": "叫王建国两千",
+      "reply": "叫那个名字两千",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fp-01",
+      "text": "给钱三万",
+      "reply": "给钱三万",
+      "refs": []
+    },
+    {
+      "id": "fp-02",
+      "text": "给钱五百块",
+      "reply": "给钱五百块",
+      "refs": []
+    },
+    {
+      "id": "fp-03",
+      "text": "给钱两千",
+      "reply": "给钱两千",
+      "refs": []
+    },
+    {
+      "id": "fp-04",
+      "text": "是钱三吗",
+      "reply": "是那个名字吗",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fp-05",
+      "text": "给钱学森三万",
+      "reply": "给那个名字三万",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fp-06",
+      "text": "给钱十块",
+      "reply": "给钱十块",
+      "refs": []
+    },
+    {
+      "id": "fp-07",
+      "text": "是钱三万",
+      "reply": "是钱三万",
+      "refs": []
+    },
+    {
+      "id": "fp-08",
+      "text": "是钱五百块",
+      "reply": "是钱五百块",
+      "refs": []
+    },
+    {
+      "id": "fp-09",
+      "text": "给黄金三万",
+      "reply": "给黄金三万",
+      "refs": []
+    },
+    {
+      "id": "fp-10",
+      "text": "给白菜五百块",
+      "reply": "给白菜五百块",
+      "refs": []
+    },
+    {
+      "id": "fp-11",
+      "text": "给周末两千",
+      "reply": "给周末两千",
+      "refs": []
+    },
+    {
+      "id": "fp-12",
+      "text": "是林子三万",
+      "reply": "是林子三万",
+      "refs": []
+    },
+    {
+      "id": "fp-13",
+      "text": "给金子两千",
+      "reply": "给金子两千",
+      "refs": []
+    },
+    {
+      "id": "fp-14",
+      "text": "给高价三万",
+      "reply": "给高价三万",
+      "refs": []
+    },
+    {
+      "id": "fp-15",
+      "text": "给江湖三千",
+      "reply": "给江湖三千",
+      "refs": []
+    },
+    {
+      "id": "fp-16",
+      "text": "给朱古力五百块",
+      "reply": "给朱古力五百块",
+      "refs": []
+    },
+    {
+      "id": "fp-17",
+      "text": "给万一",
+      "reply": "给万一",
+      "refs": []
+    },
+    {
+      "id": "fp-18",
+      "text": "是张伟，500",
+      "reply": "是那个名字，500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fp-19",
+      "text": "是张伟，五百块",
+      "reply": "是那个名字，五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fp-20",
+      "text": "好的，500块",
+      "reply": "好的，500块",
+      "refs": []
+    },
+    {
+      "id": "fp-21",
+      "text": "是的，500",
+      "reply": "是的，500",
+      "refs": []
+    },
+    {
+      "id": "fp-22",
+      "text": "给你，500",
+      "reply": "给你，500",
+      "refs": []
+    },
+    {
+      "id": "fp-23",
+      "text": "给江山三万",
+      "reply": "给那个名字三万",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "fp-24",
+      "text": "给高利三万",
+      "reply": "给那个名字三万",
+      "refs": [
+        "name"
+      ]
+    }
+  ]
+}

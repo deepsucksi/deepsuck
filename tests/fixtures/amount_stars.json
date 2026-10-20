@@ -1,0 +1,419 @@
+{
+  "comment": "#216 打码金额：1-4 个星号后接 块/块钱/元，回复念量词说法（台词待审批），heard_refs 记 number。tests/amount_stars.test.js 与 python/tests/test_amount_stars.py 共用。#220 复审：号码词锚点（numberBefore）、姓名锚点（nameBefore、叫/姓、常见姓）优先于金额规则；5 个及以上星号不当金额，走原规则。单字姓只在句首/标点/空白或姓名语境词（叫、姓、户名、收款人、对方、名字等）后才算姓名",
+  "cases": [
+    {
+      "id": "stars1-块",
+      "text": "我卡里就剩*块了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars1-块钱",
+      "text": "我卡里就剩*块钱了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars1-元",
+      "text": "我卡里就剩*元了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars2-块",
+      "text": "我卡里就剩**块了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars2-块钱",
+      "text": "我卡里就剩**块钱了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars2-元",
+      "text": "我卡里就剩**元了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars3-块",
+      "text": "我卡里就剩***块了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars3-块钱",
+      "text": "我卡里就剩***块钱了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars3-元",
+      "text": "我卡里就剩***元了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars4-块",
+      "text": "我卡里就剩****块了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars4-块钱",
+      "text": "我卡里就剩****块钱了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars4-元",
+      "text": "我卡里就剩****元了",
+      "reply": "我卡里就剩那么点了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "number-card",
+      "text": "卡号****块",
+      "reply": "卡号你发的那个号块",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "number-card-is",
+      "text": "卡号是****块",
+      "reply": "卡号是你发的那个号块",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "number-tail",
+      "text": "尾号****元",
+      "reply": "尾号你发的那个号元",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "number-otp",
+      "text": "验证码**元",
+      "reply": "验证码你发的那个号元",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "name-huming-yuanbao",
+      "text": "户名**元宝",
+      "reply": "户名那个名字元宝",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "name-shoukuanren",
+      "text": "收款人**元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "name-huming-1star",
+      "text": "户名*元",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人最终定：「户名」保留，星号视为名字字段（元可能是名字里的字），不残留「元」"
+    },
+    {
+      "id": "name-jiao",
+      "text": "我叫**元",
+      "reply": "我那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "name-xing",
+      "text": "他姓**元",
+      "reply": "他那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "name-surname",
+      "text": "张**块钱",
+      "reply": "那个名字块钱",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "stars5-kuaiqian",
+      "text": "我卡里就剩*****块钱了",
+      "reply": "我卡里就剩你发的那个号块钱了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "stars6-yuan",
+      "text": "我卡里就剩******元了",
+      "reply": "我卡里就剩你发的那个号元了",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "common-char-1",
+      "text": "就剩余**块",
+      "reply": "就剩余那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "common-char-2",
+      "text": "还余**块",
+      "reply": "还余那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "common-char-3",
+      "text": "这包**块",
+      "reply": "这包那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "common-char-4",
+      "text": "就剩一包**块",
+      "reply": "就剩一包那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "common-char-5",
+      "text": "差万**元",
+      "reply": "差万那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "name-ctx-surname-1",
+      "text": "收款人马**元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
+    },
+    {
+      "id": "name-ctx-surname-2",
+      "text": "对方王**元",
+      "reply": "对方那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "name-ctx-surname-3",
+      "text": "户名：高**元",
+      "reply": "户名：那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
+    },
+    {
+      "id": "name-ctx-surname-4",
+      "text": "，马**元",
+      "reply": "，那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "name-ctx-surname-5",
+      "text": "上官**元",
+      "reply": "那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "gei-1",
+      "text": "转给王**块",
+      "reply": "转给那个名字块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "gei-2",
+      "text": "打给李**元",
+      "reply": "打给那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "gei-3",
+      "text": "汇给张**块钱",
+      "reply": "汇给那个名字块钱",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "gei-4",
+      "text": "给马**元",
+      "reply": "给那个名字元",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "gei-5",
+      "text": "给我**块",
+      "reply": "给我那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "gei-6",
+      "text": "给你**元",
+      "reply": "给你那么点",
+      "refs": [
+        "number"
+      ]
+    },
+    {
+      "id": "label-zhanghuming",
+      "text": "账户名*元",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-kaihuming",
+      "text": "开户名**元",
+      "reply": "开户名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-shoukuanhuming",
+      "text": "收款户名*元",
+      "reply": "收款户名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-xingming",
+      "text": "姓名*元",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-shoukuanren-colon",
+      "text": "收款人：**元。",
+      "reply": "收款人：那个名字。",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-shoukuanren-1star",
+      "text": "收款人*元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-shoukuanren-yuanbao",
+      "text": "收款人**元宝",
+      "reply": "收款人那个名字元宝",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
+    },
+    {
+      "id": "label-surname-zhanghuming",
+      "text": "账户名李*元",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
+    },
+    {
+      "id": "label-surname-compound",
+      "text": "收款人欧阳**元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
+    },
+    {
+      "id": "label-surname-yuanbao",
+      "text": "收款人马**元宝",
+      "reply": "收款人那个名字元宝",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
+    }
+  ]
+}

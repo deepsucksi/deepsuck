@@ -138,18 +138,25 @@
   var NC_TITLES = NC.titles.concat(NR.titleSuffix).filter(function (t, i, a) { return a.indexOf(t) === i; })
     .sort(function (a, b) { return b.length - a.length; });
   function reEsc(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-  var NC_NAME = '([' + NR.surnames + '](?:(?![' + NC.givenStop + '])[\\u4e00-\\u9fa5]){1,2}?)';
+  var NC_NAME = '((?:' + NC.compoundSurnames.join('|') + '|[' + NR.surnames + '])(?:(?![' + NC.givenStop + '])[\\u4e00-\\u9fa5]){1,2}?)';
   function ncRe(lead, tail) { return new RegExp(lead + '\\s*[:：]?\\s*(?!' + NC.notWords.join('|') + ')' + NC_NAME + '(?=' + tail + ')', 'g'); }
   function leads(xs) { return '(' + xs.slice().sort(function (a, b) { return b.length - a.length; }).join('|') + ')'; }
   var NAME_CONTEXT_RE = ncRe(leads(NC.leads), NC_TITLES.map(reEsc).join('|') + '|' + NC.stops);
   // #222 后续：「张三是吧」——句首或非汉字后面的名字 + 是吧
   var NAME_SHIBA_RE = ncRe('(^|[^\\u4e00-\\u9fa5])', NC.shibaTail);
-  var NAME_CONTEXT_RES = [NAME_CONTEXT_RE, NAME_SHIBA_RE];
+  // #220：「张三三点钟」——句首或非汉字后面的名字 + 中文钟点
+  var NAME_TIME_RE = ncRe('(^|[^\\u4e00-\\u9fa5])', NC.timeTail);
+  var NAME_CONTEXT_RES = [NAME_CONTEXT_RE, NAME_SHIBA_RE, NAME_TIME_RE];
+  var NC_ASK_AMOUNT = new RegExp('^(?:' + NC.askAmount + ')(?:' + NC.askTail + '|[^\\u4e00-\\u9fa5]|$)');
   /** 姓名语境里的名字：lead 为「是」时后面必须紧跟「吗」；后面紧跟称呼（「王阿姨」「王小姐」）不算；其余同 cleanName */
   function cleanNameContext(n, m, start) {
     if (!m || start == null) return null;
     var rest = m.input.slice(start + n.length), after = m.input.slice(start + 1);
-    if (m[1] === NC.askLead && rest.indexOf(NC.askTail) !== 0) return null;
+    if (NC.amountLeads.indexOf(m[1]) >= 0) {
+      // #220：给 / 是 引导时，名字须后面紧跟金额、整词不是常见词（「给黄金三万」「给万一」不算）；「是 + 名字 + 吗」照旧
+      var ask = m[1] === NC.askLead && rest.indexOf(NC.askTail) === 0;
+      if (!ask && (!NC_ASK_AMOUNT.test(rest) || NC.amountLeadNotNames.indexOf(n) >= 0)) return null;
+    }
     for (var i = 0; i < NC_TITLES.length; i++) {
       if (after.indexOf(NC_TITLES[i]) === 0 || rest.indexOf(NC_TITLES[i]) === 0) return null;
     }
@@ -294,6 +301,13 @@
         if (e.sensitive === false) e.raw = raw.slice(sp[0], sp[1]);
         e.start = sp[0]; e.end = sp[1];
         if (e.sensitive) e.obfuscated = raw.slice(sp[0], sp[1]) !== e.value;
+      });
+      // #220：规范化会把「张三1000」并成「张31000」，姓名语境再按原文跑一遍，没被占用的名字补上（与 extractors.py 一致）
+      var spans = out.filter(function (e) { return e.sensitive; }).map(function (e) { return [e.start, e.end]; });
+      findNameContext(raw).forEach(function (h) {
+        if (spans.some(function (x) { return h.start < x[1] && x[0] < h.end; })) return;
+        out.push({ type: 'name', label: LABELS.name || 'name', value: h.value, masked: R.mask('name', h.value), start: h.start, end: h.end, sensitive: true, meta: {} });
+        spans.push([h.start, h.end]);
       });
     }
     out.sort(function (a, b) { return a.start - b.start; });
@@ -535,5 +549,5 @@
     return extract(text).filter(function (e) { return e.sensitive; });
   }
 
-  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, starsName: starsName, findNameContext: findNameContext, NAME_CONTEXT_RE: NAME_CONTEXT_RE, NAME_SHIBA_RE: NAME_SHIBA_RE, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
+  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, starsName: starsName, SURNAMES: NR.surnames, findNameContext: findNameContext, NAME_CONTEXT_RE: NAME_CONTEXT_RE, NAME_SHIBA_RE: NAME_SHIBA_RE, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
 });
