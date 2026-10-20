@@ -375,7 +375,9 @@ _UNSAID_FIX = {
 
 
 def drop_unsaid(text: str, refs) -> str:
-    """人设回复里对方没报过的那类代称（“那个号”“那个名字”…）换成直说；refs 为 None（离线）时原样返回。"""
+    """人设回复里对方没报过的那类代称（“那个号”“那个名字”…）换成直说；refs 为 None（离线）时原样返回。
+    #219：调用方必须在 speakable / guard_output 之前调用（打码值还是星号时），只换模型自己写的代称；放在之后会把打码换出来的
+    「那个名字」「那个号」占位改成光秃秃的「名字」（用例 voice/tests/test_unsaid_placeholder.py）。"""
     s = str(text or "")
     if refs is None:
         return s

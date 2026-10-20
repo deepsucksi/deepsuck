@@ -124,8 +124,10 @@ class GuardTextFilter(BaseTextFilter):
         prev, self._prev_raw = self._prev_raw, text
         text = drop_given_after_split(prev, text)  # #215：上一句以拆字报姓结尾时，这一句开头的名不念
         text = self.redactor.apply(text) if self.redactor is not None else text
-        # #184：对方没报过的代称换成直说。#219（负责人裁定保留「那个名字」）：只改模型自己写的代称，所以放在 speakable 之前——
-        # 这时打码值还是星号，unmask / _unmask_names / drop_name_explain 换出来的「那个名字」「那个号」占位不会被改写成光秃秃的「名字」。
+        # #184：对方没报过的代称换成直说。顺序（#219，负责人已确认）：drop_unsaid 先过，然后 speakable。
+        # 这时打码值还是星号，所以 drop_unsaid 只换模型自己写的代称；如果放在 speakable 之后，会把打码换出来的
+        # 「那个名字」「那个号」（unmask / _unmask_names / drop_name_explain 的占位）改成光秃秃的「名字」
+        # （「户名***」→「户名名字」，见 #219，用例 voice/tests/test_unsaid_placeholder.py）。不要改回。
         if self.refs is not None:
             text = drop_unsaid(text, self.refs())
         out = speakable(text)
@@ -543,7 +545,9 @@ class BotTextTap(FrameProcessor):
         elif isinstance(frame, LLMTextFrame):
             self._buf.append(frame.text)
         elif isinstance(frame, LLMFullResponseEndFrame) and self._buf:
-            # #184 / #219：drop_unsaid 在守卫之前，只改模型自己写的代称，不动守卫换出来的「那个名字」占位
+            # #184 顺序（#219，负责人已确认）：drop_unsaid 先过，然后 guard_output。这时打码值还是星号，所以 drop_unsaid
+            # 只换模型自己写的代称；如果放在 guard_output 之后，会把打码 / 逐字解释换出来的「那个名字」「那个号」改成光秃秃的
+            # 「名字」（见 #219，用例 voice/tests/test_unsaid_placeholder.py）。不要改回。
             text = guard_output(drop_unsaid(self.intel.redactor.apply("".join(self._buf)), self.intel.heard_refs()))
             self._buf = []
             if text:
