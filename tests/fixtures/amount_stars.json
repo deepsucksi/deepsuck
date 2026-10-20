@@ -238,10 +238,11 @@
     {
       "id": "name-ctx-surname-1",
       "text": "收款人马**元",
-      "reply": "收款人那个名字元",
+      "reply": "收款人那个名字",
       "refs": [
         "name"
-      ]
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
     },
     {
       "id": "name-ctx-surname-2",
@@ -254,10 +255,11 @@
     {
       "id": "name-ctx-surname-3",
       "text": "户名：高**元",
-      "reply": "户名：那个名字元",
+      "reply": "户名：那个名字",
       "refs": [
         "name"
-      ]
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
     },
     {
       "id": "name-ctx-surname-4",
@@ -376,6 +378,42 @@
         "name"
       ],
       "note": "#220 负责人定：字段词原样保留，星号加尾字整体换成那个名字"
+    },
+    {
+      "id": "label-shoukuanren-yuanbao",
+      "text": "收款人**元宝",
+      "reply": "收款人那个名字元宝",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
+    },
+    {
+      "id": "label-surname-zhanghuming",
+      "text": "账户名李*元",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
+    },
+    {
+      "id": "label-surname-compound",
+      "text": "收款人欧阳**元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
+    },
+    {
+      "id": "label-surname-yuanbao",
+      "text": "收款人马**元宝",
+      "reply": "收款人那个名字元宝",
+      "refs": [
+        "name"
+      ],
+      "note": "#220 负责人定：字段词一个字都不吃，后面不留尾巴"
     }
   ]
 }

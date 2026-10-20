@@ -1,5 +1,5 @@
 {
-  "comment": "#220：星号 / 真名后面紧跟数字（阿拉伯或中文数字）或金额词时，这些字不当残名，金额原样保留；「是**明吗」「王*五」照旧。tests/name_amount.test.js（sanitizeReply）与 python/tests/test_name_amount.py（mask_names→脱敏→speak_masked）共用。",
+  "comment": "#220：星号 / 真名后面紧跟数字（阿拉伯或中文数字）或金额词时，这些字不当残名，金额原样保留；「是**明吗」「王*五」照旧。tests/name_amount.test.js（sanitizeReply）与 python/tests/test_name_amount.py（mask_names→脱敏→speak_masked）共用。 label-*：字段词（收款人 / 户名 / 姓名 / 账户名）各 9 种变体，按情报复审表（pullrequestreview-5583211049）补齐：字段词一个字都不吃，后面不留尾巴，金额原样保留。",
   "cases": [
     {
       "id": "ctx-cn-wubai",
@@ -65,6 +65,326 @@
       "id": "keep-wang-wu",
       "text": "王*五",
       "reply": "那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-01",
+      "text": "收款人*元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-02",
+      "text": "收款人**元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-03",
+      "text": "收款人**明",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-04",
+      "text": "收款人**",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-05",
+      "text": "收款人*五百块",
+      "reply": "收款人那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-06",
+      "text": "收款人**五百块",
+      "reply": "收款人那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-07",
+      "text": "收款人李*500",
+      "reply": "收款人那个名字500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-08",
+      "text": "收款人李*",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-09",
+      "text": "收款人张**",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-10",
+      "text": "户名*元",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-11",
+      "text": "户名**元",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-12",
+      "text": "户名**明",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-13",
+      "text": "户名**",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-14",
+      "text": "户名*五百块",
+      "reply": "户名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-15",
+      "text": "户名**五百块",
+      "reply": "户名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-16",
+      "text": "户名李*500",
+      "reply": "户名那个名字500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-17",
+      "text": "户名李*",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-18",
+      "text": "户名张**",
+      "reply": "户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-19",
+      "text": "姓名*元",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-20",
+      "text": "姓名**元",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-21",
+      "text": "姓名**明",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-22",
+      "text": "姓名**",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-23",
+      "text": "姓名*五百块",
+      "reply": "姓名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-24",
+      "text": "姓名**五百块",
+      "reply": "姓名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-25",
+      "text": "姓名李*500",
+      "reply": "姓名那个名字500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-26",
+      "text": "姓名李*",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-27",
+      "text": "姓名张**",
+      "reply": "姓名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-28",
+      "text": "账户名*元",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-29",
+      "text": "账户名**元",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-30",
+      "text": "账户名**明",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-31",
+      "text": "账户名**",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-32",
+      "text": "账户名*五百块",
+      "reply": "账户名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-33",
+      "text": "账户名**五百块",
+      "reply": "账户名那个名字五百块",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-34",
+      "text": "账户名李*500",
+      "reply": "账户名那个名字500",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-35",
+      "text": "账户名李*",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-36",
+      "text": "账户名张**",
+      "reply": "账户名那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-37",
+      "text": "收款人**元宝",
+      "reply": "收款人那个名字元宝",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-38",
+      "text": "收款人欧阳**元",
+      "reply": "收款人那个名字",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "label-39",
+      "text": "收款人马**元宝",
+      "reply": "收款人那个名字元宝",
+      "refs": [
+        "name"
+      ]
+    },
+    {
+      "id": "ctx-cn-ji",
+      "text": "转给李四几百块",
+      "reply": "转给那个名字几百块",
       "refs": [
         "name"
       ]
