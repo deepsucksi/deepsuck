@@ -23,7 +23,47 @@ NAME = _DE["name"]
 _SPLIT_PRE = "(?:(?:" + "|".join(re.escape(x[:-1]) for x in sorted(_SPL["spellings"], key=len, reverse=True)) + ")" + _SPL["link"] + ")"
 _SPLIT_BEFORE_NAME = re.compile(_SPLIT_PRE + "(?=〔?" + NAME + ")")
 _NAME_MASK = re.compile(_SPLIT_PRE + "?(姓)?(" + "|".join(_DE["compoundSurnames"]) + "|[\u4e00-\u9fff])"
-                        "(?:[*＊](?:(?![" + _DE["nameTailStop"] + "])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊]))")
+                        "(?:[*＊](?:(?![" + _DE["nameTailStop"] + "])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊])"
+                        "(" + _DE["maskedNameTail"] + "(?![*＊0-9A-Za-z]))?)")
+# #216 P0：姓和星号之间夹空格 / 分隔符（「张 * *」「张·*·*」「李 - * 」）先收拢成「张**」；号码里的分隔（「138 **** 1234」）不动
+_SEP = _DE["spacedStarsSep"]
+_SPACED_STARS = re.compile("(?<![0-9A-Za-z０-９])([\u4e00-\u9fff])((?:" + _SEP + "*[*＊]){1,4})(?=" + _SEP + "*(?:[^0-9A-Za-z０-９*＊" + _SEP[1:-1] + "]|$))")
+
+
+def _collapsible(m):
+    lead_ok = _DE["notSurname"].find(m.group(1)) < 0
+    return bool(re.search(_SEP, m.group(2))) and lead_ok
+
+
+def collapse_spaced_stars(text: str) -> str:
+    """「好，张 * *」→「好，张**」：与 llm.js collapseSpacedStars 一致。"""
+    # 星号前那个字基本不当姓（notSurname：「在」「号」「码」……，「我在 *上班」「密码 * * *」）时不收拢
+    return _SPACED_STARS.sub(lambda m: m.group(1) + re.sub("[^*＊]", "", m.group(2))
+                             if _collapsible(m) else m.group(0), str(text or ""))
+
+
+class _NoTail:
+    """#216：_NAME_MASK 带上残名后，masked_lead_not_surname 只看姓 + 星号这一段（残名不算「星号后跟着字」）。"""
+
+    def __init__(self, m: re.Match, tail: str):
+        self._m, self._n = m, len(tail)
+
+    def group(self, i=0):
+        g = self._m.group(i)
+        return g[:len(g) - self._n] if i == 0 and self._n else g
+
+    def start(self, i=0):
+        return self._m.start(i)
+
+    @property
+    def string(self):
+        return self._m.string
+
+
+# #216 P0：星号后紧跟的残名（「是**明吗」「，**明？」）整段算名字；星号前不是汉字时（逗号、句首）也是名字，不念成号码
+_STARS_NAME_TAIL = re.compile("(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{1,4}" + _DE["maskedNameTail"] + "(?![*＊0-9A-Za-z０-９])")
+# #216：已经是「那个名字」、后面紧跟的星号（「那个名字***是吧」）一并去掉，不把「字」当姓
+_STARS_AFTER_NAME = re.compile("(〔?" + NAME + "〕?)\\s*[*＊]+(?:" + _DE["maskedNameTail"] + ")?(?![*＊0-9A-Za-z０-９])")
 _NAME_TAIL = re.compile("(〔?" + NAME + "〕?)(?:[ \u3000…,，、.．·~～\\-—]{1,2}[*＊]+(?![0-9A-Za-z*＊]))+")
 # #172：纯星号的逐字解释（「弓长张，****」「伟是****」「****，****」）
 _HAN = "[\u4e00-\u9fff]"
@@ -49,9 +89,11 @@ def mask_names(text: str, bracket: bool = False) -> str:
 
     def rep(m: re.Match) -> str:
         # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json，不在表里的再看 notSurname
-        return m.group(0) if masked_lead_not_surname(m, m.group(2), _DE["notSurname"]) else w
+        return m.group(0) if masked_lead_not_surname(_NoTail(m, m.group(3) or ""), m.group(2), _DE["notSurname"]) else w
 
-    s = _NAME_MASK.sub(rep, str(text or ""))
+    s = _STARS_AFTER_NAME.sub(r"\1", collapse_spaced_stars(text))
+    s = _NAME_MASK.sub(rep, s)
+    s = _STARS_NAME_TAIL.sub(lambda m: m.group(0) if stars_not_name(m.string, m.start()) else w, s)
     s = _SPLIT_BEFORE_NAME.sub("", s)
     s = _NAME_TAIL.sub(r"\1", s)
     s = _EXPLAIN_NAME.sub(lambda _m: w, s)

@@ -1,0 +1,665 @@
+{
+  "schema": "deepsuck.fixture.unsaid_leaks/v1",
+  "comment": "#216 P0：对方从没报过户名时人设回复里的三处露字（「对方叫李四是吧」真名原样、「是**明吗」露「明」、「，**明？」露「明」还念成号）、带空格 / 分隔符的打码姓名（「张 * *」「张·*·*」「李 - * 」）和两处念不顺（「那个名字***是吧」「户名是那个名字***」）。redacted：redactText / redact_text（extractors 新增 patterns.namePerson）；speak：speakMasked / speak_masked（网页、Python）；refs：heardRefs / heard_refs；voice：voice.persona.speakable。号码里的分隔（「138 **** 1234」「6222 **** **** 1234」）仍按号码；反例（「对方叫什么」「他叫我等着」「他叫王经理」）不动。tests/unsaid_leaks.test.js、python/tests/test_unsaid_leaks.py、voice/tests/test_unsaid_leaks.py 共用；语音另走 ClauseTextAggregator → GuardTextFilter / BotTextTap 整条链路（refs 为空、没报过户名、报过户名，流式分块和打断）。",
+  "cases": [
+    {
+      "text": "对方叫李四是吧",
+      "redacted": "对方叫李*是吧",
+      "speak": "对方叫那个名字是吧",
+      "refs": [
+        "name"
+      ],
+      "voice": "对方叫那个名字是吧",
+      "p0": "P0-1 真名"
+    },
+    {
+      "text": "他叫李四对吧",
+      "redacted": "他叫李*对吧",
+      "speak": "他叫那个名字对吧",
+      "refs": [
+        "name"
+      ],
+      "voice": "他叫那个名字对吧"
+    },
+    {
+      "text": "那人叫王志强，你记一下",
+      "redacted": "那人叫王**，你记一下",
+      "speak": "那人叫那个名字，你记一下",
+      "refs": [
+        "name"
+      ],
+      "voice": "那人叫那个名字，你记一下"
+    },
+    {
+      "text": "她叫张三丰啊",
+      "redacted": "她叫张**啊",
+      "speak": "她叫那个名字啊",
+      "refs": [
+        "name"
+      ],
+      "voice": "她叫那个名字啊"
+    },
+    {
+      "text": "他就叫李四",
+      "redacted": "他就叫李*",
+      "speak": "他就叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "他就叫那个名字"
+    },
+    {
+      "text": "对方叫什么",
+      "redacted": "对方叫什么",
+      "speak": "对方叫什么",
+      "refs": [],
+      "voice": "对方叫什么"
+    },
+    {
+      "text": "他叫我等着",
+      "redacted": "他叫我等着",
+      "speak": "他叫我等着",
+      "refs": [],
+      "voice": "他叫我等着",
+      "notName": true
+    },
+    {
+      "text": "对方叫你转账",
+      "redacted": "对方叫你转账",
+      "speak": "对方叫你转账",
+      "refs": [],
+      "voice": "对方叫你转账"
+    },
+    {
+      "text": "他叫王经理",
+      "redacted": "他叫王经理",
+      "speak": "他叫王经理",
+      "refs": [],
+      "voice": "他叫王经理"
+    },
+    {
+      "text": "你说的那个名字是**明吗",
+      "redacted": "你说的那个名字是**明吗",
+      "speak": "你说的那个名字吗",
+      "refs": [],
+      "voice": "你说的那个名字是那个名字吗",
+      "p0": "P0-2"
+    },
+    {
+      "text": "户名叫什么来着，**明？",
+      "redacted": "户名叫什么来着，**明？",
+      "speak": "户名叫什么来着，那个名字？",
+      "refs": [
+        "name"
+      ],
+      "voice": "户名叫什么来着，那个名字？",
+      "p0": "P0-3"
+    },
+    {
+      "text": "那个名字***是吧",
+      "redacted": "那个名字***是吧",
+      "speak": "那个名字是吧",
+      "refs": [],
+      "voice": "那个名字是吧",
+      "p0": "念不顺"
+    },
+    {
+      "text": "户名是那个名字***",
+      "redacted": "户名是那个名字***",
+      "speak": "户名是那个名字",
+      "refs": [],
+      "voice": "户名是那个名字",
+      "p0": "念不顺"
+    },
+    {
+      "text": "好，张 * *",
+      "redacted": "好，张 * *",
+      "speak": "好，那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "好，那个名字",
+      "p0": "P0 带空格"
+    },
+    {
+      "text": "户名 李 * ",
+      "redacted": "户名 李 * ",
+      "speak": "户名 那个名字 ",
+      "refs": [
+        "name"
+      ],
+      "voice": "户名 那个名字"
+    },
+    {
+      "text": "张·*·*，对吧",
+      "redacted": "张·*·*，对吧",
+      "speak": "那个名字，对吧",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字，对吧"
+    },
+    {
+      "text": "张*.*",
+      "redacted": "张*.*",
+      "speak": "那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字"
+    },
+    {
+      "text": "李 - * ",
+      "redacted": "李 - * ",
+      "speak": "那个名字 ",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字"
+    },
+    {
+      "text": "收款人是张　*　*",
+      "redacted": "收款人是*　*　*",
+      "speak": "收款人那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "收款人是那个名字"
+    },
+    {
+      "text": "好，张\t*\t*，对吧",
+      "redacted": "好，张\t*\t*，对吧",
+      "speak": "好，那个名字，对吧",
+      "refs": [
+        "name"
+      ],
+      "voice": "好，那个名字，对吧"
+    },
+    {
+      "text": "138 **** 1234",
+      "redacted": "138 **** 1234",
+      "speak": "你发的那个号",
+      "refs": [
+        "number"
+      ],
+      "voice": "那串数没记住"
+    },
+    {
+      "text": "6222 **** **** 1234",
+      "redacted": "6222 **** **** 1234",
+      "speak": "你发的那个号",
+      "refs": [
+        "number"
+      ],
+      "voice": "那串数没记住"
+    },
+    {
+      "text": "尾号 **** 1234",
+      "redacted": "尾号 **** 1234",
+      "speak": "尾号 你发的那个号",
+      "refs": [
+        "number"
+      ],
+      "voice": "尾号 那几位 那串数没记住"
+    },
+    {
+      "text": "我在***上班",
+      "redacted": "我在***上班",
+      "speak": "我在你发的那个号上班",
+      "refs": [
+        "number"
+      ],
+      "voice": "我在那个号上班"
+    },
+    {
+      "text": "找王*明办",
+      "redacted": "找王*明办",
+      "speak": "找那个名字办",
+      "refs": [
+        "name"
+      ],
+      "voice": "找那个名字办"
+    },
+    {
+      "text": "收款人**的卡",
+      "redacted": "收款人**的卡",
+      "speak": "收款那个名字的卡",
+      "refs": [
+        "name"
+      ],
+      "voice": "收款人那个名字的卡"
+    },
+    {
+      "text": "户名**是吧",
+      "redacted": "户名**是吧",
+      "speak": "户名那个名字是吧",
+      "refs": [
+        "name"
+      ],
+      "voice": "户名那个名字是吧"
+    },
+    {
+      "text": "卡号是***，户名***",
+      "redacted": "卡号是***，户名***",
+      "speak": "卡号是你发的那个号，户名那个名字",
+      "refs": [
+        "name",
+        "number"
+      ],
+      "voice": "卡号是那个号，户名那个名字"
+    },
+    {
+      "text": "验证码是***",
+      "redacted": "验证码是***",
+      "speak": "验证码是你发的那个号",
+      "refs": [
+        "number"
+      ],
+      "voice": "验证码是那个号"
+    },
+    {
+      "text": "我在 *上班",
+      "redacted": "我在 *上班",
+      "speak": "我在 你发的那个号上班",
+      "refs": [
+        "number"
+      ],
+      "voice": "我在 那个号上班"
+    },
+    {
+      "text": "密码 * * *",
+      "redacted": "密码 * * *",
+      "speak": "密码 你发的那个号",
+      "refs": [
+        "number"
+      ],
+      "voice": "密码 那个号 那个号"
+    },
+    {
+      "text": "那人叫你下载 app",
+      "redacted": "那人叫你下载 app",
+      "speak": "那人叫你下载 app",
+      "refs": [],
+      "voice": "那人叫你下载 app",
+      "notName": true
+    },
+    {
+      "text": "他叫你转账",
+      "redacted": "他叫你转账",
+      "speak": "他叫你转账",
+      "refs": [],
+      "voice": "他叫你转账",
+      "notName": true
+    },
+    {
+      "text": "这个叫什么来着",
+      "redacted": "这个叫什么来着",
+      "speak": "这个叫什么来着",
+      "refs": [],
+      "voice": "这个叫什么来着",
+      "notName": true
+    },
+    {
+      "text": "叫警察",
+      "redacted": "叫警察",
+      "speak": "叫警察",
+      "refs": [],
+      "voice": "叫警察",
+      "notName": true
+    },
+    {
+      "text": "她叫你别挂电话",
+      "redacted": "她叫你别挂电话",
+      "speak": "她叫你别挂电话",
+      "refs": [],
+      "voice": "她叫你别挂电话",
+      "notName": true
+    },
+    {
+      "text": "对方叫你先交保证金",
+      "redacted": "对方叫你先交保证金",
+      "speak": "对方叫你先交保证金",
+      "refs": [],
+      "voice": "对方叫你先交保证金",
+      "notName": true
+    },
+    {
+      "text": "这叫安全账户",
+      "redacted": "这叫安全账户",
+      "speak": "这叫安全账户",
+      "refs": [],
+      "voice": "这叫安全账户",
+      "notName": true
+    },
+    {
+      "text": "他叫人来",
+      "redacted": "他叫人来",
+      "speak": "他叫人来",
+      "refs": [],
+      "voice": "他叫人来",
+      "notName": true
+    },
+    {
+      "text": "叫王经理",
+      "redacted": "叫王经理",
+      "speak": "叫王经理",
+      "refs": [],
+      "voice": "叫王经理",
+      "notName": true
+    },
+    {
+      "text": "他叫高手来",
+      "redacted": "他叫高手来",
+      "speak": "他叫高手来",
+      "refs": [],
+      "voice": "他叫高手来",
+      "notName": true
+    },
+    {
+      "text": "对方叫黄牛",
+      "redacted": "对方叫黄牛",
+      "speak": "对方叫黄牛",
+      "refs": [],
+      "voice": "对方叫黄牛",
+      "notName": true
+    },
+    {
+      "text": "他叫马上转",
+      "redacted": "他叫马上转",
+      "speak": "他叫马上转",
+      "refs": [],
+      "voice": "他叫马上转",
+      "notName": true
+    },
+    {
+      "text": "她叫钱先到账",
+      "redacted": "她叫钱先到账",
+      "speak": "她叫钱先到账",
+      "refs": [],
+      "voice": "她叫钱先到账",
+      "notName": true
+    },
+    {
+      "text": "对方叫钱伟是吧",
+      "redacted": "对方叫钱*是吧",
+      "speak": "对方叫那个名字是吧",
+      "refs": [
+        "name"
+      ],
+      "voice": "对方叫那个名字是吧"
+    },
+    {
+      "text": "他叫高志强",
+      "redacted": "他叫高**",
+      "speak": "他叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "他叫那个名字"
+    },
+    {
+      "text": "他叫马上转账",
+      "redacted": "他叫马上转账",
+      "speak": "他叫马上转账",
+      "refs": [],
+      "voice": "他叫马上转账",
+      "notName": true
+    },
+    {
+      "text": "对方叫钱先打过去",
+      "redacted": "对方叫钱先打过去",
+      "speak": "对方叫钱先打过去",
+      "refs": [],
+      "voice": "对方叫钱先打过去",
+      "notName": true
+    },
+    {
+      "text": "他叫安全账户",
+      "redacted": "他叫安全账户",
+      "speak": "他叫安全账户",
+      "refs": [],
+      "voice": "他叫安全账户",
+      "notName": true
+    },
+    {
+      "text": "**明说他转",
+      "redacted": "**明说他转",
+      "speak": "那个名字说他转",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字说他转",
+      "keepTail": "说他转"
+    },
+    {
+      "text": "**明天打钱",
+      "redacted": "**明天打钱",
+      "speak": "你发的那个号明天打钱",
+      "refs": [
+        "number"
+      ],
+      "voice": "那个号明天打钱",
+      "keepTail": "明天打钱"
+    },
+    {
+      "text": "张**让你转账",
+      "redacted": "张**让你转账",
+      "speak": "那个名字让你转账",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字让你转账",
+      "keepTail": "让你转账"
+    },
+    {
+      "text": "对方叫钱明",
+      "redacted": "对方叫钱*",
+      "speak": "对方叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "对方叫那个名字",
+      "mustMask": "钱明"
+    },
+    {
+      "text": "他叫马丽",
+      "redacted": "他叫马*",
+      "speak": "他叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "他叫那个名字",
+      "mustMask": "马丽"
+    },
+    {
+      "text": "叫安华",
+      "redacted": "叫安*",
+      "speak": "叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "叫那个名字",
+      "mustMask": "安华"
+    },
+    {
+      "text": "对方叫何必这么急",
+      "redacted": "对方叫何必这么急",
+      "speak": "对方叫何必这么急",
+      "refs": [],
+      "voice": "对方叫何必这么急",
+      "notName": true
+    },
+    {
+      "text": "对方叫何明",
+      "redacted": "对方叫何*",
+      "speak": "对方叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "对方叫那个名字",
+      "mustMask": "何明"
+    },
+    {
+      "text": "他叫何况你",
+      "redacted": "他叫何况你",
+      "speak": "他叫何况你",
+      "refs": [],
+      "voice": "他叫何况你",
+      "notName": true
+    },
+    {
+      "text": "对方叫何时到账",
+      "redacted": "对方叫何时到账",
+      "speak": "对方叫何时到账",
+      "refs": [],
+      "voice": "对方叫何时到账",
+      "notName": true
+    },
+    {
+      "text": "他叫何苦呢",
+      "redacted": "他叫何苦呢",
+      "speak": "他叫何苦呢",
+      "refs": [],
+      "voice": "他叫何苦呢",
+      "notName": true
+    },
+    {
+      "text": "她叫何不先转",
+      "redacted": "她叫何不先转",
+      "speak": "她叫何不先转",
+      "refs": [],
+      "voice": "她叫何不先转",
+      "notName": true
+    },
+    {
+      "text": "李*那边",
+      "redacted": "李*那边",
+      "speak": "那个名字那边",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字那边",
+      "voiceExpect": "那个名字那边"
+    },
+    {
+      "text": "王*这边",
+      "redacted": "王*这边",
+      "speak": "那个名字这边",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字这边",
+      "voiceExpect": "那个名字这边"
+    },
+    {
+      "text": "收款人李*那边",
+      "redacted": "收款人李*那边",
+      "speak": "收款人那个名字那边",
+      "refs": [
+        "name"
+      ],
+      "voice": "收款人那个名字那边",
+      "voiceExpect": "收款人那个名字那边"
+    },
+    {
+      "text": "我在*那边",
+      "redacted": "我在*那边",
+      "speak": "我在你发的那个号那边",
+      "refs": [
+        "number"
+      ],
+      "voice": "我在那个号那边",
+      "voiceExpect": "我在那个号那边"
+    },
+    {
+      "text": "李*说",
+      "redacted": "李*说",
+      "speak": "那个名字说",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字说",
+      "voiceExpect": "那个名字说"
+    },
+    {
+      "text": "王*给你",
+      "redacted": "王*给你",
+      "speak": "那个名字给你",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字给你",
+      "voiceExpect": "那个名字给你"
+    },
+    {
+      "text": "张*那里",
+      "redacted": "张*那里",
+      "speak": "那个名字那里",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字那里",
+      "voiceExpect": "那个名字那里"
+    },
+    {
+      "text": "刘*这个人",
+      "redacted": "刘*这个人",
+      "speak": "那个名字这个人",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字这个人",
+      "voiceExpect": "那个名字这个人"
+    },
+    {
+      "text": "李*附近",
+      "redacted": "李*附近",
+      "speak": "那个名字附近",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字附近",
+      "voiceExpect": "那个名字附近"
+    },
+    {
+      "text": "我住*附近",
+      "redacted": "我住*附近",
+      "speak": "我住你发的那个号附近",
+      "refs": [
+        "number"
+      ],
+      "voice": "我住那个号附近",
+      "voiceExpect": "我住那个号附近"
+    },
+    {
+      "text": "他到*那边了",
+      "redacted": "他到*那边了",
+      "speak": "他到你发的那个号那边了",
+      "refs": [
+        "number"
+      ],
+      "voice": "他到那个号那边了",
+      "voiceExpect": "他到那个号那边了"
+    },
+    {
+      "text": "王*这边，你转吧",
+      "redacted": "王*这边，你转吧",
+      "speak": "那个名字这边，你转吧",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字这边，你转吧",
+      "voiceExpect": "那个名字这边，你转吧"
+    },
+    {
+      "text": "李*来了",
+      "redacted": "李*来了",
+      "speak": "那个名字来了",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字来了",
+      "voiceExpect": "那个名字来了"
+    }
+  ]
+}

@@ -103,6 +103,7 @@ _SHORT_STARS = re.compile("[*＊]{1,3}(?![*＊])")
 _MC = load("name_stopchars").get("maskContext") or {}
 _NUMBER_BEFORE = compile_js(_MC.get("numberBefore") or "(?!)")
 _NOT_NAME_AFTER = compile_js(_MC.get("notNameAfter") or "(?!)")
+_NOT_NAME_AFTER_VERB = compile_js(_MC.get("notNameAfterVerbBefore") or "(?!)")
 _NAME_AFTER = compile_js(_MC.get("nameAfter") or "(?!)")
 _NAME_BEFORE = compile_js(_MC.get("nameBefore") or "(?!)")
 
@@ -118,7 +119,14 @@ def stars_not_name(s: str, pos: int) -> bool:
     s = str(s)
     if stars_name(s, pos):  # #214：「转到**名下」「打到**的卡上」仍是姓名
         return False
-    return bool(_NUMBER_BEFORE.search(s[:pos]) or _NOT_NAME_AFTER.match(s, pos))
+    return bool(_NUMBER_BEFORE.search(s[:pos]) or _not_name_after(s, pos))
+
+
+def _not_name_after(s: str, pos: int) -> bool:
+    """#221：「我在***上班」「我在*那边」——只在星号前是位置动词时生效；星号紧跟常见姓（「李*那边」）一律按姓名。与 JS notNameAfter 一致。"""
+    if pos > 0 and s[pos - 1] in _SURNAMES:
+        return False
+    return bool(_NOT_NAME_AFTER.match(s, pos) and _NOT_NAME_AFTER_VERB.search(s[:pos]))
 
 
 
@@ -252,6 +260,8 @@ def extract(text: Optional[str]) -> List[dict]:
     scan(RE["mobile"], "phone", meta=lambda *a: {"kind": "mobile"})
     scan(RE["name"], "name", group=1, clean=_clean_name)
     scan(RE["nameMid"], "name", group=1, clean=_clean_name_mid)
+    # #216 P0：人设回复「对方叫李四是吧」「他叫王志强」——人称 + 叫 后面的姓名（必须以常见姓氏开头，规则同 nameMid）
+    scan(RE["namePerson"], "name", group=1, clean=_clean_name_mid)
 
     # 非敏感的上下文情报（不打码、不占用区间）
     scan(RE["amount"], "amount", sensitive=False, no_overlap=True,
