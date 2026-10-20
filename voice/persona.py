@@ -601,7 +601,7 @@ _FIELD_TAIL = "(?:(?!账户|名下|[的吗吧是啊呀呢了和跟就也都还�
 _FIELD_SURNAME_STARS = re.compile(
     r"(账户名|户名|收款人|姓名)(" + _ANCHOR_SEP_WIDE + r")"
     r"(?![" + "".join(sorted(_NAME_ANCHOR_KEEP)) + r"])[" + _SURNAME_SET + r"][*＊]+(?![0-9A-Za-z０-９*＊])"
-    r"(?:(?!" + _AMOUNT_AFTER_NAME + r")" + _FIELD_TAIL + r")?")
+    r"((?:(?!" + _AMOUNT_AFTER_NAME + r")" + _FIELD_TAIL + r")?)")
 _NAME_ANCHOR = re.compile(
     r"(" + "|".join(_NAME_ANCHOR_WORDS) + r")(" + _ANCHOR_SEP_WIDE + r"(?:是|为)?" + _ANCHOR_SEP_WIDE + r")"
     r"[*＊]+(?![0-9A-Za-z０-９*＊])(?:(" + _NAME_TAIL + r")[*＊]*(?![0-9A-Za-z０-９]))?")
@@ -686,7 +686,7 @@ def _unmask_names(s: str) -> str:
     s = _NAME_STARS_DIGITS.sub(lambda m: m.group(0) if stars_not_name(m.string, m.start(0) + len(m.group(1))) else NAME_PHRASE, s)  # #222：「李**500」
     s = _STARS_AFTER_NAME.sub(NAME_PHRASE, s)  # #219：已换好的「那个名字」后面残留的粗体星号（「**弓长张，伟大的伟**」）一并去掉，不把「字」当姓
     s = _sub_surname(_SURNAME_ANCHOR, s, _surname_rep)  # #219 三审：先换「姓**明」
-    s = _FIELD_SURNAME_STARS.sub(lambda m: m.group(1) + m.group(2) + NAME_PHRASE, s)  # #227
+    s = _FIELD_SURNAME_STARS.sub(lambda m: m.group(1) + m.group(2) + NAME_PHRASE + ("元" if m.group(3).endswith("元") else ""), s)  # #227；尾部「元」保留（同 main，「开户名王**元」→「开户名那个名字元」）
     s = _STARS_BEFORE_MINGXIA.sub(NAME_PHRASE, _KEEP_LEAD_TAIL.sub(NAME_PHRASE, _NAME_ANCHOR.sub(anchor, s)))
     s = _STARS_AFTER_NAME.sub(NAME_PHRASE, _sub_surname(_NAME_MASKED, s, rep))
     return _STARS_NAME_TAIL.sub(lambda m: m.group(0) if stars_not_name(m.string, m.start()) else NAME_PHRASE, s)  # #216 P0
@@ -914,7 +914,7 @@ def _is_name(cand: str) -> bool:
 
 # #227 五审：字段词 + （姓）+ 星号 + 中文金额（「姓名*五百块」「户名**五百块」）：星号换「那个名字」，金额一个字不丢（同 #220）
 _FIELD_STARS_AMOUNT = re.compile(r"(账户名|开户名|户名|收款人|姓名)(" + _ANCHOR_SEP_WIDE + r")[" + _SURNAME_SET + r"]?[*＊]+(?=" + _AMOUNT_AFTER_NAME + ")")
-_FIELD_SURNAME_STARS = re.compile(r"(账户名|开户名|户名|收款人|姓名)(" + _ANCHOR_SEP_WIDE + r")[" + _SURNAME_SET + r"][*＊]+元?(?=$|[，。,.!?！？；;\s])")  # 字段词 + 姓 + 星号（末尾 redact_text 打出的「姓名张*」、「收款人马**元」），只认结尾 / 标点前
+_FIELD_SURNAME_STARS = re.compile(r"(账户名|开户名|户名|收款人|姓名)(" + _ANCHOR_SEP_WIDE + r")[" + _SURNAME_SET + r"][*＊]+(元?)(?=$|[，。,.!?！？；;\s])")  # 字段词 + 姓 + 星号（末尾 redact_text 打出的「姓名张*」、「收款人马**元」），只认结尾 / 标点前
 _DIGIT_AFTER = re.compile(r"[，,、：:\s]?(?:[0-9０-９]|" + _AMOUNT_AFTER_NAME + ")")  # 「是张伟，500」：名字和数字间隔一个标点 / 空格也先打码
 
 
@@ -971,7 +971,7 @@ def guard_output(text: str) -> str:
     s = vague_digits(s)
     s = polish_reply(s)  # #132、#134：书面词换口语，第一句快速反问的问号换成“…”
     s = redact_text(s, extract_sensitive(s))
-    s = _FIELD_SURNAME_STARS.sub(lambda m: m.group(1) + m.group(2) + NAME_PHRASE, s)  # 同 _FIELD_STARS_AMOUNT：字段词后打码姓名念「那个名字」
+    s = _FIELD_SURNAME_STARS.sub(lambda m: m.group(1) + m.group(2) + NAME_PHRASE + m.group(3), s)  # 保留尾部「元」（同 main）；同 _FIELD_STARS_AMOUNT：字段词后打码姓名念「那个名字」
     s = _LONG_DIGITS.sub("……", s)
     s = _STRIP.sub("", s).strip()
     return s
