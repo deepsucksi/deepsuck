@@ -43,3 +43,25 @@ def test_person_name_extracted():
 def test_number_separators_untouched(text):
     assert collapse_spaced_stars(text) == text
     assert "name" not in heard_refs([text])
+
+
+NOT_NAME = [c for c in F["cases"] if c.get("notName")]
+
+
+@pytest.mark.parametrize("case", NOT_NAME, ids=lambda c: c["text"])
+def test_not_name_untouched(case):
+    """#221：「叫」后面不是名字（他叫你转账、对方叫黄牛、她叫钱先到账……）不打码、不念成「那个名字」。"""
+    t = case["text"]
+    assert redact_text(t, extract_sensitive(t)) == t
+    assert speak_masked(t) == t and "那个名字" not in speak_masked(t)
+
+
+@pytest.mark.parametrize("case", [c for c in F["cases"] if c.get("keepTail") or c.get("mustMask")], ids=lambda c: c["text"])
+def test_keep_tail_and_must_mask(case):
+    """#221：「**明说他转」「张**让你转账」不丢后面的字；「对方叫钱明」「他叫马丽」「叫安华」照样打码。"""
+    out = speak_masked(redact_text(case["text"], extract_sensitive(case["text"])))
+    assert "*" not in out
+    if case.get("keepTail"):
+        assert out.endswith(case["keepTail"]), out
+    else:
+        assert case["mustMask"] not in out and "那个名字" in out, out

@@ -129,3 +129,39 @@ def test_spaced_name_with_call_redactor():
 def test_number_separators_stay_number(text):
     out = P.speakable(text, calm_tts=False)
     assert "名字" not in out and not re.search(r"[*＊0-9]", out), out
+
+
+NOT_NAME = [c["text"] for c in F["cases"] if c.get("notName")]
+
+
+@pytest.mark.parametrize("mode", ["refs_none", "unreported", "reported"])
+@pytest.mark.parametrize("step", [1, 3])
+@pytest.mark.parametrize("text", NOT_NAME)
+def test_not_name_not_overmasked(mode, step, text):
+    """#221：「叫」后面不是名字的句子整条链路念原句，不出现「那个名字」。"""
+    _, p = _proc("reported" if mode == "reported" else "unreported")
+    refs = None if mode == "refs_none" else p.heard_refs
+    out = asyncio.run(_guard(p, text, refs, step))
+    assert "那个名字" not in out and "*" not in out, (text, out)
+    assert re.sub(r"\s", "", out) == re.sub(r"\s", "", text), (text, out)
+
+
+@pytest.mark.parametrize("text", NOT_NAME)
+def test_not_name_bot_text_tap(text, monkeypatch):
+    s, p = _proc("unreported")
+    out = asyncio.run(_tap(s, p, text, monkeypatch))
+    assert "那个名字" not in out, (text, out)
+
+
+@pytest.mark.parametrize("mode", ["refs_none", "unreported", "reported"])
+@pytest.mark.parametrize("step", [1, 3])
+@pytest.mark.parametrize("case", [c for c in F["cases"] if c.get("keepTail") or c.get("mustMask")], ids=lambda c: c["text"])
+def test_keep_tail_and_must_mask_chain(mode, step, case):
+    _, p = _proc("reported" if mode == "reported" else "unreported")
+    refs = None if mode == "refs_none" else p.heard_refs
+    out = re.sub(r"\s", "", asyncio.run(_guard(p, case["text"], refs, step)))
+    assert "*" not in out, out
+    if case.get("keepTail"):
+        assert out.endswith(case["keepTail"]), (case["text"], out)
+    else:
+        assert case["mustMask"] not in out and "那个名字" in out, (case["text"], out)

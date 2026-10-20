@@ -60,7 +60,8 @@
       "redacted": "他叫我等着",
       "speak": "他叫我等着",
       "refs": [],
-      "voice": "他叫我等着"
+      "voice": "他叫我等着",
+      "notName": true
     },
     {
       "text": "对方叫你转账",
@@ -273,6 +274,212 @@
         "number"
       ],
       "voice": "密码 那个号 那个号"
+    },
+    {
+      "text": "那人叫你下载 app",
+      "redacted": "那人叫你下载 app",
+      "speak": "那人叫你下载 app",
+      "refs": [],
+      "voice": "那人叫你下载 app",
+      "notName": true
+    },
+    {
+      "text": "他叫你转账",
+      "redacted": "他叫你转账",
+      "speak": "他叫你转账",
+      "refs": [],
+      "voice": "他叫你转账",
+      "notName": true
+    },
+    {
+      "text": "这个叫什么来着",
+      "redacted": "这个叫什么来着",
+      "speak": "这个叫什么来着",
+      "refs": [],
+      "voice": "这个叫什么来着",
+      "notName": true
+    },
+    {
+      "text": "叫警察",
+      "redacted": "叫警察",
+      "speak": "叫警察",
+      "refs": [],
+      "voice": "叫警察",
+      "notName": true
+    },
+    {
+      "text": "她叫你别挂电话",
+      "redacted": "她叫你别挂电话",
+      "speak": "她叫你别挂电话",
+      "refs": [],
+      "voice": "她叫你别挂电话",
+      "notName": true
+    },
+    {
+      "text": "对方叫你先交保证金",
+      "redacted": "对方叫你先交保证金",
+      "speak": "对方叫你先交保证金",
+      "refs": [],
+      "voice": "对方叫你先交保证金",
+      "notName": true
+    },
+    {
+      "text": "这叫安全账户",
+      "redacted": "这叫安全账户",
+      "speak": "这叫安全账户",
+      "refs": [],
+      "voice": "这叫安全账户",
+      "notName": true
+    },
+    {
+      "text": "他叫人来",
+      "redacted": "他叫人来",
+      "speak": "他叫人来",
+      "refs": [],
+      "voice": "他叫人来",
+      "notName": true
+    },
+    {
+      "text": "叫王经理",
+      "redacted": "叫王经理",
+      "speak": "叫王经理",
+      "refs": [],
+      "voice": "叫王经理",
+      "notName": true
+    },
+    {
+      "text": "他叫高手来",
+      "redacted": "他叫高手来",
+      "speak": "他叫高手来",
+      "refs": [],
+      "voice": "他叫高手来",
+      "notName": true
+    },
+    {
+      "text": "对方叫黄牛",
+      "redacted": "对方叫黄牛",
+      "speak": "对方叫黄牛",
+      "refs": [],
+      "voice": "对方叫黄牛",
+      "notName": true
+    },
+    {
+      "text": "他叫马上转",
+      "redacted": "他叫马上转",
+      "speak": "他叫马上转",
+      "refs": [],
+      "voice": "他叫马上转",
+      "notName": true
+    },
+    {
+      "text": "她叫钱先到账",
+      "redacted": "她叫钱先到账",
+      "speak": "她叫钱先到账",
+      "refs": [],
+      "voice": "她叫钱先到账",
+      "notName": true
+    },
+    {
+      "text": "对方叫钱伟是吧",
+      "redacted": "对方叫钱*是吧",
+      "speak": "对方叫那个名字是吧",
+      "refs": [
+        "name"
+      ],
+      "voice": "对方叫那个名字是吧"
+    },
+    {
+      "text": "他叫高志强",
+      "redacted": "他叫高**",
+      "speak": "他叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "他叫那个名字"
+    },
+    {
+      "text": "他叫马上转账",
+      "redacted": "他叫马上转账",
+      "speak": "他叫马上转账",
+      "refs": [],
+      "voice": "他叫马上转账",
+      "notName": true
+    },
+    {
+      "text": "对方叫钱先打过去",
+      "redacted": "对方叫钱先打过去",
+      "speak": "对方叫钱先打过去",
+      "refs": [],
+      "voice": "对方叫钱先打过去",
+      "notName": true
+    },
+    {
+      "text": "他叫安全账户",
+      "redacted": "他叫安全账户",
+      "speak": "他叫安全账户",
+      "refs": [],
+      "voice": "他叫安全账户",
+      "notName": true
+    },
+    {
+      "text": "**明说他转",
+      "redacted": "**明说他转",
+      "speak": "那个名字说他转",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字说他转",
+      "keepTail": "说他转"
+    },
+    {
+      "text": "**明天打钱",
+      "redacted": "**明天打钱",
+      "speak": "你发的那个号明天打钱",
+      "refs": [
+        "number"
+      ],
+      "voice": "那个号明天打钱",
+      "keepTail": "明天打钱"
+    },
+    {
+      "text": "张**让你转账",
+      "redacted": "张**让你转账",
+      "speak": "那个名字让你转账",
+      "refs": [
+        "name"
+      ],
+      "voice": "那个名字让你转账",
+      "keepTail": "让你转账"
+    },
+    {
+      "text": "对方叫钱明",
+      "redacted": "对方叫钱*",
+      "speak": "对方叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "对方叫那个名字",
+      "mustMask": "钱明"
+    },
+    {
+      "text": "他叫马丽",
+      "redacted": "他叫马*",
+      "speak": "他叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "他叫那个名字",
+      "mustMask": "马丽"
+    },
+    {
+      "text": "叫安华",
+      "redacted": "叫安*",
+      "speak": "叫那个名字",
+      "refs": [
+        "name"
+      ],
+      "voice": "叫那个名字",
+      "mustMask": "安华"
     }
   ]
 }
