@@ -2,7 +2,7 @@
  * DeepSuck — stats.js：隐私友好的访问统计（自托管 GoatCounter，见 deploy/docker-compose.yml 的 stats 服务）。
  *  - endpoint：live 站 /stats/ 路径下的 GoatCounter 计数端点（deploy/caddy/Caddyfile 的 @stats）。置空则什么都不发。
  *  - 统计服务没部署或出错时（404 / 502 / 断网）静默失败：只发一次，不重试、不抛错、不打日志。
- *  - 不设 cookie、不用 localStorage、不加载第三方脚本；只发一个 GET 计数请求（页面路径、标题、来源站）。
+ *  - 不设 cookie、不用 localStorage、不加载第三方脚本；只发一个计数请求（页面路径、标题、来源站域名）。
  *  - 浏览器开了「请勿追踪」（DNT）或 GPC 时完全不发；本地预览（localhost / file:）也不发。
  *  - 不发送查询串、页面内容、聊天内容或任何输入框里的文字；事件只有固定名字（例如 demo-session）。
  *  - 服务端（GoatCounter）不保存 IP：只用 IP+UA 加每日轮换的盐算一个当天去重用的哈希。
@@ -51,7 +51,12 @@
     event: function (name) { if (/^[a-z0-9-]{1,40}$/.test(name)) hit(name, name, true); }
   };
 
-  function pageview() { hit(root.location.pathname || '/', document.title, false); }
+  // 两站共用一个 GoatCounter 站点：主站路径原样（/demo.html），其他主机加主机名前缀（live.deepsuck.si/），免得两站的 / 合并
+  function pagePath() {
+    var path = root.location.pathname || '/', host = root.location.host || '';
+    return host && host !== 'deepsuck.si' && host !== 'www.deepsuck.si' ? host + path : path;
+  }
+  function pageview() { hit(pagePath(), document.title, false); }
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pageview);
     else pageview();
