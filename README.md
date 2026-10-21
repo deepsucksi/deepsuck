@@ -1,6 +1,7 @@
 <p align="center"><a href="https://deepsuck.si/"><img src="docs/assets/readme-banner.png" width="100%" alt="DeepSuck：让骗子把时间浪费在 AI 身上"></a></p>
 
-<p align="center"><b>开源 AI 反诈“拖住”机器人：让骗子把时间浪费在 AI 身上，同时提取脱敏的诈骗情报。</b></p>
+<p align="center"><b>开源 AI 反诈“拖住”机器人：你扮演骗子，它扮演受害人。拖住时间，套出收款账户，脱敏后成为公开情报。</b><br>
+<sub>Open-source anti-scam bot that keeps scammers busy and turns what they reveal into masked intel. <a href="#english">English</a></sub></p>
 
 <p align="center">
   <a href="https://github.com/deepsucksi/deepsuck/actions/workflows/pages.yml"><img alt="Pages" src="https://github.com/deepsucksi/deepsuck/actions/workflows/pages.yml/badge.svg"></a>
@@ -11,16 +12,21 @@
 </p>
 
 <p align="center">
-  <a href="https://deepsuck.si/"><b>官网</b></a> ·
-  <a href="https://deepsuck.si/demo.html"><b>沙盒演示</b></a> ·
-  <a href="https://live.deepsuck.si/"><b>语音演示（已上线）</b></a> ·
+  <a href="https://deepsuck.si/demo.html"><b>在线试玩（无需注册）</b></a> ·
+  <a href="docs/QUICKSTART.md"><b>5 分钟自托管</b></a> ·
   <a href="https://deepsuck.si/intel.html"><b>公开诈骗情报库</b></a> ·
-  <a href="docs/QUICKSTART.md">5 分钟自托管</a>
+  <a href="https://live.deepsuck.si/">语音演示</a> ·
+  <a href="https://deepsuck.si/">官网</a>
 </p>
 
-<p align="center"><a href="https://live.deepsuck.si/"><img src="screenshots/live-1280.webp" width="820" alt="语音演示页 live.deepsuck.si：通话、参考话术与实时看板"></a></p>
+<p align="center"><a href="https://deepsuck.si/demo.html"><img src="docs/assets/readme-sandbox.gif" width="820" alt="沙盒实录：访客扮演骗子发送样例台词，王阿姨人设拖延追问，右侧实时提取并打码情报，结束后生成情报看板"></a></p>
+
+<p align="center"><sub>沙盒实录（规则引擎，浏览器本地运行）：骗子台词为内置样例，账号均为虚构并已打码。机器人不主动联系任何真实的人。</sub></p>
 
 DeepSuck 是一个开源的中文 AI 反诈“拖住”机器人：用会聊天的“潜在受害人”人设（01 王阿姨 · 退休老人、02 小陈妈妈 · 宝妈、03 小林 · 刚毕业学生、04 郑老板 · 个体小老板）陪骗子周旋，慢慢回、反复确认、偶尔没听清，消耗骗子的时间；同时自动提取对方暴露的收款账户、钱包地址、电话、网址与话术模式，脱敏后形成结构化情报，用于预防与早期预警。
+
+<a id="english"></a>
+> **English summary.** DeepSuck plays a "potential victim" (a retired auntie, a young mom, a fresh graduate, a small shop owner) and stalls phone and chat scammers: it answers slowly, asks them to repeat, mishears on purpose, and meanwhile extracts the bank cards, phone numbers, wallets and URLs they reveal. Everything shown, exported or sent to a model is masked first. Try it in your browser at [deepsuck.si/demo.html](https://deepsuck.si/demo.html) (no sign-up, in-browser rule engine), self-host with `npm start` (Node ≥ 18, zero dependencies), or add an optional cloud LLM backend (any standard chat API). Public scam-intel library with STIX 2.1 / RSS / CSV feeds under CC BY 4.0. Defensive use only: the bot never contacts real people. Code: Apache-2.0.
 
 ## 快速开始
 
