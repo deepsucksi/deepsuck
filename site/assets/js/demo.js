@@ -171,6 +171,7 @@
     if (!text || !state.session || state.session.endedAt) return;
     var gen = state.gen;
     var s = state.session;
+    if (!s.statsCounted) { s.statsCounted = true; if (window.DeepsuckStats) window.DeepsuckStats.event('demo-session'); }
     var a = s.ingest(text);
     var meta = function () {
       return a.tactics.map(function (t) { return '<span class="tag">' + esc(tr(t.label)) + '</span>'; }).join('') +
