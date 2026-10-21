@@ -1,6 +1,7 @@
 /*!
  * DeepSuck — stats.js：隐私友好的访问统计（自托管 GoatCounter，见 deploy/docker-compose.yml 的 stats 服务）。
- *  - endpoint 为空：什么都不发（默认）。统计服务部署好后，填成 'https://<STATS_DOMAIN>/count'。
+ *  - endpoint：live 站 /stats/ 路径下的 GoatCounter 计数端点（deploy/caddy/Caddyfile 的 @stats）。置空则什么都不发。
+ *  - 统计服务没部署或出错时（404 / 502 / 断网）静默失败：只发一次，不重试、不抛错、不打日志。
  *  - 不设 cookie、不用 localStorage、不加载第三方脚本；只发一个 GET 计数请求（页面路径、标题、来源站）。
  *  - 浏览器开了「请勿追踪」（DNT）或 GPC 时完全不发；本地预览（localhost / file:）也不发。
  *  - 不发送查询串、页面内容、聊天内容或任何输入框里的文字；事件只有固定名字（例如 demo-session）。
@@ -9,7 +10,7 @@
  */
 (function (root) {
   'use strict';
-  var cfg = root.DEEPSUCK_STATS = root.DEEPSUCK_STATS || { endpoint: '' };
+  var cfg = root.DEEPSUCK_STATS = root.DEEPSUCK_STATS || { endpoint: 'https://live.deepsuck.si/stats/count' };
 
   function enabled() {
     if (!cfg.endpoint || typeof document === 'undefined') return false;
@@ -35,11 +36,14 @@
       '&r=' + encodeURIComponent(isEvent ? '' : referrer()) + (isEvent ? '&e=true' : '') + '&rnd=' + Math.random().toString(36).slice(2);
     var url = cfg.endpoint + '?' + q;
     try {
-      if (root.navigator && root.navigator.sendBeacon) { root.navigator.sendBeacon(url); return; }
+      if (root.navigator && root.navigator.sendBeacon && root.navigator.sendBeacon(url)) return;
     } catch (e) { /* 回退到图片请求 */ }
-    var img = new Image();
-    img.referrerPolicy = 'no-referrer';
-    img.src = url;
+    try {
+      var img = new Image();
+      img.onerror = img.onload = function () { img.onerror = img.onload = null; };
+      img.referrerPolicy = 'no-referrer';
+      img.src = url;
+    } catch (e) { /* 静默失败，不重试 */ }
   }
 
   root.DeepsuckStats = {
