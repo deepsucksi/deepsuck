@@ -175,7 +175,7 @@
 | 指标 | 现在 | 目标（11-09） | 数据从哪来 |
 |---|---|---|---|
 | GitHub star | 1 | ≥ 50（及格 30） | `gh api repos/deepsucksi/deepsuck -q .stargazers_count` |
-| 日真实访客（deepsuck.si，7 日均值） | 无数据 | ≥ 80 | 自托管统计（#231 / #232 部署后）的独立访客；开了 DNT/GPC 的不计，**VPS 从大陆连不通（#16），大陆访客会大量漏计**，所以同时看 GitHub traffic 的 `uniques` 做对照 |
+| 日真实访客（deepsuck.si，7 日均值） | 无数据 | ≥ 80 | 自托管统计（#231 / #232 部署后，面板 live.deepsuck.si/stats/）的独立访客；开了 DNT/GPC 的不计，**VPS 从大陆连不通（#16），大陆访客会大量漏计**，所以同时看 GitHub traffic 的 `uniques` 做对照 |
 | 沙盒演示会话数（两周累计） | 无数据 | ≥ 300 | 统计里的 `demo-session` 事件（每个会话第一条消息记一次，不含内容） |
 | 语音演示通话数（两周累计） | 见服务器 | ≥ 50 | VPS 上 trace 目录的 `stats.json`（只有计数：calls、consent 等），负责人在服务器上看 |
 | 外部 issue / PR | 0 | ≥ 5 | `gh issue list --search "-author:deepsucksi"` |
@@ -188,6 +188,6 @@
 
 1. 是否按此时间表发，以及每个渠道用谁的账号（我们不注册账号）。
 2. 素材 B（语音录屏）由谁录。
-3. 统计服务与访问日志（#232）何时部署；统计子域名用什么。
+3. 统计服务与访问日志（#232，统计挂在 live.deepsuck.si/stats/，不需要新子域）何时部署。
 4. README 首屏是否换成沙盒 GIF；仓库 description 是否改。
 5. GROWTH.md 第 5 节写着“统计暂不上”（2026-10-19 决定），本次 #231 / #232 已按新安排推进，确认后在 GROWTH.md 里同步更新。
