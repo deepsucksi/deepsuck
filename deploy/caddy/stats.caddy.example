@@ -1,0 +1,41 @@
+# 自托管统计（GoatCounter，docker compose --profile stats）的反向代理。启用：
+#   cp caddy/stats.caddy.example caddy/sites-enabled/stats.caddy
+#   deploy/.env 设 STATS_DOMAIN（例如统计子域），DNS 加 A 记录指向本机，再 reload Caddy。
+# GoatCounter 只听本机 127.0.0.1:{$STATS_PORT:8081}；它自己不存 IP，这里的访问日志也只留打码 IP。
+{$STATS_DOMAIN} {
+	encode zstd gzip
+	request_body {
+		max_size 16KB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	reverse_proxy 127.0.0.1:{$STATS_PORT:8081}
+	log {
+		output file /var/log/caddy/stats-access.log {
+			roll_size 10MiB
+			roll_keep 3
+			roll_keep_for 336h
+		}
+		format filter {
+			wrap json
+			fields {
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>headers>Cookie delete
+				request>headers>Authorization delete
+				request>headers>X-Forwarded-For delete
+				request>headers>X-Real-Ip delete
+			}
+		}
+	}
+}

@@ -98,9 +98,34 @@
 	handle {
 		reverse_proxy 127.0.0.1:7860
 	}
+	# 访问日志落盘（命名卷 caddy-logs → /var/log/caddy），10 MiB 一份、最多留 5 份、14 天；
+	# IP 脱敏：IPv4 抹掉最后一段、IPv6 只留前 48 位；不记 Cookie / Authorization / 转发头，查询串里的 token 抹掉
 	log {
-		output stdout
-		format console
+		output file /var/log/caddy/live-access.log {
+			roll_size 10MiB
+			roll_keep 5
+			roll_keep_for 336h
+		}
+		format filter {
+			wrap json
+			fields {
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>headers>Cookie delete
+				request>headers>Authorization delete
+				request>headers>X-Forwarded-For delete
+				request>headers>X-Real-Ip delete
+				request>uri query {
+					replace token REDACTED
+				}
+			}
+		}
 	}
 }
 
@@ -113,3 +138,7 @@ http://{$LIVE_DOMAIN}:8444 {
 	bind 127.0.0.1
 	import live
 }
+
+# 可选站点（默认不启用）：把 *.caddy.example 复制成 sites-enabled/*.caddy 后 reload 生效，
+# 例如自托管统计：cp caddy/stats.caddy.example caddy/sites-enabled/stats.caddy（见 docs/DEPLOY.md「访问统计」）
+import sites-enabled/*.caddy
