@@ -300,18 +300,20 @@ docker compose exec caddy tail -n 5 /var/log/caddy/live-access.log
 
 ### 访问统计（可选，GoatCounter 自托管）
 
-无 cookie、不存 IP、尊重 DNT/GPC。主站和语音演示页共用 `site/assets/js/stats.js`，其中 `endpoint` 为空时不发任何请求。
+无 cookie、不存 IP、尊重 DNT/GPC。挂在 live 站的 `/stats/` 路径下（GoatCounter 原生支持 `-base-path=/stats`），不需要新子域、不改 DNS。
+计数端点 `https://<LIVE_DOMAIN>/stats/count`，管理面板 `https://<LIVE_DOMAIN>/stats/`。主站和语音演示页共用 `site/assets/js/stats.js`。
+Caddyfile 里 `handle /stats*` 保留前缀原样反代到 `127.0.0.1:${STATS_PORT:-8081}`，Host 不改写，所以 GoatCounter 站点的 vhost 就是 LIVE_DOMAIN。
 
-1. DNS：加 `A  <统计子域>  <服务器公网IP>`，并在 `deploy/.env` 设 `STATS_DOMAIN=<统计子域完整域名>`。
-2. 启用反代：`cp caddy/stats.caddy.example caddy/sites-enabled/stats.caddy && docker compose up -d caddy`。
-3. 启动服务：`docker compose --profile stats up -d stats`。
-4. 建站点与管理员（密码交互输入，不要写进命令行历史或仓库）：
+1. 更新代码并重载 Caddy：`git pull && docker compose up -d caddy`（新增日志卷，需重建一次容器）。
+2. 启动统计：`docker compose --profile stats up -d stats`。
+3. 建站点与管理员（密码交互输入，不要写进命令行历史或仓库）：
    ```bash
-   docker compose exec stats goatcounter db create site -vhost=<STATS_DOMAIN 的值> -user.email=<管理员邮箱>
+   docker compose exec stats goatcounter db create site -vhost=<LIVE_DOMAIN 的值> -user.email=<管理员邮箱>
    ```
-   登录 `https://<STATS_DOMAIN>/`，在 Settings 里关掉不需要的采集项（例如屏幕尺寸），并按需开启「忽略 IP」。
-5. 把 `site/assets/js/stats.js` 里的 `endpoint` 改成 `https://<STATS_DOMAIN>/count`，走正常 PR 合并后 Pages 自动生效；
-   语音页从 `https://deepsuck.si/assets/js/stats.js` 加载同一份脚本，不需要另配。
-6. 自检：浏览器打开主站，统计后台几秒后应出现一次访问；开启 DNT 的浏览器不应计数。
+4. 登录 `https://<LIVE_DOMAIN>/stats/`，在 Settings 里关掉不需要的采集项（例如屏幕尺寸）。
+5. 自检：`curl -sI https://<LIVE_DOMAIN>/stats/count?p=/selftest` 应返回 2xx；打开主站后面板几秒内出现一次访问；开启 DNT 的浏览器不计数。
+
+取舍：面板和计数共用 live 域名，面板靠 GoatCounter 自己的登录保护；统计与语音服务同一台机器、同一个证书。
+未启动 stats 时 `/stats*` 返回 502，网页脚本静默失败、不重试。VPS 从大陆连不通时（#16）大陆访客会统计不全。
 
 数据只在本机命名卷 `stats-data`（SQLite），不发给任何第三方。备份：`docker compose cp stats:/home/goatcounter/goatcounter-data ./stats-backup`。

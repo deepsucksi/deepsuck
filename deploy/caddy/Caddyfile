@@ -94,6 +94,13 @@
 	handle /api/traces* {
 		respond 404
 	}
+	# 自托管统计 GoatCounter（docker compose --profile stats，-base-path=/stats，只听本机）：
+	# 用 handle 而不是 handle_path，保留 /stats 前缀交给 GoatCounter 自己路由（计数 /stats/count，面板 /stats/）；
+	# Host 原样转发，GoatCounter 站点 vhost 设成 LIVE_DOMAIN。没启动 stats 时这里返回 502，网页统计脚本静默失败
+	@stats path /stats /stats/*
+	handle @stats {
+		reverse_proxy 127.0.0.1:{$STATS_PORT:8081}
+	}
 	# 其余（含 VOICE_TELEPHONY=1 时的 WS /telephony/*）都交给语音服务
 	handle {
 		reverse_proxy 127.0.0.1:7860
@@ -138,7 +145,3 @@ http://{$LIVE_DOMAIN}:8444 {
 	bind 127.0.0.1
 	import live
 }
-
-# 可选站点（默认不启用）：把 *.caddy.example 复制成 sites-enabled/*.caddy 后 reload 生效，
-# 例如自托管统计：cp caddy/stats.caddy.example caddy/sites-enabled/stats.caddy（见 docs/DEPLOY.md「访问统计」）
-import sites-enabled/*.caddy

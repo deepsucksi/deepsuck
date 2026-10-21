@@ -1,0 +1,2 @@
+{"level":"info","ts":1792560735.2207935,"msg":"maxprocs: Leaving GOMAXPROCS=8: CPU quota undefined"}
+{"level":"info","ts":1792560735.2208204,"msg":"GOMEMLIMIT is updated","GOMEMLIMIT":15101676748,"previous":9223372036854775807}
