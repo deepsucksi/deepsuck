@@ -60,14 +60,27 @@
 | 10-27（二）21:00 | Hacker News · Show HN | 对应美东周二早上 |
 | 10-28（三）12:00 | 即刻 | |
 | 10-29（四）20:00 | 知乎（回答 + 文章） | |
-| 10-30（五） | 少数派（投稿，审核周期待核实） | |
+| 10-30（五） | 少数派（投稿作品，编辑部尽力 3 个工作日内答复，见 4.0） | |
 | 10-31（六）20:00 | 小红书 | 周末流量 |
-| 11-01（日）22:00 | Reddit r/opensource、r/selfhosted | 对应美东周日上午；规则待核实 |
+| 11-01（日）22:00 | Reddit r/opensource（独立帖，Promotional flair）、r/selfhosted（只能发在当周 New Project Megathread 的顶层评论） | 对应美东周日上午；规则见 4.0 |
+
+### 4.0 渠道规则核实（查证日期 2026-10-21）
+
+| 渠道 | 核实结果 | 来源 |
+|---|---|---|
+| V2EX「分享创造」 | 官方节点说明：欢迎独立开发者发布新作，营销内容须发「推广」节点，屡次忽略影响账号。站长 Livid 在 2018 年回复「分享创造节点没有注册时间限制」，「注册满 N 天」的提示来自外链、图床等反垃圾规则（后来用户称该数字是规则 ID）。**新号能否直接发、具体门槛：未能核实**（反垃圾规则不公开）。建议：用老账号；首帖少放外链，被拦就按提示联系站方。 | [节点说明](https://v2ex.com/help/node)、[FAQ](https://cn.v2ex.com/faq)、[t/469028 站长回复](https://www.v2ex.com/t/469028)、[t/1144293](https://www.v2ex.com/t/1144293) |
+| Reddit r/selfhosted | 规则 6：首次公开不满 3 个月的项目只能发在当周 New Project Megathread（每周五新开），独立帖会被删；规则 2：自宣传要适度，应用须可自托管、已发布、有文档；新帖须回复机器人说明 AI 参与情况才会放行。 | [规则 wiki 镜像](https://r.datuan.dev/r/selfhosted/wiki/rules)、[Megathread 2026-10-15 镜像](https://r.datuan.dev/r/selfhosted/comments/1x6ywou/new_project_megathread_week_of_15_oct_2026/)、[2026 Q2 规则公告](https://www.reddit.com/r/selfhosted/comments/1sey9ch/quarter_2_update_revisiting_rules_again/) |
+| Reddit r/opensource | 允许分享自己的项目但不能过度（参考 Reddit 自宣传不超过 10%）；必须用 `Promotional` flair；仓库须有 OSI 许可证；不许 drive-by 发帖；规则 3 写明 AI 生成内容视为低质、可封禁（第三方镜像 2026-10-11 抓取）。 | [第三方规则镜像](https://threadfox.vip/rules/opensource)、[flair 说明](https://www.reddit.com/r/opensource/comments/xrw5s9/new_postflairs/) |
+| Reddit 其他版（如 r/Scams） | 方案不投；scambaiting / 受害者求助类版块与「不主动钓骗子」的边界冲突，未查规则。 | — |
+| 少数派 | 「投稿作品」：编辑部工作日上午集中审阅，尽合理努力 3 个工作日内通知，不承诺固定时间，节假日或征文期可能延长；超 3 个工作日可联系编辑部；投稿原则上要首发（个人渠道发表不超过一周仍算）。「新手上路」账号文章需人工审核，一般一个工作日内确认。 | [提交与审阅流程](https://manual.sspai.com/guides/review-procedure/)、[用户组别](https://manual.sspai.com/guides/types-of-accounts/) |
+| 小红书 | 《交易导流违规管理细则》（2025-03-12 生效）适用于所有用户：禁止在笔记、评论、资料中发布其他平台的链接、口令、截图、水印、二维码，或引导至站外；处罚从警告、限流到封号。《社区公约 2.0》要求用 AI 辅助的内容主动标明。**非交易类开源项目链接是否同样处理：未能核实**，按最严理解不放任何链接。 | [新浪科技转述细则](https://finance.sina.com.cn/tech/discovery/2025-03-12/doc-inepkkxi8789428.shtml)、[IT之家](https://m.ithome.com/html/837049.htm)、[社区公约 2.0](https://pgy.xiaohongshu.com/help/detail?id=1eda0a065dd894063c2e029a49e8f6a1&userType=4) |
+
+Reddit 官方页面从本机抓取被拦，上表 Reddit 两项用的是镜像或第三方转录，发帖前请负责人在 Reddit 上再看一眼侧栏规则。
 
 ### 4.1 V2EX（「分享创造」节点）
 
 - 切入：一个人/小团队做的开源小工具，讲设计取舍（为什么默认用规则引擎而不是大模型、怎么做到默认脱敏）。
-- 注意：新账号可能要满 30 天才能在该节点发帖（待核实）；营销内容要发「推广」节点。
+- 注意：发帖门槛见 4.0；营销内容要发「推广」节点。
 - 首发文案草稿：
 
 > 标题：做了一个开源的反诈“拖住”机器人：你扮演骗子，AI 扮演王阿姨
@@ -84,7 +97,7 @@
 > 仓库：https://github.com/deepsucksi/deepsuck
 > 5 分钟自托管：`git clone` 后 `npm start`，Node ≥ 18，零依赖。
 >
-> 欢迎来当骗子试试，看你能不能从王阿姨那里骗到验证码。也欢迎提话术线索（请先脱敏）。
+> 欢迎来当骗子试试，看你能不能从王阿姨那里套出信息。也欢迎提话术线索（请先脱敏）。
 
 ### 4.2 掘金（技术长文）
 
@@ -98,7 +111,7 @@
 ### 4.3 少数派
 
 - 切入：面向普通读者的反诈科普 + 工具体验，不讲代码。可以投稿博客「七类常见诈骗话术的识别信号」的改写版。
-- 投稿流程与审核周期待核实（可能需要负责人账号）。
+- 投稿须知见 4.0：投稿作品原则上要首发于少数派（个人渠道发表不超过一周仍算首发），所以若走投稿，博客原文要在少数派之后或一周内发；需负责人账号。
 - 首发文案草稿（导语）：
 
 > 标题：我让 AI 扮成退休阿姨，陪“骗子”聊了一下午
@@ -121,13 +134,13 @@
 
 ### 4.6 小红书
 
-- 切入：反诈科普，图文笔记（素材 D），项目只在最后一张图出现。不放 GitHub 链接到正文以外的位置（平台对外链的规则待核实）。
+- 切入：反诈科普，图文笔记（素材 D），项目只在最后一张图出现。按 4.0 的导流规则，笔记、评论、图片里**都不放任何站外链接、网址、二维码或其他平台账号**，只写项目名；用了 AI 辅助作图或写文案要在笔记里标明。
 - 首发文案草稿：
 
 > 标题：骗子最爱说的 7 句话，转给爸妈
 >
 > “您的快递丢了，给您理赔”“刷单日结，先垫付”……我们整理了七类常见诈骗话术的识别信号（见图）。
-> 还做了一个开源小工具，你可以扮演骗子，看 AI 王阿姨怎么应对。只用于学习和演示。
+> 还做了一个开源小工具 DeepSuck，你可以扮演骗子，看 AI 王阿姨怎么应对。只用于学习和演示。
 > 真遇到了：挂电话，拨 110 或 96110。
 
 ### 4.7 Hacker News（Show HN）
@@ -145,14 +158,17 @@
 >
 > https://github.com/deepsucksi/deepsuck
 
-### 4.8 Reddit（r/opensource、r/selfhosted；规则待核实）
+### 4.8 Reddit（r/opensource、r/selfhosted；规则见 4.0）
 
 - 切入：r/opensource 讲项目本身；r/selfhosted 讲“零依赖、一条命令自托管、可选语音服务一台小 VPS 跑得动、自带隐私友好的统计和脱敏日志”。避免发到 scambaiting 类子版块去鼓励主动钓骗子。
-- 首发文案草稿（r/selfhosted）：
+- r/selfhosted：项目首次公开（首个 commit 2026-10-17）不满 3 个月，**不能发独立帖**，只能在当周 New Project Megathread 里发顶层评论，按其模板写 Project Name / Repo / Description / Deployment / AI Involvement。
+- r/opensource：发帖要加 `Promotional` flair，仓库要有 OSI 许可证（Apache-2.0 满足），发完要留下来回复；该版规则把 AI 生成内容视为低质，帖子由负责人亲自写或改写。
+- 首发文案草稿（r/selfhosted Megathread 顶层评论）：
 
-> Title: DeepSuck – self-hostable anti-scam "time-waster" bot with masked intel extraction (Apache-2.0)
->
-> The core is a zero-dependency Node app (`npm start`, no API key needed) that runs a rule-based persona engine in the browser. Optionally you can add a cloud LLM backend (any standard chat API) and a Docker Compose stack for a browser voice demo behind Caddy. Logs keep only masked IPs; analytics are self-hosted and cookie-free. Docs: docs/QUICKSTART.md and docs/DEPLOY.md. Live sandbox: https://deepsuck.si/demo.html
+> Project Name: DeepSuck – self-hostable anti-scam "time-waster" bot with masked intel extraction (Apache-2.0)
+> Repo/Website Link: https://github.com/deepsucksi/deepsuck · https://deepsuck.si/demo.html
+> Deployment / Description: The core is a zero-dependency Node app (`npm start`, no API key needed) that runs a rule-based persona engine in the browser. Optionally you can add a cloud LLM backend (any standard chat API) and a Docker Compose stack for a browser voice demo behind Caddy. Logs keep only masked IPs; analytics are self-hosted and cookie-free. Docs: docs/QUICKSTART.md and docs/DEPLOY.md.
+> AI Involvement: （由负责人如实填写：项目开发中 AI 辅助的范围，以及帖子文字是否由 AI 起草）
 
 ## 5. SEO 与 README 首屏
 
