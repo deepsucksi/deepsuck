@@ -36,3 +36,9 @@ eval/.llm-scammer-cache/
 
 # 博客本地预览（含草稿，npm run blog:preview 生成），不入库
 .blog-preview/
+# 本地调试 caddy 的运行输出与日志（不入库）
+deploy/o2
+deploy/*.out
+deploy/*.log
+deploy/caddy/*.log
+deploy/caddy/autosave.json

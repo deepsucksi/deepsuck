@@ -283,3 +283,37 @@ systemctl list-timers 'deepsuck-*'
 **录音与 trace 的按天清理只在容器里做**：`voice/trace.py` 按 `TRACE_DAYS`（文字，默认 30）和 `TRACE_AUDIO_DAYS`（录音，默认同 `TRACE_DAYS`）每天删过期的 `*.jsonl`/`*.ogg`，`voice/records.py` 按 `VOICE_TRANSCRIPT_DAYS` / `KEEP_AUDIO_DAYS` 清理留存（见 `docs/TRACE_SCHEMA.md`「存储与保留」）。宿主机 `diskwatch.sh` 不删通话数据，只监控卷大小写日志，避免两套清理规则漂移。（文字代理的逐次台账只有 token 计数和金额，不是通话数据，由每周 `chat-usage-prune` 压缩 / 删除。）
 
 **容量估算（2026-10-19 VPS 实测 6 通）**：录音双路 Opus，约 3.5 KB/s（≈210 KB/分钟，95 秒一通 342 KB，其中 jsonl 3–6 KB）。单通上限 5 分钟 ≈ 1.1 MB。trace 目录有硬上限 `TRACE_MAX_MB=1024`（或磁盘剩余低于 `TRACE_MIN_FREE_MB=1024`）：超过后**只停录音、文字照存，服务不停**（trace 里记一条 `audio_stopped` 事件）。30 天内 1 GB ≈ 4900 分钟录音（≈160 分钟/天），远小于 40 GB 系统盘；真正占盘的是镜像和构建缓存（`docker system df`），由每周清理处理。容器日志已在 `docker-compose.yml` 统一 `json-file` 轮转（10 MB × 3 个/服务）。
+
+## 访问统计与访问日志
+
+### 访问日志（默认开启）
+
+Caddy 访问日志不再只打到 stdout，而是写到命名卷 `caddy-logs`（容器内 `/var/log/caddy/live-access.log`），
+10 MiB 一份、最多 5 份、最长 14 天，总量约 50 MB 封顶。IP 用 `ip_mask` 脱敏（IPv4 抹掉最后一段、IPv6 只留前 48 位），
+不记 Cookie、Authorization、X-Forwarded-For、X-Real-Ip，查询串里的 `token` 换成 `REDACTED`。
+
+```bash
+docker compose up -d caddy                       # 新增了卷，需要重建一次容器
+docker compose exec caddy ls -lh /var/log/caddy
+docker compose exec caddy tail -n 5 /var/log/caddy/live-access.log
+```
+
+### 访问统计（可选，GoatCounter 自托管）
+
+无 cookie、不存 IP、尊重 DNT/GPC。挂在 live 站的 `/stats/` 路径下（GoatCounter 原生支持 `-base-path=/stats`），不需要新子域、不改 DNS。
+计数端点 `https://<LIVE_DOMAIN>/stats/count`，管理面板 `https://<LIVE_DOMAIN>/stats/`。主站和语音演示页共用 `site/assets/js/stats.js`。
+Caddyfile 里 `handle /stats*` 保留前缀原样反代到 `127.0.0.1:${STATS_PORT:-8081}`，Host 不改写，所以 GoatCounter 站点的 vhost 就是 LIVE_DOMAIN。
+
+1. 更新代码并重载 Caddy：`git pull && docker compose up -d caddy`（新增日志卷，需重建一次容器）。
+2. 启动统计：`docker compose --profile stats up -d stats`。
+3. 建站点与管理员（密码交互输入，不要写进命令行历史或仓库）：
+   ```bash
+   docker compose exec stats goatcounter db create site -vhost=<LIVE_DOMAIN 的值> -user.email=<管理员邮箱>
+   ```
+4. 登录 `https://<LIVE_DOMAIN>/stats/`，在 Settings 里关掉不需要的采集项（例如屏幕尺寸）。
+5. 自检：`curl -sI https://<LIVE_DOMAIN>/stats/count?p=/selftest` 应返回 2xx；打开主站后面板几秒内出现一次访问；开启 DNT 的浏览器不计数。
+
+取舍：面板和计数共用 live 域名，面板靠 GoatCounter 自己的登录保护；统计与语音服务同一台机器、同一个证书。
+未启动 stats 时 `/stats*` 返回 502，网页脚本静默失败、不重试。VPS 从大陆连不通时（#16）大陆访客会统计不全。
+
+数据只在本机命名卷 `stats-data`（SQLite），不发给任何第三方。备份：`docker compose cp stats:/home/goatcounter/goatcounter-data ./stats-backup`。
