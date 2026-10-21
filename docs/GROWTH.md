@@ -2,7 +2,7 @@
 
 > 2026-10-19 起草。本文只是计划和建议：**所有对外发帖、投稿、注册账号、修改仓库设置的动作都需负责人批准**，文中逐项标注。渠道规则查证于 2026-10-19，附原始链接；查不到原文的标「待核实」。
 >
-> **2026-10-19 负责人决定**：topics 与 Discussions 已定并执行（第 1.1、1.4 节）；网站统计暂不上（第 5 节）；投稿等 v0.4 全流程跑通后再议（第 3 节）。
+> **2026-10-19 负责人决定**：topics 与 Discussions 已定并执行（第 1.1、1.4 节）；网站统计已上自托管统计（第 5 节），大陆访客可能统计不全，见 #16；投稿等 v0.4 全流程跑通后再议（第 3 节）。
 
 ## 0. 现状（2026-10-19 用 `gh repo view` 查询，已按负责人决定更新）
 
@@ -143,7 +143,7 @@ release notes 模板：
 |---|---|---|---|
 | Star、fork、watcher | GitHub API | `gh api repos/deepsucksi/deepsuck --jq '{stars:.stargazers_count,forks:.forks_count,watchers:.subscribers_count}'` | 2026-10-19 为 1 star |
 | 仓库访问与克隆 | GitHub traffic API | `gh api repos/deepsucksi/deepsuck/traffic/views`、`/traffic/clones`、`/traffic/popular/referrers`；需要推送权限，**只保留最近 14 天**。[文档](https://docs.github.com/en/rest/metrics/traffic) | 想留长期数据，需要每天快照；建议加一个定时工作流把结果提交到单独分支，需负责人批准 |
-| 网站访问量 | 暂不统计 | **已定（2026-10-19）：统计工具暂不上。** deepsuck.si 在大陆可以访问，但 VPS 从大陆连不通，自托管统计会丢掉大陆访客的数据。网站相关的指标先看 GitHub traffic 和各搜索平台后台的数据 | 不引入任何第三方托管统计 |
+| 网站访问量 | 自托管统计（GoatCounter，#231 / #232） | **已上自托管统计**：无 cookie、不存 IP、尊重 DNT/GPC，面板在 `https://live.deepsuck.si/stats/`，沙盒会话记 `demo-session` 事件。大陆访客可能统计不全（VPS 从大陆连不通，见 #16），同时参考 GitHub traffic 和各搜索平台后台的数据 | 不引入任何第三方托管统计 |
 | 语音演示使用量 | 自有服务 | live.deepsuck.si 的 `stats.json` 计数与通话追踪（只计数，不含内容） | 已有 |
 | 收录数 | 各搜索平台后台 | Google Search Console「网页索引」、Bing「网站资源管理器」、百度「索引量」 | 依赖第 4 节的验证；`site:deepsuck.si` 搜索结果只作粗略参考 |
 | 社区参与 | GitHub | 新 issue / PR 数、外部贡献者数、`good first issue` 关闭数、Discussions 帖子数（`gh issue list`、`gh pr list --search`） | |
@@ -155,7 +155,7 @@ release notes 模板：
 
 - topics（第 1.1 节）：已执行；`package.json` keywords 已随 #34 合入。
 - Discussions（第 1.4 节）：已开启，四个分类（公告、问答、想法、Scam Script Leads（诈骗话术线索））已调整完成，欢迎帖 https://github.com/deepsucksi/deepsuck/discussions/69 已置顶。
-- 网站统计（第 5 节）：暂不上。
+- 网站统计（第 5 节）：已上自托管统计，大陆访客可能统计不全，见 #16。
 - 投稿（第 3 节）：v0.4 全流程跑通后再议。
 
 仍待拍板：
