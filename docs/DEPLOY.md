@@ -155,7 +155,7 @@ docker compose exec caddy ls /etc/caddy        # 应看到 Caddyfile
 | `RATE_LIMIT_PER_MIN` / `RATE_LIMIT_PER_DAY` | 20 / 300 | 每 IP |
 | `GLOBAL_RATE_PER_MIN` | 60 | 全站 |
 | `CHAT_MAX_TURNS` | 40 | 每局骗子发言轮数上限 |
-| `LLM_MAX_TOKENS` | 120 | 每次回复输出上限（回复本来就要求 ≤ 80 字） |
+| `LLM_MAX_TOKENS` | 120 | 每次回复输出上限（回复本来就要求 ≤ 30 字，#194） |
 | `ALLOWED_ORIGINS` | deepsuck.si、www.deepsuck.si | CORS 白名单；`/api/chat` 无 Origin 或不在白名单 → 403 |
 
 **语音演示（voice/guard.py）**
