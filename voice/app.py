@@ -48,6 +48,7 @@ for _p in PERSONAS:
     if _p.get("photo"):
         BRAND_FILES[Path(_p["photo"]).name] = ("site/" + _p["photo"], "image/webp")
 
+from . import logsetup  # noqa: E402,F401  全局 diagnose=False（#253）
 from . import guard as G  # noqa: E402
 from . import records as REC  # noqa: E402
 from . import trace as TR  # noqa: E402

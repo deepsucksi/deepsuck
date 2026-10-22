@@ -168,11 +168,11 @@ def _mask_self_names(t: str) -> str:
 
 
 def redact(text) -> str:
-    from deepsuck.extractors import extract_sensitive
-    from deepsuck.redact import redact_text
+    """trace 落盘文字：#252 先走与其他出口同一个 redact_line（拆字报姓整段换成「那个名字」），再补自报姓名规则。"""
+    from .callredact import redact_line
 
     t = "" if text is None else str(text)
-    return _mask_self_names(redact_text(t, extract_sensitive(t)))
+    return _mask_self_names(redact_line(t))
 
 
 # ---- 没同意的通话：只留用量，不留文字（#96） ----

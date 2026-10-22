@@ -44,7 +44,7 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
-from .callredact import CallRedactor, redact_digit_fragments
+from .callredact import CallRedactor, redact_digit_fragments, redact_line
 from .persona import (FILLERS, GOAL_TOPIC, drop_unsaid, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
                       speakable, system_prompt, unmask)
 from .persona import NAME_PHRASE, drop_given_after_split, split_lead_refs  # noqa: E402  #215 拆字解释：已批说法「那个名字」；分段星号
@@ -357,6 +357,18 @@ class IntelProcessor(FrameProcessor):
                 self.context.set_messages(msgs)
         return a
 
+    def line_redact(self, a: dict) -> dict:
+        """#252：Session.ingest 的 redacted 先过 redact_line（与存盘 / trace / 回填同一个入口），会话里对应的那条一起改。"""
+        old = a.get("redacted", "")
+        new = redact_line(old)
+        if new != old:
+            a["redacted"] = new
+            for m in reversed(getattr(self.session, "messages", []) or []):
+                if m.get("role") == "scammer" and m.get("text") == old:
+                    m["text"] = new
+                    break
+        return a
+
     def frag_redact(self, a: dict) -> dict:
         """#186：ASR 把号码切成几段时，本段和前几段对方的话连起来看，号码片段的数字打成 *（session 里对方的话一起回写）。
         情报提取已经在 session.ingest 里用原文做完，这里只改送出去的文字。"""
@@ -458,7 +470,7 @@ class IntelProcessor(FrameProcessor):
         if isinstance(frame, (InterimTranscriptionFrame, TranscriptionFrame)) and self.on_heard:
             self.on_heard()
         if isinstance(frame, InterimTranscriptionFrame) and direction == FrameDirection.DOWNSTREAM:
-            await self.notify({"type": "interim", "text": guard_output(frame.text)})
+            await self.notify({"type": "interim", "text": guard_output(redact_line(frame.text))})  # #252
             await self.push_frame(frame, direction)
             return
         if not (isinstance(frame, TranscriptionFrame) and direction == FrameDirection.DOWNSTREAM):
@@ -469,7 +481,7 @@ class IntelProcessor(FrameProcessor):
         text = (frame.text or "").strip()
         if not text:
             return
-        a = self.frag_redact(self.call_redact(self.session.ingest(text), raw=text))
+        a = self.line_redact(self.frag_redact(self.call_redact(self.session.ingest(text), raw=text)))  # #252：最后一道过 redact_line
         if self.backchannel is not None:
             self.said_first = self.backchannel.note(a["redacted"]) or ""
         if self.mode == "rule":
@@ -478,7 +490,7 @@ class IntelProcessor(FrameProcessor):
         else:
             self.intent = gate_intent(self.session.fresh_intent(self.session.choose_intent(a)), self.session)
             self.session.last_intent = self.intent
-        await self.notify({"type": "scammer", "text": a["redacted"], "turn": a["turn"],
+        await self.notify({"type": "scammer", "text": redact_line(a["redacted"]), "turn": a["turn"],
                            "tactics": [{"id": t["id"], "label": t["label"]} for t in a["tactics"]],
                            "newIntel": a["newIntel"], "intent": self.intent})
         if a["newIntel"] and self.blocklist is not None:

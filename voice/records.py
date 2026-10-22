@@ -96,19 +96,7 @@ def _private_write(path: Path, data: bytes) -> None:
         f.write(data)
 
 
-def redact_line(text: str) -> str:
-    """文字记录单句打码（#250）：拆字报姓、逐字解释先按 say_names 整段换成「那个名字」（与 mask_names / maskNames、
-    guard_output 同一套区间，「转给木子李1000元」不再只打名、留下拆字说法和姓），再走 redact_text 打其余敏感实体。"""
-    from deepsuck.extractors import extract_sensitive
-    from deepsuck.redact import redact_text, say_names
-
-    t = str(text or "")
-    for _ in range(8):  # 「弓长张、木子李、耳东陈」：前一个拆字的“名”会吃掉后一个拆字说法，换完再找，直到不变
-        nt = say_names(t, extract_sensitive(t))
-        if nt == t:
-            break
-        t = nt
-    return redact_text(t, extract_sensitive(t))
+from .callredact import redact_line  # noqa: E402,F401  #252：唯一实现在 callredact，所有转写出口共用
 
 
 def save_transcript(session, call_id: str, channel: str, env=None, now: Optional[float] = None) -> Optional[Path]:
