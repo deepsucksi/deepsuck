@@ -1,0 +1,7 @@
+{
+  "comment": "#194：规则 8 起疑只写方向、不给具体例句、用自己的话说（网页 llm.js 规则 8 与语音 FOLLOW_UP_RULE）。tests/suspicion_direction.test.js 与 voice/tests/test_suspicion_direction.py 共用。forbidden 是 #256 里被照搬或照抄过的起疑句，任何人设的提示词里都不能出现。",
+  "personas": ["wang", "chen", "lin", "zheng"],
+  "hints": ["opening", "generic"],
+  "required": ["起疑的说法每次换着来", "不要套固定的句子", "起疑的方向可以是", "用自己的话说"],
+  "forbidden": ["要卡号干啥", "这事我得想想", "我心里有点打鼓", "我怕是碰上骗子了", "我儿子说不能给别人", "你们真是银行的吧"]
+}
