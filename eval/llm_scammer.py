@@ -313,7 +313,7 @@ EST_VICTIM_PROMPT_TOKENS = 1400  # 估算用：语音人设提示词 + 窗口内
 EST_VICTIM_OUT_TOKENS = 20
 # 骗子提出转账 / 付款（之后才统计收款账户有没有被问出来）
 TRANSFER_RX = re.compile(r"转账|汇款|打款|转款|付款|充值|缴纳|保证金|解冻金|手续费|转到|转入|打到|打过去|转过去|转给|汇到|汇给|扫码付|安全账户")
-ACCOUNT_KINDS = ("bank_card", "alipay")  # 收款账户：银行卡号或支付宝（户名单独算 name）
+ACCOUNT_KINDS = ("bank", "wallet")  # 收款账户：银行卡号或钱包地址（kinds 口径同 deepsuck.sim；户名单独算 name）
 _VICTIM_MODS: Dict[str, tuple] = {}
 
 
@@ -379,7 +379,7 @@ def transfer_turn(scammer_lines: List[str]) -> Optional[int]:
 
 
 def account_after_transfer(scammer_lines: List[str], values: dict, kinds: List[str]) -> Optional[bool]:
-    """提出转账之后（含同一轮），骗子有没有说出收款账户（本场情报里的银行卡 / 支付宝）。本场不涉及账户或没提转账返回 None。"""
+    """提出转账之后（含同一轮），骗子有没有说出收款账户（本场情报里的银行卡号 / 钱包地址）。本场不涉及账户或没提转账返回 None。"""
     want = [k for k in kinds if k in ACCOUNT_KINDS]
     k0 = transfer_turn(scammer_lines)
     if not want or k0 is None:
@@ -859,7 +859,7 @@ def aggregate(rows: List[dict]) -> dict:
         "flaggedSessions": (sum(r.get("flaggedTurns", 0) > 0 for r in rows) / n
                             if any(r.get("suspicion") for r in rows) else None),
         "probesPerSession": (sum(r.get("probes", 0) for r in rows) / n if any(r.get("suspicion") for r in rows) else None),
-        # #262：骗子提出转账的场次里，之后说出收款账户（银行卡 / 支付宝）的占比；分母只算本场情报含账户、且提过转账的
+        # #262：骗子提出转账的场次里，之后说出收款账户（银行卡号 / 钱包地址）的占比；分母只算本场情报含账户、且提过转账的
         "transferSessions": sum(r.get("accountAfterTransfer") is not None for r in rows),
         "accountAfterTransferRate": (sum(bool(r.get("accountAfterTransfer")) for r in rows)
                                      / max(1, sum(r.get("accountAfterTransfer") is not None for r in rows))),

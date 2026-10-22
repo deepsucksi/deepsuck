@@ -317,16 +317,16 @@ def test_json_transcripts_are_redacted(tmp_path, monkeypatch):
 
 def test_transfer_then_account_metric():
     values = M.SIM.plant(M.SIM.Rand(1000))
-    card = values["bank_card"] if isinstance(values.get("bank_card"), str) else None
-    lines = ["您好我是客服", "您需要先转账到安全账户", f"卡号是 {card}" if card else "卡号稍后发"]
+    card = values["bank"]
+    lines = ["您好我是客服", "您需要先转账到安全账户", f"卡号是 {values['bank_spaced']}"]
     assert M.transfer_turn(lines) == 1
     assert M.transfer_turn(["您好", "配合调查"]) is None
-    assert M.account_after_transfer(["您好", "配合调查"], values, ["bank_card"]) is None
-    assert M.account_after_transfer(lines, values, ["name"]) is None  # 本场不涉及账户
-    if card:
-        assert M.account_after_transfer(lines, values, ["bank_card"]) is True
-        # 账户在提出转账之前说的不算
-        assert M.account_after_transfer([f"卡号 {card}", "转账吧", "快点"], values, ["bank_card"]) is False
+    assert M.account_after_transfer(["您好", "配合调查"], values, ["bank"]) is None
+    assert M.account_after_transfer(lines, values, ["phone", "url"]) is None  # 本场不涉及账户
+    assert M.account_after_transfer(lines, values, ["bank", "phone"]) is True
+    assert M.account_after_transfer(["转账吧", "名字是" + values["name"]], values, ["bank"]) is False  # 户名不算账户
+    # 账户在提出转账之前说的不算
+    assert M.account_after_transfer([f"卡号 {card}", "转账吧", "快点"], values, ["bank"]) is False
 
 
 def test_default_responder_unchanged_and_rows_carry_transfer_fields(tmp_path):

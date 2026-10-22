@@ -64,8 +64,8 @@ def test_llm_victim_uses_persona_prompt_and_counts_account(tmp_path):
     assert all("转账…" in m["text"] for m in r["transcript"][2::2] if m["role"] == "bot")
     assert r["transferTurn"] == 1
     kinds = M.SIM.load_scripts("legacy")["scenarios"]["police"]["intel"]
-    if "bank_card" in kinds:
-        assert r["accountAfterTransfer"] is True and res["overall"]["accountAfterTransferRate"] == 1.0
+    assert "bank" in kinds
+    assert r["accountAfterTransfer"] is True and res["overall"]["accountAfterTransferRate"] == 1.0
     # 同一进程换 root 会报错，避免两份 voice 混用
     with pytest.raises(RuntimeError):
         M.load_victim(tmp_path)
@@ -73,6 +73,6 @@ def test_llm_victim_uses_persona_prompt_and_counts_account(tmp_path):
 
 def test_llm_victim_estimate_counts_victim_calls():
     corpus = json.loads(M.SIM.default_corpus_path().read_text(encoding="utf-8"))
-    a = M.estimate_session(corpus, "police", "wang", 1000, ["bank_card"], 5)
-    b = M.estimate_session(corpus, "police", "wang", 1000, ["bank_card"], 5, responder="llm")
+    a = M.estimate_session(corpus, "police", "wang", 1000, ["bank"], 5)
+    b = M.estimate_session(corpus, "police", "wang", 1000, ["bank"], 5, responder="llm")
     assert b["prompt_tokens"] == a["prompt_tokens"] + 6 * M.EST_VICTIM_PROMPT_TOKENS
