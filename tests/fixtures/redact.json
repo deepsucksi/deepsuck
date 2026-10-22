@@ -2436,21 +2436,21 @@
    "text": "弓长张三五百块",
    "expect": "mask",
    "leak": "张弓",
-   "expected": "那个名字百块",
+   "expected": "那个名字三五百块",
    "same": false
   },
   {
    "text": "转给木子李一千元",
    "expect": "mask",
    "leak": "李木",
-   "expected": "转给那个名字那么点",
+   "expected": "转给那个名字一千元",
    "same": false
   },
   {
    "text": "弓长张五百块",
    "expect": "mask",
    "leak": "张弓",
-   "expected": "那个名字那么点",
+   "expected": "那个名字五百块",
    "same": false
   },
   {
@@ -2487,6 +2487,41 @@
    "leak": "张工",
    "expected": "转给那个名字500",
    "same": false
+  },
+  {
+   "text": "然后转给木子李1000元。",
+   "expect": "mask",
+   "leak": "李木",
+   "expected": "然后转给那个名字1000元。",
+   "same": false
+  },
+  {
+   "text": "转给木子李1000元",
+   "expect": "mask",
+   "leak": "李木",
+   "expected": "转给那个名字1000元",
+   "same": false
+  },
+  {
+   "text": "木子李，1000块",
+   "expect": "mask",
+   "leak": "李木",
+   "expected": "那个名字，1000块",
+   "same": false
+  },
+  {
+   "text": "弓长张三500",
+   "expect": "mask",
+   "leak": "张弓三",
+   "expected": "那个名字500",
+   "same": false
+  },
+  {
+   "text": "成长一千元",
+   "expect": "keep",
+   "leak": "",
+   "expected": "成长一千元",
+   "same": true
   }
  ],
  "radicalExplain": [

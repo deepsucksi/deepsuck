@@ -96,18 +96,31 @@ def _private_write(path: Path, data: bytes) -> None:
         f.write(data)
 
 
+def redact_line(text: str) -> str:
+    """文字记录单句打码（#250）：拆字报姓、逐字解释先按 say_names 整段换成「那个名字」（与 mask_names / maskNames、
+    guard_output 同一套区间，「转给木子李1000元」不再只打名、留下拆字说法和姓），再走 redact_text 打其余敏感实体。"""
+    from deepsuck.extractors import extract_sensitive
+    from deepsuck.redact import redact_text, say_names
+
+    t = str(text or "")
+    for _ in range(8):  # 「弓长张、木子李、耳东陈」：前一个拆字的“名”会吃掉后一个拆字说法，换完再找，直到不变
+        nt = say_names(t, extract_sensitive(t))
+        if nt == t:
+            break
+        t = nt
+    return redact_text(t, extract_sensitive(t))
+
+
 def save_transcript(session, call_id: str, channel: str, env=None, now: Optional[float] = None) -> Optional[Path]:
     """写脱敏文字记录（Session.report()）。关闭或会话为空时返回 None。"""
     if not transcripts_enabled(env) or not getattr(session, "messages", None):
         return None
-    from deepsuck.extractors import extract_sensitive
-    from deepsuck.redact import redact_dialog_segments, redact_text
+    from deepsuck.redact import redact_dialog_segments
 
     report = session.report()
     msgs = report.get("transcript", [])
     for m in msgs:
-        t = m.get("text") or ""
-        m["text"] = redact_text(t, extract_sensitive(t))
+        m["text"] = redact_line(m.get("text") or "")
     # #92 / #120：验证码被 ASR 切成几段、或一方问验证码另一方报数字时连起来再判断；卡号片段、人设侧连续数字兜底
     for m, t in zip(msgs, redact_dialog_segments([m["text"] for m in msgs], [m.get("role") for m in msgs])):
         m["text"] = t

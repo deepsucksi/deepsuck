@@ -688,10 +688,15 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
         if any(u["start"] <= pos < u["end"] for u in units):
             continue
         given = next((n[1:] for n in names if n[0] == sur and s.startswith(n[1:], pos)), "")
+        # #250：拆字报姓后紧跟数字或中文金额（「木子李一千元」「弓长张五百块」）时后面不是名，按 sayEnd 判断；与 redact.js 一致
+        Q = _say_rules()
+        if not given and Q and Q["end"].match(s[pos:]):
+            continue
         if not given:
             while len(given) < int(sp.get("givenMax", 2)) and pos + len(given) < len(s) \
                     and not R["stop"].match(s[pos + len(given)]) \
-                    and not any(u["start"] == pos + len(given) for u in units):
+                    and not any(u["start"] == pos + len(given) for u in units) \
+                    and not (given and Q and Q["end"].match(s[pos + len(given):])):  # #250「弓长张伟三万」：名后接金额就停
                 given += s[pos + len(given)]
             if given and R["notNames"] and R["notNames"].search(given):
                 given = ""

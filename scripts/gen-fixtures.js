@@ -262,7 +262,13 @@ const EXIT_PARITY_CASES = [
   ['收款人口天吴，卡号6222021234567890123', '吴口', false],
   ['转给立早章13812345678', '章立早', false],
   ['户名耳东陈两万', '陈耳', false],
-  ['转给工长张500', '张工', false]
+  ['转给工长张500', '张工', false],
+  // #250（冒烟 YA6PUTCA）：拆字报姓 + 阿拉伯数字 / 中文金额，通话转写出口也要一致（voice/tests/test_exit_parity.py 比 records.redact_line）
+  ['然后转给木子李1000元。', '李木', false],
+  ['转给木子李1000元', '李木', false],
+  ['木子李，1000块', '李木', false],
+  ['弓长张三500', '张弓三', false],
+  ['成长一千元', null]
 ];
 
 const SPLIT_EXPLAIN_TAIL_CASES = [

@@ -135,7 +135,8 @@ def redact_transcript(doc: dict) -> Tuple[dict, int]:
     refs = [i for i, m in enumerate(msgs) if isinstance(m, dict) and isinstance(m.get("text"), str)]
     if not refs:
         return doc, 0
-    fixed = redact_dialog_segments([msgs[i]["text"] for i in refs], [msgs[i].get("role") for i in refs])
+    from voice.records import redact_line  # #250：旧记录里漏掉的拆字报姓按同一规则补打
+    fixed = redact_dialog_segments([redact_line(msgs[i]["text"]) for i in refs], [msgs[i].get("role") for i in refs])
     out = dict(doc)
     out["transcript"] = [dict(m) if isinstance(m, dict) else m for m in msgs]
     n = 0

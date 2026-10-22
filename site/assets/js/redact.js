@@ -665,9 +665,13 @@
         var n = names[k];
         if (n.charAt(0) === sur && s.substr(pos, n.length - 1) === n.slice(1)) { given = n.slice(1); break; }
       }
+      // #250：拆字报姓后紧跟数字或中文金额（「木子李一千元」「弓长张五百块」）时后面不是名，按 sayEnd 判断；与 redact.py 一致
+      var Q = sayRules();
+      if (!given && Q && Q.end.test(s.slice(pos))) return;
       if (!given) {
         while (given.length < max && pos + given.length < s.length && !R.stop.test(s.charAt(pos + given.length)) &&
-          !units.some(function (u) { return u.start === pos + given.length; })) {
+          !units.some(function (u) { return u.start === pos + given.length; }) &&
+          !(given && Q && Q.end.test(s.slice(pos + given.length)))) { // #250「弓长张伟三万」：名后接金额就停
           given += s.charAt(pos + given.length);
         }
         if (given && R.notNames && R.notNames.test(given)) given = '';
