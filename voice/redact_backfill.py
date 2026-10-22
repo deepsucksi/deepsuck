@@ -31,6 +31,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import stat
 import sys
 import tarfile
 import tempfile
@@ -97,17 +99,73 @@ def rule_categories(old: str, new: str) -> List[str]:
     return sorted(cats) or ["other"]
 
 
-def field_change(path: str, old: str, new: str) -> dict:
-    return {"path": path, "rules": rule_categories(old, new), "n": _n_changes(old, new)}
+ERROR_RULE = "error"   # #259：redact_line / 分段打码出错、整个字段 fail-closed 打码时的规则类别
+
+
+def field_change(path: str, old: str, new: str, error: bool = False) -> dict:
+    if error:
+        rules = [ERROR_RULE]
+    else:
+        try:
+            rules = rule_categories(old, new)
+        except Exception:  # noqa: BLE001  #259：探测本身出错也不中止，只记 error
+            rules = [ERROR_RULE]
+    return {"path": path, "rules": rules, "n": _n_changes(old, new)}
+
+
+def _fail_closed(texts: List[str], roles: list, speech: Optional[List[int]] = None) -> Tuple[List[str], set]:
+    """#259：逐条过 redact_line（出错的整条打码），再按说话方过 redact_dialog_segments；
+    分段打码整体出错时所有说话字段整条打码。返回（结果、出错的下标集合）。"""
+    from voice.callredact import REDACT_FAIL_PLACEHOLDER, redact_line_checked
+    errs: set = set()
+    lined = []
+    for n, t in enumerate(texts):
+        v, bad = redact_line_checked(t)
+        lined.append(v)
+        if bad:
+            errs.add(n)
+    if speech is None:
+        speech = [n for n, ro in enumerate(roles) if ro is not None]
+    fixed = list(lined)
+    try:
+        seg = redact_dialog_segments([lined[n] for n in speech], [roles[n] for n in speech])
+        for n, t in zip(speech, seg):
+            fixed[n] = t
+    except Exception as e:  # noqa: BLE001
+        print(json.dumps({"event": "redact_backfill.warning", "error": type(e).__name__}), file=sys.stderr, flush=True)
+        for n in speech:
+            fixed[n] = REDACT_FAIL_PLACEHOLDER
+            errs.add(n)
+    for n in errs:
+        fixed[n] = REDACT_FAIL_PLACEHOLDER
+    return fixed, errs
 
 
 def _call_id(p: Path, kind: str) -> str:
     return p.stem if kind == "trace" else p.stem.rsplit("-", 1)[-1]
 
 
+# #216：手工运行（不经 deploy/redact-backfill.sh）时 stderr 也只出白名单内的值，与那里的过滤同一套规则
+_SAFE_TOKEN = re.compile(r"^[A-Za-z0-9_.:\[\]-]{1,64}$")
+_SAFE_CALL = re.compile(r"^[A-Za-z0-9]{1,40}$")
+INVALID = "invalid"
+
+
+def _safe_fields(detail: list) -> list:
+    out = []
+    for d in detail:
+        p = str(d.get("path", ""))
+        rules = [str(r) if _SAFE_TOKEN.match(str(r)) else INVALID for r in d.get("rules") or []] or [INVALID]
+        out.append({"path": p if _SAFE_TOKEN.match(p) else INVALID, "rules": rules,
+                    "n": d["n"] if isinstance(d.get("n"), int) else 0})
+    return out
+
+
 def log_change(p: Path, kind: str, detail: list, dry_run: bool, stream=None) -> None:
-    rec = {"event": CHANGE_EVENT, "call_id": _call_id(p, kind), "kind": kind, "dry_run": bool(dry_run),
-           "fields": detail, "changes": sum(d["n"] for d in detail)}
+    cid = _call_id(p, kind)
+    fields = _safe_fields(detail)
+    rec = {"event": CHANGE_EVENT, "call_id": cid if _SAFE_CALL.match(cid) else INVALID, "kind": kind,
+           "dry_run": bool(dry_run), "fields": fields, "changes": sum(d["n"] for d in fields)}
     print(json.dumps(rec, ensure_ascii=False, sort_keys=True), file=stream or sys.stderr, flush=True)
 
 
@@ -146,17 +204,12 @@ def redact_rows(rows: List[Optional[dict]], detail: Optional[list] = None) -> Tu
                     roles.append(None)
     changed_rows, fields = set(), 0
     if refs:
-        from voice.records import redact_line  # #252：trace 与存盘 / 实时推送同一个入口，拆字报姓先整段换掉
-        lined = [redact_line(out[i][k]) for i, k in refs]
-        speech = [n for n, ro in enumerate(roles) if ro is not None]
-        seg = redact_dialog_segments([lined[n] for n in speech], [roles[n] for n in speech])
-        fixed = list(lined)
-        for n, t in zip(speech, seg):
-            fixed[n] = t
-        for (i, k), new in zip(refs, fixed):
+        # #252：trace 与存盘 / 实时推送同一个入口（redact_line），拆字报姓先整段换掉；#259：出错的字段整条打码、记 error
+        fixed, errs = _fail_closed([out[i][k] for i, k in refs], roles)
+        for n, ((i, k), new) in enumerate(zip(refs, fixed)):
             if new != out[i][k]:
                 if detail is not None:   # #254：只记字段路径、规则类别、改动处数，不记文字
-                    detail.append(field_change(f"{out[i].get('type')}[{i}].{k}", out[i][k], new))
+                    detail.append(field_change(f"{out[i].get('type')}[{i}].{k}", out[i][k], new, n in errs))
                 out[i][k] = new
                 changed_rows.add(i)
                 fields += 1
@@ -202,8 +255,24 @@ def _rewrite(path: Path, raw_lines: List[str], rows, new_rows, st: os.stat_resul
         raise
 
 
+def tighten_old_backups(d: Path) -> int:
+    """#216：旧版本留下的 backup-*.tar 可能不是 0600，收紧（只认普通文件，不跟符号链接）。返回改了几个。"""
+    n = 0
+    for p in d.glob("backup-*.tar"):
+        try:
+            st = p.lstat()
+            if p.is_symlink() or not stat.S_ISREG(st.st_mode) or stat.S_IMODE(st.st_mode) == 0o600:
+                continue
+            os.chmod(p, 0o600)
+            n += 1
+        except OSError:
+            pass
+    return n
+
+
 def _backup(tar_path: Path, files: List[Path], base: Path, extra: Optional[List[Tuple[Path, str]]] = None) -> None:
     tar_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    tighten_old_backups(tar_path.parent)
     fd = os.open(str(tar_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "wb") as f, tarfile.open(fileobj=f, mode="w") as tf:
         for p in files:
@@ -221,15 +290,16 @@ def redact_transcript(doc: dict, detail: Optional[list] = None) -> Tuple[dict, i
     refs = [i for i, m in enumerate(msgs) if isinstance(m, dict) and isinstance(m.get("text"), str)]
     if not refs:
         return doc, 0
-    from voice.records import redact_line  # #250：旧记录里漏掉的拆字报姓按同一规则补打
-    fixed = redact_dialog_segments([redact_line(msgs[i]["text"]) for i in refs], [msgs[i].get("role") for i in refs])
+    # #250：旧记录里漏掉的拆字报姓按同一规则（redact_line）补打；#259：出错的条目整条打码、记 error
+    fixed, errs = _fail_closed([msgs[i]["text"] for i in refs], [msgs[i].get("role") for i in refs],
+                               list(range(len(refs))))
     out = dict(doc)
     out["transcript"] = [dict(m) if isinstance(m, dict) else m for m in msgs]
     n = 0
-    for i, t in zip(refs, fixed):
+    for j, (i, t) in enumerate(zip(refs, fixed)):
         if t != msgs[i]["text"]:
             if detail is not None:
-                detail.append(field_change(f"transcript[{i}].text", msgs[i]["text"], t))
+                detail.append(field_change(f"transcript[{i}].text", msgs[i]["text"], t, j in errs))
             out["transcript"][i]["text"] = t
             n += 1
     return out, n
@@ -271,7 +341,7 @@ def _want(p: Path, calls) -> bool:
 
 def plan_transcripts(tdir: Optional[Path], min_age: float, now: float, calls=None) -> Tuple[dict, list]:
     stats = {"dir_exists": bool(tdir and tdir.is_dir()), "files_scanned": 0, "skipped_recent": 0, "skipped_bad": 0,
-             "skipped_changed": 0, "files_changed": 0, "fields_changed": 0}
+             "skipped_changed": 0, "files_changed": 0, "fields_changed": 0, "fields_error": 0}
     plan: list = []
     if not stats["dir_exists"]:
         return stats, plan
@@ -301,7 +371,8 @@ def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Opt
     tstats, tplan = plan_transcripts(transcripts, min_age, now, calls) if transcripts is not None else (None, [])
     stats = {"dir_exists": trace_dir.is_dir(), "dry_run": dry_run, "files_scanned": 0, "consented": 0, "sip": 0,
              "skipped_not_consented": 0, "skipped_unknown_consent": 0, "skipped_recent": 0, "skipped_changed": 0,
-             "files_changed": 0, "rows_changed": 0, "fields_changed": 0, "backup_files": 0}
+             "files_changed": 0, "rows_changed": 0, "fields_changed": 0, "backup_files": 0,
+             "fields_error": 0}
     if tstats is not None:
         stats["transcripts"] = tstats
     plan = []
@@ -332,6 +403,10 @@ def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Opt
         log_change(x[0], "transcript", x[4], dry_run)
     for x in plan:
         log_change(x[0], "trace", x[7], dry_run)
+    # #259：出错、整字段 fail-closed 打码的字段单独计数（dry-run 也计；正式改写放弃的文件下次再跑时再计）
+    stats["fields_error"] = sum(1 for x in plan for d in x[7] if ERROR_RULE in d["rules"])
+    if tstats is not None:
+        tstats["fields_error"] = sum(1 for x in tplan for d in x[4] if ERROR_RULE in d["rules"])
     if dry_run:
         stats["files_changed"] = len(plan)
         stats["rows_changed"] = sum(x[5] for x in plan)

@@ -47,8 +47,9 @@ errf=$(mktemp); chmod 600 "$errf"
 trap 'rm -f "$errf"; prune_backups' EXIT
 prune_backups
 if [ "$DRY_RUN" != 1 ] && [ "$BACKUP" = 1 ]; then
-  # 备份目录 0700（已存在也收紧），备份文件由 voice.redact_backfill 以 0600 新建（O_EXCL）
-  if ! docker exec "$CONTAINER" sh -c 'mkdir -p -m 0700 "$1" && chmod 0700 "$1"' _ "$BACKUP_DIR" >/dev/null 2>&1; then
+  # 备份目录 0700（已存在也收紧），备份文件由 voice.redact_backfill 以 0600 新建（O_EXCL）；
+  # #216：旧版本留下的 backup-*.tar 权限可能更宽，一并收紧到 0600
+  if ! docker exec "$CONTAINER" sh -c 'mkdir -p -m 0700 "$1" && chmod 0700 "$1" && find "$1" -maxdepth 1 -type f -name "backup-*.tar" -exec chmod 0600 {} +' _ "$BACKUP_DIR" >/dev/null 2>&1; then
     log err "$TAG" "cannot prepare backup dir $BACKUP_DIR (0700) in $CONTAINER"
     exit 1
   fi

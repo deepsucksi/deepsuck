@@ -469,9 +469,35 @@
       re: new RegExp('(' + alts.map(function (x) { return esc(x.slice(0, -1)) + (sp.link || '') + esc(x.slice(-1)); }).join('|') + ')', 'g'),
       sep: new RegExp('^(?:' + (sp.sep || '') + ')'),
       stop: new RegExp(sp.givenStop),
-      notNames: nr.notNames ? new RegExp(nr.notNames) : null
+      notNames: nr.notNames ? new RegExp(nr.notNames) : null,
+      // #249：拆字 / 同音写法 + 名 + 数字时，普通词白名单（「尔东陈列馆2楼」「弓长张贴500份」），与 redact.py 一致
+      numWords: (sp.numWhitelist || []).slice().sort(function (a, b) { return b.length - a.length; }),
+      numTail: new RegExp('^(?:' + (sp.numWhitelistTail || '(?!)') + ')')
     };
     return SPLIT;
+  }
+
+  // #249：s[surAt, end) 正好是白名单普通词，或普通词再带一个 numWhitelistTail 的字时放行；与 redact.py _num_whitelisted 一致
+  function numWhitelisted(R, s, surAt, end) {
+    for (var i = 0; i < R.numWords.length; i++) {
+      var w = R.numWords[i];
+      if (s.substr(surAt, w.length) !== w) continue;
+      var e = surAt + w.length;
+      if (end <= e || (end === e + 1 && R.numTail.test(s.slice(e, end)))) return true;
+    }
+    return false;
+  }
+
+  // #249：pos 起 1–2 个汉字的名、后面紧跟数字或中文金额时给出这个名（先 2 后 1，「三」归名字）；与 redact.py _num_given 一致
+  function numGiven(R, Q, s, pos, units) {
+    if (!Q) return '';
+    for (var L = 2; L >= 1; L--) {
+      var g = s.substr(pos, L);
+      if (g.length < L || g.split('').some(function (c) { return R.stop.test(c); })) continue;
+      if (units.some(function (u) { return (pos < u.start && u.start < pos + L) || u.start === pos; })) continue;
+      if (Q.end.test(s.slice(pos + L))) return g;
+    }
+    return '';
   }
 
   // 拆字报姓的位置 [{start, end, sur}]，按 start 排；asrSplit 同音写法只在 units 里有一段解释紧跟在后面时才算（units 为 null 时全给出），与 redact.py split_hits 一致
@@ -667,7 +693,14 @@
       }
       // #250：拆字报姓后紧跟数字或中文金额（「木子李一千元」「弓长张五百块」）时后面不是名，按 sayEnd 判断；与 redact.py 一致
       var Q = sayRules();
-      if (!given && Q && Q.end.test(s.slice(pos))) return;
+      if (!given && Q && Q.end.test(s.slice(pos))) {
+        // #249：「弓长张三五百块」——退一个字后剩下的仍是金额时，「三」按名打码（偏安全，记 #216）
+        var g1 = numGiven(R, Q, s, pos, units);
+        if (g1.length !== 1 || numWhitelisted(R, s, after - 1, pos + 1) || claimed.some(function (c) { return pos < c[1] && pos + 1 > c[0]; })) return;
+        claimed.push([pos, pos + 1]);
+        out.push({ start: pos, end: pos + 1, masked: stars(1) });
+        return;
+      }
       if (!given) {
         while (given.length < max && pos + given.length < s.length && !R.stop.test(s.charAt(pos + given.length)) &&
           !units.some(function (u) { return u.start === pos + given.length; }) &&
@@ -677,10 +710,37 @@
         if (given && R.notNames && R.notNames.test(given)) given = '';
       }
       var end = pos + given.length;
+      if (given && numWhitelisted(R, s, after - 1, end)) return; // #249：「立早章程第3条」「木子李子5斤」：拆字说法 + 名正好是普通词，放行
       if (!given || claimed.some(function (c) { return c[0] < end && pos < c[1]; })) return;
       claimed.push([pos, end]);
       out.push({ start: pos, end: end, masked: stars(given.length) });
     });
+    // #249 负责人规则：同音 / ASR 写法（「工厂张」「尔东陈」）后面直接跟 1–2 个字的名再跟数字或中文金额时，名按姓名打码；
+    // 普通词按 numWhitelist 放行。与 redact.py 一致
+    var Q2 = sayRules();
+    var hits = splitHits(s, units);
+    var vm;
+    if (Q2) Q2.variant.lastIndex = 0;
+    while (Q2 && (vm = Q2.variant.exec(s))) {
+      var a0 = vm.index, b0 = vm.index + vm[0].length;
+      if (hits.some(function (h) { return h.start < b0 && a0 < h.end; })) continue;
+      var sm1 = R.sep.exec(s.slice(b0));
+      var p1 = b0 + (sm1 ? sm1[0].length : 0);
+      if (units.some(function (u) { return u.start <= p1 && p1 < u.end; })) continue;
+      var g2 = numGiven(R, Q2, s, p1, units);
+      var e2 = p1 + g2.length;
+      if (!g2 || numWhitelisted(R, s, b0 - 1, e2) || (R.notNames && R.notNames.test(g2))) continue;
+      var inC = function (j) { return claimed.some(function (c) { return c[0] <= j && j < c[1]; }); };
+      var i2 = p1;
+      while (i2 < e2) { // 提示词后提取器已取到一部分时只补没盖住的字
+        if (inC(i2)) { i2++; continue; }
+        var j2 = i2;
+        while (j2 < e2 && !inC(j2)) j2++;
+        claimed.push([i2, j2]);
+        out.push({ start: i2, end: j2, masked: stars(j2 - i2) });
+        i2 = j2;
+      }
+    }
     // #163：一串解释前面（隔 sep）紧挨着 2–3 个汉字、以姓开头、名里含被解释的字（「张伟晨，伟大的伟」）时，按姓名打码
     var ER = explainRules();
     units.forEach(function (u) {
@@ -748,7 +808,8 @@
     spans.forEach(function (sp) { if (sp.kind === 'nameBefore') regs.push([sp.start - 1, sp.end]); });
     function endOk(pos) {
       if (pos >= s.length || !E.han.test(s.charAt(pos)) || E.particle.test(s.charAt(pos)) || E.tailWords.test(s.slice(pos)) || Q.end.test(s.slice(pos))) return true;
-      return units.some(function (u) { return u.head >= pos && E.sep.test(s.slice(pos, u.head)); });
+      // #259：只有链首 unit 带 head（undefined >= pos 恒为 false，这里显式判断，与 redact.py 一致）
+      return units.some(function (u) { return u.head !== undefined && u.head >= pos && E.sep.test(s.slice(pos, u.head)); });
     }
     var hits = [];
     var m;
@@ -759,7 +820,11 @@
       var a = h[0], b = h[1];
       var sm = R.sep.exec(s.slice(b)); // 复审建议：sep 匹配不上时不抛错
       var pos = b + (sm ? sm[0].length : 0);
-      spans.forEach(function (sp) { if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked)) b = sp.end; });
+      // #259 复审：紧跟的是逐字解释（explain unit）而不是名时不往后延，与 redact.py 一致
+      spans.forEach(function (sp) {
+        if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked) &&
+            !units.some(function (u) { return u.start === sp.start; })) b = sp.end;
+      });
       if (!endOk(b)) return;
       if (a > 0 && s.charAt(a - 1) === '姓') a--;
       regs.push([a, b]);

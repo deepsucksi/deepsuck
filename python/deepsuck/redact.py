@@ -496,6 +496,9 @@ def _split_rules():
         "sep": compile_js("^(?:" + sp.get("sep", "") + ")"),
         "stop": compile_js(sp["givenStop"]),
         "notNames": compile_js(nr["notNames"]) if nr.get("notNames") else None,
+        # #249：拆字 / 同音写法 + 名 + 数字时，普通词白名单（「尔东陈列馆2楼」「弓长张贴500份」），与 redact.js 一致
+        "numWords": tuple(sorted(sp.get("numWhitelist") or [], key=len, reverse=True)),
+        "numTail": compile_js("^(?:" + (sp.get("numWhitelistTail") or "(?!)") + ")"),
     }
 
 
@@ -517,6 +520,34 @@ def split_hits(s: str, units=None) -> List[tuple]:
         key = next(k for k in sorted(R["asrSur"], key=len, reverse=True) if g.startswith(k))
         out.append((m.start(), m.end(), R["asrSur"][key]))
     return sorted(out)
+
+
+def _num_whitelisted(R, s: str, sur_at: int, end: int) -> bool:
+    """#249：姓那个字起到名的结尾（s[sur_at:end]）正好是白名单里的普通词，或普通词再带一个 numWhitelistTail 的字
+    （「吴江路」「章程第」）时放行；「李子轩」这类比白名单词多出名字的不放行。与 redact.js numWhitelisted 一致。"""
+    for w in R["numWords"]:
+        if not s.startswith(w, sur_at):
+            continue
+        e = sur_at + len(w)
+        if end <= e or (end == e + 1 and R["numTail"].match(s[e:end])):
+            return True
+    return False
+
+
+def _num_given(R, Q, s: str, pos: int, units) -> str:
+    """#249：pos 起 1–2 个汉字的名、后面紧跟数字或中文金额（sayEnd）时给出这个名，否则给空。先试 2 个字再试 1 个字：
+    「工厂张三五百块」里「三五」后面是「百块」不算金额，退到「三」（后面「五百块」是金额）——「三」归名字，宁可多遮（#216）。"""
+    if not Q:
+        return ""
+    for L in (2, 1):
+        g = s[pos:pos + L]
+        if len(g) < L or any(R["stop"].match(c) for c in g):
+            continue
+        if any(pos < u["start"] < pos + L or u["start"] == pos for u in units):
+            continue
+        if Q["end"].match(s[pos + L:]):
+            return g
+    return ""
 
 
 # ---- 逐字解释名字（#158）：规则见 core/extractors.json 的 nameRules.explain，与 redact.js 共用 ----
@@ -691,6 +722,12 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
         # #250：拆字报姓后紧跟数字或中文金额（「木子李一千元」「弓长张五百块」）时后面不是名，按 sayEnd 判断；与 redact.js 一致
         Q = _say_rules()
         if not given and Q and Q["end"].match(s[pos:]):
+            # #249：「弓长张三五百块」——后面整体是金额，但退一个字（「三」）后剩下的仍是金额时，「三」按名打码（偏安全，记 #216）
+            g1 = _num_given(R, Q, s, pos, units)
+            if len(g1) != 1 or _num_whitelisted(R, s, m_end - 1, pos + 1) or any(pos < b and pos + 1 > a for a, b in claimed):
+                continue
+            claimed.append((pos, pos + 1))
+            out.append({"start": pos, "end": pos + 1, "masked": _stars(1)})
             continue
         if not given:
             while len(given) < int(sp.get("givenMax", 2)) and pos + len(given) < len(s) \
@@ -701,10 +738,39 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
             if given and R["notNames"] and R["notNames"].search(given):
                 given = ""
         end = pos + len(given)
+        if given and _num_whitelisted(R, s, m_end - 1, end):
+            continue  # #249：「立早章程第3条」「木子李子5斤」：拆字说法 + 名正好是普通词，放行（不看后面，语音出口先换数字再打码也一致）
         if not given or any(a < end and pos < b for a, b in claimed):
             continue
         claimed.append((pos, end))
         out.append({"start": pos, "end": end, "masked": _stars(len(given))})
+    # #249 负责人规则：同音 / ASR 听错的拆字写法（「工厂张」「尔东陈」，homophones 逐字变体，含 asrSplit）后面直接跟 1–2 个字的名
+    # （连姓 2–3 个汉字）再跟数字或中文金额时，名按姓名打码；普通词按 numWhitelist 放行。与 redact.js 一致
+    Q = _say_rules()
+    hits = split_hits(s, units)
+    for m in (Q["variant"].finditer(s) if Q else ()):
+        a0, b0 = m.start(), m.end()
+        if any(x < b0 and a0 < y for x, y, _ in hits):
+            continue
+        sm0 = R["sep"].match(s[b0:])
+        pos = b0 + (sm0.end() if sm0 else 0)
+        if any(u["start"] <= pos < u["end"] for u in units):
+            continue
+        given = _num_given(R, Q, s, pos, units)
+        end = pos + len(given)
+        if not given or _num_whitelisted(R, s, b0 - 1, end) or (R["notNames"] and R["notNames"].search(given)):
+            continue
+        i = pos
+        while i < end:  # 提示词后提取器已取到一部分（「收款人尔东陈伟明500」取了「尔东陈伟」）时只补没盖住的字
+            if any(x <= i < y for x, y in claimed):
+                i += 1
+                continue
+            j = i
+            while j < end and not any(x <= j < y for x, y in claimed):
+                j += 1
+            claimed.append((i, j))
+            out.append({"start": i, "end": j, "masked": _stars(j - i)})
+            i = j
     # #163：一串解释前面（隔 sep）紧挨着 2–3 个汉字、以姓开头、名里含被解释的字（「张伟晨，伟大的伟」）时，按姓名打码；与 redact.js 一致
     ER = _explain_rules()
     for u in units:
@@ -776,14 +842,17 @@ def name_say_regions(text: Optional[str], entities: Optional[Iterable[dict]] = N
     def end_ok(pos):
         if pos >= len(s) or not han(s[pos]) or E["particle"].match(s[pos]) or E["tailWords"].match(s, pos) or Q["end"].match(s[pos:]):
             return True
-        return any(u["head"] >= pos and E["sep"].match(s[pos:u["head"]]) for u in units)
+        # #259：explain_units 只给一条链的第一个 unit 写 head，与 :711 一样先判断
+        return any("head" in u and u["head"] >= pos and E["sep"].match(s[pos:u["head"]]) for u in units)
 
     hits = [[m.start(), m.end()] for m in Q["variant"].finditer(s)] + [[a, b] for a, b, _ in split_hits(s, units)]
     for a, b in hits:
         sm = R["sep"].match(s[b:])  # 复审建议：sep 匹配不上时不抛错
         pos = b + (sm.end() if sm else 0)
         for sp in spans:
-            if not sp.get("kind") and sp["start"] == pos and re.fullmatch(r"\*+", sp["masked"]):
+            # #259 复审：紧跟的是逐字解释（explain unit）而不是名时不往后延，否则 end_ok 落在解释链中间判不过、拆字姓漏打
+            if not sp.get("kind") and sp["start"] == pos and re.fullmatch(r"\*+", sp["masked"]) \
+                    and not any(u["start"] == sp["start"] for u in units):
                 b = sp["end"]
         if not end_ok(b):
             continue
