@@ -748,7 +748,8 @@
     spans.forEach(function (sp) { if (sp.kind === 'nameBefore') regs.push([sp.start - 1, sp.end]); });
     function endOk(pos) {
       if (pos >= s.length || !E.han.test(s.charAt(pos)) || E.particle.test(s.charAt(pos)) || E.tailWords.test(s.slice(pos)) || Q.end.test(s.slice(pos))) return true;
-      return units.some(function (u) { return u.head >= pos && E.sep.test(s.slice(pos, u.head)); });
+      // #259：只有链首 unit 带 head（undefined >= pos 恒为 false，这里显式判断，与 redact.py 一致）
+      return units.some(function (u) { return u.head !== undefined && u.head >= pos && E.sep.test(s.slice(pos, u.head)); });
     }
     var hits = [];
     var m;

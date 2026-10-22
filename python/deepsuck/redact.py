@@ -776,7 +776,8 @@ def name_say_regions(text: Optional[str], entities: Optional[Iterable[dict]] = N
     def end_ok(pos):
         if pos >= len(s) or not han(s[pos]) or E["particle"].match(s[pos]) or E["tailWords"].match(s, pos) or Q["end"].match(s[pos:]):
             return True
-        return any(u["head"] >= pos and E["sep"].match(s[pos:u["head"]]) for u in units)
+        # #259：explain_units 只给一条链的第一个 unit 写 head，与 :711 一样先判断
+        return any("head" in u and u["head"] >= pos and E["sep"].match(s[pos:u["head"]]) for u in units)
 
     hits = [[m.start(), m.end()] for m in Q["variant"].finditer(s)] + [[a, b] for a, b, _ in split_hits(s, units)]
     for a, b in hits:

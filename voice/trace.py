@@ -172,7 +172,12 @@ def redact(text) -> str:
     from .callredact import redact_line
 
     t = "" if text is None else str(text)
-    return _mask_self_names(redact_line(t))
+    try:
+        return _mask_self_names(redact_line(t))
+    except Exception as e:  # noqa: BLE001  #259：feedback note、client_report reason/detail 收的是用户原文，出错整句打码，路由不 500
+        from .callredact import REDACT_FAIL_PLACEHOLDER
+        logger.warning("trace.redact failed closed: {}", type(e).__name__)
+        return REDACT_FAIL_PLACEHOLDER
 
 
 # ---- 没同意的通话：只留用量，不留文字（#96） ----

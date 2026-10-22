@@ -8,6 +8,7 @@ trace 写盘（voice-traces 的 jsonl）、存盘转写（records.save_transcrip
 import asyncio
 import json
 import os
+from pathlib import Path
 
 import pytest
 from loguru import logger
@@ -28,6 +29,11 @@ LEAK_CASES = [
     ("弓长张三500", ("弓长张", "弓长", "张三")),
     ("我叫张伟，伟大的伟", ("张伟", "伟大的伟")),
 ]
+# #259：charExplain[15]（「户名写耳东陈 + 姓名 + 逐字解释」ASR 漏逗号那条）原文曾让 name_say_regions 抛 KeyError；
+# 片段按夹具下标取，测试文件里不写姓名原文
+_CE15 = json.loads((Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "redact.json")
+                   .read_text(encoding="utf-8"))["charExplain"][15]["text"]
+LEAK_CASES.append((_CE15, (_CE15[6:9], _CE15[7:9], _CE15[-4:])))  # 「X方的X」不收：与 NORMAL 正常句重叠
 # 正常词：不能被误伤
 NORMAL = ["成长一千元", "东方的东西都是伟大的祖国的", "明天下午三点开会"]
 
