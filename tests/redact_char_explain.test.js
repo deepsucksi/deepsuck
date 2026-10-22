@@ -180,3 +180,10 @@ test('#259：charExplain 整组原文过 nameSayRegions 不抛，区间合法（
   const t = FX[15].text;
   assert.ok(R.nameSayRegions(t, X.extractSensitive(t)).length > 0);
 });
+
+test('#259 复审：拆字报姓后有逗号 / 无逗号接逐字解释，拆字与解释一并读成「那个名字」', () => {
+  const S = '耳东陈', EX = '耳朵的耳东边的东';
+  [[S + EX, '那个名字'], [S + '，' + EX, '那个名字'],
+    ['户名' + S + EX + '，1000元', '户名那个名字，1000元'], ['户名' + S + '，' + EX + '，1000元', '户名那个名字，1000元']]
+    .forEach(([t, want]) => assert.strictEqual(R.sayNames(t, X.extractSensitive(t)), want, t));
+});

@@ -34,6 +34,9 @@ LEAK_CASES = [
 _CE15 = json.loads((Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "redact.json")
                    .read_text(encoding="utf-8"))["charExplain"][15]["text"]
 LEAK_CASES.append((_CE15, (_CE15[6:9], _CE15[7:9], _CE15[-4:])))  # 「X方的X」不收：与 NORMAL 正常句重叠
+# #259 复审：拆字报姓后无逗号 / 有逗号直接接逐字解释，拆字姓不能留下
+LEAK_CASES += [("耳东陈耳朵的耳东边的东", ("耳东陈", "耳朵的耳", "东边的东")),
+               ("耳东陈，耳朵的耳东边的东", ("耳东陈", "耳朵的耳", "东边的东"))]
 # 正常词：不能被误伤
 NORMAL = ["成长一千元", "东方的东西都是伟大的祖国的", "明天下午三点开会"]
 

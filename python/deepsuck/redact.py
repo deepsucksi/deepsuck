@@ -784,7 +784,9 @@ def name_say_regions(text: Optional[str], entities: Optional[Iterable[dict]] = N
         sm = R["sep"].match(s[b:])  # 复审建议：sep 匹配不上时不抛错
         pos = b + (sm.end() if sm else 0)
         for sp in spans:
-            if not sp.get("kind") and sp["start"] == pos and re.fullmatch(r"\*+", sp["masked"]):
+            # #259 复审：紧跟的是逐字解释（explain unit）而不是名时不往后延，否则 end_ok 落在解释链中间判不过、拆字姓漏打
+            if not sp.get("kind") and sp["start"] == pos and re.fullmatch(r"\*+", sp["masked"]) \
+                    and not any(u["start"] == sp["start"] for u in units):
                 b = sp["end"]
         if not end_ok(b):
             continue

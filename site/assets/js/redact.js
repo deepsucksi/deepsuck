@@ -760,7 +760,11 @@
       var a = h[0], b = h[1];
       var sm = R.sep.exec(s.slice(b)); // 复审建议：sep 匹配不上时不抛错
       var pos = b + (sm ? sm[0].length : 0);
-      spans.forEach(function (sp) { if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked)) b = sp.end; });
+      // #259 复审：紧跟的是逐字解释（explain unit）而不是名时不往后延，与 redact.py 一致
+      spans.forEach(function (sp) {
+        if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked) &&
+            !units.some(function (u) { return u.start === sp.start; })) b = sp.end;
+      });
       if (!endOk(b)) return;
       if (a > 0 && s.charAt(a - 1) === '姓') a--;
       regs.push([a, b]);
