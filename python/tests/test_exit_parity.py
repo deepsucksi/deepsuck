@@ -19,6 +19,9 @@ def refs_exit(t):
 @pytest.mark.parametrize("case", CASES, ids=[c["text"] for c in CASES])
 def test_refs_exit_parity(case):
     out = refs_exit(case["text"])
-    assert out == case["expected"], (case["text"], out)
+    if case["same"]:
+        assert out == case["expected"], (case["text"], out)
+    else:
+        assert "那个名字" in out, (case["text"], out)
     if case["expect"] == "mask":
         assert not re.search("[" + case["leak"] + "*＊]", out), (case["text"], out)

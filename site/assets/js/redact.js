@@ -657,7 +657,8 @@
     splitHits(s, units).forEach(function (h) {
       var sur = h.sur;
       var after = h.end;
-      var pos = after + R.sep.exec(s.slice(after))[0].length;
+      var sm0 = R.sep.exec(s.slice(after)); // 复审建议：判空
+      var pos = after + (sm0 ? sm0[0].length : 0);
       if (units.some(function (u) { return u.start <= pos && pos < u.end; })) return;
       var given = '';
       for (var k = 0; k < names.length; k++) {
@@ -724,7 +725,8 @@
         .map(function (x) { return x.split('').map(cls).join(''); }).join('|') + ')', 'g'),
       sepc: /[\s，,、：:；;。]/,
       absorbLead: /[叫是姓名人：:\s，,。、]/,
-      run: /^[\s，,、：:；;。]{0,2}(?:就是|是)?$/
+      run: /^[\s，,、：:；;。]{0,2}(?:就是|是)?$/,
+      end: new RegExp('^(?:' + (R.sp.sayEnd || '(?!)') + ')')
     };
     return SAY;
   }
@@ -741,7 +743,7 @@
     units.forEach(function (u) { regs.push([u.start, u.end]); });
     spans.forEach(function (sp) { if (sp.kind === 'nameBefore') regs.push([sp.start - 1, sp.end]); });
     function endOk(pos) {
-      if (pos >= s.length || !E.han.test(s.charAt(pos)) || E.particle.test(s.charAt(pos)) || E.tailWords.test(s.slice(pos))) return true;
+      if (pos >= s.length || !E.han.test(s.charAt(pos)) || E.particle.test(s.charAt(pos)) || E.tailWords.test(s.slice(pos)) || Q.end.test(s.slice(pos))) return true;
       return units.some(function (u) { return u.head >= pos && E.sep.test(s.slice(pos, u.head)); });
     }
     var hits = [];
@@ -751,7 +753,8 @@
     splitHits(s, units).forEach(function (h) { hits.push([h.start, h.end]); });
     hits.forEach(function (h) {
       var a = h[0], b = h[1];
-      var pos = b + R.sep.exec(s.slice(b))[0].length;
+      var sm = R.sep.exec(s.slice(b)); // 复审建议：sep 匹配不上时不抛错
+      var pos = b + (sm ? sm[0].length : 0);
       spans.forEach(function (sp) { if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked)) b = sp.end; });
       if (!endOk(b)) return;
       if (a > 0 && s.charAt(a - 1) === '姓') a--;

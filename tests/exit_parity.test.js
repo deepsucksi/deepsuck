@@ -10,7 +10,8 @@ test('#163 exitParity：web 出口与夹具一致，打码的不露姓名、没�
   assert.ok(FX.filter((c) => c.expect === 'mask').length >= 15 && FX.filter((c) => c.expect === 'keep').length >= 6);
   for (const c of FX) {
     const out = LLM.sanitizeReply(c.text);
-    assert.strictEqual(out, c.expected, c.text);
+    assert.strictEqual(out, c.expected, c.text); // web 是金标准，same=false 的也逐字一致
+    if (!c.same) assert.ok(out.includes('那个名字'), c.text + ' -> ' + out);
     if (c.expect === 'keep') assert.strictEqual(out, c.text);
     else assert.ok(!new RegExp('[' + c.leak + '*＊]').test(out), c.text + ' -> ' + out);
   }

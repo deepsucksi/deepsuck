@@ -683,7 +683,8 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
         claimed.append((a + 1, b))
         out.append({"start": a + 1, "end": b, "masked": _stars(len(key) - 1)})
     for _a, m_end, sur in split_hits(s, units):
-        pos = m_end + R["sep"].match(s[m_end:]).end()
+        sm0 = R["sep"].match(s[m_end:])  # 复审建议：判空
+        pos = m_end + (sm0.end() if sm0 else 0)
         if any(u["start"] <= pos < u["end"] for u in units):
             continue
         given = next((n[1:] for n in names if n[0] == sur and s.startswith(n[1:], pos)), "")
@@ -749,6 +750,7 @@ def _say_rules():
         "sepc": re.compile(r"[\s，,、：:；;。]"),
         "absorbLead": re.compile(r"[叫是姓名人：:\s，,。、]"),
         "run": re.compile(r"^[\s，,、：:；;。]{0,2}(?:就是|是)?$"),
+        "end": compile_js("^(?:" + (R["sp"].get("sayEnd") or "(?!)") + ")"),
         "surnames": (load("extractors").get("nameRules") or {}).get("surnames") or "",
     }
 
@@ -767,13 +769,14 @@ def name_say_regions(text: Optional[str], entities: Optional[Iterable[dict]] = N
     han = lambda c: bool(c) and bool(E["han"].match(c))
 
     def end_ok(pos):
-        if pos >= len(s) or not han(s[pos]) or E["particle"].match(s[pos]) or E["tailWords"].match(s, pos):
+        if pos >= len(s) or not han(s[pos]) or E["particle"].match(s[pos]) or E["tailWords"].match(s, pos) or Q["end"].match(s[pos:]):
             return True
         return any(u["head"] >= pos and E["sep"].match(s[pos:u["head"]]) for u in units)
 
     hits = [[m.start(), m.end()] for m in Q["variant"].finditer(s)] + [[a, b] for a, b, _ in split_hits(s, units)]
     for a, b in hits:
-        pos = b + R["sep"].match(s[b:]).end()
+        sm = R["sep"].match(s[b:])  # 复审建议：sep 匹配不上时不抛错
+        pos = b + (sm.end() if sm else 0)
         for sp in spans:
             if not sp.get("kind") and sp["start"] == pos and re.fullmatch(r"\*+", sp["masked"]):
                 b = sp["end"]

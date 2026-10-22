@@ -13,6 +13,9 @@ CASES = json.loads((Path(__file__).resolve().parents[2] / "tests/fixtures/redact
 @pytest.mark.parametrize("case", CASES, ids=[c["text"] for c in CASES])
 def test_voice_exit_parity(case):
     for out in (speakable(case["text"]), guard_output(case["text"])):
-        assert out == case["expected"], (case["text"], out)
+        if case["same"]:
+            assert out == case["expected"], (case["text"], out)
+        else:  # #163 三审：金额 / 号码的含糊说法各出口本来不同，只比姓名部分
+            assert "那个名字" in out, (case["text"], out)
         if case["expect"] == "mask":
             assert not re.search("[" + case["leak"] + "*＊]", out), (case["text"], out)

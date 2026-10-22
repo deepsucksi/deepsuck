@@ -252,7 +252,17 @@ const EXIT_PARITY_CASES = [
   ['草字头的植物', null],
   ['三点水很重要', null],
   ['宫长张罗了一桌菜', null],
-  ['尔东陈列馆门口见', null]
+  ['尔东陈列馆门口见', null],
+  // #163 三审：拆字报姓后面紧跟数字 / 金额 / 卡号 / 手机号。三个出口对金额、号码的含糊说法本来就不同（#121 / #222），
+  // 这组只要求都不露姓、都读出「那个名字」（第三项 false：不比整句）
+  ['弓长张三五百块', '张弓', false],
+  ['转给木子李一千元', '李木', false],
+  ['弓长张五百块', '张弓', false],
+  ['转给弓长张500', '张弓', false],
+  ['收款人口天吴，卡号6222021234567890123', '吴口', false],
+  ['转给立早章13812345678', '章立早', false],
+  ['户名耳东陈两万', '陈耳', false],
+  ['转给工长张500', '张工', false]
 ];
 
 const SPLIT_EXPLAIN_TAIL_CASES = [
@@ -525,11 +535,12 @@ function build() {
       if ((expect === 'mask') !== (redacted !== text)) throw new Error('逐字解释用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
     }),
-    exitParity: EXIT_PARITY_CASES.map(([text, leak]) => {
+    exitParity: EXIT_PARITY_CASES.map(([text, leak, same]) => {
       const LLM = require('../site/assets/js/llm.js');
       const expected = LLM.sanitizeReply(text);
       if (leak === null ? expected !== text : new RegExp('[' + leak + '*＊]').test(expected)) throw new Error('#163 三出口用例与预期不符：' + text + ' -> ' + expected);
-      return { text, expect: leak === null ? 'keep' : 'mask', leak: leak || '', expected };
+      if (same === false && expected.indexOf('那个名字') < 0) throw new Error('#163 三出口用例没读出那个名字：' + text + ' -> ' + expected);
+      return { text, expect: leak === null ? 'keep' : 'mask', leak: leak || '', expected, same: same !== false };
     }),
     radicalExplain: RADICAL_EXPLAIN_CASES.map(([text, expect]) => {
       const ents = X.extractSensitive(text);
