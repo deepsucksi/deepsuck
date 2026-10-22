@@ -112,3 +112,30 @@ def test_browser_ice_servers_turn(monkeypatch):
     assert len(t["urls"]) == 2
     exp = base64.b64encode(hmac.new(b"s3cret", t["username"].encode(), hashlib.sha1).digest()).decode()
     assert t["credential"] == exp and "s3cret" not in str(ice)
+
+
+def test_health_commit_injected(monkeypatch):
+    monkeypatch.setenv("GIT_COMMIT", "abc1234")
+    r = TestClient(A.create_app("rule")).get("/api/voice/health").json()
+    assert r["commit"] == "abc1234" and r["ok"] is True
+
+
+def test_health_commit_validation(monkeypatch):
+    monkeypatch.setattr(A.TR, "_git_sha", lambda root: "")
+    for bad in ["", "unknown", "ABC1234", "abc123", "abc1234567890", "abc1234;rm", "v1.2.3", " ", "deadbeef\nx"]:
+        monkeypatch.setenv("GIT_COMMIT", bad)
+        assert A.public_commit() == "unknown", bad
+    monkeypatch.delenv("GIT_COMMIT")
+    assert TestClient(A.create_app("rule")).get("/api/voice/health").json()["commit"] == "unknown"
+    for ok in ["0123456", "0123456789ab"]:
+        monkeypatch.setenv("GIT_COMMIT", ok)
+        assert A.public_commit() == ok
+
+
+def test_health_commit_falls_back_to_gitmeta(monkeypatch):
+    """compose 默认 unknown（未注入）时退回镜像 .gitmeta 的 HEAD，标准部署命令无需改动；非法值也不透出。"""
+    monkeypatch.setenv("GIT_COMMIT", "unknown")
+    monkeypatch.setattr(A.TR, "_git_sha", lambda root: "fedcba9")
+    assert A.public_commit() == "fedcba9"
+    monkeypatch.setattr(A.TR, "_git_sha", lambda root: "ref: x")
+    assert A.public_commit() == "unknown"

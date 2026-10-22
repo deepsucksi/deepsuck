@@ -42,7 +42,8 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.voice
       # 代码版本：可选 GIT_SHA=$(git rev-parse --short HEAD) docker compose build；不传时镜像里读 .gitmeta（HEAD + refs）
-      args: { GIT_SHA: "${GIT_SHA:-}" }
+      # health 的 commit：可选 GIT_COMMIT=$(git rev-parse --short HEAD)；不传为 unknown，运行时回退 .gitmeta 的 HEAD
+      args: { GIT_SHA: "${GIT_SHA:-}", GIT_COMMIT: "${GIT_COMMIT:-unknown}" }
     image: deepsuck-voice
     environment:
       VOICE_HOST: 127.0.0.1

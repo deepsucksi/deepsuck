@@ -256,6 +256,16 @@ TTS（字符计费）是语音的大头，ASR 次之，大模型最便宜。
 - 不要 `cat .env`、`printenv`、`docker compose exec <服务> env`，也不要把这些输出贴进 issue、PR 或聊天。
 - 万一已经打出来了：当作泄露处理，告诉负责人安排轮换对应的密钥。
 
+## 版本号：`/api/voice/health` 的 `commit`（#247）
+
+公开接口 `/api/voice/health` 返回 `"commit": "<git 短哈希>"`，只有短哈希，不含分支、时间、作者等其他信息。
+
+- 来源优先级：构建参数 `GIT_COMMIT`（`deploy/Dockerfile.voice` 的 `ARG GIT_COMMIT` → `ENV GIT_COMMIT`；compose 里是 `GIT_COMMIT: "${GIT_COMMIT:-unknown}"`）→ 镜像里 `.gitmeta` 的 HEAD（构建上下文拷入，与通话追踪的 `code` 同源）→ `"unknown"`。
+- 运行时校验：只接受 `[0-9a-f]{7,12}`，其他任何值（含 `unknown`、大写、带空格或符号）都返回 `"unknown"`。
+- **标准部署命令不用改**：`cd /opt/deepsuck && git pull --ff-only && cd deploy && docker compose --profile sip up -d --build`。不传 `GIT_COMMIT` 时 compose 传 `unknown`，服务回退 `.gitmeta`，拿到的就是 `git pull` 后的 HEAD。
+- 想显式注入（可选）：`GIT_COMMIT=$(git rev-parse --short HEAD) docker compose --profile sip up -d --build`（在 `deploy/` 下执行）。
+- 验证：`curl -s https://live.deepsuck.si/api/voice/health` 看 `commit` 是否等于 `git rev-parse --short HEAD`。
+
 ## 8. 磁盘、录音容量与定时任务（#18、#20、#107）
 
 四个 systemd timer 由一个幂等脚本安装，脚本和单元文件都在仓库里（`deploy/install-timers.sh`、`deploy/systemd/`），不改 crontab、不重启容器：
