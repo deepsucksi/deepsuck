@@ -21,10 +21,8 @@ def test_char_explain_parity(case):
     assert find_name_spans(case["text"], ents) == case["spans"]
     out = redact_text(case["text"], ents)
     assert out == case["redacted"]
-    if case.get("xfail"):
-        assert case["leak"] in out, "已知缺陷已修好，请去掉 xfail：" + case["text"]
-    else:
-        assert (out != case["text"]) == (case["expect"] == "mask")
+    assert "xfail" not in case  # #163：xfail 已全部修好
+    assert (out != case["text"]) == (case["expect"] == "mask")
 
 
 def test_fixture_has_both_kinds():
@@ -92,15 +90,6 @@ def test_probe_and_asr_gongchangzhang_no_single_char(t):
         assert leak not in out, (t, out)
 
 
-XFAIL = [c for c in CASES if c.get("xfail")]
-
-
-@pytest.mark.parametrize("case", XFAIL, ids=[c["text"] for c in XFAIL])
-@pytest.mark.xfail(strict=True, reason="#185 已知缺陷：ASR 拆字变体「龚厂长」+ 单段解释仍露「伟」，修复归语音（#163）")
-def test_known_gap_asr_split_variant(case):
-    assert case["leak"] not in red(case["text"])
-
-
 @pytest.mark.parametrize("t", ["收款人是弓长张，伟大的伟对吧", "收款人是弓长张，伟大的伟", "户名是弓长张，伟大的伟，明天的明",
                                "收款人是弓长张，伟大的伟，对吧", "收款人弓长张，伟大的伟对吗", "收款人是龚厂长，伟大的伟对吧"])
 def test_p0_206_probe(t):
@@ -128,3 +117,70 @@ def test_split_explain_tail_parity(case):
 
 def test_p0_206_exact():
     assert red("收款人是弓长张，伟大的伟对吧") == "收款人是弓长张，****对吧"
+
+
+# #202 复审：同音写法没有解释时按姓名打码（必改 1）；带提示词无逗号不露解释里的字（必改 2）；「龚厂长（的）张」+ 名打码（必改 3）。与 JS 同一组
+REVIEW_202 = [
+    ("收款人是龚长张", "收款人是龚**"),
+    ("收款人是宫长张", "收款人是宫**"),
+    ("收款人是龚厂长", "收款人是龚**"),
+    ("收款人是工长张", "收款人是工**"),
+    ("收款人是尔东陈", "收款人是尔**"),
+    ("收款人是龚厂长伟大的伟", "收款人是龚**，****"),
+    ("收款人龚厂长伟大的伟", "收款人龚**，****"),
+    ("户名龚厂长伟大的伟对吧", "户名龚**，****对吧"),
+    ("收款人是工长张伟大的伟", "收款人是工长张****"),
+    ("收款人是龚厂长的张伟", "收款人是龚**的张*"),
+    ("收款人是龚厂长张伟", "收款人是龚**张*"),
+    ("收款人是龚厂长的张，伟大的伟", "收款人是龚**的张，****"),
+    ("收款人是龚厂长的张伟大的伟", "收款人是龚**的张****"),
+    # 负责人决定（拿不准就遮）：首字是真姓（nameRules.surnames）的同音写法本身也打码，解释段照样打码
+    ("收款人是宫长张，伟大的伟", "收款人是宫**，****"),
+    ("收款人是龚长张，伟大的伟", "收款人是龚**，****"),
+    ("收款人是龚厂长，伟大的伟", "收款人是龚**，****"),
+    ("收款人是宫长张伟大的伟", "收款人是宫**，****"),
+    ("好的龚厂长，伟大的伟", "好的龚**，****"),
+    ("宫长张，伟明，伟大的伟", "宫**，**，****"),
+    ("收款人叫张伟明，龚厂长，伟大的伟，明天的明。", "收款人叫张**，龚**，****，****。"),
+    ("收款人是弓长张，伟大的伟", "收款人是弓长张，****"),
+    ("收款人是工长张，伟大的伟", "收款人是工长张，****"),
+    ("收款人是工长张伟大的伟", "收款人是工长张****"),
+    ("收款人是尔东陈，晓燕，知晓的晓", "收款人是尔东陈，**，****"),
+    ("尔东陈，晓燕，知晓的晓", "尔东陈，**，****"),
+    # 情报复审 issuecomment-6265768538 必改表
+    ("收款人是龚厂长，伟大的伟对吧", "收款人是龚**，****对吧"),
+    ("收款人是宫长张，伟大的伟对吧", "收款人是宫**，****对吧"),
+    ("户名宫长张，伟大的伟，明天的明", "户名宫**，****，****"),
+    ("户名龚长张，伟大的伟", "户名龚**，****"),
+    ("收款人是宫长张伟大的伟是吗", "收款人是宫**，****是吗"),
+    ("收款人是龚长张，伟大的伟，早晨的晨对吧", "收款人是龚**，****，****对吧"),
+    ("收款人是龚厂长伟，伟大的伟", "收款人是龚***，****"),
+]
+
+
+@pytest.mark.parametrize("t,want", REVIEW_202, ids=[c[0] for c in REVIEW_202])
+def test_review_202(t, want):
+    assert red(t) == want
+
+
+def test_name_pattern_has_asr_split_prefix():
+    C = load("extractors")
+    sp = C["nameRules"]["split"]
+    for k, sur in sp["asrSplit"].items():
+        assert k + sp["link"] + "(?=" + sur + ")" in C["patterns"]["name"]["source"], k
+
+
+def test_asr_real_surname_uses_shared_surnames():
+    """#202：哪些同音写法本身打码，只看共享核心 nameRules.surnames 里有没有它的首字（龚、宫有；工、尔没有）。"""
+    C = load("extractors")
+    sp, sur = C["nameRules"]["split"], C["nameRules"]["surnames"]
+    for k in sp["asrSplit"]:
+        out = red("收款人是" + k + "，伟大的伟")
+        assert out == "收款人是" + (k[0] + "*" * (len(k) - 1) if k[0] in sur else k) + "，****", (k, out)
+
+
+@pytest.mark.parametrize("t", ["收款人是龚厂长，是伟大的伟吗", "收款人是龚厂长！伟大的伟", "收款人是龚厂长——伟大的伟", "收款人是龚厂长，伟 大 的 伟"])
+def test_review_202_suggest_lead_masked(t):
+    """#202 情报复审建议项（main 原有，分隔符 / 包住 / 带空格的解释另行跟进）：真姓开头的写法本身照样打码。"""
+    out = red(t)
+    assert "龚厂长" not in out and "龚**" in out, out

@@ -108,10 +108,25 @@
   var NAME_DIGITS = '零一二三四五六七八九';
   var SPLIT_SPELLINGS = {};
   ((NR.split && NR.split.spellings) || []).forEach(function (x) { SPLIT_SPELLINGS[x] = true; });
+  // #163 ASR 同音写法（龚厂长、工长张、宫长张、龚长张、尔东陈）：龚、宫是真姓，「收款人是龚长张」可能就是真名，拿不准就当姓名打码。
+  // 只有写法后面紧跟逐字解释（与 redact.js splitHits 同一个判断：按 explain.anchorGap）时才不当姓名，「收款人是龚厂长伟大的伟」
+  // 里的「龚厂长伟」也不取，解释段整段交给 findNameSpans 打码，免得姓名占住解释段开头露出「伟」。与 extractors.py 一致。
+  var ASR_SPLIT_KEYS = Object.keys((NR.split && NR.split.asrSplit) || {});
+  // 候选姓名从紧跟逐字解释的同音写法开头（「龚厂长伟」），或从写法里带的姓开头（patterns.name 跳过「龚厂长的」取到的「张伟大」）时为 true。
+  // 只看 asrSplit 写法；spellings（「弓长张伟大的伟」）是 main 上原有的问题，不在这里改。
+  function asrSplitExplained(n, m, start) {
+    if (!m || start == null || !R.splitHits) return false;
+    var s = m.input;
+    if (!ASR_SPLIT_KEYS.some(function (k) { return s.indexOf(k) >= 0; })) return false;
+    return R.splitHits(s, R.explainUnits(s, [])).some(function (h) {
+      return h.start <= start && start < h.end && ASR_SPLIT_KEYS.some(function (k) { return s.indexOf(k, h.start) === h.start; });
+    });
+  }
   function cleanName(n, m, start) {
     n = n.replace(/[0-9]/g, function (d) { return NAME_DIGITS.charAt(+d); });
     if (NOT_NAMES.test(n) || stopName(n, m, start)) return null;
     if (SPLIT_SPELLINGS[n]) return null; // #206「收款人是弓长张，伟大的伟」：拆字说法本身不是姓名（姓留给拆字报姓规则，只露姓）
+    if (asrSplitExplained(n, m, start)) return null;
     var cut = n.search(/[开卡银账的是事在和与就吧了啊呢哦，电手微那呃嗯合你我找他她这打转加对说哈]|然后/);
     if (cut >= 2) n = n.slice(0, cut);
     // “户名周杰农业银行”（户名后的逗号被去掉）：第 3、4 个字起是银行名 / 开户行时截断

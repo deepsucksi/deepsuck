@@ -19,9 +19,8 @@ from voice.processors import GuardTextFilter, IntelProcessor
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = json.loads((ROOT / "tests/fixtures/redact.json").read_text(encoding="utf-8"))["charExplain"]
-MASK = [c for c in CASES if c["expect"] == "mask" and not c.get("xfail")]
-KEEP = [c for c in CASES if c["expect"] == "keep" and not c.get("xfail")]
-XFAIL = [c for c in CASES if c.get("xfail")]  # #185 已知缺陷（ASR 拆字变体「龚厂长」+ 单段解释），修好后并回 MASK
+MASK = [c for c in CASES if c["expect"] == "mask"]
+KEEP = [c for c in CASES if c["expect"] == "keep"]
 _SPLIT_SUR = {cz + sur: sur for sur, czs in CHAIZI.items() for cz in czs}
 
 
@@ -51,7 +50,7 @@ def _call_name(case):
 
 
 def test_fixture_counts():
-    assert len(CASES) == 37 and len(MASK) == 22 and len(KEEP) == 13 and len(XFAIL) == 2
+    assert len(CASES) == len(MASK) + len(KEEP) and not any("xfail" in c for c in CASES)  # #163：xfail 已全部修好
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["text"] for c in CASES])
@@ -176,3 +175,13 @@ def test_pipeline_cross_turn_model_input_and_tts():
         assert "那个名字" in spoken, spoken
     # 反例不误打
     assert asyncio.run(f.filter("东方的东西都是伟大的祖国的")) == "东方的东西都是伟大的祖国的"
+
+
+@pytest.mark.parametrize("t", ["收款人是弓长张，伟大的伟对吧", "户名龚厂长伟大的伟对吧", "伟大的伟是吗", "伟大的伟，明天的明对不对"])
+def test_cross_turn_tail_words(t):
+    """#202：解释段后面紧跟确认说法（nameRules.explain.tailWords，#206）时，模型复述原话进 CallRedactor 也不露解释段。"""
+    r = CallRedactor()
+    r.add("name", "张伟明")
+    out = r.apply(t)
+    assert "伟大的伟" not in out and "明天的明" not in out, (t, out)
+    assert "*" not in unmask(out)
