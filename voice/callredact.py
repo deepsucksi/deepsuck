@@ -306,3 +306,18 @@ class CallRedactor:
         if self._tail is not None:
             s = self._tail.sub(lambda m: m.group(1) + "".join(_EX_MARK * 0 for _ in ()), s) if False else s
         return s
+
+
+def redact_line(text: str) -> str:
+    """转写单句打码（#250；#252 起所有出口共用：实时推送、Session.ingest 的 redacted、trace、存盘、回填）：拆字报姓、逐字解释先按 say_names 整段换成「那个名字」（与 mask_names / maskNames、
+    guard_output 同一套区间，「转给木子李1000元」不再只打名、留下拆字说法和姓），再走 redact_text 打其余敏感实体。"""
+    from deepsuck.extractors import extract_sensitive
+    from deepsuck.redact import redact_text, say_names
+
+    t = str(text or "")
+    for _ in range(8):  # 「弓长张、木子李、耳东陈」：前一个拆字的“名”会吃掉后一个拆字说法，换完再找，直到不变
+        nt = say_names(t, extract_sensitive(t))
+        if nt == t:
+            break
+        t = nt
+    return redact_text(t, extract_sensitive(t))

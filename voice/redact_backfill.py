@@ -1,5 +1,6 @@
 """用当前共享脱敏规则重新脱敏历史通话追踪（#92：跨 ASR 分段的验证码）。可重复执行。
 
+#252：每个文字字段先过 voice.records.redact_line（与实时推送 / 存盘 / trace 写盘同一入口）；--call 只处理指定通话。
 只处理已同意的通话：start 行（没有时看 end 行）的 consent 恰为 true。未同意（false）、电话线路（"sip-text-only"）、
 判断不了的文件一律不改。格式见 docs/TRACE_SCHEMA.md（v1 / v2 都认）。
 
@@ -16,6 +17,7 @@
 输出只有计数（JSON），绝不打印任何文字内容或通话编号。
 
     python -m voice.redact_backfill --dry-run          # 只统计会改多少
+    python -m voice.redact_backfill --dry-run --call YA6PUTCA --call JT6UMS4K   # #252：只处理指定通话
     python -m voice.redact_backfill                    # 正式改写
     python -m voice.redact_backfill --dir /traces --backup /traces/backup-<时间>.tar   # 改写前把要改的文件打包（0600）
 """
@@ -66,9 +68,22 @@ def redact_rows(rows: List[Optional[dict]]) -> Tuple[List[Optional[dict]], int, 
         elif r.get("type") == "bot" and isinstance(r.get("text"), str):
             refs.append((i, "text"))
             roles.append("bot")
+    for i, r in enumerate(out):   # #252：其余存原话的字段（反馈备注、前端上报原因）也过 redact_line
+        if isinstance(r, dict):
+            for key in {"feedback": ("note",), "client_error": ("reason",), "client_connected": ("reason",),
+                        "end": ("reason",)}.get(r.get("type"), ()):
+                if isinstance(r.get(key), str):
+                    refs.append((i, key))
+                    roles.append(None)
     changed_rows, fields = set(), 0
     if refs:
-        fixed = redact_dialog_segments([out[i][k] for i, k in refs], roles)
+        from voice.records import redact_line  # #252：trace 与存盘 / 实时推送同一个入口，拆字报姓先整段换掉
+        lined = [redact_line(out[i][k]) for i, k in refs]
+        speech = [n for n, ro in enumerate(roles) if ro is not None]
+        seg = redact_dialog_segments([lined[n] for n in speech], [roles[n] for n in speech])
+        fixed = list(lined)
+        for n, t in zip(speech, seg):
+            fixed[n] = t
         for (i, k), new in zip(refs, fixed):
             if new != out[i][k]:
                 out[i][k] = new
@@ -173,14 +188,22 @@ def _rewrite_json(path: Path, doc: dict, st: os.stat_result) -> bool:
         raise
 
 
-def plan_transcripts(tdir: Optional[Path], min_age: float, now: float) -> Tuple[dict, list]:
+def _want(p: Path, calls) -> bool:
+    """#252 --call：trace 文件名是 <编号>.jsonl，文字记录是 <时间>-<渠道>-<编号>.json。"""
+    if not calls:
+        return True
+    stem = p.stem
+    return stem in calls or any(stem.endswith("-" + c) for c in calls)
+
+
+def plan_transcripts(tdir: Optional[Path], min_age: float, now: float, calls=None) -> Tuple[dict, list]:
     stats = {"dir_exists": bool(tdir and tdir.is_dir()), "files_scanned": 0, "skipped_recent": 0, "skipped_bad": 0,
              "skipped_changed": 0, "files_changed": 0, "fields_changed": 0}
     plan: list = []
     if not stats["dir_exists"]:
         return stats, plan
     for p in sorted(tdir.glob("*.json")):
-        if not p.is_file() or p.is_symlink():
+        if not p.is_file() or p.is_symlink() or not _want(p, calls):
             continue
         stats["files_scanned"] += 1
         st = p.stat()
@@ -199,9 +222,9 @@ def plan_transcripts(tdir: Optional[Path], min_age: float, now: float) -> Tuple[
 
 
 def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Optional[Path] = None,
-        now: Optional[float] = None, transcripts: Optional[Path] = None) -> dict:
+        now: Optional[float] = None, transcripts: Optional[Path] = None, calls=None) -> dict:
     now = time.time() if now is None else now
-    tstats, tplan = plan_transcripts(transcripts, min_age, now) if transcripts is not None else (None, [])
+    tstats, tplan = plan_transcripts(transcripts, min_age, now, calls) if transcripts is not None else (None, [])
     stats = {"dir_exists": trace_dir.is_dir(), "dry_run": dry_run, "files_scanned": 0, "consented": 0,
              "skipped_not_consented": 0, "skipped_unknown_consent": 0, "skipped_recent": 0, "skipped_changed": 0,
              "files_changed": 0, "rows_changed": 0, "fields_changed": 0, "backup_files": 0}
@@ -211,7 +234,7 @@ def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Opt
     if not stats["dir_exists"]:
         trace_dir = None
     for p in (sorted(trace_dir.glob("*.jsonl")) if trace_dir is not None else []):
-        if not p.is_file() or p.is_symlink():
+        if not p.is_file() or p.is_symlink() or not _want(p, calls):
             continue
         stats["files_scanned"] += 1
         st = p.stat()
@@ -263,7 +286,9 @@ def main(argv=None) -> int:
     ap.add_argument("--transcripts", help="文字记录目录，默认 DATA_DIR/voice/transcripts（容器里是 /data/voice/transcripts）")
     ap.add_argument("--no-transcripts", action="store_true", help="只处理 trace，不处理文字记录")
     ap.add_argument("--backup", help="正式改写前把要改的文件打包到这个 tar（新建，0600；已存在则报错）")
+    ap.add_argument("--call", action="append", default=[], help="只处理这些通话编号（可重复，或逗号分隔）")
     a = ap.parse_args(argv)
+    calls = {c.strip() for x in a.call for c in x.split(",") if c.strip()} or None
     if a.dir:
         d = Path(a.dir)
     else:
@@ -277,7 +302,7 @@ def main(argv=None) -> int:
         from voice.records import transcript_dir
         td = transcript_dir()
     stats = run(d, dry_run=a.dry_run, min_age=a.min_age, backup=Path(a.backup) if a.backup else None,
-                transcripts=td)
+                transcripts=td, calls=calls)
     print(json.dumps(stats, ensure_ascii=False, sort_keys=True))
     return 0 if stats["dir_exists"] else 2
 
