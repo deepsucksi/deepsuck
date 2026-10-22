@@ -38,3 +38,11 @@ time,tag,script,model,requests,prompt_tokens,completion_tokens,cached_tokens,cos
 2026-10-22T21:44:29+08:00,corpus-194-len,eval/discrimination_calib.py judge (sync),qwen3.8-flash,140,164978,4302,143360,0.043246,profile=strict items=140 cacheHit=86.9%
 2026-10-22T21:56:26+08:00,corpus-194-len-v2,eval/discrimination_calib.py judge (sync),qwen3.8-flash,35,41129,1092,34816,0.011480,profile=strict items=140 cacheHit=84.7%
 2026-10-22T21:56:46+08:00,corpus-194-len-v2,eval/discrimination_calib.py judge (sync),qwen3.8-flash,35,41129,1080,35840,0.010731,profile=strict items=140 cacheHit=87.1%
+2026-10-22T22:10:12+08:00,corpus-194-len-v3,eval/discrimination_calib.py judge (sync),qwen3.8-flash,35,41145,1098,35840,0.010793,profile=strict items=140 cacheHit=87.1%
+2026-10-22T22:10:12+08:00,corpus-194-len-v3,eval/discrimination_calib.py judge (sync),qwen3.8-flash,35,41110,1086,34816,0.011449,profile=strict items=140 cacheHit=84.7%
+2026-10-22T22:11:07+08:00,corpus-194-len-v3,eval/llm_scammer.py,qwen3.8-flash,78,91599,2029,25600,0.060838,"profile=default responder=llm seeds=1 maxTurns=6 personas=wang scenarios=refund,police,pig,task,loan,boss seedBase=1000 cacheHit=27.9% ok"
+2026-10-22T22:11:12+08:00,corpus-194-len-v3,eval/llm_scammer.py,qwen3.8-flash,78,96494,2141,26624,0.064339,"profile=default responder=llm seeds=1 maxTurns=6 personas=wang scenarios=refund,police,pig,task,loan,boss seedBase=1000 cacheHit=27.6% ok"
+2026-10-22T22:13:06+08:00,corpus-194-len-v3,eval/llm_scammer.py,qwen3.8-flash,39,42294,1072,11264,0.028845,"profile=default responder=llm seeds=1 maxTurns=6 personas=lin scenarios=police,task,boss seedBase=1000 cacheHit=26.6% ok"
+2026-10-22T22:13:06+08:00,corpus-194-len-v3,eval/llm_scammer.py,qwen3.8-flash,39,40435,1029,12288,0.026525,"profile=default responder=llm seeds=1 maxTurns=6 personas=lin scenarios=police,task,boss seedBase=1000 cacheHit=30.4% ok"
+2026-10-22T22:08:00+08:00,corpus-194-len-v3,voice.llm_ab (generation a),qwen3.8-flash,57,73701,547,0,0.06043,head=495b238 good-file for judge seed 1000; tokens are avg x n
+2026-10-22T22:08:00+08:00,corpus-194-len-v3,voice.llm_ab (generation b),qwen3.8-flash,57,73530,507,0,0.06019,head=495b238 good-file for judge seed 1001; tokens are avg x n
