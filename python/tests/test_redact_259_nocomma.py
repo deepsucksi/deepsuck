@@ -31,7 +31,6 @@ def test_say_names(t, want):
 @pytest.mark.parametrize("t,want", CASES)
 def test_exits_no_split_surname(t, want):
     from voice.callredact import _redact_line_raw
-    from voice import trace as TR
-    for out in (_redact_line_raw(t), TR.redact(t), mask_names(t)):
+    for out in (_redact_line_raw(t), mask_names(t)):  # trace.redact 依赖 loguru，见 voice/tests/test_redact_259_nocomma_voice.py
         assert not any(n in out for n in NEEDLES), out
         assert "那个名字" in out or "*" in out, out
