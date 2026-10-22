@@ -36,3 +36,5 @@ time,tag,script,model,requests,prompt_tokens,completion_tokens,cached_tokens,cos
 2026-10-19T16:18:42+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,141991,3787,122880,0.037802,judgeN=60 mode=item profile=strict api=sync seed=1001 ok
 2026-10-22T21:43:29+08:00,corpus-194-len,eval/discrimination_calib.py judge (sync),qwen3.8-flash,140,165007,4316,142336,0.044024,profile=strict items=140 cacheHit=86.3%
 2026-10-22T21:44:29+08:00,corpus-194-len,eval/discrimination_calib.py judge (sync),qwen3.8-flash,140,164978,4302,143360,0.043246,profile=strict items=140 cacheHit=86.9%
+2026-10-22T21:56:26+08:00,corpus-194-len-v2,eval/discrimination_calib.py judge (sync),qwen3.8-flash,35,41129,1092,34816,0.011480,profile=strict items=140 cacheHit=84.7%
+2026-10-22T21:56:46+08:00,corpus-194-len-v2,eval/discrimination_calib.py judge (sync),qwen3.8-flash,35,41129,1080,35840,0.010731,profile=strict items=140 cacheHit=87.1%
