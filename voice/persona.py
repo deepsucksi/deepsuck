@@ -825,8 +825,22 @@ _SPLIT_EXACT = "|".join("\\s*".join(sp) for sp in sorted(_SPLIT_SPELLINGS, key=l
 _SPLIT_END = "(?:(?=" + _AMOUNT_AFTER_NAME + "|[0-9０-９])|" + _EXP_END + ")"
 _SPLIT_SAY = re.compile(
     "姓?(?:(?:" + _SPLIT_EXACT + ")(?:" + _EXP_SEP + _GIVEN_AFTER + ")?"
-    + "|(?:" + "|".join(_split_variants(sp) for sp in _SPLIT_SPELLINGS) + ")(?:[\\s，,、：:；;。]{1,2}" + _GIVEN_AFTER + ")?)"
+    + "|(?:" + "|".join(_split_variants(sp) for sp in _SPLIT_SPELLINGS) + ")(?:[\\s，,、：:；;。]{1,2}" + _GIVEN_AFTER + ")?"
+    # #249：同音 / ASR 写法后面直接连 1–2 个字的名再接数字或中文金额（「尔东陈伟明500」「工厂张三五百块」）也整段换掉，
+    # 规则与共享核心 find_name_spans 一致（「三」先归名字）；普通词（「尔东陈列馆2楼」）按 split.numWhitelist 放行，见 _split_say_sub
+    + "|(?:" + "|".join(_split_variants(sp) for sp in _SPLIT_SPELLINGS) + ")" + _GIVEN_CHAR + "{1,2}(?=" + _AMOUNT_AFTER_NAME + "|[0-9０-９]))"
     + _SPLIT_END)
+
+
+def _split_say_sub(m: re.Match) -> str:
+    """#249：拆字说法 + 名正好是白名单普通词（「立早章程第3条」「木子李子5斤」「尔东陈列馆2楼」）时原样保留，与共享核心一致。"""
+    from deepsuck.redact import _num_whitelisted, _say_rules, _split_rules
+    R, Q = _split_rules(), _say_rules()
+    a = m.start() + (1 if m.group(0).startswith("姓") else 0)
+    v = Q["variant"].match(m.string, a) if R and Q else None
+    if v and v.end() < m.end() and _num_whitelisted(R, m.string, v.end() - 1, m.end()):
+        return m.group(0)
+    return NAME_PHRASE
 # #219：「的」和 X 之间允许引号、空格、一个逗号，X 可带引号（「伟大的“伟”」「伟大的 伟」「伟大的，伟」）
 _QUOTE = "[“”「」『』‘’'\"]"
 _EXPLAIN_CAND = re.compile("(" + _HAN + "{1,4})的(?:那个)?(?:\\s|" + _QUOTE + "){0,2}[，,]?(?:\\s|" + _QUOTE + "){0,2}(" + _HAN + ")" + _QUOTE + "?字?" + _EXP_END)
@@ -885,7 +899,7 @@ def drop_name_explain(text: str) -> str:
         s = _NAME_RUN.sub(NAME_PHRASE, s)
         return _absorb_surname(s, [e["value"] for e in extract_sensitive(orig) if e.get("type") == "name" and e.get("value")]) if s != orig else s
     names = sorted({e["value"] for e in extract_sensitive(s) if e.get("type") == "name" and e.get("value")}, key=len, reverse=True)
-    s = _SPLIT_SAY.sub(NAME_PHRASE, s)
+    s = _SPLIT_SAY.sub(_split_say_sub, s)
     spans = _explain_spans(s)
     for a, b in reversed(spans):
         s = s[:a] + NAME_PHRASE + s[b:]
