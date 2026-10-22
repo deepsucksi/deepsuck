@@ -60,7 +60,7 @@ def test_surname_explain_kept():
 
 def test_negative_ordinary_text():
     for t in ("伟大的祖国", "明天的会", "我的卡", "伟大的伟人", "东方的东西", "明天的明天会更好", "这是大家的家",
-              "他说好的好处呢", "我的卡号发你了，明天的会别迟到", "李子的李"):
+              "他说好的好处呢", "我的卡号发你了，明天的会别迟到"):
         assert red(t) == t
 
 

@@ -511,7 +511,11 @@
       tailWords: new RegExp('^(?:' + (ex.tailWords || '(?!)') + ')'), // #206「伟大的伟对吧」
       particle: new RegExp('^(?:' + (ex.particle || '(?!)') + ')$'),
       sep: new RegExp('^(?:' + (ex.sep || '') + ')$'),
-      gap: new RegExp(ex.anchorGap)
+      gap: new RegExp(ex.anchorGap),
+      // #163 偏旁说法（「单人旁一个韦」「三点水的江」）：偏旁名 + (join + 部件字 + 字?)? + (link + X + tail)?，至少带一个
+      radical: (ex.radicals && ex.radicals.length) ? new RegExp('(?:' + ex.radicals.slice().sort(function (a, b) { return b.length - a.length; }).join('|') +
+        ')(?:(?:' + (ex.radicalJoin || '(?!)') + ')(' + ex.han + ')字?)?(?:(?:' + ex.link + ')(' + ex.han + ')(?:' + (ex.tail || '') + '))?', 'y') : null,
+      surnames: (core() && core().nameRules && core().nameRules.surnames) || ''
     };
     return EXPLAIN;
   }
@@ -528,7 +532,30 @@
     var wmin = ex.wordMin || 2, wmax = ex.wordMax || 4;
     var leads = ex.leads || [], strong = ex.strongLeads || [];
     var cands = [];
+    function leadOf(wstart, x) {
+      var start = wstart, head = wstart, st = false;
+      for (var k = 0; k < leads.length; k++) {
+        var ld = leads[k];
+        if (wstart < ld.length || s.slice(wstart - ld.length, wstart) !== ld) continue;
+        var b = wstart - ld.length;
+        head = b;
+        if (b >= 1 && s.charAt(b - 1) === x) { start = head = b - 1; st = true; }
+        else if (b >= 2 && s.slice(b - 2, b) === x + '字') { start = head = b - 2; st = true; }
+        else if (strong.indexOf(ld) >= 0) st = true;
+        break;
+      }
+      return { start: start, head: head, strong: st };
+    }
     for (var i = 0; i < s.length; i++) {
+      if (E.radical) { // #163 偏旁说法：单独一段也算（strong）
+        E.radical.lastIndex = i;
+        var r = E.radical.exec(s);
+        if (r && (r[1] || r[2])) {
+          var rx = r[2] || r[1];
+          var rl = leadOf(i, rx);
+          cands.push({ start: rl.start, head: rl.head, wstart: i, end: i + r[0].length, x: rx, strong: true, rad: true });
+        }
+      }
       E.link.lastIndex = i;
       var m = E.link.exec(s);
       if (!m) continue;
@@ -544,18 +571,8 @@
       E.tail.lastIndex = end;
       var t = E.tail.exec(s);
       if (t) end += t[0].length;
-      var start = wstart, head = wstart, st = false;
-      for (var k = 0; k < leads.length; k++) {
-        var ld = leads[k];
-        if (wstart < ld.length || s.slice(wstart - ld.length, wstart) !== ld) continue;
-        var b = wstart - ld.length;
-        head = b;
-        if (b >= 1 && s.charAt(b - 1) === x) { start = head = b - 1; st = true; }
-        else if (b >= 2 && s.slice(b - 2, b) === x + '字') { start = head = b - 2; st = true; }
-        else if (strong.indexOf(ld) >= 0) st = true;
-        break;
-      }
-      cands.push({ start: start, head: head, wstart: wstart, end: end, x: x, strong: st });
+      var ldo = leadOf(wstart, x);
+      cands.push({ start: ldo.start, head: ldo.head, wstart: wstart, end: end, x: x, strong: ldo.strong });
     }
     var heads = {};
     cands.forEach(function (c) { heads[c.head] = 1; heads[c.wstart] = 1; });
@@ -586,8 +603,11 @@
       anchors.forEach(function (a) {
         if (a.end <= first && E.gap.test(s.slice(a.end, first))) { anchored = true; sur[a.sur] = 1; }
       });
-      if (chain.length >= 2 || anchored || chain.some(function (c) { return c.strong; })) {
-        chain.forEach(function (c) { out.push({ start: c.start, end: c.end, x: c.x, keep: sur[c.x] === 1 }); });
+      // #163：只有一段、没有锚点时，在句首或紧跟非汉字后面也算（「李子的李」「张伟晨，伟大的伟」）
+      var alone = ex.standalone && chain.length === 1 && (first === 0 || !E.han.test(s.charAt(first - 1)));
+      if (chain.length >= 2 || anchored || alone || chain.some(function (c) { return c.strong; })) {
+        var xs = chain.map(function (c) { return c.x; });
+        chain.forEach(function (c, j) { out.push({ start: c.start, end: c.end, x: c.x, keep: sur[c.x] === 1, rad: c.rad === true, head: j === 0 ? first : undefined, xs: j === 0 ? xs : undefined }); });
       }
       chain = [];
     }
@@ -637,7 +657,8 @@
     splitHits(s, units).forEach(function (h) {
       var sur = h.sur;
       var after = h.end;
-      var pos = after + R.sep.exec(s.slice(after))[0].length;
+      var sm0 = R.sep.exec(s.slice(after)); // 复审建议：判空
+      var pos = after + (sm0 ? sm0[0].length : 0);
       if (units.some(function (u) { return u.start <= pos && pos < u.end; })) return;
       var given = '';
       for (var k = 0; k < names.length; k++) {
@@ -656,15 +677,118 @@
       claimed.push([pos, end]);
       out.push({ start: pos, end: end, masked: stars(given.length) });
     });
+    // #163：一串解释前面（隔 sep）紧挨着 2–3 个汉字、以姓开头、名里含被解释的字（「张伟晨，伟大的伟」）时，按姓名打码
+    var ER = explainRules();
+    units.forEach(function (u) {
+      if (!ER || !ER.ex.standalone || u.head === undefined) return;
+      var p = u.head;
+      while (p > 0 && ER.sep.test(s.slice(p - 1, u.head))) p--;
+      for (var L = 3; L >= 2; L--) {
+        var a = p - L;
+        if (a < 0) continue;
+        var cand = s.slice(a, p);
+        if (!cand.split('').every(function (c) { return ER.han.test(c); })) continue;
+        if (ER.surnames.indexOf(cand.charAt(0)) < 0) continue;
+        if (!u.xs.some(function (x) { return cand.slice(1).indexOf(x) >= 0; })) continue;
+        if (claimed.some(function (c) { return c[0] < p && a + 1 < c[1]; })) break;
+        claimed.push([a + 1, p]);
+        out.push({ start: a + 1, end: p, masked: stars(L - 1), kind: 'nameBefore' });
+        break;
+      }
+    });
     var ex = (explainRules() || {}).ex || {};
     units.forEach(function (u) {
       if (u.keep || claimed.some(function (c) { return c[0] < u.end && u.start < c[1]; })) return;
       var glue = claimed.some(function (c) { return c[1] === u.start; }) ? (ex.joiner || '') : '';
       claimed.push([u.start, u.end]);
-      out.push({ start: u.start, end: u.end, masked: glue + stars(u.end - u.start) });
+      var sp = { start: u.start, end: u.end, masked: glue + stars(u.end - u.start) };
+      if (u.rad) sp.kind = 'radical'; // #163：语音出口（persona.drop_name_explain）按 kind 换成「那个名字」
+      out.push(sp);
     });
     out.sort(function (a, b) { return a.start - b.start; });
     return out;
+  }
+
+  // ---- #163 复审：文字出口（llm.js maskNames / refs.mask_names）把拆字报姓、逐字解释、偏旁说法连同前面的姓名整体读成「那个名字」，
+  // 与语音出口 voice/persona.drop_name_explain 对齐。与 redact.py name_say_regions 一致 ----
+  var SAY = null;
+  function sayRules() {
+    if (SAY !== null) return SAY;
+    var R = splitRules(), E = explainRules();
+    if (!R || !E) return (SAY = false);
+    var hom = R.sp.homophones || {};
+    function cls(c) { var h = hom[c] || ''; return '[' + c + h + ']'; }
+    var exact = {};
+    R.sp.spellings.forEach(function (x) { exact[x] = 1; });
+    SAY = {
+      variant: new RegExp('(' + R.sp.spellings.slice().sort(function (a, b) { return b.length - a.length; })
+        .map(function (x) { return x.split('').map(cls).join(''); }).join('|') + ')', 'g'),
+      sepc: /[\s，,、：:；;。]/,
+      absorbLead: /[叫是姓名人：:\s，,。、]/,
+      run: /^[\s，,、：:；;。]{0,2}(?:就是|是)?$/,
+      end: new RegExp('^(?:' + (R.sp.sayEnd || '(?!)') + ')')
+    };
+    return SAY;
+  }
+
+  /** 文字出口要整体读成「那个名字」的区间 [[start, end], ...]（已合并、按 start 排）。entities：extractSensitive 的结果。 */
+  function nameSayRegions(text, entities) {
+    var s = String(text || '');
+    var R = splitRules(), E = explainRules(), Q = sayRules();
+    if (!R || !E || !Q) return [];
+    var ents = (entities || []).filter(function (e) { return typeof e.start === 'number'; });
+    var units = explainUnits(s, ents);
+    var spans = findNameSpans(s, ents);
+    var regs = [];
+    units.forEach(function (u) { regs.push([u.start, u.end]); });
+    spans.forEach(function (sp) { if (sp.kind === 'nameBefore') regs.push([sp.start - 1, sp.end]); });
+    function endOk(pos) {
+      if (pos >= s.length || !E.han.test(s.charAt(pos)) || E.particle.test(s.charAt(pos)) || E.tailWords.test(s.slice(pos)) || Q.end.test(s.slice(pos))) return true;
+      return units.some(function (u) { return u.head >= pos && E.sep.test(s.slice(pos, u.head)); });
+    }
+    var hits = [];
+    var m;
+    Q.variant.lastIndex = 0;
+    while ((m = Q.variant.exec(s))) hits.push([m.index, m.index + m[0].length]);
+    splitHits(s, units).forEach(function (h) { hits.push([h.start, h.end]); });
+    hits.forEach(function (h) {
+      var a = h[0], b = h[1];
+      var sm = R.sep.exec(s.slice(b)); // 复审建议：sep 匹配不上时不抛错
+      var pos = b + (sm ? sm[0].length : 0);
+      spans.forEach(function (sp) { if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked)) b = sp.end; });
+      if (!endOk(b)) return;
+      if (a > 0 && s.charAt(a - 1) === '姓') a--;
+      regs.push([a, b]);
+    });
+    if (!regs.length) return [];
+    var sur = (core() && core().nameRules && core().nameRules.surnames) || '';
+    var names = ents.filter(function (e) { return e.type === 'name' && e.value; });
+    regs.forEach(function (r) {
+      for (var guard = 0; guard < 4; guard++) {
+        var q = r[0], k = 0;
+        while (q > 0 && k < 2 && Q.sepc.test(s.charAt(q - 1))) { q--; k++; }
+        var e = names.filter(function (n) { return n.end === q && n.start < q; })[0];
+        if (e) { r[0] = e.start; continue; }
+        if (q > 0 && sur.indexOf(s.charAt(q - 1)) >= 0 && (q - 1 === 0 || Q.absorbLead.test(s.charAt(q - 2)))) { r[0] = q - 1; continue; }
+        break;
+      }
+    });
+    regs.sort(function (x, y) { return x[0] - y[0] || y[1] - x[1]; });
+    var out = [];
+    regs.forEach(function (r) {
+      var last = out[out.length - 1];
+      if (last && (r[0] <= last[1] || Q.run.test(s.slice(last[1], r[0])))) last[1] = Math.max(last[1], r[1]);
+      else out.push([r[0], r[1]]);
+    });
+    return out;
+  }
+
+  /** 把 nameSayRegions 的区间换成 phrase（默认「那个名字」）。 */
+  function sayNames(text, entities, phrase) {
+    var s = String(text || '');
+    var regs = nameSayRegions(s, entities);
+    for (var i = regs.length - 1; i >= 0; i--) s = s.slice(0, regs[i][0]) + (phrase || '那个名字') + s.slice(regs[i][1]);
+    return s;
   }
 
   /**
@@ -696,6 +820,8 @@
     mask: mask,
     redactText: redactText,
     findNameSpans: findNameSpans,
+    nameSayRegions: nameSayRegions,
+    sayNames: sayNames,
     explainUnits: explainUnits,
     splitHits: splitHits,
     findOtpSpans: findOtpSpans,

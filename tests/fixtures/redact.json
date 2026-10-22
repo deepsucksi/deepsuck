@@ -1134,15 +1134,27 @@
   },
   {
    "text": "李子的李",
-   "expect": "keep",
-   "spans": [],
-   "redacted": "李子的李"
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 4,
+     "masked": "****"
+    }
+   ],
+   "redacted": "****"
   },
   {
    "text": "伟大的那个伟字",
-   "expect": "keep",
-   "spans": [],
-   "redacted": "伟大的那个伟字"
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 7,
+     "masked": "*******"
+    }
+   ],
+   "redacted": "*******"
   },
   {
    "text": "收款人叫张伟明，弓长张，伟大的伟，明天的明。",
@@ -2209,6 +2221,549 @@
    "redacted": "伟大的伟人对吧"
   }
  ],
+ "exitParity": [
+  {
+   "text": "我姓韦，单人旁一个韦",
+   "expect": "mask",
+   "leak": "韦",
+   "expected": "我姓那个名字",
+   "same": true
+  },
+  {
+   "text": "弓长张、木子李、耳东陈、口天吴",
+   "expect": "mask",
+   "leak": "张李陈吴弓长木子耳东口天",
+   "expected": "那个名字",
+   "same": true
+  },
+  {
+   "text": "弓长张",
+   "expect": "mask",
+   "leak": "张弓",
+   "expected": "那个名字",
+   "same": true
+  },
+  {
+   "text": "木子李",
+   "expect": "mask",
+   "leak": "李木",
+   "expected": "那个名字",
+   "same": true
+  },
+  {
+   "text": "耳东陈",
+   "expect": "mask",
+   "leak": "陈耳",
+   "expected": "那个名字",
+   "same": true
+  },
+  {
+   "text": "口天吴",
+   "expect": "mask",
+   "leak": "吴口天",
+   "expected": "那个名字",
+   "same": true
+  },
+  {
+   "text": "弓长张，三丰",
+   "expect": "mask",
+   "leak": "张三丰",
+   "expected": "那个名字",
+   "same": true
+  },
+  {
+   "text": "我叫张伟，伟大的伟",
+   "expect": "mask",
+   "leak": "张伟",
+   "expected": "我叫那个名字",
+   "same": true
+  },
+  {
+   "text": "我是张伟，伟大的伟",
+   "expect": "mask",
+   "leak": "张伟",
+   "expected": "我是那个名字",
+   "same": true
+  },
+  {
+   "text": "我叫王芳，芳草的芳",
+   "expect": "mask",
+   "leak": "王芳",
+   "expected": "我叫那个名字",
+   "same": true
+  },
+  {
+   "text": "我叫张伟晨，伟大的伟，早晨的晨",
+   "expect": "mask",
+   "leak": "张伟晨",
+   "expected": "我叫那个名字",
+   "same": true
+  },
+  {
+   "text": "张伟晨，伟大的伟，早晨的晨",
+   "expect": "mask",
+   "leak": "张伟晨",
+   "expected": "那个名字",
+   "same": true
+  },
+  {
+   "text": "我姓张，弓长张",
+   "expect": "mask",
+   "leak": "张弓",
+   "expected": "我姓那个名字",
+   "same": true
+  },
+  {
+   "text": "我姓李，木子李",
+   "expect": "mask",
+   "leak": "李木",
+   "expected": "我姓那个名字",
+   "same": true
+  },
+  {
+   "text": "收款人李四，木子李",
+   "expect": "mask",
+   "leak": "李四木",
+   "expected": "收款人那个名字",
+   "same": true
+  },
+  {
+   "text": "户名张伟，单人旁一个韦",
+   "expect": "mask",
+   "leak": "张伟韦",
+   "expected": "户名那个名字",
+   "same": true
+  },
+  {
+   "text": "收款人是张伟，伟大的伟对吧",
+   "expect": "mask",
+   "leak": "张伟",
+   "expected": "收款人是那个名字对吧",
+   "same": true
+  },
+  {
+   "text": "单人旁一个韦",
+   "expect": "mask",
+   "leak": "韦",
+   "expected": "那个名字",
+   "same": true
+  },
+  {
+   "text": "伟大的那个伟字",
+   "expect": "mask",
+   "leak": "伟",
+   "expected": "那个名字",
+   "same": true
+  },
+  {
+   "text": "三点水的江",
+   "expect": "mask",
+   "leak": "江",
+   "expected": "那个名字",
+   "same": true
+  },
+  {
+   "text": "龚厂长，伟大的伟对吧",
+   "expect": "mask",
+   "leak": "龚伟",
+   "expected": "那个名字对吧",
+   "same": true
+  },
+  {
+   "text": "一个口一个天",
+   "expect": "keep",
+   "leak": "",
+   "expected": "一个口一个天",
+   "same": true
+  },
+  {
+   "text": "木子很多",
+   "expect": "keep",
+   "leak": "",
+   "expected": "木子很多",
+   "same": true
+  },
+  {
+   "text": "儿子小孙子很可爱，木子很多",
+   "expect": "keep",
+   "leak": "",
+   "expected": "儿子小孙子很可爱，木子很多",
+   "same": true
+  },
+  {
+   "text": "伟大的祖国",
+   "expect": "keep",
+   "leak": "",
+   "expected": "伟大的祖国",
+   "same": true
+  },
+  {
+   "text": "明天的事",
+   "expect": "keep",
+   "leak": "",
+   "expected": "明天的事",
+   "same": true
+  },
+  {
+   "text": "草字头的植物",
+   "expect": "keep",
+   "leak": "",
+   "expected": "草字头的植物",
+   "same": true
+  },
+  {
+   "text": "三点水很重要",
+   "expect": "keep",
+   "leak": "",
+   "expected": "三点水很重要",
+   "same": true
+  },
+  {
+   "text": "宫长张罗了一桌菜",
+   "expect": "keep",
+   "leak": "",
+   "expected": "宫长张罗了一桌菜",
+   "same": true
+  },
+  {
+   "text": "尔东陈列馆门口见",
+   "expect": "keep",
+   "leak": "",
+   "expected": "尔东陈列馆门口见",
+   "same": true
+  },
+  {
+   "text": "弓长张三五百块",
+   "expect": "mask",
+   "leak": "张弓",
+   "expected": "那个名字百块",
+   "same": false
+  },
+  {
+   "text": "转给木子李一千元",
+   "expect": "mask",
+   "leak": "李木",
+   "expected": "转给那个名字那么点",
+   "same": false
+  },
+  {
+   "text": "弓长张五百块",
+   "expect": "mask",
+   "leak": "张弓",
+   "expected": "那个名字那么点",
+   "same": false
+  },
+  {
+   "text": "转给弓长张500",
+   "expect": "mask",
+   "leak": "张弓",
+   "expected": "转给那个名字500",
+   "same": false
+  },
+  {
+   "text": "收款人口天吴，卡号6222021234567890123",
+   "expect": "mask",
+   "leak": "吴口",
+   "expected": "收款人那个名字，卡号你发的那个号",
+   "same": false
+  },
+  {
+   "text": "转给立早章13812345678",
+   "expect": "mask",
+   "leak": "章立早",
+   "expected": "转给那个名字你发的那个号",
+   "same": false
+  },
+  {
+   "text": "户名耳东陈两万",
+   "expect": "mask",
+   "leak": "陈耳",
+   "expected": "户名那个名字两万",
+   "same": false
+  },
+  {
+   "text": "转给工长张500",
+   "expect": "mask",
+   "leak": "张工",
+   "expected": "转给那个名字500",
+   "same": false
+  }
+ ],
+ "radicalExplain": [
+  {
+   "text": "弓长张，单人旁一个韦",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 10,
+     "masked": "******",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "弓长张，******"
+  },
+  {
+   "text": "弓长张，单人旁一个韦，日字旁一个月的明",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 10,
+     "masked": "******",
+     "kind": "radical"
+    },
+    {
+     "start": 11,
+     "end": 19,
+     "masked": "********",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "弓长张，******，********"
+  },
+  {
+   "text": "户名张伟，单人旁一个韦",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 5,
+     "end": 11,
+     "masked": "******",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "户名张*，******"
+  },
+  {
+   "text": "三点水的江",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 5,
+     "masked": "*****",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "*****"
+  },
+  {
+   "text": "三点水一个工的江",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 8,
+     "masked": "********",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "********"
+  },
+  {
+   "text": "三点水加个工",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 6,
+     "masked": "******",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "******"
+  },
+  {
+   "text": "弓长张，三点水的江",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 9,
+     "masked": "*****",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "弓长张，*****"
+  },
+  {
+   "text": "木子李，草字头的花",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 9,
+     "masked": "*****",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "木子李，*****"
+  },
+  {
+   "text": "就是单人旁一个韦",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 2,
+     "end": 8,
+     "masked": "******",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "就是******"
+  },
+  {
+   "text": "单人旁一个韦字，对吧",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 7,
+     "masked": "*******",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "*******，对吧"
+  },
+  {
+   "text": "伟大的那个伟字",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 7,
+     "masked": "*******"
+    }
+   ],
+   "redacted": "*******"
+  },
+  {
+   "text": "张伟晨，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 1,
+     "end": 3,
+     "masked": "**",
+     "kind": "nameBefore"
+    },
+    {
+     "start": 4,
+     "end": 8,
+     "masked": "****"
+    }
+   ],
+   "redacted": "张**，****"
+  },
+  {
+   "text": "张伟晨，伟大的伟，早晨的晨",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 1,
+     "end": 3,
+     "masked": "**",
+     "kind": "nameBefore"
+    },
+    {
+     "start": 4,
+     "end": 8,
+     "masked": "****"
+    },
+    {
+     "start": 9,
+     "end": 13,
+     "masked": "****"
+    }
+   ],
+   "redacted": "张**，****，****"
+  },
+  {
+   "text": "我叫张伟，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 5,
+     "end": 9,
+     "masked": "****"
+    }
+   ],
+   "redacted": "我叫张*，****"
+  },
+  {
+   "text": "李子的李",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 4,
+     "masked": "****"
+    }
+   ],
+   "redacted": "****"
+  },
+  {
+   "text": "三点水很重要",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "三点水很重要"
+  },
+  {
+   "text": "单人旁的字很多",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "单人旁的字很多"
+  },
+  {
+   "text": "草字头的植物",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "草字头的植物"
+  },
+  {
+   "text": "三点水旁边那个",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "三点水旁边那个"
+  },
+  {
+   "text": "伟大的祖国",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "伟大的祖国"
+  },
+  {
+   "text": "李子熟了",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "李子熟了"
+  },
+  {
+   "text": "这是伟大的胜利",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "这是伟大的胜利"
+  },
+  {
+   "text": "早晨的晨练",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "早晨的晨练"
+  },
+  {
+   "text": "这是大家的家",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "这是大家的家"
+  },
+  {
+   "text": "明天的会别迟到",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "明天的会别迟到"
+  }
+ ],
  "splitExplainTail": [
   {
    "text": "收款人是弓长张，伟大的伟对吧",
@@ -2318,9 +2873,15 @@
   },
   {
    "text": "伟大的伟对吧",
-   "expect": "keep",
-   "spans": [],
-   "redacted": "伟大的伟对吧"
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 4,
+     "masked": "****"
+    }
+   ],
+   "redacted": "****对吧"
   },
   {
    "text": "这是大家的家对吧",
@@ -2333,6 +2894,12 @@
    "expect": "keep",
    "spans": [],
    "redacted": "伟大的伟人对吧"
+  },
+  {
+   "text": "伟大的祖国对吧",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "伟大的祖国对吧"
   }
  ],
  "otpSegments": [

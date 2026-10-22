@@ -535,6 +535,11 @@ def _explain_rules():
         "particle": compile_js("^(?:" + (ex.get("particle") or "(?!)") + ")$"),
         "sep": compile_js("^(?:" + (ex.get("sep") or "") + ")$"),
         "gap": compile_js(ex["anchorGap"]),
+        # #163 偏旁说法（「单人旁一个韦」「三点水的江」）：偏旁名 + (join + 部件字 + 字?)? + (link + X + tail)?，至少带一个；与 redact.js 一致
+        "radical": compile_js("(?:" + "|".join(sorted(ex["radicals"], key=len, reverse=True)) + ")(?:(?:" + (ex.get("radicalJoin") or "(?!)")
+                              + ")(" + ex["han"] + ")字?)?(?:(?:" + ex["link"] + ")(" + ex["han"] + ")(?:" + (ex.get("tail") or "") + "))?")
+        if ex.get("radicals") else None,
+        "surnames": (load("extractors").get("nameRules") or {}).get("surnames") or "",
     }
 
 
@@ -551,7 +556,32 @@ def explain_units(s: str, ents: Optional[Iterable[dict]] = None) -> List[dict]:
     leads, strong = ex.get("leads") or [], ex.get("strongLeads") or []
     han = lambda c: bool(c) and bool(E["han"].match(c))
     cands = []
+
+    def lead_of(wstart, x):
+        start = head = wstart
+        st = False
+        for ld in leads:
+            if wstart < len(ld) or s[wstart - len(ld):wstart] != ld:
+                continue
+            b = wstart - len(ld)
+            head = b
+            if b >= 1 and s[b - 1] == x:
+                start = head = b - 1
+                st = True
+            elif b >= 2 and s[b - 2:b] == x + "字":
+                start = head = b - 2
+                st = True
+            elif ld in strong:
+                st = True
+            break
+        return start, head, st
+
     for i in range(len(s)):
+        r = E["radical"].match(s, i) if E["radical"] else None
+        if r and (r.group(1) or r.group(2)):  # #163 偏旁说法：单独一段也算（strong）
+            rx = r.group(2) or r.group(1)
+            rs, rh, _ = lead_of(i, rx)
+            cands.append({"start": rs, "head": rh, "wstart": i, "end": r.end(), "x": rx, "strong": True, "rad": True})
         m = E["link"].match(s, i)
         if not m:
             continue
@@ -572,22 +602,7 @@ def explain_units(s: str, ents: Optional[Iterable[dict]] = None) -> List[dict]:
         t = E["tail"].match(s, end)
         if t:
             end = t.end()
-        start = head = wstart
-        st = False
-        for ld in leads:
-            if wstart < len(ld) or s[wstart - len(ld):wstart] != ld:
-                continue
-            b = wstart - len(ld)
-            head = b
-            if b >= 1 and s[b - 1] == x:
-                start = head = b - 1
-                st = True
-            elif b >= 2 and s[b - 2:b] == x + "字":
-                start = head = b - 2
-                st = True
-            elif ld in strong:
-                st = True
-            break
+        start, head, st = lead_of(wstart, x)
         cands.append({"start": start, "head": head, "wstart": wstart, "end": end, "x": x, "strong": st})
     heads = {c["head"] for c in cands} | {c["wstart"] for c in cands}
     ok = [c for c in cands if c["end"] >= len(s) or not han(s[c["end"]]) or E["particle"].match(s[c["end"]])
@@ -619,8 +634,12 @@ def explain_units(s: str, ents: Optional[Iterable[dict]] = None) -> List[dict]:
             if a_end <= first and E["gap"].search(s[a_end:first]):
                 anchored = True
                 sur.add(a_sur)
-        if len(chain) >= 2 or anchored or any(c["strong"] for c in chain):
-            out.extend({"start": c["start"], "end": c["end"], "x": c["x"], "keep": c["x"] in sur} for c in chain)
+        # #163：只有一段、没有锚点时，在句首或紧跟非汉字后面也算（「李子的李」「张伟晨，伟大的伟」）
+        alone = bool(ex.get("standalone")) and len(chain) == 1 and (first == 0 or not han(s[first - 1]))
+        if len(chain) >= 2 or anchored or alone or any(c["strong"] for c in chain):
+            xs = [c["x"] for c in chain]
+            out.extend({"start": c["start"], "end": c["end"], "x": c["x"], "keep": c["x"] in sur, "rad": bool(c.get("rad")),
+                        **({"head": first, "xs": xs} if j == 0 else {})} for j, c in enumerate(chain))
         chain.clear()
 
     for u in units:
@@ -664,7 +683,8 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
         claimed.append((a + 1, b))
         out.append({"start": a + 1, "end": b, "masked": _stars(len(key) - 1)})
     for _a, m_end, sur in split_hits(s, units):
-        pos = m_end + R["sep"].match(s[m_end:]).end()
+        sm0 = R["sep"].match(s[m_end:])  # 复审建议：判空
+        pos = m_end + (sm0.end() if sm0 else 0)
         if any(u["start"] <= pos < u["end"] for u in units):
             continue
         given = next((n[1:] for n in names if n[0] == sur and s.startswith(n[1:], pos)), "")
@@ -680,15 +700,123 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
             continue
         claimed.append((pos, end))
         out.append({"start": pos, "end": end, "masked": _stars(len(given))})
+    # #163：一串解释前面（隔 sep）紧挨着 2–3 个汉字、以姓开头、名里含被解释的字（「张伟晨，伟大的伟」）时，按姓名打码；与 redact.js 一致
+    ER = _explain_rules()
+    for u in units:
+        if not ER or not ER["ex"].get("standalone") or "head" not in u:
+            continue
+        p = u["head"]
+        while p > 0 and ER["sep"].match(s[p - 1:u["head"]]):
+            p -= 1
+        for L in (3, 2):
+            a = p - L
+            if a < 0:
+                continue
+            cand = s[a:p]
+            if not all(ER["han"].match(c) for c in cand) or cand[0] not in ER["surnames"]:
+                continue
+            if not any(x in cand[1:] for x in u["xs"]):
+                continue
+            if any(c0 < p and a + 1 < c1 for c0, c1 in claimed):
+                break
+            claimed.append((a + 1, p))
+            out.append({"start": a + 1, "end": p, "masked": _stars(L - 1), "kind": "nameBefore"})
+            break
     joiner = ((_explain_rules() or {}).get("ex") or {}).get("joiner") or ""
     for u in units:
         if u["keep"] or any(a < u["end"] and u["start"] < b for a, b in claimed):
             continue
         glue = joiner if any(b == u["start"] for _, b in claimed) else ""
         claimed.append((u["start"], u["end"]))
-        out.append({"start": u["start"], "end": u["end"], "masked": glue + _stars(u["end"] - u["start"])})
+        sp = {"start": u["start"], "end": u["end"], "masked": glue + _stars(u["end"] - u["start"])}
+        if u.get("rad"):
+            sp["kind"] = "radical"  # #163：语音出口（persona.drop_name_explain）按 kind 换成「那个名字」
+        out.append(sp)
     out.sort(key=lambda e: e["start"])
     return out
+
+
+# ---- #163 复审：文字出口（refs.mask_names / llm.js maskNames）把拆字报姓、逐字解释、偏旁说法连同前面的姓名整体读成「那个名字」，
+# 与语音出口 voice/persona.drop_name_explain 对齐。与 redact.js nameSayRegions 一致 ----
+@functools.lru_cache(maxsize=None)
+def _say_rules():
+    R, E = _split_rules(), _explain_rules()
+    if not R or not E:
+        return None
+    hom = R["sp"].get("homophones") or {}
+    cls = lambda c: "[" + c + hom.get(c, "") + "]"
+    return {
+        "variant": compile_js("(" + "|".join("".join(cls(c) for c in x) for x in sorted(R["sp"]["spellings"], key=len, reverse=True)) + ")"),
+        "sepc": re.compile(r"[\s，,、：:；;。]"),
+        "absorbLead": re.compile(r"[叫是姓名人：:\s，,。、]"),
+        "run": re.compile(r"^[\s，,、：:；;。]{0,2}(?:就是|是)?$"),
+        "end": compile_js("^(?:" + (R["sp"].get("sayEnd") or "(?!)") + ")"),
+        "surnames": (load("extractors").get("nameRules") or {}).get("surnames") or "",
+    }
+
+
+def name_say_regions(text: Optional[str], entities: Optional[Iterable[dict]] = None) -> List[List[int]]:
+    """文字出口要整体读成「那个名字」的区间 [[start, end], ...]（已合并、按 start 排）。entities：extract_sensitive 的结果。"""
+    s = str(text or "")
+    R, E, Q = _split_rules(), _explain_rules(), _say_rules()
+    if not R or not E or not Q:
+        return []
+    ents = [e for e in (entities or []) if isinstance(e.get("start"), int)]
+    units = explain_units(s, ents)
+    spans = find_name_spans(s, ents)
+    regs = [[u["start"], u["end"]] for u in units]
+    regs += [[sp["start"] - 1, sp["end"]] for sp in spans if sp.get("kind") == "nameBefore"]
+    han = lambda c: bool(c) and bool(E["han"].match(c))
+
+    def end_ok(pos):
+        if pos >= len(s) or not han(s[pos]) or E["particle"].match(s[pos]) or E["tailWords"].match(s, pos) or Q["end"].match(s[pos:]):
+            return True
+        return any(u["head"] >= pos and E["sep"].match(s[pos:u["head"]]) for u in units)
+
+    hits = [[m.start(), m.end()] for m in Q["variant"].finditer(s)] + [[a, b] for a, b, _ in split_hits(s, units)]
+    for a, b in hits:
+        sm = R["sep"].match(s[b:])  # 复审建议：sep 匹配不上时不抛错
+        pos = b + (sm.end() if sm else 0)
+        for sp in spans:
+            if not sp.get("kind") and sp["start"] == pos and re.fullmatch(r"\*+", sp["masked"]):
+                b = sp["end"]
+        if not end_ok(b):
+            continue
+        if a > 0 and s[a - 1] == "姓":
+            a -= 1
+        regs.append([a, b])
+    if not regs:
+        return []
+    names = [e for e in ents if e.get("type") == "name" and e.get("value")]
+    for r in regs:
+        for _ in range(4):
+            q, k = r[0], 0
+            while q > 0 and k < 2 and Q["sepc"].match(s[q - 1]):
+                q, k = q - 1, k + 1
+            e = next((n for n in names if n["end"] == q and n["start"] < q), None)
+            if e:
+                r[0] = e["start"]
+                continue
+            if q > 0 and s[q - 1] in Q["surnames"] and (q - 1 == 0 or Q["absorbLead"].match(s[q - 2])):
+                r[0] = q - 1
+                continue
+            break
+    regs.sort(key=lambda x: (x[0], -x[1]))
+    out: List[List[int]] = []
+    for r in regs:
+        if out and (r[0] <= out[-1][1] or Q["run"].match(s[out[-1][1]:r[0]])):
+            out[-1][1] = max(out[-1][1], r[1])
+        else:
+            out.append([r[0], r[1]])
+    return out
+
+
+def say_names(text: Optional[str], entities: Optional[Iterable[dict]] = None, phrase: str = "那个名字") -> str:
+    """把 name_say_regions 的区间换成 phrase（默认「那个名字」）。"""
+    s = str(text or "")
+    for a, b in reversed(name_say_regions(s, entities)):
+        s = s[:a] + phrase + s[b:]
+    return s
 
 
 def redact_text(text: Optional[str], entities: Optional[Iterable[dict]]) -> str:

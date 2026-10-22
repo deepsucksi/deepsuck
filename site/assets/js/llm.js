@@ -184,6 +184,8 @@
     var w = bracket ? '〔' + NDE.name + '〕' : NDE.name;
     var amount = bracket ? '〔' + UR.phrase.number + '〕' : AMOUNT_PHRASE;
     // #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓，「和*」「姓*」照样当姓名），不在表里的再看 notSurname
+    // #163 复审：拆字报姓、逐字解释、偏旁说法连同前面的姓名整体换成「那个名字」（与语音出口 drop_name_explain 对齐）
+    if (D.redact.sayNames) text = D.redact.sayNames(text, D.extractors.extractSensitive(String(text || '')), w);
     var s = collapseSpacedStars(text) // 1) 先合并带空格的星号
       .replace(LABEL_STARS_YUAN_RE, function (m, lab, sp) { return lab + sp + w; })
       .replace(AMOUNT_STARS_RE, function (m, off, str) { return amountSkip(str, off) ? m : amount; }) // 2) 打码金额先换，免得「剩*块」被当成姓名

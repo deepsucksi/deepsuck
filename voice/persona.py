@@ -13,7 +13,7 @@ if str(_PY) not in sys.path:
 
 from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
-from deepsuck.redact import mask  # noqa: E402  #227
+from deepsuck.redact import find_name_spans, mask  # noqa: E402  #227；#163 find_name_spans
 from deepsuck.extractors import find_name_context, masked_lead_not_surname, stars_not_name  # noqa: E402  #201 共用字表 core/name_stopchars.json
 from deepsuck.refs import _NoTail, collapse_spaced_stars  # noqa: E402  #216
 from deepsuck.refs import AMOUNT_PHRASE, _AMOUNT_STARS, _amount_skip  # noqa: E402  #222：打码金额与文本端共用同一规则
@@ -801,13 +801,7 @@ def speakable(text: str, calm_tts: bool | None = None) -> str:
 _EXR = load("extractors")["nameRules"]
 _SPLIT_SPELLINGS = tuple(_EXR["split"]["spellings"])
 # 拆字说法里每个字的 ASR 同音 / 近音写法（只用于识别人设复述的拆字报姓，不进任何台词）
-_SPLIT_HOMOPHONES = {
-    "弓": "工公宫龚功攻", "长": "厂场常", "张": "章长掌", "耳": "尔二而儿", "东": "冬", "陈": "晨程成臣沉",
-    "口": "扣寇", "天": "田添", "吴": "无武五午", "立": "力丽利", "早": "枣找", "章": "张", "木": "目牧", "子": "字紫",
-    "李": "里理礼", "双": "霜", "林": "临琳", "古": "谷股", "月": "越", "胡": "湖壶", "言": "严盐", "午": "五武",
-    "许": "须", "草": "曹", "头": "投", "黄": "皇煌", "易": "亦义", "杨": "阳扬洋", "关": "官观", "郑": "正政",
-    "马": "码", "冯": "风", "吕": "旅", "走": "奏", "肖": "小晓萧", "赵": "照", "禾": "和合", "程": "成城诚",
-}
+_SPLIT_HOMOPHONES = dict(_EXR["split"]["homophones"])  # #163 复审：表挪到共享核心 nameRules.split.homophones，文字出口（llm.js / refs.py）共用
 
 
 def _split_variants(sp: str) -> str:
@@ -826,10 +820,13 @@ _EXP_END = "(?=$|[^\u4e00-\u9fff]|" + _EXP_TAIL + "|" + _EXP_PARTICLE + "|" + _E
 _GIVEN_CHAR = "(?:(?!" + _EXR["split"]["givenStop"] + "|" + _EXP_PARTICLE + ")" + _HAN + ")"
 _GIVEN_AFTER = _GIVEN_CHAR + "{1,2}(?![\u4e00-\u9fff])"
 _SPLIT_EXACT = "|".join("\\s*".join(sp) for sp in sorted(_SPLIT_SPELLINGS, key=len, reverse=True))
+# #163 复审：拆字报姓后面紧跟数字 / 中文金额（「弓长张三五百块」「转给木子李一千元」「转给弓长张500」）也算说完了，
+# 否则后面的数字过滤先把金额换掉，拆字规则就再也认不出来（以前读成「弓长张那串数没记住百块」「转给木子李那么点」）
+_SPLIT_END = "(?:(?=" + _AMOUNT_AFTER_NAME + "|[0-9０-９])|" + _EXP_END + ")"
 _SPLIT_SAY = re.compile(
     "姓?(?:(?:" + _SPLIT_EXACT + ")(?:" + _EXP_SEP + _GIVEN_AFTER + ")?"
     + "|(?:" + "|".join(_split_variants(sp) for sp in _SPLIT_SPELLINGS) + ")(?:[\\s，,、：:；;。]{1,2}" + _GIVEN_AFTER + ")?)"
-    + _EXP_END)
+    + _SPLIT_END)
 # #219：「的」和 X 之间允许引号、空格、一个逗号，X 可带引号（「伟大的“伟”」「伟大的 伟」「伟大的，伟」）
 _QUOTE = "[“”「」『』‘’'\"]"
 _EXPLAIN_CAND = re.compile("(" + _HAN + "{1,4})的(?:那个)?(?:\\s|" + _QUOTE + "){0,2}[，,]?(?:\\s|" + _QUOTE + "){0,2}(" + _HAN + ")" + _QUOTE + "?字?" + _EXP_END)
@@ -878,12 +875,37 @@ def drop_given_after_split(prev: str, cur: str) -> str:
 def drop_name_explain(text: str) -> str:
     """#215：拆字报姓、逐字解释（连同被解释的姓名）整体换成已批的「那个名字」，相邻几段合成一个。没有命中时原样返回。"""
     s = str(text or "")
+    orig = s
+    # #163：共享核心认出的偏旁说法（「单人旁一个韦」「三点水的江」）和逐字解释前面的姓名（「张伟晨，伟大的伟」）也换成「那个名字」
+    for sp in sorted(find_name_spans(s, extract_sensitive(s)), key=lambda e: e["start"], reverse=True):
+        if sp.get("kind") in ("radical", "nameBefore"):
+            a = sp["start"] - (1 if sp["kind"] == "nameBefore" else 0)
+            s = s[:a] + NAME_PHRASE + s[sp["end"]:]
     if "的" not in s and not any(c in s for c in "".join(_SPLIT_SPELLINGS) + "".join(_SPLIT_HOMOPHONES.values())):
-        return s
+        s = _NAME_RUN.sub(NAME_PHRASE, s)
+        return _absorb_surname(s, [e["value"] for e in extract_sensitive(orig) if e.get("type") == "name" and e.get("value")]) if s != orig else s
+    names = sorted({e["value"] for e in extract_sensitive(s) if e.get("type") == "name" and e.get("value")}, key=len, reverse=True)
     s = _SPLIT_SAY.sub(NAME_PHRASE, s)
     spans = _explain_spans(s)
     for a, b in reversed(spans):
         s = s[:a] + NAME_PHRASE + s[b:]
+    s = _NAME_RUN.sub(NAME_PHRASE, s)
+    return _absorb_surname(s, names) if s != orig else s
+
+
+# #163 复审（负责人：任何露姓都要修）：拆字 / 逐字解释换成「那个名字」后，紧挨在前面的姓名、残姓也并进去，不念出姓：
+# 「我叫张伟，伟大的伟」→「我叫那个名字」（以前「我叫张那个名字」），「我叫张伟晨，伟大的伟」→「我叫那个名字」，
+# 「我姓张，弓长张」→「我姓那个名字」，「收款人李四，木子李」→「收款人那个名字」。只动紧跟「那个名字」的，别处的姓名照旧交给后面的脱敏。
+def _absorb_surname(s: str, names) -> str:
+    if NAME_PHRASE not in s:
+        return s
+    # 单个残姓只在句首、标点或「叫 / 是 / 姓 / 名 / 人」后面才算（「告诉我那个名字」这类原有说法不动）
+    alts = [re.escape(n) for n in names] + ["(?<![^叫是姓名人：:\\s，,。、])[" + _SURNAME_SET + "]"]
+    pat = re.compile("(?:" + "|".join(alts) + ")" + _EXP_SEP + "(?=" + NAME_PHRASE + ")")
+    prev = None
+    while prev != s:
+        prev = s
+        s = pat.sub("", s)
     return _NAME_RUN.sub(NAME_PHRASE, s)
 
 
@@ -909,6 +931,11 @@ _SURNAME_STARS_DIGITS = re.compile(r"(?<![\u4e00-\u9fff0-9A-Za-z０-９])[" + _S
                                    r"(?![*＊]{1,4}(?:[0-9０-９]{1,3}(?![0-9０-９])|[0-9０-９]+\s*(?:块|元|万)))")  # 「李**500」仍按 #222 念「那个名字」
 _NAME_NUM_LEAD = re.compile(r"(?:^|(?<=[，,。；;！!？?\s]))(?=[" + _SURNAME_SET + r"])")  # 只管句首（「张三三点钟」）；给 / 是 / 叫 前缀等 #220
 _NAME_NUM_END = re.compile("[" + _CN_NUM + "]+(?:岁|点)")  # 只管岁数 / 钟点；金额停字等 #220
+
+
+# #163 复审：按通话打码（CallRedactor）把「转给弓长张6222…」换成「转给张**6222…」后，姓 + 星号紧跟数字，前面是转账 / 字段词时整段是姓名，
+# 换成「那个名字」再做数字过滤（以前读成「转给张那几个数没听清」露姓）
+_LEAD_SURNAME_STARS_DIGITS = re.compile(r"((?:转给|打给|汇给|给|收款人|收款户名|户名|账户名|开户名|姓名)(?:是)?[：:\s]*)[" + _SURNAME_SET + r"][*＊]+(?=[0-9０-９])")
 
 
 def _is_name(cand: str) -> bool:
@@ -969,7 +996,7 @@ def guard_output(text: str) -> str:
     s = _FIELD_STARS_AMOUNT.sub(lambda m: m.group(1) + m.group(2) + NAME_PHRASE, s)  # #227 五审：先于姓名锚，免得残名规则把金额吃掉
     s = _proxy_masked(s)  # #214 语料复审：打码星号先换成代称，再去 Markdown 粗体（「验证码是**，密码是**」两段 ** 不当粗体删掉）
     s = _BOLD.sub(r"\1", s)
-    s = _unmask_names(_mask_names_before_digits(_SURNAME_STARS_DIGITS.sub("", drop_name_explain(s))))  # #227：拆字拦截之后、数字过滤之前，紧跟金额的真名先打码；#219：姓名替换在拆字 / 逐字解释拦截之后；#215：拆字报姓 / 逐字解释整体换成「那个名字」（在脱敏、数字过滤之前，免得被打成星号再念成「那个号」）
+    s = _unmask_names(_mask_names_before_digits(_SURNAME_STARS_DIGITS.sub("", _LEAD_SURNAME_STARS_DIGITS.sub(r"\1" + NAME_PHRASE, drop_name_explain(s)))))  # #227：拆字拦截之后、数字过滤之前，紧跟金额的真名先打码；#219：姓名替换在拆字 / 逐字解释拦截之后；#215：拆字报姓 / 逐字解释整体换成「那个名字」（在脱敏、数字过滤之前，免得被打成星号再念成「那个号」）
     s = hold_transfer(s)  # #187：说成已经转了 / 答应去转的分句换成“还在弄，没弄好”（在数字过滤、姓名替换、TTS 之前）
     s = vague_digits(s)
     s = polish_reply(s)  # #132、#134：书面词换口语，第一句快速反问的问号换成“…”

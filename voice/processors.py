@@ -333,17 +333,18 @@ class IntelProcessor(FrameProcessor):
         return {"type": "state", "intel": self.session.intel_list(), "tactics": self.session.tactic_list(),
                 "stats": self.session.stats(), "intent": self.intent}
 
-    def call_redact(self, a: dict) -> dict:
+    def call_redact(self, a: dict, raw: Optional[str] = None) -> dict:
         """#140：按通话打码。先把本段新提取的情报记进集合，再把本段文本、会话里对方说过的话、模型上下文里的用户消息
         中已提取姓名/号码的各种说法（全名、去姓的名、拆字说法、号码换写法）打码。逐句规则漏掉的在这里补上。"""
         before = len(self.redactor)
         grew = self.redactor.learn(self.session) > before
         if not len(self.redactor):
             return a
-        a["redacted"] = self.redactor.apply(a.get("redacted", ""))
+        core_red = a.get("redacted", "")
+        a["redacted"] = self.redactor.apply(core_red, raw=raw)  # #163：raw 用来把共享核心打成纯星号的单段解释读成“那个名字”
         for m in getattr(self.session, "messages", []) or []:
             if m.get("role") == "scammer" and isinstance(m.get("text"), str):
-                m["text"] = self.redactor.apply(m["text"])
+                m["text"] = a["redacted"] if m["text"] == core_red else self.redactor.apply(m["text"])
         if grew and self.context is not None:  # 新记下的名字可能在之前几段里已经说过（先报名、后报户名）
             msgs = list(self.context.get_messages())
             changed = False
@@ -468,7 +469,7 @@ class IntelProcessor(FrameProcessor):
         text = (frame.text or "").strip()
         if not text:
             return
-        a = self.frag_redact(self.call_redact(self.session.ingest(text)))
+        a = self.frag_redact(self.call_redact(self.session.ingest(text), raw=text))
         if self.backchannel is not None:
             self.said_first = self.backchannel.note(a["redacted"]) or ""
         if self.mode == "rule":

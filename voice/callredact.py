@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from deepsuck.redact import _explain_rules, mask
 from deepsuck.core import load  # noqa: E402  #216
@@ -61,7 +61,9 @@ def name_patterns(name: str) -> List[str]:
 # 所以被解释的字是已记住姓名里的字（姓除外，与 张** 只留姓一致）时，单独一段也打。
 # 打码值用这个姓名的打码值（张**，经 persona.unmask 读成“那个名字”），整串解释并成一个；紧跟在姓名打码后面的解释
 # （含共享核心已打成的纯星号串，如“张**，****”）并入同一个名字，与 llm.js 的 NAME_TAIL_RE 一致，免得剩下“，****”读成“那个号”。
-_EX_MARK = "\ue000"  # 解释段占位（私用区字符，替换完即消失）
+_EX_MARK = "\ue000"
+# #163：共享核心打出的纯星号解释串（前后不挨数字 / 字母 / 汉字，几段之间隔 sep），见 CallRedactor.apply(raw=)
+_BARE_STARS = re.compile(r"(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{3,}(?:[\s，,、：:；;。]{1,2}[*＊]{3,})*(?![0-9A-Za-z０-９*＊\u4e00-\u9fff])")  # 解释段占位（私用区字符，替换完即消失）
 _NAME_TAIL_SEP = r"[ \u3000…,，、.．·~～\-—]{1,2}"
 
 
@@ -77,6 +79,9 @@ def explain_segments(s: str) -> List[List[dict]]:
     han = lambda c: bool(c) and bool(E["han"].match(c))
     cands = []
     for i in range(len(s)):
+        r = E["radical"].match(s, i) if E.get("radical") else None
+        if r and (r.group(1) or r.group(2)):  # #163 偏旁说法（「单人旁一个韦」「三点水的江」），共享核心 nameRules.explain.radicals
+            cands.append({"start": i, "head": i, "wstart": i, "end": r.end(), "x": r.group(2) or r.group(1), "rad": True})
         m = E["link"].match(s, i)
         if not m:
             continue
@@ -229,10 +234,12 @@ class CallRedactor:
         out, masks, pos = [], [], 0
         for chain in explain_segments(s):
             owner = next((mk for u in chain for n, (sur, mk) in self._names.items() if u["x"] in n[len(sur):]), None)
+            if not owner and any(u.get("rad") for u in chain):
+                owner = next(iter(self._names.values()))[1]  # #163：偏旁说法的部件字（「单人旁一个韦」的韦）不在名里，记作本通第一个姓名
             if not owner:
                 continue
             for u in chain:
-                if u["x"] not in given:
+                if u["x"] not in given and not u.get("rad"):
                     continue  # 被解释的是姓（「木子李，就是李子的李」）：不打，与 张** 只留姓一致
                 out.append(s[pos:u["start"]])
                 out.append(_EX_MARK)
@@ -241,7 +248,31 @@ class CallRedactor:
         out.append(s[pos:])
         return "".join(out), masks
 
-    def apply(self, text) -> str:
+    def _raw_owners(self, raw: str) -> List[str]:
+        """#163：原文（未打码）里每串归属本通已记住姓名的逐字解释 / 偏旁说法，按顺序给出它所属姓名的打码值。"""
+        given = "".join(n[len(sur):] for n, (sur, _) in self._names.items())
+        out = []
+        for chain in explain_segments(raw):
+            owner = next((mk for u in chain for n, (sur, mk) in self._names.items() if u["x"] in n[len(sur):]), None)
+            if not owner and any(u.get("rad") for u in chain):
+                owner = next(iter(self._names.values()))[1]
+            if owner and any(u["x"] in given or u.get("rad") for u in chain):
+                out.append(owner)
+        return out
+
+    def apply(self, text, raw: Optional[str] = None) -> str:
+        """raw：这段话的原文（#163）。共享核心已把单段解释 / 偏旁说法打成纯星号（「对，****。」）时，按原文里的解释串
+        换成所属姓名的打码值（读成“那个名字”，不读成“那个号”）；纯星号串的个数与原文解释串个数不一致时不动。"""
+        s = self._apply(text)
+        if raw and self._names and s:
+            owners = self._raw_owners(str(raw))
+            runs = list(_BARE_STARS.finditer(s))
+            if owners and len(runs) == len(owners):
+                for m, mk in reversed(list(zip(runs, owners))):
+                    s = s[:m.start()] + mk + s[m.end():]
+        return s
+
+    def _apply(self, text) -> str:
         s = str(text or "")
         if not self._items or not s:
             return s
