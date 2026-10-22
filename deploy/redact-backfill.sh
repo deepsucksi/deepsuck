@@ -3,10 +3,14 @@
 # 在 20:40 成本汇总之前。在运行中的 voice 容器里执行 python -m voice.redact_backfill（只改已同意通话，
 # 只把新规则命中的数字换成 *，保留修改时间；规则随镜像更新）。
 #
-#   deploy/redact-backfill.sh [--dry-run]
+#   deploy/redact-backfill.sh [--dry-run] [--no-backup]
 #
-# 不带 --backup：不在卷里或宿主机留改写前的备份（备份同样是敏感数据）。
-# 只读脚本输出的计数 JSON，不打印任何文字内容或通话编号；容器的 stderr 丢弃。
+# #254：正式改写默认带 --backup，备份写到 trace 卷里的 REDACT_BACKUP_DIR（默认容器内 /traces/backups，0700，
+# 文件 backup-<时间>.tar，0600），只保留 REDACT_BACKUP_KEEP_HOURS（默认 24）小时：每次运行先删 mtime 超过的 backup-*.tar。
+# 备份同样是敏感数据，所以只留一天。--no-backup 或 REDACT_BACKUP=0 关掉；--dry-run 不备份。
+# 备份文件已存在（同一秒跑了两次）：voice.redact_backfill 退出码 3、不改文件，这里记 ERROR（#216，不再是 traceback）。
+# 计数只读输出的 JSON；容器 stderr 只认 event=redact_backfill.change 的结构化改动日志（#254），按白名单字段
+# （通话编号、trace / transcript、字段路径、规则类别、处数）重新拼一行记 INFO，其余 stderr 一律丢弃，从不记原文。
 # 日志：journalctl -t deepsuck-redact。rows_changed=0 记 INFO，>0 记 WARN（说明实时脱敏漏过、已事后补打码），
 # 失败（容器不在、脚本报错、输出不是 JSON、trace 目录不存在）记 ERROR 并以非 0 退出（单元失败）。
 set -euo pipefail
@@ -15,18 +19,73 @@ set -euo pipefail
 TAG="${REDACT_TAG:-deepsuck-redact}"
 CONTAINER="${REDACT_CONTAINER:-${COMPOSE_PROJECT}-voice-1}"
 PY="${PYTHON:-python3}"
+BACKUP="${REDACT_BACKUP:-1}"
+BACKUP_DIR="${REDACT_BACKUP_DIR:-/traces/backups}"
+KEEP_HOURS="${REDACT_BACKUP_KEEP_HOURS:-24}"
+case "$KEEP_HOURS" in ''|*[!0-9]*) echo "REDACT_BACKUP_KEEP_HOURS must be an integer" >&2; exit 2 ;; esac
 for a in "$@"; do
   case "$a" in
     --dry-run|-n) DRY_RUN=1 ;;
-    -h|--help) sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --no-backup) BACKUP=0 ;;
+    -h|--help) sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $a" >&2; exit 2 ;;
   esac
 done
 
+# 过期备份清理：回填之前先删一次，脚本以任何方式退出（含回填失败、set -e 中断）时 EXIT trap 再删一次。
+# find 只在备份目录这一层、只认 backup-*.tar。dry-run 不动卷。
+prune_backups() {
+  [ "$DRY_RUN" = 1 ] && return 0
+  local pruned n
+  pruned=$(docker exec "$CONTAINER" find "$BACKUP_DIR" -maxdepth 1 -type f -name 'backup-*.tar' \
+             -mmin +$((KEEP_HOURS * 60)) -print -delete 2>/dev/null) || pruned=""
+  n=$(printf '%s\n' "$pruned" | grep -c "^$BACKUP_DIR/backup-.*\.tar$" || true)
+  if [ "${n:-0}" -gt 0 ]; then log info "$TAG" "pruned $n backup(s) older than ${KEEP_HOURS}h in $BACKUP_DIR"; fi
+  return 0
+}
+errf=$(mktemp); chmod 600 "$errf"
+trap 'rm -f "$errf"; prune_backups' EXIT
+prune_backups
+if [ "$DRY_RUN" != 1 ] && [ "$BACKUP" = 1 ]; then
+  # 备份目录 0700（已存在也收紧），备份文件由 voice.redact_backfill 以 0600 新建（O_EXCL）
+  if ! docker exec "$CONTAINER" sh -c 'mkdir -p -m 0700 "$1" && chmod 0700 "$1"' _ "$BACKUP_DIR" >/dev/null 2>&1; then
+    log err "$TAG" "cannot prepare backup dir $BACKUP_DIR (0700) in $CONTAINER"
+    exit 1
+  fi
+fi
+
 args=(python -m voice.redact_backfill)
 [ "$DRY_RUN" = 1 ] && args+=(--dry-run)
+if [ "$DRY_RUN" != 1 ] && [ "$BACKUP" = 1 ]; then
+  args+=(--backup "$BACKUP_DIR/backup-$(date +%Y%m%d-%H%M%S).tar")
+fi
 rc=0
-out=$(docker exec "$CONTAINER" "${args[@]}" 2>/dev/null) || rc=$?
+out=$(docker exec "$CONTAINER" "${args[@]}" 2>"$errf") || rc=$?
+# #254：结构化改动日志，只按白名单字段重拼（编号只认字母数字，路径 / 规则只认 [A-Za-z0-9_.:\[\]-]）
+"$PY" - "$errf" <<'PYEOF' | while IFS= read -r ln; do log info "$TAG" "$ln"; done || true
+import json, re, sys
+ok = re.compile(r"^[A-Za-z0-9_.:\[\]-]{1,64}$")
+for raw in open(sys.argv[1], encoding="utf-8", errors="replace"):
+    try:
+        d = json.loads(raw)
+    except ValueError:
+        continue
+    if not isinstance(d, dict) or d.get("event") != "redact_backfill.change":
+        continue
+    cid, kind = str(d.get("call_id", "")), d.get("kind")
+    if not re.fullmatch(r"[A-Za-z0-9]{1,40}", cid) or kind not in ("trace", "transcript"):
+        continue
+    fs = []
+    for f in d.get("fields") or []:
+        p, rules, n = str(f.get("path", "")), [str(r) for r in f.get("rules") or []], f.get("n")
+        if ok.match(p) and rules and all(ok.match(r) for r in rules) and isinstance(n, int):
+            fs.append("%s:%s:%d" % (p, "+".join(rules), n))
+    print("change call=%s kind=%s changes=%d fields=%s" % (cid, kind, int(d.get("changes") or 0), ",".join(fs)))
+PYEOF
+if [ "$rc" = 3 ]; then
+  log err "$TAG" "backup file already exists in $BACKUP_DIR; nothing rewritten"
+  exit 1
+fi
 if [ "$rc" != 0 ]; then
   log err "$TAG" "voice.redact_backfill failed in $CONTAINER (exit $rc)"
   exit 1

@@ -3,7 +3,8 @@
 出口：实时推送（notify：interim / scammer / state 里的 intel）、Session.ingest 的 redacted（会话记录、进模型的文本）、
 trace 写盘（voice-traces 的 jsonl）、存盘转写（records.save_transcript）、回填（redact_backfill 处理旧 trace / 旧转写）、
 日志（loguru 全级别）和 stdout / stderr。以后再漏接一处出口，这里直接失败。
-测试句来自 scripts/gen-fixtures.js 的 #250 组（拆字报姓 + 金额）和报名 + 逐字解释。"""
+测试句来自 scripts/gen-fixtures.js 的 #250 组（拆字报姓 + 金额）和报名 + 逐字解释。
+#254：网页（consent=true）和电话线路（SIP，consent="sip-text-only"）两条都跑；回填也覆盖 SIP 的旧 trace / 旧转写。"""
 import asyncio
 import json
 import os
@@ -42,8 +43,11 @@ def _count(blob: str, needles) -> int:
 ALL_LEAKS = tuple(n for _, ns in LEAK_CASES for n in ns)
 
 
-@pytest.fixture
-def call(tmp_path):
+CHANNELS = ["web", "phone"]   # phone = SIP 线路（voice/telephony/server.py：CallTrace(channel="phone")、save_transcript(..., "phone")）
+
+
+@pytest.fixture(params=CHANNELS)
+def call(tmp_path, request):
     """跑一通：假 ASR（interim + final）→ IntelProcessor → notify → CallTrace；最后存盘转写。"""
     env = {"TRACE_DIR": str(tmp_path / "traces"), "TRACE_MIN_FREE_MB": "0", "DATA_DIR": str(tmp_path / "data")}
     logs = []
@@ -51,8 +55,11 @@ def call(tmp_path):
     sink = logger.add(lambda m: logs.append(str(m)), level="DEBUG", format="{name}:{function}:{level} | {message} {extra}")
     pushed = []
     session = Session(scenario="refund", persona="wang", rng=mulberry32(7), now=lambda: 0)
-    trace = TR.CallTrace(channel="web", consent=True, persona="wang", scenario="refund", model="m", env=env,
-                         prompt_sha=lambda: "x")
+    channel = request.param
+    extra = {"caller": "13800138000"} if channel == "phone" else {}
+    trace = TR.CallTrace(channel=channel, consent=True, persona="wang", scenario="refund", model="m", env=env,
+                         prompt_sha=lambda: "x", **extra)
+    assert trace.consent == (TR.SIP_CONSENT if channel == "phone" else True)
     trace.session = session
 
     async def notify(msg):
@@ -69,7 +76,7 @@ def call(tmp_path):
         down, _ = asyncio.run(run_test(p, frames_to_send=frames,
                                        expected_down_frames=[InterimTranscriptionFrame, TranscriptionFrame] * len(texts)))
         trace.end("client_hangup", stats=session.stats())
-        saved = REC.save_transcript(session, trace.id, "web", env=env)
+        saved = REC.save_transcript(session, trace.id, channel, env=env)
     finally:
         logger.remove(sink)
     return {"env": env, "pushed": pushed, "down": down, "session": session, "trace": trace.path, "saved": saved,
@@ -129,24 +136,51 @@ def _legacy_trace(d, cid, consent=True):
     return p
 
 
-def test_backfill_fixes_old_traces_and_transcripts(tmp_path, capsys):
+ALL_FIXTURE_TEXT = tuple(t for t, _ in LEAK_CASES) + ALL_LEAKS + tuple(NORMAL)
+
+
+def _check_change_log(err: str, channel: str, dry_run: bool):
+    recs = [json.loads(x) for x in err.splitlines() if x.startswith("{") and BF.CHANGE_EVENT in x]
+    assert sorted(r["kind"] for r in recs) == ["trace", "transcript"], recs
+    for r in recs:
+        assert set(r) == {"event", "call_id", "kind", "dry_run", "fields", "changes"}
+        assert r["call_id"] == "AAAAAAAA" and r["dry_run"] is dry_run
+        assert r["changes"] == sum(f["n"] for f in r["fields"]) > 0
+        for f in r["fields"]:
+            assert set(f) == {"path", "rules", "n"} and f["n"] >= 1 and f["rules"]
+    paths = {f["path"] for r in recs for f in r["fields"]}
+    assert "turn[1].asr" in paths and "feedback[%d].note" % (len(LEAK_CASES) + len(NORMAL) + 1) in paths, paths
+    assert "transcript[0].text" in paths, paths
+    rules = {x for r in recs for f in r["fields"] for x in f["rules"]}
+    assert "split-surname" in rules, rules
+    # 原文、泄漏片段、正常句、改后文本（「那个名字」）都不许出现
+    assert _count(err, ALL_FIXTURE_TEXT) == 0 and "那个名字" not in err and "*" not in err, err
+
+
+@pytest.mark.parametrize("channel,consent", [("web", True), ("phone", "sip-text-only")], ids=["web", "sip"])
+def test_backfill_fixes_old_traces_and_transcripts(tmp_path, capsys, channel, consent):
     d = tmp_path / "traces"
     d.mkdir()
     td = tmp_path / "transcripts"
     td.mkdir()
-    a = _legacy_trace(d, "AAAAAAAA")
-    b = _legacy_trace(d, "BBBBBBBB")
+    a = _legacy_trace(d, "AAAAAAAA", consent)
+    b = _legacy_trace(d, "BBBBBBBB", consent)
     doc = {"transcript": [{"role": "scammer", "text": t} for t, _ in LEAK_CASES] +
                          [{"role": "scammer", "text": t} for t in NORMAL]}
-    tp = td / "20261022-130000-web-AAAAAAAA.json"
+    tp = td / f"20261022-130000-{channel}-AAAAAAAA.json"
     tp.write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
     # --call：只处理指定通话，dry-run 不改
     assert BF.main(["--dir", str(d), "--transcripts", str(td), "--dry-run", "--min-age", "0", "--call", "AAAAAAAA"]) == 0
-    s = json.loads(capsys.readouterr().out)
+    out = capsys.readouterr()
+    s = json.loads(out.out)
     assert s["files_scanned"] == 1 and s["files_changed"] == 1 and s["transcripts"]["files_changed"] == 1
+    # #254：dry-run 也按文件记结构化改动日志（stderr），只有编号 / 类别 / 字段路径 / 规则 / 处数，没有任何原文
+    _check_change_log(out.err, channel, dry_run=True)
+    assert s["sip"] == (1 if consent == "sip-text-only" else 0)
     assert _count(a.read_text(encoding="utf-8"), ALL_LEAKS) > 0
     assert BF.main(["--dir", str(d), "--transcripts", str(td), "--min-age", "0", "--call", "AAAAAAAA"]) == 0
     out = capsys.readouterr()
+    _check_change_log(out.err, channel, dry_run=False)
     assert _count(out.out + out.err, ALL_LEAKS) == 0 and "AAAAAAAA" not in out.out
     assert _count(a.read_text(encoding="utf-8"), ALL_LEAKS) == 0
     assert _count(tp.read_text(encoding="utf-8"), ALL_LEAKS) == 0
@@ -160,6 +194,37 @@ def test_backfill_fixes_old_traces_and_transcripts(tmp_path, capsys):
     assert BF.main(["--dir", str(d), "--transcripts", str(td), "--min-age", "0"]) == 0
     s = json.loads(capsys.readouterr().out)
     assert s["files_changed"] == 0 and s["transcripts"]["files_changed"] == 0
+
+
+def test_backfill_backup_exists_no_traceback(tmp_path, capsys):
+    """#216：--backup 指向已存在的文件时不抛 traceback、不改文件，输出错误 JSON、退出码 3。"""
+    d = tmp_path / "traces"
+    d.mkdir()
+    p = _legacy_trace(d, "DDDDDDDD")
+    before = p.read_bytes()
+    bk = tmp_path / "backup-x.tar"
+    bk.write_bytes(b"old")
+    assert BF.main(["--dir", str(d), "--no-transcripts", "--min-age", "0", "--backup", str(bk)]) == 3
+    out = capsys.readouterr()
+    assert json.loads(out.out)["error"] == "backup_exists" and "Traceback" not in out.err
+    assert p.read_bytes() == before and bk.read_bytes() == b"old"
+    # 新备份目录不存在时自动建（0700），备份文件 0600
+    bk2 = tmp_path / "backups" / "backup-y.tar"
+    assert BF.main(["--dir", str(d), "--no-transcripts", "--min-age", "0", "--backup", str(bk2)]) == 0
+    capsys.readouterr()
+    assert oct(bk2.parent.stat().st_mode & 0o777) == "0o700" and oct(bk2.stat().st_mode & 0o777) == "0o600"
+    assert _count(p.read_text(encoding="utf-8"), ALL_LEAKS) == 0
+
+
+def test_backfill_still_skips_no_consent(tmp_path, capsys):
+    """#254 只放开 SIP：网页未同意（false）的旧 trace 仍一律不动。"""
+    d = tmp_path / "traces"
+    d.mkdir()
+    p = _legacy_trace(d, "CCCCCCCC", False)
+    before = p.read_bytes()
+    assert BF.main(["--dir", str(d), "--no-transcripts", "--min-age", "0"]) == 0
+    s = json.loads(capsys.readouterr().out)
+    assert s["skipped_not_consented"] == 1 and s["files_changed"] == 0 and p.read_bytes() == before
 
 
 def test_app_never_enables_trace_logging():
