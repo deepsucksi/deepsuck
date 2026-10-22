@@ -2436,7 +2436,7 @@
    "text": "弓长张三五百块",
    "expect": "mask",
    "leak": "张弓",
-   "expected": "那个名字三五百块",
+   "expected": "那个名字五百块",
    "same": false
   },
   {
