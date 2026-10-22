@@ -1,0 +1,115 @@
+{
+ "comment": "#249 同音 / ASR 拆字写法 + 名 + 数字（负责人规则）与白名单反例；JS（tests/homophone_split_249.test.js）与 Python 共用。",
+ "cases": [
+  {
+   "text": "工厂张三五百块转给我",
+   "expect": "mask",
+   "redacted": "工厂张*五百块转给我"
+  },
+  {
+   "text": "工厂张贴通知三份",
+   "expect": "keep",
+   "redacted": "工厂张贴通知三份"
+  },
+  {
+   "text": "工厂张家港二厂明天停工",
+   "expect": "keep",
+   "redacted": "工厂张家港二厂明天停工"
+  },
+  {
+   "text": "我在尔东陈列馆2楼等你",
+   "expect": "keep",
+   "redacted": "我在尔东陈列馆2楼等你"
+  },
+  {
+   "text": "按立早章程第3条办理",
+   "expect": "keep",
+   "redacted": "按立早章程第3条办理"
+  },
+  {
+   "text": "木子李子5斤一共30元",
+   "expect": "keep",
+   "redacted": "木子李子5斤一共30元"
+  },
+  {
+   "text": "口天吴江路88号取件",
+   "expect": "keep",
+   "redacted": "口天吴江路88号取件"
+  },
+  {
+   "text": "弓长张贴500份传单",
+   "expect": "keep",
+   "redacted": "弓长张贴500份传单"
+  },
+  {
+   "text": "收款人尔东陈伟明500",
+   "expect": "mask",
+   "redacted": "收款人尔****500"
+  },
+  {
+   "text": "尔东陈伟明500",
+   "expect": "mask",
+   "redacted": "尔东陈**500"
+  },
+  {
+   "text": "工长张三五百块",
+   "expect": "mask",
+   "redacted": "工长张*五百块"
+  },
+  {
+   "text": "转给工厂张伟明1000元",
+   "expect": "mask",
+   "redacted": "转给工厂张**1000元"
+  },
+  {
+   "text": "尔东陈伟明五百块",
+   "expect": "mask",
+   "redacted": "尔东陈**五百块"
+  },
+  {
+   "text": "木子里小红300",
+   "expect": "mask",
+   "redacted": "木子里**300"
+  },
+  {
+   "text": "龚厂长伟明两万",
+   "expect": "mask",
+   "redacted": "龚厂长**两万"
+  },
+  {
+   "text": "木子李子轩500",
+   "expect": "mask",
+   "redacted": "木子李**500"
+  },
+  {
+   "text": "弓长张三五百块",
+   "expect": "mask",
+   "redacted": "弓长张*五百块"
+  },
+  {
+   "text": "宫长张罗了一桌菜",
+   "expect": "keep",
+   "redacted": "宫长张罗了一桌菜"
+  },
+  {
+   "text": "尔东陈列室3号",
+   "expect": "keep",
+   "redacted": "尔东陈列室3号"
+  },
+  {
+   "text": "工厂张江路100号",
+   "expect": "keep",
+   "redacted": "工厂张江路100号"
+  },
+  {
+   "text": "木子李一千元",
+   "expect": "keep",
+   "redacted": "木子李一千元"
+  },
+  {
+   "text": "弓长张五百块",
+   "expect": "keep",
+   "redacted": "弓长张五百块"
+  }
+ ]
+}
