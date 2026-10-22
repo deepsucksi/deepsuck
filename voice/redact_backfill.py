@@ -14,7 +14,7 @@
 按原格式（indent=1）原子重写、0600、保留修改时间；--backup 时一起打进同一个 tar（路径前缀 transcripts/）。
 计数放在输出 JSON 的 transcripts 下；--no-transcripts 只处理 trace。
 
-输出只有计数（JSON），绝不打印任何文字内容或通话编号。
+stdout 只有计数（JSON），绝不打印任何文字内容或通话编号；stderr 的改动日志（#254）带通话编号，仍不含任何文字。
 #254：每个（dry-run 时会）改动的文件往 stderr 写一行结构化日志（event=redact_backfill.change：通话编号、trace / transcript、
 字段路径如 turn[3].asr、规则类别如 split-surname / fullname / phone / otp / dialog-digits、改动处数），不含原文或改后文本。
 --backup 的文件已存在时输出 {"error": "backup_exists"} 并以 3 退出，不改任何文件（#216）。

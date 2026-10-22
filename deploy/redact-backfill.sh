@@ -32,12 +32,26 @@ for a in "$@"; do
   esac
 done
 
-# 先清理过期备份（不管这次是否 dry-run / 是否备份：过期的都该删）。find 只在备份目录这一层、只认 backup-*.tar
-if [ "$DRY_RUN" != 1 ]; then
+# 过期备份清理：回填之前先删一次，脚本以任何方式退出（含回填失败、set -e 中断）时 EXIT trap 再删一次。
+# find 只在备份目录这一层、只认 backup-*.tar。dry-run 不动卷。
+prune_backups() {
+  [ "$DRY_RUN" = 1 ] && return 0
+  local pruned n
   pruned=$(docker exec "$CONTAINER" find "$BACKUP_DIR" -maxdepth 1 -type f -name 'backup-*.tar' \
              -mmin +$((KEEP_HOURS * 60)) -print -delete 2>/dev/null) || pruned=""
   n=$(printf '%s\n' "$pruned" | grep -c "^$BACKUP_DIR/backup-.*\.tar$" || true)
-  [ "${n:-0}" -gt 0 ] && log info "$TAG" "pruned $n backup(s) older than ${KEEP_HOURS}h in $BACKUP_DIR"
+  if [ "${n:-0}" -gt 0 ]; then log info "$TAG" "pruned $n backup(s) older than ${KEEP_HOURS}h in $BACKUP_DIR"; fi
+  return 0
+}
+errf=$(mktemp); chmod 600 "$errf"
+trap 'rm -f "$errf"; prune_backups' EXIT
+prune_backups
+if [ "$DRY_RUN" != 1 ] && [ "$BACKUP" = 1 ]; then
+  # 备份目录 0700（已存在也收紧），备份文件由 voice.redact_backfill 以 0600 新建（O_EXCL）
+  if ! docker exec "$CONTAINER" sh -c 'mkdir -p -m 0700 "$1" && chmod 0700 "$1"' _ "$BACKUP_DIR" >/dev/null 2>&1; then
+    log err "$TAG" "cannot prepare backup dir $BACKUP_DIR (0700) in $CONTAINER"
+    exit 1
+  fi
 fi
 
 args=(python -m voice.redact_backfill)
@@ -45,7 +59,6 @@ args=(python -m voice.redact_backfill)
 if [ "$DRY_RUN" != 1 ] && [ "$BACKUP" = 1 ]; then
   args+=(--backup "$BACKUP_DIR/backup-$(date +%Y%m%d-%H%M%S).tar")
 fi
-errf=$(mktemp); chmod 600 "$errf"; trap 'rm -f "$errf"' EXIT
 rc=0
 out=$(docker exec "$CONTAINER" "${args[@]}" 2>"$errf") || rc=$?
 # #254：结构化改动日志，只按白名单字段重拼（编号只认字母数字，路径 / 规则只认 [A-Za-z0-9_.:\[\]-]）

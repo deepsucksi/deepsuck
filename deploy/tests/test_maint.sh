@@ -28,7 +28,8 @@ case "$1 ${2:-}" in
   "volume inspect") exit 1 ;;
   "system df") echo "Images=1.2GB (40%)"; echo "Build Cache=300MB" ;;
   "builder prune") echo "Total:  300MB" ;;
-  "exec "*) [ -n "${FAKE_EXEC_ERR:-}" ] && echo "$FAKE_EXEC_ERR" >&2
+  "exec "*) case "$*" in *" python "*) ;; *) exit "${FAKE_AUX_RC:-0}" ;; esac   # #254：find / mkdir 等辅助 exec 不吃 FAKE_EXEC_*
+            [ -n "${FAKE_EXEC_ERR:-}" ] && echo "$FAKE_EXEC_ERR" >&2
             [ -n "${FAKE_EXEC_OUT:-}" ] && printf '%s\n' "$FAKE_EXEC_OUT"
             exit "${FAKE_EXEC_RC:-0}" ;;
   "image prune") echo "Total reclaimed space: 0B" ;;
@@ -147,6 +148,18 @@ pass "redact-backfill forwards whitelisted structured change log only (#254)"
 reset; FAKE_EXEC_RC=3 FAKE_EXEC_OUT='{"dir_exists": true, "error": "backup_exists"}' bash "$RB" && fail "backup exists must fail" || true
 grep -q 'user.err|ERROR backup file already exists in /traces/backups; nothing rewritten' "$LOGFILE" || fail "backup exists -> ERROR (#216)"
 pass "redact-backfill backup exists -> ERROR, no traceback (#216)"
+reset; FAKE_EXEC_OUT="$J0" bash "$RB"
+grep -q "^docker exec deepsuck-voice-1 sh -c mkdir -p -m 0700 \"\$1\" && chmod 0700 \"\$1\" _ /traces/backups$" "$CALLS" || fail "backup dir 0700"
+[ "$(grep -c ' find /traces/backups ' "$CALLS")" = 2 ] || fail "prune before and on exit"
+reset; FAKE_EXEC_RC=1 bash "$RB" && fail "exec failure must exit non-zero" || true
+[ "$(grep -c ' find /traces/backups .*-mmin +1440 -print -delete$' "$CALLS")" = 2 ] || fail "prune must still run (before + EXIT trap) when backfill fails"
+tail -n 1 "$CALLS" | grep -q ' find /traces/backups ' || fail "EXIT trap prune is last"
+reset; FAKE_EXEC_OUT="not json" bash "$RB" && fail "bad json must fail" || true
+tail -n 1 "$CALLS" | grep -q ' find /traces/backups ' || fail "prune on abnormal exit (bad json)"
+reset; FAKE_AUX_RC=1 FAKE_EXEC_OUT="$J0" bash "$RB" && fail "backup dir failure must exit non-zero" || true
+grep -q 'user.err|ERROR cannot prepare backup dir /traces/backups (0700)' "$LOGFILE" || fail "backup dir failure -> ERROR"
+! grep -q ' python -m voice.redact_backfill' "$CALLS" || fail "no backfill without backup dir"
+pass "redact-backfill backup dir 0700; 24h prune runs before backfill and again on any exit, incl. failures (#254)"
 reset; FAKE_EXEC_RC=1 FAKE_EXEC_ERR="Traceback 验证码 3827" bash "$RB" && fail "exec failure must exit non-zero" || true
 grep -q '^deepsuck-redact|user.err|ERROR voice.redact_backfill failed in deepsuck-voice-1 (exit 1)' "$LOGFILE" || fail "exec failure -> ERROR"
 ! grep -q '3827\|Traceback' "$LOGFILE" || fail "traceback leaked"
