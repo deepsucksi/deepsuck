@@ -87,7 +87,7 @@ EST_OUT_TOKENS_PER_TURN = 90    # 估算用：骗子每轮 JSON 输出（continu
 PROMPT_VERSION = "scammer-v1"  # 旧版（固定部分在后面），只为读旧缓存保留
 PROMPT_VERSIONS = {"default": "scammer-v2", "hard": "scammer-hard-v4"}
 PROFILES = tuple(PROMPT_VERSIONS)
-RESPONDERS = ("persona", "bad", "stall")
+RESPONDERS = ("persona", "bad", "stall", "llm")  # llm：#262 大模型被骗方（走 voice/persona.py 提示词），可选
 SILENT_MARK = "（对方没有回复）"  # 人设这一轮回复为空串时，骗子看到的内容
 FLAG_SUSPICION = 7  # hard 档：起疑分 ≥7 的回合记为“露馅”
 QUIT_WINDOW = 10    # #164：“10 轮内起疑挂断率”——高压骗子在前 10 轮就识破，算早露馅
@@ -306,6 +306,90 @@ class BadResponder:
         return t
 
 
+# ---------------------------------------------------------------- #262 大模型被骗方
+VICTIM_TEMPERATURE = 0.8  # 与 voice.llm_ab 一致
+VICTIM_MAX_TOKENS = 120
+EST_VICTIM_PROMPT_TOKENS = 1400  # 估算用：语音人设提示词 + 窗口内历史（voice.llm_ab 实测平均约 1240）
+EST_VICTIM_OUT_TOKENS = 20
+# 骗子提出转账 / 付款（之后才统计收款账户有没有被问出来）
+TRANSFER_RX = re.compile(r"转账|汇款|打款|转款|付款|充值|缴纳|保证金|解冻金|手续费|转到|转入|打到|打过去|转过去|转给|汇到|汇给|扫码付|安全账户")
+ACCOUNT_KINDS = ("bank_card", "alipay")  # 收款账户：银行卡号或支付宝（户名单独算 name）
+_VICTIM_MODS: Dict[str, tuple] = {}
+
+
+def load_victim(root: Optional[Path] = None) -> tuple:
+    """按 root（某个 worktree）加载 voice.persona / voice.processors，同一份评测代码可以对比不同分支的人设提示词。
+    同一进程只能用一个 root（voice 包只导入一次）；python/deepsuck 仍用本仓库的。"""
+    root = Path(root or ROOT).resolve()
+    key = str(root)
+    if key in _VICTIM_MODS:
+        return _VICTIM_MODS[key]
+    if _VICTIM_MODS:
+        raise RuntimeError("同一进程只能加载一个 --victim-root")
+    if str(root) not in sys.path[:1]:
+        sys.path.insert(0, str(root))
+    import importlib
+    persona = importlib.import_module("voice.persona")
+    processors = importlib.import_module("voice.processors")
+    from pipecat.processors.aggregators.llm_context import LLMContext
+    got = Path(persona.__file__).resolve()
+    if root not in got.parents:
+        raise RuntimeError(f"voice.persona 加载自 {got}，不在 --victim-root {root} 下（先前已导入过 voice？）")
+    _VICTIM_MODS[key] = (persona, processors, LLMContext)
+    return _VICTIM_MODS[key]
+
+
+def victim_params(model: str, seed: int) -> dict:
+    return {"model": model, "temperature": VICTIM_TEMPERATURE, "seed": seed, "enable_thinking": False,
+            "max_tokens": VICTIM_MAX_TOKENS}
+
+
+class LLMVictim:
+    """#262：被骗方按现网语音管线出回复（与 voice.llm_ab.run_script 同一流程，不流式）：
+    Session.ingest → 意图门控 → IntelProcessor.update_prompt（voice/persona.py 提示词）→ 大模型 → guard_output。
+    请求走与骗子相同的 Caller（缓存、计费、上限）。"""
+
+    def __init__(self, session, call: Callable, model: str, seed: int, root: Optional[Path] = None):
+        self.persona, processors, LLMContext = load_victim(root)
+        self.s, self.call, self.params = session, call, victim_params(model, seed)
+        self.ctx = LLMContext([{"role": "system", "content": "x"}])
+        self.ip = processors.IntelProcessor(session, context=self.ctx)
+
+    def opening(self) -> str:
+        t = self.persona.voice_opening(self.s)["text"]
+        self.ctx.add_message({"role": "assistant", "content": t})
+        return t
+
+    def reply(self, a: dict) -> dict:
+        s, P = self.s, self.persona
+        self.ip.intent = P.gate_intent(s.fresh_intent(s.choose_intent(a)), s)
+        s.last_intent = self.ip.intent
+        self.ip.update_prompt()
+        self.ctx.add_message({"role": "user", "content": P.unmask(a["redacted"])})
+        msgs = [dict(m) for m in self.ctx.get_messages()]
+        raw = self.call(msgs, self.params).get("content", "")
+        text = P.guard_output(raw)
+        self.ctx.add_message({"role": "assistant", "content": text})
+        return {"text": text, "raw": raw, "intent": self.ip.intent}
+
+
+def transfer_turn(scammer_lines: List[str]) -> Optional[int]:
+    """骗子第一次提出转账 / 付款的轮次（0 起），没提过返回 None。"""
+    return next((i for i, t in enumerate(scammer_lines) if TRANSFER_RX.search(t or "")), None)
+
+
+def account_after_transfer(scammer_lines: List[str], values: dict, kinds: List[str]) -> Optional[bool]:
+    """提出转账之后（含同一轮），骗子有没有说出收款账户（本场情报里的银行卡 / 支付宝）。本场不涉及账户或没提转账返回 None。"""
+    want = [k for k in kinds if k in ACCOUNT_KINDS]
+    k0 = transfer_turn(scammer_lines)
+    if not want or k0 is None:
+        return None
+    got = set()
+    for t in scammer_lines[k0:]:
+        got |= {kind_of(x) for x, _ in revealed_in(t, values, want)}
+    return bool(got & set(want))
+
+
 # ---------------------------------------------------------------- parsing
 def parse_turn(content: str) -> dict:
     """解析骗子输出；不是 JSON 时整段当作要说的话（记为解析失败）。"""
@@ -471,7 +555,7 @@ def session_seed(scenario: str, persona: str, seed: int) -> int:
 
 def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: List[str], call: Callable,
                 model: str = MODEL, max_turns: int = DEFAULT_MAX_TURNS, humanize: bool = True,
-                profile: str = "default", responder: str = "persona") -> dict:
+                profile: str = "default", responder: str = "persona", victim_root: Optional[Path] = None) -> dict:
     rd = SIM.Rand(seed)
     values = SIM.plant(rd)
     sysmsg = system_prompt(corpus, scenario, values, kinds, seed, profile)
@@ -479,9 +563,12 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
     s = Session(scenario, persona, rng=mulberry32(seed ^ 0x5EED), now=lambda: 0)
     bad = ({"bad": BadResponder, "stall": StallResponder}[responder](session_seed(scenario, persona, seed))
            if responder in ("bad", "stall") else None)
+    victim = LLMVictim(s, call, model, session_seed(scenario, persona, seed), victim_root) if responder == "llm" else None
+    # 语音管线不过 humanize，llm 被骗方也不过
     hum = (Humanizer(profile=HUMANIZE_PROFILE.get(persona, persona), seed=seed ^ 0x4855, **HUMANIZE_OVERRIDES.get(persona, {}))
-           if humanize and not bad else None)
-    first = {"text": bad.opening(), "intent": responder} if bad else s.opening()
+           if humanize and not bad and not victim else None)
+    first = ({"text": bad.opening(), "intent": responder} if bad
+             else {"text": victim.opening(), "intent": "opening"} if victim else s.opening())
     # #121：数字过滤在错别字扰动之后、发出去之前（与线上一致；record_bot 已过一遍，这里是扰动后的最后一道）
     bot_text = vague_digits(hum.apply(first["text"]).text) if hum else first["text"]
     messages = [{"role": "system", "content": sysmsg}, {"role": "user", "content": bot_text}]
@@ -526,7 +613,9 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
         messages.append({"role": "assistant", "content": json.dumps(hist, ensure_ascii=False)})
         log.append({"role": "scammer", "text": say})
         scam_said += say + "\n"
-        if bad:
+        if victim:
+            r = victim.reply(s.ingest(say))
+        elif bad:
             s.ingest(say)  # 情报提取照常（口径相同），回复换成差的对照组
             r = {"text": bad.reply(say), "intent": responder}
         else:
@@ -554,13 +643,16 @@ def run_session(scenario: str, persona: str, seed: int, corpus: dict, kinds: Lis
         messages.append({"role": "user", "content": text})
     got = {(i["type"], SIM._canon(i["type"], s._raw[k])) for k, i in s.intel.items()}
     total_kinds = len(kinds)
+    said_lines = [m["text"] for m in log if m["role"] == "scammer" and not m.get("hangup")]
     return {"scenario": scenario, "persona": persona, "seed": seed, "model": model_name, "turns": turns,
             "estMinutes": s.est_seconds / 60, "quit": quit_, "hangup": hang,
             "revealedKinds": len({kind_of(t) for t, _ in revealed} & set(kinds)), "totalKinds": total_kinds,
             "revealedItems": len(revealed), "capturedItems": len(revealed & got), "falseIntel": len(got - revealed),
             "botReplies": turns, "silentTurns": silent, "leaks": leaks, "starReplies": stars, "dup": dup, "dupRaw": dup_raw, "near": near, "parseErrors": parse_errors,
             "profile": profile, "responder": responder, "suspicion": sus, "probes": probes,
-            "flaggedTurns": sum(x >= FLAG_SUSPICION for x in sus), "transcript": log}
+            "flaggedTurns": sum(x >= FLAG_SUSPICION for x in sus),
+            "transferTurn": transfer_turn(said_lines), "accountAfterTransfer": account_after_transfer(said_lines, values, kinds),
+            "transcript": log}
 
 
 # ---------------------------------------------------------------- transcript 脱敏（#164：结果文件里存对话全文）
@@ -610,7 +702,7 @@ def redact_transcript(row: dict) -> List[dict]:
 
 # ---------------------------------------------------------------- estimate / run
 def estimate_session(corpus: dict, scenario: str, persona: str, seed: int, kinds: List[str], max_turns: int,
-                     profile: str = "default") -> dict:
+                     profile: str = "default", responder: str = "persona") -> dict:
     """按“每轮都不挂断、到上限、缓存一次也不命中”估算（偏保守）；骗子每轮输出按 EST_OUT_TOKENS_PER_TURN，人设回复按该人设台词平均长度 × 1.3。"""
     values = SIM.plant(SIM.Rand(seed))
     sys_t = J.estimate_tokens(system_prompt(corpus, scenario, values, kinds, seed, profile))
@@ -623,18 +715,22 @@ def estimate_session(corpus: dict, scenario: str, persona: str, seed: int, kinds
         inp += sys_t + hist
         out += EST_OUT_TOKENS_PER_TURN
         hist += EST_OUT_TOKENS_PER_TURN + bot_t
+        if responder == "llm":
+            inp += EST_VICTIM_PROMPT_TOKENS
+            out += EST_VICTIM_OUT_TOKENS
     return {"prompt_tokens": inp, "completion_tokens": out}
 
 
-def plan(scenarios, personas, seeds: int) -> List[tuple]:
-    return [(sc, p, 1000 + k) for sc in scenarios for p in personas for k in range(seeds)]
+def plan(scenarios, personas, seeds: int, seed_base: int = 1000) -> List[tuple]:
+    return [(sc, p, seed_base + k) for sc in scenarios for p in personas for k in range(seeds)]
 
 
 def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: int = DEFAULT_MAX_TURNS,
         model: str = MODEL, max_cost: float = HARD_MAX_COST_CNY, client_factory: Optional[Callable[[], object]] = None,
         cache_dir: Path = CACHE_DIR, dry_run: bool = True, refresh: bool = False, humanize: bool = True,
         workers: int = 6, corpus: Optional[dict] = None, log: Callable[[str], None] = lambda s: None,
-        meter_hook: Optional[Callable[[object], None]] = None, profile: str = "default", responder: str = "persona") -> dict:
+        meter_hook: Optional[Callable[[object], None]] = None, profile: str = "default", responder: str = "persona",
+        victim_root: Optional[Path] = None, seed_base: int = 1000) -> dict:
     max_cost = min(float(max_cost), HARD_MAX_COST_CNY)
     if profile not in PROFILES:
         raise ValueError(f"profile must be one of {PROFILES}")
@@ -646,14 +742,14 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
     if corpus is None:
         corpus = json.loads(SIM.default_corpus_path().read_text(encoding="utf-8"))
     legacy = SIM.load_scripts("legacy")
-    jobs = plan(scenarios, personas, seeds)
+    jobs = plan(scenarios, personas, seeds, seed_base)
     # 1) 只读缓存走一遍：完全缓存的场次不计费
     ro = Caller(None, None, cache_dir, refresh, version)
     cached, todo = {}, []
     for job in jobs:
         kinds = legacy["scenarios"][job[0]]["intel"]
         try:
-            cached[job] = (run_session(*job, corpus, kinds, ro, model, max_turns, humanize, profile, responder)
+            cached[job] = (run_session(*job, corpus, kinds, ro, model, max_turns, humanize, profile, responder, victim_root)
                            if not refresh else None)
             if cached[job] is None:
                 raise CacheMiss("refresh")
@@ -662,7 +758,7 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
             todo.append(job)
     est_in = est_out = 0
     for job in todo:
-        e = estimate_session(corpus, job[0], job[1], job[2], legacy["scenarios"][job[0]]["intel"], max_turns, profile)
+        e = estimate_session(corpus, job[0], job[1], job[2], legacy["scenarios"][job[0]]["intel"], max_turns, profile, responder)
         est_in += e["prompt_tokens"]
         est_out += e["completion_tokens"]
     est_cost = J.cost_cny(est_in, est_out)
@@ -679,7 +775,8 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
               "humanize": {p: HUMANIZE_PROFILE.get(p, p) for p in personas} if humanize else None,
               "humanizeOverrides": {p: HUMANIZE_OVERRIDES[p] for p in personas if p in HUMANIZE_OVERRIDES} or None,
               "temperature": TEMPERATURE, "promptVersion": version, "profile": profile, "responder": responder,
-              "enableThinking": False, "linesPerPhase": LINES_PER_PHASE}
+              "enableThinking": False, "linesPerPhase": LINES_PER_PHASE, "seedBase": seed_base,
+              **({"victim": victim_info(victim_root, model)} if responder == "llm" else {})}
     result = {"config": config, "date": date.today().isoformat(), "estimate": estimate, "dry_run": dry_run}
     if dry_run:
         return result
@@ -705,7 +802,7 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
 
     def work(job):
         return job, run_session(*job, corpus, legacy["scenarios"][job[0]]["intel"], caller, model, max_turns, humanize,
-                                profile, responder)
+                                profile, responder, victim_root)
 
     with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
         for job, row in ex.map(work, todo):
@@ -717,6 +814,18 @@ def run(scenarios=None, personas=None, seeds: int = DEFAULT_SEEDS, max_turns: in
     result.update({"usage": meter.u, "rows": ordered})
     result.update(summarize(ordered, scenarios, personas))
     return result
+
+
+def victim_info(root: Optional[Path], model: str) -> dict:
+    import subprocess
+    root = Path(root or ROOT).resolve()
+    try:
+        head = subprocess.run(["git", "-C", str(root), "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
+                              timeout=10).stdout.strip() or None
+    except (OSError, subprocess.SubprocessError):
+        head = None
+    return {"root": root.name, "commit": head, "model": model, "temperature": VICTIM_TEMPERATURE,
+            "maxTokens": VICTIM_MAX_TOKENS, "pipeline": "voice.persona + voice.processors.IntelProcessor + guard_output"}
 
 
 # ---------------------------------------------------------------- summary
@@ -750,6 +859,10 @@ def aggregate(rows: List[dict]) -> dict:
         "flaggedSessions": (sum(r.get("flaggedTurns", 0) > 0 for r in rows) / n
                             if any(r.get("suspicion") for r in rows) else None),
         "probesPerSession": (sum(r.get("probes", 0) for r in rows) / n if any(r.get("suspicion") for r in rows) else None),
+        # #262：骗子提出转账的场次里，之后说出收款账户（银行卡 / 支付宝）的占比；分母只算本场情报含账户、且提过转账的
+        "transferSessions": sum(r.get("accountAfterTransfer") is not None for r in rows),
+        "accountAfterTransferRate": (sum(bool(r.get("accountAfterTransfer")) for r in rows)
+                                     / max(1, sum(r.get("accountAfterTransfer") is not None for r in rows))),
     }
 
 
@@ -814,6 +927,10 @@ def to_markdown(res: dict) -> str:
     if cat:
         parts.append("**起疑挂断的露馅类别**：" + "，".join(f"{CATEGORIES[k].split('：')[0]} {v}" for k, v in cat.items()))
         parts.append("**露馅回复的引擎意图**：" + "，".join(f"{k} {v}" for k, v in res["triggerIntents"].items()))
+    o = res["overall"]
+    if o.get("transferSessions"):
+        parts.append(f"**提出转账后问出收款账户**：{o['accountAfterTransferRate']:.1%}"
+                     f"（{round(o['accountAfterTransferRate'] * o['transferSessions'])}/{o['transferSessions']} 场）")
     u = res.get("usage") or {}
     parts.append(f"费用：{u.get('requests', 0)} 次请求（本地缓存命中 {u.get('cached_requests', 0)}），输入 {u.get('prompt_tokens', 0)} token"
                  f"（百炼缓存命中 {u.get('cached_tokens', 0)}）、输出 {u.get('completion_tokens', 0)} token，约 {u.get('cost_cny', 0):.4f} 元；"
@@ -837,7 +954,11 @@ def main(argv=None) -> int:
     ap.add_argument("--profile", choices=PROFILES, default="default",
                     help="骗子档：default = 原口径；hard = #164 高压档（更多疑、主动试探、发现机器人感就挂断，每轮输出起疑分）")
     ap.add_argument("--responder", choices=RESPONDERS, default="persona",
-                    help="被骗方：persona = 规则引擎 + humanize（被测人设）；bad = 规则模拟的明显差的对照组（校准用）")
+                    help="被骗方：persona = 规则引擎 + humanize（被测人设）；bad = 规则模拟的明显差的对照组（校准用）；"
+                         "llm = #262 大模型被骗方（voice/persona.py 提示词，默认关）")
+    ap.add_argument("--victim-root", type=Path, default=None,
+                    help="#262：--responder llm 时从这个 worktree 加载 voice/persona.py（默认本仓库），用来对比不同分支的人设提示词")
+    ap.add_argument("--seed-base", type=int, default=1000, help="种子从这里起（默认 1000，与旧结果一致）")
     ap.add_argument("--no-humanize", action="store_true")
     ap.add_argument("--handwriting", default="", help="逗号分隔的人设：打开 humanize 手写输入档（错字密度改用 handwritingTypoPer100）")
     ap.add_argument("--typo-rate", default="", help="覆盖每百字错字目标，如 wang=2.5,li=2.0")
@@ -864,7 +985,7 @@ def main(argv=None) -> int:
         return 2
     held = {}
     note = (f"profile={a.profile} responder={a.responder} seeds={a.seeds} maxTurns={a.max_turns} "
-            f"personas={a.personas or 'all'} scenarios={a.scenarios or 'all'}" + (f" handwriting={a.handwriting}" if a.handwriting else ""))
+            f"personas={a.personas or 'all'} scenarios={a.scenarios or 'all'} seedBase={a.seed_base}" + (f" handwriting={a.handwriting}" if a.handwriting else ""))
 
     def book(status: str) -> None:
         m = held.get("m")
@@ -878,7 +999,8 @@ def main(argv=None) -> int:
     try:
         res = run(sc, ps, a.seeds, a.max_turns, a.model, max_cost, J.default_client_factory(), dry_run=not a.run,
                   refresh=a.refresh, humanize=not a.no_humanize, workers=a.workers, log=lambda s: print(s, file=sys.stderr),
-                  meter_hook=lambda m: held.__setitem__("m", m), profile=a.profile, responder=a.responder)
+                  meter_hook=lambda m: held.__setitem__("m", m), profile=a.profile, responder=a.responder,
+                  victim_root=a.victim_root, seed_base=a.seed_base)
     except BudgetError as e:
         book("stopped:budget")
         print(str(e), file=sys.stderr)
