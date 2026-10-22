@@ -15,6 +15,9 @@
 计数放在输出 JSON 的 transcripts 下；--no-transcripts 只处理 trace。
 
 输出只有计数（JSON），绝不打印任何文字内容或通话编号。
+#254：每个（dry-run 时会）改动的文件往 stderr 写一行结构化日志（event=redact_backfill.change：通话编号、trace / transcript、
+字段路径如 turn[3].asr、规则类别如 split-surname / fullname / phone / otp / dialog-digits、改动处数），不含原文或改后文本。
+--backup 的文件已存在时输出 {"error": "backup_exists"} 并以 3 退出，不改任何文件（#216）。
 
     python -m voice.redact_backfill --dry-run          # 只统计会改多少
     python -m voice.redact_backfill --dry-run --call YA6PUTCA --call JT6UMS4K   # #252：只处理指定通话
@@ -50,6 +53,62 @@ def consent_of(rows: List[Optional[dict]]):
     return None
 
 
+# ---------------------------------------------------------------- #254 结构化改动日志
+# 每个（会）改动的文件一条 JSON（stderr，event=redact_backfill.change）：通话编号、文件类别、字段路径、规则类别、改动处数。
+# 绝不带原文或改后文本。规则类别是事后探测（不改变输出）：按 redact_line 的步骤分段重放、比对前后差异推断。
+CHANGE_EVENT = "redact_backfill.change"
+_TYPE_RULE = {"name": "fullname", "phone": "phone", "bank_card": "bank_card", "id_card": "id_card", "qq": "qq",
+              "wechat": "wechat", "alipay": "alipay", "email": "email", "url": "url", "amount": "amount",
+              "wallet": "wallet", "otp": "otp"}
+
+
+def _n_changes(old: str, new: str) -> int:
+    import difflib
+    return sum(1 for op in difflib.SequenceMatcher(None, old, new, autojunk=False).get_opcodes() if op[0] != "equal")
+
+
+def rule_categories(old: str, new: str) -> List[str]:
+    """推断 old → new 用到的规则类别（排好序）。只做探测，不参与产出 new。"""
+    from deepsuck.extractors import extract_sensitive
+    from deepsuck.redact import find_name_spans, find_otp_spans, redact_text, say_names
+    from voice.callredact import redact_line
+
+    cats = set()
+    t = str(old or "")
+    for _ in range(8):   # 与 redact_line 同一循环：拆字报姓 / 逐字解释整段换成「那个名字」
+        nt = say_names(t, extract_sensitive(t))
+        if nt == t:
+            break
+        t = nt
+    if t != old:
+        cats.add("split-surname")
+    ents = extract_sensitive(t)
+    for e in ents:
+        if isinstance(e.get("start"), int) and e.get("sensitive") is not False and redact_text(t, [e]) != t:
+            cats.add(_TYPE_RULE.get(e.get("type"), "entity:" + str(e.get("type"))))
+    if find_name_spans(t, ents):
+        cats.add("name-spelling")
+    if find_otp_spans(t):
+        cats.add("otp")
+    if new != redact_line(old):
+        cats.add("dialog-digits")   # redact_dialog_segments：跨段验证码 / 卡号片段 / 人设侧数字
+    return sorted(cats) or ["other"]
+
+
+def field_change(path: str, old: str, new: str) -> dict:
+    return {"path": path, "rules": rule_categories(old, new), "n": _n_changes(old, new)}
+
+
+def _call_id(p: Path, kind: str) -> str:
+    return p.stem if kind == "trace" else p.stem.rsplit("-", 1)[-1]
+
+
+def log_change(p: Path, kind: str, detail: list, dry_run: bool, stream=None) -> None:
+    rec = {"event": CHANGE_EVENT, "call_id": _call_id(p, kind), "kind": kind, "dry_run": bool(dry_run),
+           "fields": detail, "changes": sum(d["n"] for d in detail)}
+    print(json.dumps(rec, ensure_ascii=False, sort_keys=True), file=stream or sys.stderr, flush=True)
+
+
 SIP_CONSENT = "sip-text-only"   # 与 voice.trace.SIP_CONSENT 一致（这里不 import trace，免得拉起整套依赖）
 
 
@@ -58,7 +117,7 @@ def stores_text(consent) -> bool:
     return consent is True or consent == SIP_CONSENT
 
 
-def redact_rows(rows: List[Optional[dict]]) -> Tuple[List[Optional[dict]], int, int]:
+def redact_rows(rows: List[Optional[dict]], detail: Optional[list] = None) -> Tuple[List[Optional[dict]], int, int]:
     """返回（新行列表、改动的行数、改动的字段数）。rows 里不是 dict 的（坏行）原样保留。
 
     #120：两边说话人按时间排（turn 行内依次是 asr、filler、reply），用 redact_dialog_segments 连起来判断：
@@ -94,6 +153,8 @@ def redact_rows(rows: List[Optional[dict]]) -> Tuple[List[Optional[dict]], int, 
             fixed[n] = t
         for (i, k), new in zip(refs, fixed):
             if new != out[i][k]:
+                if detail is not None:   # #254：只记字段路径、规则类别、改动处数，不记文字
+                    detail.append(field_change(f"{out[i].get('type')}[{i}].{k}", out[i][k], new))
                 out[i][k] = new
                 changed_rows.add(i)
                 fields += 1
@@ -140,7 +201,7 @@ def _rewrite(path: Path, raw_lines: List[str], rows, new_rows, st: os.stat_resul
 
 
 def _backup(tar_path: Path, files: List[Path], base: Path, extra: Optional[List[Tuple[Path, str]]] = None) -> None:
-    tar_path.parent.mkdir(parents=True, exist_ok=True)
+    tar_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd = os.open(str(tar_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "wb") as f, tarfile.open(fileobj=f, mode="w") as tf:
         for p in files:
@@ -150,7 +211,7 @@ def _backup(tar_path: Path, files: List[Path], base: Path, extra: Optional[List[
 
 
 # ---------------------------------------------------------------- 文字记录（#125）
-def redact_transcript(doc: dict) -> Tuple[dict, int]:
+def redact_transcript(doc: dict, detail: Optional[list] = None) -> Tuple[dict, int]:
     """返回（新文档、改动的条数）。只动 transcript[].text（字符串）；其他字段原样。"""
     msgs = doc.get("transcript") if isinstance(doc, dict) else None
     if not isinstance(msgs, list):
@@ -165,6 +226,8 @@ def redact_transcript(doc: dict) -> Tuple[dict, int]:
     n = 0
     for i, t in zip(refs, fixed):
         if t != msgs[i]["text"]:
+            if detail is not None:
+                detail.append(field_change(f"transcript[{i}].text", msgs[i]["text"], t))
             out["transcript"][i]["text"] = t
             n += 1
     return out, n
@@ -223,9 +286,10 @@ def plan_transcripts(tdir: Optional[Path], min_age: float, now: float, calls=Non
         except (ValueError, UnicodeDecodeError):
             stats["skipped_bad"] += 1
             continue
-        new, n = redact_transcript(doc)
+        detail: list = []
+        new, n = redact_transcript(doc, detail)
         if n:
-            plan.append((p, new, st, n))
+            plan.append((p, new, st, n, detail))
     return stats, plan
 
 
@@ -258,9 +322,14 @@ def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Opt
         if now - st.st_mtime < min_age:
             stats["skipped_recent"] += 1
             continue
-        new_rows, nrows, nfields = redact_rows(rows)
+        detail = []
+        new_rows, nrows, nfields = redact_rows(rows, detail)
         if nrows:
-            plan.append((p, raw_lines, rows, new_rows, st, nrows, nfields))
+            plan.append((p, raw_lines, rows, new_rows, st, nrows, nfields, detail))
+    for x in tplan:
+        log_change(x[0], "transcript", x[4], dry_run)
+    for x in plan:
+        log_change(x[0], "trace", x[7], dry_run)
     if dry_run:
         stats["files_changed"] = len(plan)
         stats["rows_changed"] = sum(x[5] for x in plan)
@@ -272,13 +341,13 @@ def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Opt
     if backup is not None and (plan or tplan):
         _backup(backup, [x[0] for x in plan], trace_dir, [(x[0], "transcripts/" + x[0].name) for x in tplan])
         stats["backup_files"] = len(plan) + len(tplan)
-    for p, new, st, n in tplan:
+    for p, new, st, n, _ in tplan:
         if _rewrite_json(p, new, st):
             tstats["files_changed"] += 1
             tstats["fields_changed"] += n
         else:
             tstats["skipped_changed"] += 1
-    for p, raw_lines, rows, new_rows, st, nrows, nfields in plan:
+    for p, raw_lines, rows, new_rows, st, nrows, nfields, _ in plan:
         if _rewrite(p, raw_lines, rows, new_rows, st):
             stats["files_changed"] += 1
             stats["rows_changed"] += nrows
@@ -311,8 +380,16 @@ def main(argv=None) -> int:
     else:
         from voice.records import transcript_dir
         td = transcript_dir()
-    stats = run(d, dry_run=a.dry_run, min_age=a.min_age, backup=Path(a.backup) if a.backup else None,
-                transcripts=td, calls=calls)
+    bk = Path(a.backup) if a.backup else None
+    if bk is not None and not a.dry_run and (bk.exists() or bk.is_symlink()):
+        # #216：备份文件已存在时不再抛 traceback，只给一行错误 JSON、退出码 3，什么都不改
+        print(json.dumps({"error": "backup_exists", "dir_exists": d.is_dir()}, sort_keys=True))
+        return 3
+    try:
+        stats = run(d, dry_run=a.dry_run, min_age=a.min_age, backup=bk, transcripts=td, calls=calls)
+    except FileExistsError:   # 检查后、写之前被别人建了同名备份
+        print(json.dumps({"error": "backup_exists", "dir_exists": d.is_dir()}, sort_keys=True))
+        return 3
     print(json.dumps(stats, ensure_ascii=False, sort_keys=True))
     return 0 if stats["dir_exists"] else 2
 
