@@ -801,13 +801,7 @@ def speakable(text: str, calm_tts: bool | None = None) -> str:
 _EXR = load("extractors")["nameRules"]
 _SPLIT_SPELLINGS = tuple(_EXR["split"]["spellings"])
 # 拆字说法里每个字的 ASR 同音 / 近音写法（只用于识别人设复述的拆字报姓，不进任何台词）
-_SPLIT_HOMOPHONES = {
-    "弓": "工公宫龚功攻", "长": "厂场常", "张": "章长掌", "耳": "尔二而儿", "东": "冬", "陈": "晨程成臣沉",
-    "口": "扣寇", "天": "田添", "吴": "无武五午", "立": "力丽利", "早": "枣找", "章": "张", "木": "目牧", "子": "字紫",
-    "李": "里理礼", "双": "霜", "林": "临琳", "古": "谷股", "月": "越", "胡": "湖壶", "言": "严盐", "午": "五武",
-    "许": "须", "草": "曹", "头": "投", "黄": "皇煌", "易": "亦义", "杨": "阳扬洋", "关": "官观", "郑": "正政",
-    "马": "码", "冯": "风", "吕": "旅", "走": "奏", "肖": "小晓萧", "赵": "照", "禾": "和合", "程": "成城诚",
-}
+_SPLIT_HOMOPHONES = dict(_EXR["split"]["homophones"])  # #163 复审：表挪到共享核心 nameRules.split.homophones，文字出口（llm.js / refs.py）共用
 
 
 def _split_variants(sp: str) -> str:

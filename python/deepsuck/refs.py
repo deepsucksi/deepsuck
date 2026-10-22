@@ -11,7 +11,7 @@ from typing import Iterable
 
 from .core import load
 from .extractors import extract_sensitive, masked_lead_not_surname, stars_name, stars_not_name
-from .redact import redact_text
+from .redact import redact_text, say_names
 
 _P = load("personas")
 _DE = _P["digitEcho"]
@@ -125,6 +125,8 @@ def mask_names(text: str, bracket: bool = False) -> str:
         # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json，不在表里的再看 notSurname
         return m.group(0) if masked_lead_not_surname(_NoTail(m, m.group(3) or ""), m.group(2), _DE["notSurname"]) else w
 
+    # #163 复审：拆字报姓、逐字解释、偏旁说法连同前面的姓名整体换成「那个名字」（与语音出口 drop_name_explain、llm.js maskNames 对齐）
+    text = say_names(str(text or ""), extract_sensitive(str(text or "")), w)
     s = collapse_spaced_stars(text)  # 1) 先合并带空格的星号
     s = _LABEL_STARS_YUAN.sub(lambda m: m.group(1) + m.group(2) + w, s)
     s = _AMOUNT_STARS.sub(lambda m: m.group(0) if _amount_skip(m.string, m.start()) else amount, s)  # 2) 打码金额先换，免得「剩*块」被当成姓名

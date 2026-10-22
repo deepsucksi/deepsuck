@@ -708,6 +708,86 @@
     return out;
   }
 
+  // ---- #163 复审：文字出口（llm.js maskNames / refs.mask_names）把拆字报姓、逐字解释、偏旁说法连同前面的姓名整体读成「那个名字」，
+  // 与语音出口 voice/persona.drop_name_explain 对齐。与 redact.py name_say_regions 一致 ----
+  var SAY = null;
+  function sayRules() {
+    if (SAY !== null) return SAY;
+    var R = splitRules(), E = explainRules();
+    if (!R || !E) return (SAY = false);
+    var hom = R.sp.homophones || {};
+    function cls(c) { var h = hom[c] || ''; return '[' + c + h + ']'; }
+    var exact = {};
+    R.sp.spellings.forEach(function (x) { exact[x] = 1; });
+    SAY = {
+      variant: new RegExp('(' + R.sp.spellings.slice().sort(function (a, b) { return b.length - a.length; })
+        .map(function (x) { return x.split('').map(cls).join(''); }).join('|') + ')', 'g'),
+      sepc: /[\s，,、：:；;。]/,
+      absorbLead: /[叫是姓名人：:\s，,。、]/,
+      run: /^[\s，,、：:；;。]{0,2}(?:就是|是)?$/
+    };
+    return SAY;
+  }
+
+  /** 文字出口要整体读成「那个名字」的区间 [[start, end], ...]（已合并、按 start 排）。entities：extractSensitive 的结果。 */
+  function nameSayRegions(text, entities) {
+    var s = String(text || '');
+    var R = splitRules(), E = explainRules(), Q = sayRules();
+    if (!R || !E || !Q) return [];
+    var ents = (entities || []).filter(function (e) { return typeof e.start === 'number'; });
+    var units = explainUnits(s, ents);
+    var spans = findNameSpans(s, ents);
+    var regs = [];
+    units.forEach(function (u) { regs.push([u.start, u.end]); });
+    spans.forEach(function (sp) { if (sp.kind === 'nameBefore') regs.push([sp.start - 1, sp.end]); });
+    function endOk(pos) {
+      if (pos >= s.length || !E.han.test(s.charAt(pos)) || E.particle.test(s.charAt(pos)) || E.tailWords.test(s.slice(pos))) return true;
+      return units.some(function (u) { return u.head >= pos && E.sep.test(s.slice(pos, u.head)); });
+    }
+    var hits = [];
+    var m;
+    Q.variant.lastIndex = 0;
+    while ((m = Q.variant.exec(s))) hits.push([m.index, m.index + m[0].length]);
+    splitHits(s, units).forEach(function (h) { hits.push([h.start, h.end]); });
+    hits.forEach(function (h) {
+      var a = h[0], b = h[1];
+      var pos = b + R.sep.exec(s.slice(b))[0].length;
+      spans.forEach(function (sp) { if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked)) b = sp.end; });
+      if (!endOk(b)) return;
+      if (a > 0 && s.charAt(a - 1) === '姓') a--;
+      regs.push([a, b]);
+    });
+    if (!regs.length) return [];
+    var sur = (core() && core().nameRules && core().nameRules.surnames) || '';
+    var names = ents.filter(function (e) { return e.type === 'name' && e.value; });
+    regs.forEach(function (r) {
+      for (var guard = 0; guard < 4; guard++) {
+        var q = r[0], k = 0;
+        while (q > 0 && k < 2 && Q.sepc.test(s.charAt(q - 1))) { q--; k++; }
+        var e = names.filter(function (n) { return n.end === q && n.start < q; })[0];
+        if (e) { r[0] = e.start; continue; }
+        if (q > 0 && sur.indexOf(s.charAt(q - 1)) >= 0 && (q - 1 === 0 || Q.absorbLead.test(s.charAt(q - 2)))) { r[0] = q - 1; continue; }
+        break;
+      }
+    });
+    regs.sort(function (x, y) { return x[0] - y[0] || y[1] - x[1]; });
+    var out = [];
+    regs.forEach(function (r) {
+      var last = out[out.length - 1];
+      if (last && (r[0] <= last[1] || Q.run.test(s.slice(last[1], r[0])))) last[1] = Math.max(last[1], r[1]);
+      else out.push([r[0], r[1]]);
+    });
+    return out;
+  }
+
+  /** 把 nameSayRegions 的区间换成 phrase（默认「那个名字」）。 */
+  function sayNames(text, entities, phrase) {
+    var s = String(text || '');
+    var regs = nameSayRegions(s, entities);
+    for (var i = regs.length - 1; i >= 0; i--) s = s.slice(0, regs[i][0]) + (phrase || '那个名字') + s.slice(regs[i][1]);
+    return s;
+  }
+
   /**
    * 将一段文本中的敏感片段替换成脱敏结果。
    * entities: extractors.extract() 返回的数组（含 start/end/type/value）；
@@ -737,6 +817,8 @@
     mask: mask,
     redactText: redactText,
     findNameSpans: findNameSpans,
+    nameSayRegions: nameSayRegions,
+    sayNames: sayNames,
     explainUnits: explainUnits,
     splitHits: splitHits,
     findOtpSpans: findOtpSpans,

@@ -735,6 +735,87 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
     return out
 
 
+# ---- #163 复审：文字出口（refs.mask_names / llm.js maskNames）把拆字报姓、逐字解释、偏旁说法连同前面的姓名整体读成「那个名字」，
+# 与语音出口 voice/persona.drop_name_explain 对齐。与 redact.js nameSayRegions 一致 ----
+@functools.lru_cache(maxsize=None)
+def _say_rules():
+    R, E = _split_rules(), _explain_rules()
+    if not R or not E:
+        return None
+    hom = R["sp"].get("homophones") or {}
+    cls = lambda c: "[" + c + hom.get(c, "") + "]"
+    return {
+        "variant": compile_js("(" + "|".join("".join(cls(c) for c in x) for x in sorted(R["sp"]["spellings"], key=len, reverse=True)) + ")"),
+        "sepc": re.compile(r"[\s，,、：:；;。]"),
+        "absorbLead": re.compile(r"[叫是姓名人：:\s，,。、]"),
+        "run": re.compile(r"^[\s，,、：:；;。]{0,2}(?:就是|是)?$"),
+        "surnames": (load("extractors").get("nameRules") or {}).get("surnames") or "",
+    }
+
+
+def name_say_regions(text: Optional[str], entities: Optional[Iterable[dict]] = None) -> List[List[int]]:
+    """文字出口要整体读成「那个名字」的区间 [[start, end], ...]（已合并、按 start 排）。entities：extract_sensitive 的结果。"""
+    s = str(text or "")
+    R, E, Q = _split_rules(), _explain_rules(), _say_rules()
+    if not R or not E or not Q:
+        return []
+    ents = [e for e in (entities or []) if isinstance(e.get("start"), int)]
+    units = explain_units(s, ents)
+    spans = find_name_spans(s, ents)
+    regs = [[u["start"], u["end"]] for u in units]
+    regs += [[sp["start"] - 1, sp["end"]] for sp in spans if sp.get("kind") == "nameBefore"]
+    han = lambda c: bool(c) and bool(E["han"].match(c))
+
+    def end_ok(pos):
+        if pos >= len(s) or not han(s[pos]) or E["particle"].match(s[pos]) or E["tailWords"].match(s, pos):
+            return True
+        return any(u["head"] >= pos and E["sep"].match(s[pos:u["head"]]) for u in units)
+
+    hits = [[m.start(), m.end()] for m in Q["variant"].finditer(s)] + [[a, b] for a, b, _ in split_hits(s, units)]
+    for a, b in hits:
+        pos = b + R["sep"].match(s[b:]).end()
+        for sp in spans:
+            if not sp.get("kind") and sp["start"] == pos and re.fullmatch(r"\*+", sp["masked"]):
+                b = sp["end"]
+        if not end_ok(b):
+            continue
+        if a > 0 and s[a - 1] == "姓":
+            a -= 1
+        regs.append([a, b])
+    if not regs:
+        return []
+    names = [e for e in ents if e.get("type") == "name" and e.get("value")]
+    for r in regs:
+        for _ in range(4):
+            q, k = r[0], 0
+            while q > 0 and k < 2 and Q["sepc"].match(s[q - 1]):
+                q, k = q - 1, k + 1
+            e = next((n for n in names if n["end"] == q and n["start"] < q), None)
+            if e:
+                r[0] = e["start"]
+                continue
+            if q > 0 and s[q - 1] in Q["surnames"] and (q - 1 == 0 or Q["absorbLead"].match(s[q - 2])):
+                r[0] = q - 1
+                continue
+            break
+    regs.sort(key=lambda x: (x[0], -x[1]))
+    out: List[List[int]] = []
+    for r in regs:
+        if out and (r[0] <= out[-1][1] or Q["run"].match(s[out[-1][1]:r[0]])):
+            out[-1][1] = max(out[-1][1], r[1])
+        else:
+            out.append([r[0], r[1]])
+    return out
+
+
+def say_names(text: Optional[str], entities: Optional[Iterable[dict]] = None, phrase: str = "那个名字") -> str:
+    """把 name_say_regions 的区间换成 phrase（默认「那个名字」）。"""
+    s = str(text or "")
+    for a, b in reversed(name_say_regions(s, entities)):
+        s = s[:a] + phrase + s[b:]
+    return s
+
+
 def redact_text(text: Optional[str], entities: Optional[Iterable[dict]]) -> str:
     """把文本中的敏感片段替换成脱敏结果（entities 来自 extract()）；
     拆字报姓后的名与逐字解释一并打码（#139 / #158，find_name_spans）；

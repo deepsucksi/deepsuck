@@ -220,6 +220,41 @@ const RADICAL_EXPLAIN_CASES = [
   ['明天的会别迟到', 'keep']
 ];
 
+// #163 复审：三个出口（web llm.js sanitizeReply / refs mask_names → redact_text → speak_masked / 语音 persona.speakable）同一句话的读法必须一致、
+// 不露姓不露名。[文本, 不能出现的字（mask）| null（keep，原样输出）]；expected 由 JS sanitizeReply 生成，Python refs 与语音逐项比对（redact.json exitParity）
+const EXIT_PARITY_CASES = [
+  ['我姓韦，单人旁一个韦', '韦'],
+  ['弓长张、木子李、耳东陈、口天吴', '张李陈吴弓长木子耳东口天'],
+  ['弓长张', '张弓'],
+  ['木子李', '李木'],
+  ['耳东陈', '陈耳'],
+  ['口天吴', '吴口天'],
+  ['弓长张，三丰', '张三丰'],
+  ['我叫张伟，伟大的伟', '张伟'],
+  ['我是张伟，伟大的伟', '张伟'],
+  ['我叫王芳，芳草的芳', '王芳'],
+  ['我叫张伟晨，伟大的伟，早晨的晨', '张伟晨'],
+  ['张伟晨，伟大的伟，早晨的晨', '张伟晨'],
+  ['我姓张，弓长张', '张弓'],
+  ['我姓李，木子李', '李木'],
+  ['收款人李四，木子李', '李四木'],
+  ['户名张伟，单人旁一个韦', '张伟韦'],
+  ['收款人是张伟，伟大的伟对吧', '张伟'],
+  ['单人旁一个韦', '韦'],
+  ['伟大的那个伟字', '伟'],
+  ['三点水的江', '江'],
+  ['龚厂长，伟大的伟对吧', '龚伟'],
+  ['一个口一个天', null],
+  ['木子很多', null],
+  ['儿子小孙子很可爱，木子很多', null],
+  ['伟大的祖国', null],
+  ['明天的事', null],
+  ['草字头的植物', null],
+  ['三点水很重要', null],
+  ['宫长张罗了一桌菜', null],
+  ['尔东陈列馆门口见', null]
+];
+
 const SPLIT_EXPLAIN_TAIL_CASES = [
   ['收款人是弓长张，伟大的伟对吧', 'mask'],
   ['收款人是弓长张，伟大的伟', 'mask'],
@@ -489,6 +524,12 @@ function build() {
       const redacted = R.redactText(text, ents);
       if ((expect === 'mask') !== (redacted !== text)) throw new Error('逐字解释用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
+    }),
+    exitParity: EXIT_PARITY_CASES.map(([text, leak]) => {
+      const LLM = require('../site/assets/js/llm.js');
+      const expected = LLM.sanitizeReply(text);
+      if (leak === null ? expected !== text : new RegExp('[' + leak + '*＊]').test(expected)) throw new Error('#163 三出口用例与预期不符：' + text + ' -> ' + expected);
+      return { text, expect: leak === null ? 'keep' : 'mask', leak: leak || '', expected };
     }),
     radicalExplain: RADICAL_EXPLAIN_CASES.map(([text, expect]) => {
       const ents = X.extractSensitive(text);
