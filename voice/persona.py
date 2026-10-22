@@ -878,17 +878,37 @@ def drop_given_after_split(prev: str, cur: str) -> str:
 def drop_name_explain(text: str) -> str:
     """#215：拆字报姓、逐字解释（连同被解释的姓名）整体换成已批的「那个名字」，相邻几段合成一个。没有命中时原样返回。"""
     s = str(text or "")
+    orig = s
     # #163：共享核心认出的偏旁说法（「单人旁一个韦」「三点水的江」）和逐字解释前面的姓名（「张伟晨，伟大的伟」）也换成「那个名字」
     for sp in sorted(find_name_spans(s, extract_sensitive(s)), key=lambda e: e["start"], reverse=True):
         if sp.get("kind") in ("radical", "nameBefore"):
             a = sp["start"] - (1 if sp["kind"] == "nameBefore" else 0)
             s = s[:a] + NAME_PHRASE + s[sp["end"]:]
     if "的" not in s and not any(c in s for c in "".join(_SPLIT_SPELLINGS) + "".join(_SPLIT_HOMOPHONES.values())):
-        return _NAME_RUN.sub(NAME_PHRASE, s)
+        s = _NAME_RUN.sub(NAME_PHRASE, s)
+        return _absorb_surname(s, [e["value"] for e in extract_sensitive(orig) if e.get("type") == "name" and e.get("value")]) if s != orig else s
+    names = sorted({e["value"] for e in extract_sensitive(s) if e.get("type") == "name" and e.get("value")}, key=len, reverse=True)
     s = _SPLIT_SAY.sub(NAME_PHRASE, s)
     spans = _explain_spans(s)
     for a, b in reversed(spans):
         s = s[:a] + NAME_PHRASE + s[b:]
+    s = _NAME_RUN.sub(NAME_PHRASE, s)
+    return _absorb_surname(s, names) if s != orig else s
+
+
+# #163 复审（负责人：任何露姓都要修）：拆字 / 逐字解释换成「那个名字」后，紧挨在前面的姓名、残姓也并进去，不念出姓：
+# 「我叫张伟，伟大的伟」→「我叫那个名字」（以前「我叫张那个名字」），「我叫张伟晨，伟大的伟」→「我叫那个名字」，
+# 「我姓张，弓长张」→「我姓那个名字」，「收款人李四，木子李」→「收款人那个名字」。只动紧跟「那个名字」的，别处的姓名照旧交给后面的脱敏。
+def _absorb_surname(s: str, names) -> str:
+    if NAME_PHRASE not in s:
+        return s
+    # 单个残姓只在句首、标点或「叫 / 是 / 姓 / 名 / 人」后面才算（「告诉我那个名字」这类原有说法不动）
+    alts = [re.escape(n) for n in names] + ["(?<![^叫是姓名人：:\\s，,。、])[" + _SURNAME_SET + "]"]
+    pat = re.compile("(?:" + "|".join(alts) + ")" + _EXP_SEP + "(?=" + NAME_PHRASE + ")")
+    prev = None
+    while prev != s:
+        prev = s
+        s = pat.sub("", s)
     return _NAME_RUN.sub(NAME_PHRASE, s)
 
 

@@ -38,3 +38,53 @@ def test_callredact_raw_bare_stars_read_as_name():
     r.add("name", "张伟晨")
     assert r.apply("对，****。", raw="对，早晨的晨。") == "对，张**。"
     assert r.apply("卡号****", raw="卡号1234") == "卡号****"  # 原文没有解释串时不动
+
+
+# #163 复审（负责人：任何露姓都在本 PR 修）：逐字解释 / 拆字前面的姓名、残姓并进「那个名字」，整句不念出姓
+SURNAME_CASES = [
+    ("我叫张伟，伟大的伟", "我叫那个名字"),
+    ("我是张伟，伟大的伟", "我是那个名字"),
+    ("我叫张伟晨，伟大的伟，早晨的晨", "我叫那个名字"),
+    ("张伟晨，伟大的伟，早晨的晨", "那个名字"),
+    ("我姓张，弓长张", "我姓那个名字"),
+    ("我姓张，弓长张，伟大的伟", "我姓那个名字"),
+    ("我姓李，木子李", "我姓那个名字"),
+    ("收款人李四，木子李", "收款人那个名字"),
+    ("收款人李四，木子李，四个的四", "收款人那个名字"),
+    ("户名张伟，单人旁一个韦", "户名那个名字"),
+    ("收款人是张伟，伟大的伟对吧", "收款人是那个名字对吧"),
+]
+
+
+@pytest.mark.parametrize("t,want", SURNAME_CASES)
+def test_voice_exit_no_surname(t, want):
+    for out in (guard_output(t), speakable(t)):
+        assert out == want, (t, out)
+        assert not re.search("[张李伟晨四]|[*＊]", out), (t, out)
+
+
+@pytest.mark.parametrize("t,_want", SURNAME_CASES)
+def test_voice_stream_no_surname(t, _want):
+    """逐字、每 3 字流式送进 ClauseTextAggregator → GuardTextFilter，各分句拼起来也不露姓。"""
+    import asyncio
+
+    from voice.processors import GuardTextFilter
+    from voice.textagg import ClauseTextAggregator
+
+    async def chain(step):
+        agg, f, segs = ClauseTextAggregator(), GuardTextFilter(CallRedactor()), []
+        for i in range(0, len(t), step):
+            async for a in agg.aggregate(t[i:i + step]):
+                segs.append(a.text)
+        last = await agg.flush()
+        if last:
+            segs.append(last.text)
+        return "".join([await f.filter(x) for x in segs])
+    for step in (1, 3, len(t)):
+        out = asyncio.run(chain(step))
+        assert not re.search("[张李伟晨四]|[*＊]", out), (t, step, out)
+
+
+@pytest.mark.parametrize("t", ["告诉我那个名字", "高那个名字呢", "你说的那个名字我没记住"])
+def test_absorb_keeps_existing_phrase(t):
+    assert guard_output(t) == t
