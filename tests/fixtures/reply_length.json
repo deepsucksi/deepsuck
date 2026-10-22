@@ -1,9 +1,9 @@
 {
-  "comment": "#194：人设回复长度规则（网页 llm.js 规则 1 / 8，语音硬性规则 1、FOLLOW_UP_RULE、首轮规则）。tests/reply_length.test.js 与 voice/tests/test_reply_length.py 共用。maxChars 为提示词里写的上限，web/voice 都必须出现；forbidden 是旧的长回复说法，任何人设、任何轮次的提示词里都不能再有。",
+  "comment": "#194：人设回复长度规则（网页 llm.js 规则 1 / 8，语音硬性规则 1、FOLLOW_UP_RULE、首轮规则；规则 8 敏感要求先犹豫）。tests/reply_length.test.js 与 voice/tests/test_reply_length.py 共用。maxChars 为提示词里写的上限，web/voice 都必须出现；forbidden 是旧的长回复说法，任何人设、任何轮次的提示词里都不能再有。",
   "personas": ["wang", "chen", "lin", "zheng"],
   "hints": ["opening", "generic"],
   "maxChars": 30,
-  "web": {"required": ["一次回复 1–2 句", "一般十来个字", "最多 30 字", "口头禅、“…”和打字习惯照常留着", "不要每条都重复"]},
-  "voice": {"required": ["一次 1–2 句", "一般十来个字、不超过 30 字"], "followUp": ["接几个字", "只问一件事", "不要每轮都重复"], "firstTurn": ["再说几个字"]},
-  "forbidden": ["1–3 句", "不超过 80 字", "不超过 50 字", "接半句陈述", "先说半句自己的话", "再说半句"]
+  "web": {"required": ["一次回复 1–2 句", "一般十来个字", "最多 30 字", "口头禅、“…”和打字习惯照常留着", "不要每条都重复", "先犹豫或起疑", "同一句里不要马上反问卡号或户名"]},
+  "voice": {"required": ["一次 1–2 句", "一般十来个字、不超过 30 字"], "followUp": ["接几个字", "先犹豫或起疑", "同一句里不要马上反问卡号或户名", "不要每轮都重复"], "firstTurn": ["再说几个字"]},
+  "forbidden": ["1–3 句", "不超过 80 字", "不超过 50 字", "接半句陈述", "先说半句自己的话", "再说半句", "只问一件事"]
 }
