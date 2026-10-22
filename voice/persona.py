@@ -13,7 +13,10 @@ if str(_PY) not in sys.path:
 
 from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
-from deepsuck.extractors import masked_lead_not_surname  # noqa: E402  #201 共用字表 core/name_stopchars.json
+from deepsuck.redact import mask  # noqa: E402  #227
+from deepsuck.extractors import find_name_context, masked_lead_not_surname, stars_not_name  # noqa: E402  #201 共用字表 core/name_stopchars.json
+from deepsuck.refs import _NoTail, collapse_spaced_stars  # noqa: E402  #216
+from deepsuck.refs import AMOUNT_PHRASE, _AMOUNT_STARS, _amount_skip  # noqa: E402  #222：打码金额与文本端共用同一规则
 from deepsuck.engine import hold_transfer, polish_reply, vague_digits  # noqa: E402
 from deepsuck.personas import PERSONA_BY_ID, PERSONAS, SCENARIO_BY_ID, SCENARIOS, TRANSFER_CLAIM, resolve_persona_id  # noqa: E402
 from deepsuck.refs import UR as _UR, drop_unheard, heard_refs  # noqa: E402,F401  #173
@@ -356,6 +359,49 @@ HARD_RULES = (
 
 
 MISS_HEAD = "还没问到的："
+# #184（#181，#173 子 issue）：#183 已经把没报过的代称说法从提示词里去掉，固定部分有 UNSAID_RULE；qwen3.8-flash 文本回放
+# 「骗子没报号 / 户名」仍有 1–2/10 次说“那个号”“那个名字”。末尾按本轮再写一行：对方还没报过哪几样、要直接问、问法举例。
+# 这一行本身不出现代称说法（共用用例 forbidden_in），只在相关话题对方已经提到后才写（#4），第一轮不写。
+_UNSAID_ASK = (("number", "bank", "卡号", "“卡号多少”"), ("number", "phone", "电话", "“电话多少”"),
+               ("number", "wallet", "钱包地址", "“地址发过来”"), ("name", "bank", "户名", "“户名是谁”"))
+
+
+# 发出前兜底（#184）：提示词怎么写，qwen3.8-flash 偶尔仍说“你报一下那个号”；对方确实没报过的那类，代称换成直说。
+# 只在通话中（refs 不为 None）、对方没报过这一类时换；报过以后原样（“你说的那个号”是 unmask 给模型的正常说法）。
+_UNSAID_FIX = {
+    "number": ((re.compile(r"(?:你|您)?(?:刚才)?(?:说|发|报)的那(?:个号码?|张卡|几位)"), "号码"),
+               (re.compile(r"那个号码?"), "号码"), (re.compile(r"那张卡"), "卡"), (re.compile(r"那几位"), "号码")),
+    # #216：「那个名字」后面紧跟打码星号（「那个名字***是吧」）时是打码的名字，不改（交给 _unmask_names 念「那个名字」），免得念成「名那个名字」
+    "name": ((re.compile(r"户名(?:是|叫)那个名字(?!\s*[*＊])"), "户名叫什么"),
+             (re.compile(r"(?:你|您)?(?:刚才)?(?:说|报)的那个名字(?!\s*[*＊])"), "名字"), (re.compile(r"那个名字(?!\s*[*＊])"), "名字"),
+             (re.compile(r"户名没记全"), "户名还没说")),
+}
+
+
+def drop_unsaid(text: str, refs) -> str:
+    """人设回复里对方没报过的那类代称（“那个号”“那个名字”…）换成直说；refs 为 None（离线）时原样返回。
+    #219：调用方必须在 speakable / guard_output 之前调用（打码值还是星号时），只换模型自己写的代称；放在之后会把打码换出来的
+    「那个名字」「那个号」占位改成光秃秃的「名字」（用例 voice/tests/test_unsaid_placeholder.py）。"""
+    s = str(text or "")
+    if refs is None:
+        return s
+    for kind, rules in _UNSAID_FIX.items():
+        if kind in refs:
+            continue
+        for rx, rep in rules:
+            s = rx.sub(rep, s)
+    return s
+
+
+def unsaid_line(refs, topics=None) -> str:
+    """对方还没报过号码 / 户名、但已经提到相关话题时的一行（refs、topics 为 None 时不写）。"""
+    if refs is None or topics is None:
+        return ""
+    hit = [x for x in _UNSAID_ASK if x[0] not in refs and x[1] in set(topics)]
+    if not hit:
+        return ""
+    return ("对方到现在还没报过" + "、".join(x[2] for x in hit) + "：别用指代的说法，说得像他已经报过、你已经记下了都不行；"
+            "要问就直接问（比如" + "".join(x[3] for x in hit) + "）。")
 
 
 def said_first_line(said_first: str) -> str:
@@ -437,6 +483,8 @@ def prompt_parts(persona_id: str = "wang", scenario_id: str = "refund", hint: st
     turn += extra
     if said_first:
         turn.append(said_first_line(said_first))
+    if not first_turn and unsaid_line(refs, topics):  # 第一轮只应一声，不加
+        turn.append(unsaid_line(refs, topics))
     turn.append(first_turn_rule() if first_turn else FOLLOW_UP_RULE)
     return "\n".join(fixed), "\n".join(turn)
 
@@ -511,27 +559,198 @@ _TAIL_WORD = re.compile(r"尾号(?:是)?\s*$")
 _COMPOUND_SURNAMES = ("欧阳", "司马", "诸葛", "上官", "东方", "慕容", "令狐", "皇甫", "夏侯", "尉迟", "公孙", "长孙",
                       "宇文", "司徒", "端木", "独孤", "南宫", "西门", "轩辕", "呼延", "澹台", "百里", "东郭", "申屠")
 _NOT_SURNAME = "号码卡户名姓叫位数是为的了在到个账机话址箱写填尾"
+# #216 P0：星号后紧跟的残名（「是**明吗」）整段换掉（共享核心 digitEcho.maskedNameTail，最多 3 字，停字保留），第 3 组是残名；
+# 单个星号后面那个字碰到 nameTailStop（「李*是吧」的「是」）不吃，与 deepsuck.refs 一致
+_DIGIT_ECHO = load("personas")["digitEcho"]
+_MASKED_NAME_TAIL = _DIGIT_ECHO["maskedNameTail"]
+# #222：单星号后面是金额 / 数量的开头（中文数字后面还跟着数字或单位：「转给李*五百块」「给李*三千」），这个字不当残名吃掉，
+# 免得念成「转给那个名字百块」。只看「数字 + 数字/单位」两个字，单独一个数字（「王*五」中间打码）照旧吃掉，不露名字里的字
+_CN_NUM = "零〇一二两三四五六七八九十"
+_AMOUNT_AFTER_NAME = "[" + _CN_NUM + "几][" + _CN_NUM + "百千万亿块元毛角]"
 _NAME_MASKED = re.compile(
     r"(姓)?(" + "|".join(_COMPOUND_SURNAMES) + r"|[\u4e00-\u9fff])"
-    r"(?:[*＊](?:[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊]))")
+    r"(?:[*＊](?:(?![" + _DIGIT_ECHO["nameTailStop"] + r"])(?!" + _AMOUNT_AFTER_NAME + r")[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊])"
+    r"((?!" + _AMOUNT_AFTER_NAME + r")" + _MASKED_NAME_TAIL + r"(?![*＊0-9A-Za-z]))?)")
+# #216 P0：星号前不是汉字（逗号、句首：「户名叫什么来着，**明？」）、后面紧跟残名时也是名字，不念成「那个号明」
+_STARS_NAME_TAIL = re.compile("(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{1,4}(?!" + _AMOUNT_AFTER_NAME + ")" + _MASKED_NAME_TAIL + "(?![*＊0-9A-Za-z０-９])")
 NAME_PHRASE = "那个名字"
+# #222：常见姓 + 1–4 个星号后面直接跟阿拉伯数字（「转给李*500」「李**500」）：报过的名字后面紧跟金额，星号是名字，
+# 不当号码念成「李那几个数没听清」露姓。只认 extractors.json nameRules.surnames 里的姓，星号前是号码语境的（stars_not_name）不动；
+# 数字只认像金额的：1–3 位，或后面跟 块/元/万。「张**1234」（4 位以上、没单位）仍按号码（test_voice_spec 锁定）
+_SURNAME_SET = load("extractors")["nameRules"]["surnames"]
+_NAME_STARS_DIGITS = re.compile(r"(" + "|".join(_COMPOUND_SURNAMES) + r"|[" + _SURNAME_SET + r"])[*＊]{1,4}(?=[0-9０-９]{1,3}(?![0-9０-９])|[0-9０-９]+\s*(?:块|元|万))")
+
+
+# #215：姓名锚（户名 / 收款人 / 名下 / 对方叫）后面紧跟星号时一律念“那个名字”（与 #214 共享核心的姓名锚一致，比号码判断先做）。
+# 原来“名”“户”在 _NOT_SURNAME 里，“户名***”匹配不到 _NAME_MASKED，户名被 unmask 念成“那个号”（“卡号是***，户名***”→
+# “……户名那个号”）。锚和星号之间可以有“是 / 为 / ：”和空格（念的时候“是”“为”去掉，冒号保留）。星号后面要是还跟着一个字
+# （“户名*明”“收款人**华”，脱敏只留了名里的一个字）一并换掉，不露姓名里的任何字；“的 / 和 / 卡 / ，”这类字照旧保留。
+# 只认星号：“户名和账号”“收款人信息”“我名下有房”不动；星号后面紧跟数字 / 字母（打码号码）不算姓名。
+# 转账动词（转给、汇给、转入、存到、转到、打到、汇到）后面紧跟的星号也是收款人姓名（#214 审查，负责人定的：「转到* / ** / ***」是 name）
+_NAME_ANCHOR_WORDS = ("账户名", "户名", "收款人", "姓名", "名下", "对方叫", "转给", "汇给", "转入", "存到", "转到", "打到", "汇到")
+# #219 复审（负责人定）：锚和星号之间隔逗号、顿号、空格也算；星号后紧跟的汉字整段换掉，最多 3 个字，碰到
+# 「的 / 吗 / 吧 / 是 / 啊 / 对 / 卡 / 账户」停（「户名**是吧」→「户名那个名字是吧」，「收款人**的卡」→「收款人那个名字的卡」）。
+# 残名后面再跟的星号（「收款人是**弓长张**」的收尾 **）一并吃掉。
+_ANCHOR_SEP = r"[\s，,、]*"
+_NAME_TAIL = "(?:(?!账户|名下|[的吗吧是啊对卡])[\u4e00-\u9fff]){1,3}"  # 「名下」也停（「转到*名下」）
+# #219 三审（负责人定）：锚和星号之间隔破折号、引号、空格、标点也算（「户名 —— **明」「收款人“**”」念「那个名字」）
+_ANCHOR_SEP_WIDE = r"[\s，,、。；;：:—\-–…“”「」『』‘’'\"]*"
+_NAME_ANCHOR_KEEP = set("的地得之是为和与跟及或同在名下卡账户号码行开吧呢啊吗了呀哦嘛也都就还")
+# #227（负责人定）：字段词 收款人 / 户名 / 姓名 / 账户名 后面「姓 + 星号 + 残字」（「收款人马**元」「户名：高**元」）姓一起换成「那个名字」，
+# 字段词一个字不吃、后面不剩「元」；残字碰到金额开头（「五百块」）停
+_FIELD_TAIL = "(?:(?!账户|名下|[的吗吧是啊呀呢了和跟就也都还对卡我你您他她这那在要说让给转打先再来去])[\u4e00-\u9fff]){1,3}"  # 残字（含「元」）最多 3 字
+_FIELD_SURNAME_STARS = re.compile(
+    r"(账户名|户名|收款人|姓名)(" + _ANCHOR_SEP_WIDE + r")"
+    r"(?![" + "".join(sorted(_NAME_ANCHOR_KEEP)) + r"])[" + _SURNAME_SET + r"][*＊]+(?![0-9A-Za-z０-９*＊])"
+    r"(?:(?!" + _AMOUNT_AFTER_NAME + r")" + _FIELD_TAIL + r")?")
+_NAME_ANCHOR = re.compile(
+    r"(" + "|".join(_NAME_ANCHOR_WORDS) + r")(" + _ANCHOR_SEP_WIDE + r"(?:是|为)?" + _ANCHOR_SEP_WIDE + r")"
+    r"[*＊]+(?![0-9A-Za-z０-９*＊])(?:(" + _NAME_TAIL + r")[*＊]*(?![0-9A-Za-z０-９]))?")
+# #214 复审：_NAME_MASKED 把星号前一个字当姓一起换掉，「转给***」念成「转那个名字」、「收款人***」念成「收款那个名字」，意思变了。
+# 星号前是这些字（动词、介词、「人」「下」）时只换星号，保留前字；它们基本不当姓，保留也不露姓名里的字。
+_KEEP_LEAD = set("给到入叫是为在跟向找下人")
+# 星号紧跟“名下”（“转到**名下”）：星号是名字，不是号码；前面的字（“到”）不当姓吃掉
+_STARS_BEFORE_MINGXIA = re.compile(r"(?<![0-9A-Za-z０-９*＊])[*＊]+(?=名下)")
+_STARS_AFTER_NAME = re.compile(NAME_PHRASE + r"\s*[*＊]+(?:" + _MASKED_NAME_TAIL + r")?(?![0-9A-Za-z０-９*＊])")  # #219：中间隔空格的续段星号（「收款人姓* **」）也是名字
+
+
+# 保留动词 / 介词的星号后面紧跟残名（「汇款给**明」）：残名一并换掉，规则同 _NAME_TAIL
+_KEEP_LEAD_TAIL = re.compile("(?<=[给入叫跟向找人])[*＊]+(?![0-9A-Za-z０-９*＊])" + _NAME_TAIL)
+
+
+def _anchor_rep(m: re.Match) -> str:
+    sep = m.group(2)
+    sep = re.sub(r"[是为]", "", sep) if re.search(r"[—\-–…“”「」『』‘’'\"]", sep) else re.sub(r"[是为\s]", "", sep)
+    return m.group(1) + sep + NAME_PHRASE
+
+
+# #219 三审（负责人定）：「姓」也是锚。「姓」后面的星号和残字（最多 3 字，停字同 _NAME_TAIL）连同「姓」一起换掉：
+# 前面是姓名锚（「收款人姓**明」）→「收款人那个名字」；前面是别的主语（「他姓**明」「对方姓*名明」）→「姓」改成「是」：「他是那个名字」。
+_SURNAME_ANCHOR = re.compile(
+    r"姓(" + _ANCHOR_SEP_WIDE + r")[*＊]+(?![0-9A-Za-z０-９*＊])(?:" + _NAME_TAIL + r"[*＊]*(?![0-9A-Za-z０-９]))?")
+_ANCHOR_BEFORE = re.compile("(?:" + "|".join(_NAME_ANCHOR_WORDS) + r")\s*$")
+
+
+# #219 四审（负责人定）：「姓」后接「的」时，前面的人称和「姓」一起去掉（「我姓**的卡」→「那个名字的卡」）
+_PRONOUN = "(?:我们|你们|他们|她们|对方|本人|我|你|您|他|她)"
+_PRONOUN_BEFORE = re.compile(_PRONOUN + "$")
+
+
+def _surname_head(m: re.Match, sep: str = "") -> str:
+    """「姓」（连同前面的人称）换成什么，返回 (要从前文删掉的字数, 前缀)。"""
+    before = m.string[:m.start()]
+    if m.string[m.end():].startswith("的"):
+        p = _PRONOUN_BEFORE.search(before)
+        if p:
+            return len(p.group(0)), ""
+    if _ANCHOR_BEFORE.search(before) or not before.strip():
+        return 0, ""
+    return 0, "是"
+
+
+def _sub_surname(rx: re.Pattern, s: str, body) -> str:
+    """像 rx.sub，但允许删掉匹配前面的人称。body(m) 返回 None 表示不替换，否则返回替换文本（不含「姓」的处理结果）。"""
+    out, last = [], 0
+    for m in rx.finditer(s):
+        r = body(m)
+        if r is None:
+            continue
+        cut, head = r[0], r[1]
+        out.append(s[last:m.start() - cut] if m.start() - cut >= last else "")
+        out.append(head)
+        last = m.end()
+    out.append(s[last:])
+    return "".join(out)
+
+
+def _surname_rep(m: re.Match):
+    sep = m.group(1)
+    sep = sep if re.search(r"[—\-–…“”「」『』‘’'\"]", sep) else ""
+    cut, head = _surname_head(m)
+    return cut, head + sep + NAME_PHRASE
 
 
 def _unmask_names(s: str) -> str:
+    anchor = _anchor_rep
+
     def rep(m: re.Match) -> str:
         # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓），不在表里的再看 _NOT_SURNAME
-        if masked_lead_not_surname(m, m.group(2), _NOT_SURNAME):
-            return m.group(0)
-        return NAME_PHRASE
-    return _NAME_MASKED.sub(rep, s)
+        if masked_lead_not_surname(_NoTail(m, m.group(3) or ""), m.group(2), _NOT_SURNAME):  # #216：残名不算「星号后跟着字」
+            return None
+        if not m.group(1) and m.group(2) in _KEEP_LEAD:  # #214 复审：保留星号前的动词 / 介词（「转给那个名字」）
+            return 0, m.group(2) + NAME_PHRASE
+        if m.group(1):  # #219 四审（负责人定，#136 老规则作废）：「他姓张**」→「他是那个名字」，规则同 _surname_rep
+            cut, head = _surname_head(m)
+            return cut, head + NAME_PHRASE
+        return 0, NAME_PHRASE
+    s = collapse_spaced_stars(s)  # #216 P0：「好，张 * *」「张·*·*」先收拢成「张**」（号码里的分隔不动）
+    # #222（负责人定）：打码金额「我只有**块钱」→「我只有那么点」，直接复用文本端 deepsuck.refs 的规则（_AMOUNT_STARS / _amount_skip / AMOUNT_PHRASE），两边逐字一致
+    s = _AMOUNT_STARS.sub(lambda m: m.group(0) if _amount_skip(m.string, m.start()) else AMOUNT_PHRASE, s)
+    s = _NAME_STARS_DIGITS.sub(lambda m: m.group(0) if stars_not_name(m.string, m.start(0) + len(m.group(1))) else NAME_PHRASE, s)  # #222：「李**500」
+    s = _STARS_AFTER_NAME.sub(NAME_PHRASE, s)  # #219：已换好的「那个名字」后面残留的粗体星号（「**弓长张，伟大的伟**」）一并去掉，不把「字」当姓
+    s = _sub_surname(_SURNAME_ANCHOR, s, _surname_rep)  # #219 三审：先换「姓**明」
+    s = _FIELD_SURNAME_STARS.sub(lambda m: m.group(1) + m.group(2) + NAME_PHRASE, s)  # #227
+    s = _STARS_BEFORE_MINGXIA.sub(NAME_PHRASE, _KEEP_LEAD_TAIL.sub(NAME_PHRASE, _NAME_ANCHOR.sub(anchor, s)))
+    s = _STARS_AFTER_NAME.sub(NAME_PHRASE, _sub_surname(_NAME_MASKED, s, rep))
+    return _STARS_NAME_TAIL.sub(lambda m: m.group(0) if stars_not_name(m.string, m.start()) else NAME_PHRASE, s)  # #216 P0
 
 
-def unmask(text: str) -> str:
+# #214 复审：ASR 分段时星号可能单独成一段，或在这一段开头（「转给」/「***」、「卡号是」/「***，户名***」）。这一段开头的星号
+# 按上一段的结尾判断：姓名锚 / 转账动词结尾念「那个名字」，号码词结尾念「那个号」；都不是时，对方到现在只报过名字（refs 只有
+# name）也念「那个名字」，其余照旧念「那个号」。
+_LEAD_STARS = re.compile(r"^\s*[*＊]+(?![0-9A-Za-z０-９*＊])")
+_LEAD_STARS_NAME = re.compile(r"^\s*[*＊]+(?![0-9A-Za-z０-９*＊])(?:" + _NAME_TAIL + r"[*＊]*(?![0-9A-Za-z０-９]))?")
+_PREV_NAME_END = re.compile("(?:" + "|".join(_NAME_ANCHOR_WORDS) + r"|姓)" + _ANCHOR_SEP + r"(?:是|为|叫)?" + _ANCHOR_SEP + r"[:：]?" + _ANCHOR_SEP + "$")
+# #219 复审（负责人定）：号码词只读共享核心 name_stopchars.json 的 maskContext.numberBefore（#214 加入），voice 不再维护本地表；
+# 文件里还没有这个键时不按号码词判断（段首星号拿不准照旧念「那个号」，依赖它的用例标 xfail，注明依赖 #214）。
+_NUMBER_BEFORE = (load("name_stopchars").get("maskContext") or {}).get("numberBefore")
+_PREV_NUMBER_END = re.compile(_NUMBER_BEFORE.rstrip("$") + r"\s*$") if _NUMBER_BEFORE else None
+
+
+def lead_stars_kind(prev: str, refs=None):
+    """这一段开头的星号该算什么：按上一段（prev）结尾，"name" / "number"；拿不准时看 refs（只有 name → "name"），否则 None。"""
+    p = str(prev or "")
+    if _PREV_NAME_END.search(p):
+        return "name"
+    if _PREV_NUMBER_END is not None and _PREV_NUMBER_END.search(p):
+        return "number"
+    if refs is not None and "name" in refs and "number" not in refs:
+        return "name"
+    return None
+
+
+def unmask(text: str, prev: str = "", refs=None) -> str:
     """把打码值换成自然说法：姓名类打码换成“那个名字”（#136，见 _unmask_names）；号码类换成“那个号”（前面已经说了“尾号”就说
-    “那几位”）。不留任何星号，也不带出可见的数字。"""
+    “那几位”）。不留任何星号，也不带出可见的数字。prev / refs：ASR 分段时上一段的话和对方报过的代称种类，用来判断这一段开头的
+    星号（#214 复审，见 lead_stars_kind）。"""
+    s = str(text or "")
+    m = _LEAD_STARS.match(s)
+    if m and (prev or refs is not None) and lead_stars_kind(prev, refs) == "name":
+        m = _LEAD_STARS_NAME.match(s)  # #219：段首星号后的残名（「户名，」/「*明」）一并换掉
+        s = s[:m.start()] + re.match(r"^\s*", s).group(0) + NAME_PHRASE + s[m.end():]
+
     def rep(m: re.Match) -> str:
         return "那几位" if _TAIL_WORD.search(m.string[:m.start()]) else "那个号"
-    return _MASKED.sub(rep, _unmask_names(str(text or "")))
+    return _MASKED.sub(rep, _unmask_names(s))
+
+
+def split_lead_refs(texts):
+    """#214 复审：按 ASR 分段算 heard_refs 时，这一段开头的星号按上一段结尾判断（「卡号是」/「***，户名***」前半是号码）。
+    返回（交给共享核心 heard_refs 的各段，额外的代称种类）：开头星号判成号码时从这一段去掉、记一个 number；判成姓名时记 name。"""
+    out, extra, prev = [], set(), ""
+    for t in texts:
+        t = t or ""
+        m = _LEAD_STARS.match(t)
+        if m and prev:
+            kind = lead_stars_kind(prev)
+            if kind == "number":
+                extra.add("number")
+                t = t[m.end():]
+            elif kind == "name":
+                extra.add("name")
+        out.append(t)
+        prev = t or prev
+    return out, extra
 
 
 # 号码逐位读（送 TTS 前）：连续 3 位以上的数字按位读，1 读“幺”；金额、日期、数量照旧按数值读。
@@ -559,7 +778,9 @@ def speakable(text: str, calm_tts: bool | None = None) -> str:
 
     数字过滤（engine.vague_digits）在语音合成前最后一道：连续 2 位及以上的数字（#167 从 3 位收紧；含中文数字）换成“好像是6开头的”“后面几位没听清”这类说法。
     """
-    s = unmask(guard_output(_unmask_names(str(text or ""))))  # #136：姓名打码先换说法，免得守卫把“是张**”再打成“***”
+    # #214 语料复审：号码词 / 姓名锚后的打码星号先换成代称（_proxy_masked），再换姓名打码、过守卫（去 Markdown 粗体）
+    # #219 复审（负责人定）：先过 guard_output（拆字 / 逐字解释拦截先生效），姓名替换在 guard_output 里 drop_name_explain 之后、脱敏之前做
+    s = unmask(guard_output(str(text or "")))
     if _CALM if calm_tts is None else calm_tts:
         s = calm(s)
     s = vague_digits(s)
@@ -567,14 +788,193 @@ def speakable(text: str, calm_tts: bool | None = None) -> str:
     return _STARS.sub("……", s)
 
 
+# #215：输出端拦住拆字解释。模型自己复述「收款人是弓长张，伟大的伟对吧」「龚厂长，伟大的伟对吧」「是伟大的伟吗」时，
+# 拆字解释连同它解释的姓名整体换成已批的「那个名字」（NAME_PHRASE，规则替换，不是新台词，不加任何别的字）：
+# 「收款人是弓长张，伟大的伟对吧」→「收款人是那个名字对吧」，「是伟大的伟吗」→「是那个名字吗」。
+# 1) 拆字报姓：共享核心 nameRules.split.spellings（弓长张、耳东陈、口天吴…）和它们的 ASR 同音变体（龚厂长、工长张、二东陈…）。
+#    后面必须是结尾 / 标点 / 确认说法（对吧、是吗…）/ 语气词 / 下一段解释，所以「宫长张罗了一桌菜」「尔东陈列馆」不动。
+#    前面紧跟的「姓」一并换掉（与 _unmask_names 的「他姓张**」→「他那个名字」一致）。
+# 2) 逐字解释：词 + 的(那个) + 被解释的字 X（+ 字），词取「的」前面最短的、含 X 的 2–4 个汉字（不含「的 / 是」），
+#    X 后面同样要是结尾 / 标点 / 确认说法 / 语气词 / 下一段解释（「伟大的伟人」「明天的明天」不算；X 不在词里的「伟大的祖国」不算）。
+#    前面紧跟「X是」「X就是」「X字是」时一并换掉（那里也念出了 X）。
+# 3) 相邻几段（中间只隔标点、空格）换完以后合成一个「那个名字」。
+_EXR = load("extractors")["nameRules"]
+_SPLIT_SPELLINGS = tuple(_EXR["split"]["spellings"])
+# 拆字说法里每个字的 ASR 同音 / 近音写法（只用于识别人设复述的拆字报姓，不进任何台词）
+_SPLIT_HOMOPHONES = {
+    "弓": "工公宫龚功攻", "长": "厂场常", "张": "章长掌", "耳": "尔二而儿", "东": "冬", "陈": "晨程成臣沉",
+    "口": "扣寇", "天": "田添", "吴": "无武五午", "立": "力丽利", "早": "枣找", "章": "张", "木": "目牧", "子": "字紫",
+    "李": "里理礼", "双": "霜", "林": "临琳", "古": "谷股", "月": "越", "胡": "湖壶", "言": "严盐", "午": "五武",
+    "许": "须", "草": "曹", "头": "投", "黄": "皇煌", "易": "亦义", "杨": "阳扬洋", "关": "官观", "郑": "正政",
+    "马": "码", "冯": "风", "吕": "旅", "走": "奏", "肖": "小晓萧", "赵": "照", "禾": "和合", "程": "成城诚",
+}
+
+
+def _split_variants(sp: str) -> str:
+    return "\\s*".join("[" + c + _SPLIT_HOMOPHONES.get(c, "") + "]" for c in sp)  # #219：拆字说法内部允许空格
+
+
+_HAN = "[\u4e00-\u9fff]"
+_EXP_TAIL = "(?:" + _EXR["explain"]["tailWords"] + ")"
+_EXP_PARTICLE = "[啊呀吧嘛哈呢哦吗么]"
+_EXP_SEP = "[\\s，,、：:；;。]{0,2}"
+# X（或拆字报姓）后面的合法结尾：结尾、非汉字、确认说法、语气词、下一段逐字解释（「伟大的伟，明天的明」「弓长张伟大的伟」）
+_EXP_NEXT = _HAN + "{2,4}的(?:那个)?" + _HAN
+_EXP_END = "(?=$|[^\u4e00-\u9fff]|" + _EXP_TAIL + "|" + _EXP_PARTICLE + "|" + _EXP_SEP + _EXP_NEXT + ")"
+# 拆字报姓后面跟着 1–2 个字的名（「弓长张，三丰」「走肖赵，明。」「弓长张三丰」）一并换掉；名的字不能是共享核心
+# split.givenStop 里的字或语气词。同音变体（「龚厂长」）后面必须隔着标点才算名，免得「尔东陈列馆」「宫长张罗」被当成拆字报姓。
+_GIVEN_CHAR = "(?:(?!" + _EXR["split"]["givenStop"] + "|" + _EXP_PARTICLE + ")" + _HAN + ")"
+_GIVEN_AFTER = _GIVEN_CHAR + "{1,2}(?![\u4e00-\u9fff])"
+_SPLIT_EXACT = "|".join("\\s*".join(sp) for sp in sorted(_SPLIT_SPELLINGS, key=len, reverse=True))
+_SPLIT_SAY = re.compile(
+    "姓?(?:(?:" + _SPLIT_EXACT + ")(?:" + _EXP_SEP + _GIVEN_AFTER + ")?"
+    + "|(?:" + "|".join(_split_variants(sp) for sp in _SPLIT_SPELLINGS) + ")(?:[\\s，,、：:；;。]{1,2}" + _GIVEN_AFTER + ")?)"
+    + _EXP_END)
+# #219：「的」和 X 之间允许引号、空格、一个逗号，X 可带引号（「伟大的“伟”」「伟大的 伟」「伟大的，伟」）
+_QUOTE = "[“”「」『』‘’'\"]"
+_EXPLAIN_CAND = re.compile("(" + _HAN + "{1,4})的(?:那个)?(?:\\s|" + _QUOTE + "){0,2}[，,]?(?:\\s|" + _QUOTE + "){0,2}(" + _HAN + ")" + _QUOTE + "?字?" + _EXP_END)
+_NAME_RUN = re.compile(NAME_PHRASE + "(?:" + _EXP_SEP + "(?:就是|是)?" + NAME_PHRASE + ")+")
+# 共享核心逐字解释的反例里，长得像解释、其实是普通话的（tests/fixtures/redact.json「这是大家的家」）
+_EXPLAIN_KEEP = frozenset(("大家的家",))
+
+
+def _explain_spans(s: str):
+    out, pos = [], 0
+    while True:
+        m = _EXPLAIN_CAND.search(s, pos)
+        if not m:
+            return out
+        pre, x = m.group(1), m.group(2)
+        cut = s.rfind(NAME_PHRASE, 0, m.start(1) + len(pre))  # 不往前吃进已经换好的「那个名字」（「弓长张伟大的伟」）
+        if cut >= 0 and cut + len(NAME_PHRASE) > m.start(1):
+            pre = s[cut + len(NAME_PHRASE):m.start(1) + len(pre)]
+        word = next((pre[-k:] for k in range(2, len(pre) + 1) if x in pre[-k:] and not re.search("[的是]", pre[-k:])), None)
+        if word is None or (word + "的" + x) in _EXPLAIN_KEEP:
+            pos = m.start() + 1
+            continue
+        # 词往前接到标点 / 「的」「是」/ 4 个字为止，「弓长张，日月明的明」的「日」也换掉（宁可多遮）
+        word = next((pre[-k:] for k in range(len(pre), len(word), -1) if not re.search("[的是]", pre[-k:])), word)
+        start = m.start(2) - len(m.group(0)[len(m.group(1)):m.start(2) - m.start()]) - len(word)
+        # #219：前置「伟，」「伟——」「“伟”，」「伟。」也算念出了 X（拿不准就打码）
+        lead = re.search(_QUOTE + "?" + re.escape(x) + _QUOTE + "?字?(?:[\\s，,、：:；;。！!？?—\\-…]*(?:就是|是))?[\\s，,、：:；;。！!？?—\\-…]*$", s[:start])  # 「伟是伟大的伟」「伟，就是伟大的伟」的「伟是」也念出了 X
+        if lead:
+            start = lead.start()
+        out.append((start, m.end()))
+        pos = m.end()
+
+
+_SPLIT_AT_END = re.compile("(?:" + _SPLIT_EXACT + "|" + "|".join(_split_variants(sp) for sp in _SPLIT_SPELLINGS) + ")[\\s，,、：:；;。]*$")
+_GIVEN_HEAD = re.compile("^[\\s，,、：:；;。]{0,2}" + _GIVEN_AFTER)
+
+
+def drop_given_after_split(prev: str, cur: str) -> str:
+    """#215：TTS 按分句送时，「你刚说口天吴，一凡，对吧」被切成「你刚说口天吴」「一凡，对吧」。上一句（原文）以拆字报姓结尾时，
+    这一句开头 1–2 个字的名（规则同 drop_name_explain 里拆字报姓后面的名）去掉，免得单独念出来。"""
+    if not prev or not _SPLIT_AT_END.search(prev):
+        return cur
+    return _GIVEN_HEAD.sub("", cur, count=1).lstrip("，, ")
+
+
+def drop_name_explain(text: str) -> str:
+    """#215：拆字报姓、逐字解释（连同被解释的姓名）整体换成已批的「那个名字」，相邻几段合成一个。没有命中时原样返回。"""
+    s = str(text or "")
+    if "的" not in s and not any(c in s for c in "".join(_SPLIT_SPELLINGS) + "".join(_SPLIT_HOMOPHONES.values())):
+        return s
+    s = _SPLIT_SAY.sub(NAME_PHRASE, s)
+    spans = _explain_spans(s)
+    for a, b in reversed(spans):
+        s = s[:a] + NAME_PHRASE + s[b:]
+    return _NAME_RUN.sub(NAME_PHRASE, s)
+
+
+# #214 语料复审：号码词 / 姓名锚后面紧跟的打码星号（不带数字）在去 Markdown 粗体之前先换成代称，号码念「那个号」（尾号后念
+# 「那几位」，与 unmask 一致），姓名锚念「那个名字」（_unmask_names）。否则「验证码是**，密码是**」「卡号是**，户名**」两段 **
+# 会被 _BOLD 当成粗体删掉星号，念成「验证码是，密码是」。真正的 Markdown 粗体（「**重点**」）前面不是号码词，不受影响。
+_NUMBER_STARS = re.compile(_PREV_NUMBER_END.pattern[:-1] + r"([*＊]+)(?![*＊0-9A-Za-z０-９\u4e00-\u9fff])") if _PREV_NUMBER_END else None  # 星号后跟字（「卡号是*华」）不在这里换，按姓名多遮
+
+
+def _proxy_masked(s: str) -> str:
+    s = _NAME_ANCHOR.sub(_anchor_rep, s)
+    if _NUMBER_STARS is None:
+        return s
+    return _NUMBER_STARS.sub(lambda m: m.group(0)[:m.start(1) - m.start()] + ("那几位" if _TAIL_WORD.search(m.group(0)[:m.start(1) - m.start()]) else "那个号"), s)
+
+
+_AMOUNT_START = re.compile("(?=" + _AMOUNT_AFTER_NAME + ")")
+_NAME_END_AT = re.compile("(?=" + _AMOUNT_AFTER_NAME + "|[" + _CN_NUM + "]+岁)")  # #227 四审：「我是李四十岁」
+_VOICE_LEADS = re.compile(r"(?:账户名|户名|收款人|姓名)[：:\s]*(?![*＊])")  # 「给 / 是」前缀按负责人定由 #220 在共享规则里补，voice 不另写
+_NAME_STOP = re.compile(r"[，,。；;！!？?、\s]")
+# #227 四审：「张**1234」段首（前面不是汉字 / 数字）单个姓 + 星号 + 数字，姓不念出来，整段按号码念含糊说法
+_SURNAME_STARS_DIGITS = re.compile(r"(?<![\u4e00-\u9fff0-9A-Za-z０-９])[" + _SURNAME_SET + r"](?=[*＊]+[0-9０-９])"
+                                   r"(?![*＊]{1,4}(?:[0-9０-９]{1,3}(?![0-9０-９])|[0-9０-９]+\s*(?:块|元|万)))")  # 「李**500」仍按 #222 念「那个名字」
+_NAME_NUM_LEAD = re.compile(r"(?:^|(?<=[，,。；;！!？?\s]))(?=[" + _SURNAME_SET + r"])")  # 只管句首（「张三三点钟」）；给 / 是 / 叫 前缀等 #220
+_NAME_NUM_END = re.compile("[" + _CN_NUM + "]+(?:岁|点)")  # 只管岁数 / 钟点；金额停字等 #220
+
+
+def _is_name(cand: str) -> bool:
+    return any(nc["start"] == 2 and nc["end"] == len(cand) + 2 for nc in find_name_context("我叫" + cand))
+
+
+# #227 五审：字段词 + （姓）+ 星号 + 中文金额（「姓名*五百块」「户名**五百块」）：星号换「那个名字」，金额一个字不丢（同 #220）
+_FIELD_STARS_AMOUNT = re.compile(r"(账户名|开户名|户名|收款人|姓名)(" + _ANCHOR_SEP_WIDE + r")[" + _SURNAME_SET + r"]?[*＊]+(?=" + _AMOUNT_AFTER_NAME + ")")
+_FIELD_SURNAME_STARS = re.compile(r"(账户名|开户名|户名|收款人|姓名)(" + _ANCHOR_SEP_WIDE + r")[" + _SURNAME_SET + r"][*＊]+元?(?=$|[，。,.!?！？；;\s])")  # 字段词 + 姓 + 星号（末尾 redact_text 打出的「姓名张*」、「收款人马**元」），只认结尾 / 标点前
+_DIGIT_AFTER = re.compile(r"[，,、：:\s]?(?:[0-9０-９]|" + _AMOUNT_AFTER_NAME + ")")  # 「是张伟，500」：名字和数字间隔一个标点 / 空格也先打码
+
+
+def _mask_names_before_digits(s: str) -> str:
+    """#227：真名（没打码的原文）要在数字过滤之前打码，否则「汇给张三三万块」的「三三万」被 vague_digits 当成一串数换掉，剩下「张」。
+    只动后面紧跟数字 / 中文金额的名字（其余照旧在末尾 redact_text 打码，拆字拦截、星号断言不受影响）：
+    1) 共享提取（extract_sensitive）认出的 name 后面紧跟数字的先打码（「转给李四500」→「转给李*500」）；
+    2) 名字后面紧跟中文金额（「汇给张三三万块」「打给王五两千」）时共享规则认不出整句，就在每个金额开头处截断，
+       用共享的 find_name_context 只看前半句，名字正好结束在金额开头的才算（不另写姓名正则）。"""
+    spans = []
+    shared = {e.get("value") for e in extract_sensitive(s) if e.get("type") == "name"}  # 共享规则已认的（「户名张三」）照旧交给末尾 redact_text
+    for e in extract_sensitive(s):  # 只处理后面紧跟数字 / 中文金额的名字，其余照旧交给末尾的 redact_text
+        v = e.get("value") if e.get("type") == "name" else None
+        for m in re.finditer(re.escape(v), s) if v else ():
+            if _DIGIT_AFTER.match(s, m.end()):
+                spans.append((m.start(), m.end()))
+    ends = [m.start() for m in _NAME_END_AT.finditer(s)]
+    for pos in ends:
+        for nc in find_name_context(s[:pos]):
+            if nc["end"] == pos:
+                spans.append((nc["start"], nc["end"]))
+    # #227 四审：「姓名 / 户名 / 收款人」后面的真名共享规则不认，
+    # 把候选片段接到共享 lead「我叫」后面再交给 find_name_context 判断，整段都认作名字才打码
+    for lm in _VOICE_LEADS.finditer(s):
+        a = lm.end()
+        for pos in ends + [m.start() for m in _NAME_STOP.finditer(s, a)] + [len(s)]:
+            if a < pos <= a + 4 and s[a:pos] not in shared and any(nc["start"] == 2 and nc["end"] == pos - a + 2 for nc in find_name_context("我叫" + s[a:pos])):
+                spans.append((a, pos))
+    # #227 五审：句首 姓 + 1~2 字 + 岁数 / 钟点（「张三三点钟」）：名字长度按「剩下的正好是岁数 / 钟点」选，
+    # 候选交给共享 find_name_context（接在「我叫」后）确认是名字
+    for lm in _NAME_NUM_LEAD.finditer(s):
+        a = lm.end()
+        for k in (2, 3):
+            cand = s[a:a + k]
+            if len(cand) == k and _NAME_NUM_END.match(s, a + k) and _is_name(cand):
+                spans.append((a, a + k))
+                break
+    best = {}
+    for a, b in spans:  # 同一起点只留最短的（「给王五三千块」不把「三」算进名字，金额一个字不丢）
+        best[a] = min(b, best.get(a, b))
+    for a, b in sorted(best.items(), reverse=True):
+        s = s[:a] + NAME_PHRASE + s[b:]  # 直接换代称：打成「李*」时「*十」会被数字过滤当打码数字吃掉（「我是那个名字岁」）
+    return s
+
+
 def guard_output(text: str) -> str:
     """输出守卫（PolicyGuard）：去掉括号动作/Markdown、不说成已经转账或答应去转（#187）、数字过滤（#121、#167：连续 2 位及以上的数字含中文数字换成含糊说法）、口语化（#132、#134）、脱敏、抹掉 5 位以上数字串。"""
     s = re.sub(r"<think>.*?</think>", "", str(text or ""), flags=re.S)
+    s = _FIELD_STARS_AMOUNT.sub(lambda m: m.group(1) + m.group(2) + NAME_PHRASE, s)  # #227 五审：先于姓名锚，免得残名规则把金额吃掉
+    s = _proxy_masked(s)  # #214 语料复审：打码星号先换成代称，再去 Markdown 粗体（「验证码是**，密码是**」两段 ** 不当粗体删掉）
     s = _BOLD.sub(r"\1", s)
+    s = _unmask_names(_mask_names_before_digits(_SURNAME_STARS_DIGITS.sub("", drop_name_explain(s))))  # #227：拆字拦截之后、数字过滤之前，紧跟金额的真名先打码；#219：姓名替换在拆字 / 逐字解释拦截之后；#215：拆字报姓 / 逐字解释整体换成「那个名字」（在脱敏、数字过滤之前，免得被打成星号再念成「那个号」）
     s = hold_transfer(s)  # #187：说成已经转了 / 答应去转的分句换成“还在弄，没弄好”（在数字过滤、姓名替换、TTS 之前）
     s = vague_digits(s)
     s = polish_reply(s)  # #132、#134：书面词换口语，第一句快速反问的问号换成“…”
     s = redact_text(s, extract_sensitive(s))
+    s = _FIELD_SURNAME_STARS.sub(lambda m: m.group(1) + m.group(2) + NAME_PHRASE, s)  # 同 _FIELD_STARS_AMOUNT：字段词后打码姓名念「那个名字」
     s = _LONG_DIGITS.sub("……", s)
     s = _STRIP.sub("", s).strip()
     return s

@@ -73,9 +73,29 @@
    *  拿不准就当姓名：可能是真姓的字（surname=true）后面只跟 1–3 个星号时，正好是脱敏后的 2–4 字姓名（「户名有志强」→「户名有**」），
    *  不放行；4 个及以上星号（「我只有****块钱」）才按字表的 after 放行。 */
   var SHORT_STARS = /^[*＊]{1,3}(?![*＊])/;
+  var MC = STOP.maskContext || {};
+  var NUMBER_BEFORE = new RegExp(MC.numberBefore || '(?!)');
+  var NOT_NAME_AFTER = new RegExp('^(?:' + (MC.notNameAfter || '(?!)') + ')');
+  var NOT_NAME_AFTER_VERB = new RegExp(MC.notNameAfterVerbBefore || '(?!)');
+  /** #221：「我在***上班」「我在*那边」——只在星号前是位置动词时生效；星号紧跟常见姓（「李*那边」）一律按姓名。与 Python _not_name_after 一致。 */
+  function notNameAfter(str, pos) {
+    if (pos > 0 && NR.surnames.indexOf(str.charAt(pos - 1)) >= 0) return false;
+    return NOT_NAME_AFTER.test(str.slice(pos)) && NOT_NAME_AFTER_VERB.test(str.slice(0, pos));
+  }
+  /** #206 第六条探针：str 里 pos 处开始的星号按上下文不当姓名（号码语境「验证码是***」「转到**」，或「我在***上班」）。与 Python stars_not_name 一致。 */
+  var NAME_AFTER = new RegExp('^(?:' + (MC.nameAfter || '(?!)') + ')');
+  var NAME_BEFORE = new RegExp(MC.nameBefore || '(?!)');
+  /** #214 审查：str 里 pos 处开始的星号前面是「户名、收款人、名下、对方叫」或后面跟「名下、的卡、的账户」等，是姓名。与 Python stars_name 一致。 */
+  function starsName(str, pos) { str = String(str); return NAME_BEFORE.test(str.slice(0, pos)) || NAME_AFTER.test(str.slice(pos)); }
+  function starsNotName(str, pos) {
+    str = String(str);
+    if (starsName(str, pos)) return false; // #214：「转到**名下」「打到**的卡上」仍是姓名
+    return NUMBER_BEFORE.test(str.slice(0, pos)) || notNameAfter(str, pos);
+  }
   function maskedLeadNotSurname(m, sur, off, str, fallback) {
     if (sur.length !== 1) return false;
-    if (/[*＊][\u4e00-\u9fff]/.test(m)) return false; // #206 星号后面还跟着一个字（「对*明」「王*明」）：一律当姓名（宁可多遮）
+    if (/[*＊][\u4e00-\u9fff]/.test(m)) return false; // #206 星号后面还跟着一个字（「对*明」「王*明」「转到*明」「卡号是*华」）：一律当姓名（宁可多遮），先于号码语境
+    if (starsNotName(str, off + Math.max(m.search(/[*＊]/), 0))) return true; // #206 第六条探针：号码语境 / 「我在***上班」不当姓名，先于 SHORT_STARS 兜底
     var star = m.search(/[*＊]/);
     var rest = String(str).slice(off + (star < 0 ? m.length : star));
     var st = stopSurname(sur, rest);
@@ -125,6 +145,51 @@
       if (n.length >= t.length && n.slice(n.length - t.length) === t) return null;
     }
     return cleanName(n, m, start);
+  }
+
+  // #222 P0：姓名语境里的真名（「转给李四」「是李四吗」「我叫张三」），规则见 core/extractors.json nameRules.nameContext。
+  // 与 extractors.py NAME_CONTEXT_RE / _clean_name_context / find_name_context 一致
+  var NC = NR.nameContext;
+  var NC_TITLES = NC.titles.concat(NR.titleSuffix).filter(function (t, i, a) { return a.indexOf(t) === i; })
+    .sort(function (a, b) { return b.length - a.length; });
+  function reEsc(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  var NC_NAME = '((?:' + NC.compoundSurnames.join('|') + '|[' + NR.surnames + '])(?:(?![' + NC.givenStop + '])[\\u4e00-\\u9fa5]){1,2}?)';
+  function ncRe(lead, tail) { return new RegExp(lead + '\\s*[:：]?\\s*(?!' + NC.notWords.join('|') + ')' + NC_NAME + '(?=' + tail + ')', 'g'); }
+  function leads(xs) { return '(' + xs.slice().sort(function (a, b) { return b.length - a.length; }).join('|') + ')'; }
+  var NAME_CONTEXT_RE = ncRe(leads(NC.leads), NC_TITLES.map(reEsc).join('|') + '|' + NC.stops);
+  // #222 后续：「张三是吧」——句首或非汉字后面的名字 + 是吧
+  var NAME_SHIBA_RE = ncRe('(^|[^\\u4e00-\\u9fa5])', NC.shibaTail);
+  // #220：「张三三点钟」——句首或非汉字后面的名字 + 中文钟点
+  var NAME_TIME_RE = ncRe('(^|[^\\u4e00-\\u9fa5])', NC.timeTail);
+  var NAME_CONTEXT_RES = [NAME_CONTEXT_RE, NAME_SHIBA_RE, NAME_TIME_RE];
+  var NC_ASK_AMOUNT = new RegExp('^(?:' + NC.askAmount + ')(?:' + NC.askTail + '|[^\\u4e00-\\u9fa5]|$)');
+  /** 姓名语境里的名字：lead 为「是」时后面必须紧跟「吗」；后面紧跟称呼（「王阿姨」「王小姐」）不算；其余同 cleanName */
+  function cleanNameContext(n, m, start) {
+    if (!m || start == null) return null;
+    var rest = m.input.slice(start + n.length), after = m.input.slice(start + 1);
+    if (NC.amountLeads.indexOf(m[1]) >= 0) {
+      // #220：给 / 是 引导时，名字须后面紧跟金额、整词不是常见词（「给黄金三万」「给万一」不算）；「是 + 名字 + 吗」照旧
+      var ask = m[1] === NC.askLead && rest.indexOf(NC.askTail) === 0;
+      if (!ask && (!NC_ASK_AMOUNT.test(rest) || NC.amountLeadNotNames.indexOf(n) >= 0)) return null;
+    }
+    for (var i = 0; i < NC_TITLES.length; i++) {
+      if (after.indexOf(NC_TITLES[i]) === 0 || rest.indexOf(NC_TITLES[i]) === 0) return null;
+    }
+    var c = cleanName(n, m, start);
+    return c === n ? c : null;
+  }
+  /** #222：只跑姓名语境规则，返回 [{value, start, end, lead}]（语音 IntelProcessor 复用） */
+  function findNameContext(text) {
+    var s = String(text || ''), out = [], m;
+    NAME_CONTEXT_RES.forEach(function (rx) {
+      var re = new RegExp(rx.source, 'g');
+      while ((m = re.exec(s)) !== null) {
+        var start = m.index + m[0].length - m[2].length;
+        var v = cleanNameContext(m[2], m, start);
+        if (v && !out.some(function (o) { return start < o.end && o.start < start + v.length; })) out.push({ value: v, start: start, end: start + v.length, lead: m[1] });
+      }
+    });
+    return out.sort(function (a, b) { return a.start - b.start; });
   }
 
   /**
@@ -217,6 +282,10 @@
     scan(RE.mobile, 'phone', { meta: function () { return { kind: 'mobile' }; } });
     scan(RE.name, 'name', { group: 1, clean: cleanName });
     scan(RE.nameMid, 'name', { group: 1, clean: cleanNameMid });
+    // #216 P0：人设回复「对方叫李四是吧」「他叫王志强」——人称 + 叫 后面的姓名（必须以常见姓氏开头，规则同 nameMid）
+    scan(RE.namePerson, 'name', { group: 1, clean: cleanNameMid });
+    // #222 P0：「转给 / 打给 / 汇给 + 名字」「是 + 名字 + 吗」「我叫 / 我是 + 名字」
+    NAME_CONTEXT_RES.forEach(function (rx) { scan(rx, 'name', { group: 2, clean: cleanNameContext }); }); // #222 后续：名字 + 是吧
 
     // 非敏感的上下文情报（不打码、不占用区间）
     scan(RE.amount, 'amount', { sensitive: false, noOverlap: true, meta: function (raw, m) {
@@ -247,6 +316,13 @@
         if (e.sensitive === false) e.raw = raw.slice(sp[0], sp[1]);
         e.start = sp[0]; e.end = sp[1];
         if (e.sensitive) e.obfuscated = raw.slice(sp[0], sp[1]) !== e.value;
+      });
+      // #220：规范化会把「张三1000」并成「张31000」，姓名语境再按原文跑一遍，没被占用的名字补上（与 extractors.py 一致）
+      var spans = out.filter(function (e) { return e.sensitive; }).map(function (e) { return [e.start, e.end]; });
+      findNameContext(raw).forEach(function (h) {
+        if (spans.some(function (x) { return h.start < x[1] && x[0] < h.end; })) return;
+        out.push({ type: 'name', label: LABELS.name || 'name', value: h.value, masked: R.mask('name', h.value), start: h.start, end: h.end, sensitive: true, meta: {} });
+        spans.push([h.start, h.end]);
       });
     }
     out.sort(function (a, b) { return a.start - b.start; });
@@ -488,5 +564,5 @@
     return extract(text).filter(function (e) { return e.sensitive; });
   }
 
-  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
+  return { extract: extract, extractSensitive: extractSensitive, stopSurname: stopSurname, maskedLeadNotSurname: maskedLeadNotSurname, starsNotName: starsNotName, starsName: starsName, SURNAMES: NR.surnames, findNameContext: findNameContext, NAME_CONTEXT_RE: NAME_CONTEXT_RE, NAME_SHIBA_RE: NAME_SHIBA_RE, stitch: stitch, STITCH: ST, luhn: luhn, LABELS: LABELS, BANKS: BANKS, CHANNELS: CHANNELS, RE: RE, normalize: N.normalize };
 });

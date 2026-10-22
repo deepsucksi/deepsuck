@@ -84,8 +84,11 @@ def masked_lead_not_surname(m, sur: str, fallback: str) -> bool:
     不放行；4 个及以上星号（「我只有****块钱」）才按字表的 after 放行。"""
     if len(sur) != 1:
         return False
-    if re.search("[*＊][\u4e00-\u9fff]", m.group(0)):  # #206 星号后面还跟着一个字（「对*明」「王*明」）：一律当姓名（宁可多遮）
+    if re.search("[*＊][\u4e00-\u9fff]", m.group(0)):  # #206 星号后面还跟着一个字（「对*明」「王*明」「转到*明」「卡号是*华」）：一律当姓名（宁可多遮），先于号码语境
         return False
+    star0 = re.search("[*＊]", m.group(0))
+    if stars_not_name(m.string, m.start() + (star0.start() if star0 else 0)):  # #206 第六条探针：号码语境 / 「我在***上班」不当姓名，先于 _SHORT_STARS 兜底
+        return True
     star = re.search("[*＊]", m.group(0))
     rest = m.string[m.start() + (star.start() if star else len(m.group(0))):]
     st = stop_surname(sur, rest)
@@ -97,6 +100,35 @@ def masked_lead_not_surname(m, sur: str, fallback: str) -> bool:
 
 
 _SHORT_STARS = re.compile("[*＊]{1,3}(?![*＊])")
+_MC = load("name_stopchars").get("maskContext") or {}
+_NUMBER_BEFORE = compile_js(_MC.get("numberBefore") or "(?!)")
+_NOT_NAME_AFTER = compile_js(_MC.get("notNameAfter") or "(?!)")
+_NOT_NAME_AFTER_VERB = compile_js(_MC.get("notNameAfterVerbBefore") or "(?!)")
+_NAME_AFTER = compile_js(_MC.get("nameAfter") or "(?!)")
+_NAME_BEFORE = compile_js(_MC.get("nameBefore") or "(?!)")
+
+
+def stars_name(s: str, pos: int) -> bool:
+    """#214 审查：s 里 pos 处开始的星号前面是「户名、收款人、名下、对方叫」或后面跟「名下、的卡、的账户」等，是姓名。与 JS starsName 一致。"""
+    s = str(s)
+    return bool(_NAME_BEFORE.search(s[:pos]) or _NAME_AFTER.match(s, pos))
+
+
+def stars_not_name(s: str, pos: int) -> bool:
+    """#206 第六条探针：s 里 pos 处开始的星号按上下文不当姓名（号码语境「验证码是***」「转到**」，或「我在***上班」）。与 JS starsNotName 一致。"""
+    s = str(s)
+    if stars_name(s, pos):  # #214：「转到**名下」「打到**的卡上」仍是姓名
+        return False
+    return bool(_NUMBER_BEFORE.search(s[:pos]) or _not_name_after(s, pos))
+
+
+def _not_name_after(s: str, pos: int) -> bool:
+    """#221：「我在***上班」「我在*那边」——只在星号前是位置动词时生效；星号紧跟常见姓（「李*那边」）一律按姓名。与 JS notNameAfter 一致。"""
+    if pos > 0 and s[pos - 1] in _SURNAMES:
+        return False
+    return bool(_NOT_NAME_AFTER.match(s, pos) and _NOT_NAME_AFTER_VERB.search(s[:pos]))
+
+
 
 
 _NAME_DIGITS = "零一二三四五六七八九"
@@ -144,6 +176,62 @@ def _clean_name_mid(n: str, m=None, start: Optional[int] = None):
     if not n or n[0] not in _SURNAMES or any(n.endswith(t) for t in _TITLES):
         return None
     return _clean_name(n, m, start)
+
+
+# #222 P0：姓名语境里的真名（「转给李四」「是李四吗」「我叫张三」），规则见 core/extractors.json nameRules.nameContext。
+# 与 extractors.js NAME_CONTEXT_RE / cleanNameContext / findNameContext 一致
+_NC = _C["nameRules"]["nameContext"]
+_NC_TITLES = tuple(sorted(set(_NC["titles"]) | set(_TITLES), key=len, reverse=True))
+_NC_NAME = "((?:" + "|".join(_NC["compoundSurnames"]) + "|[" + _SURNAMES + "])(?:(?![" + _NC["givenStop"] + "])[\u4e00-\u9fa5]){1,2}?)"
+_NC_TITLE_ALT = "|".join(re.escape(t) for t in _NC_TITLES)
+
+
+def _nc_re(lead: str, tail: str) -> re.Pattern:
+    return re.compile(lead + r"\s*[:：]?\s*(?!" + "|".join(_NC["notWords"]) + ")" + _NC_NAME + "(?=" + tail + ")")
+
+
+def _leads(xs) -> str:
+    return "(" + "|".join(sorted(xs, key=len, reverse=True)) + ")"
+
+
+NAME_CONTEXT_RE = _nc_re(_leads(_NC["leads"]), _NC_TITLE_ALT + "|" + _NC["stops"])
+# #222 后续：「张三是吧」——句首或非汉字后面的名字 + 是吧
+NAME_SHIBA_RE = _nc_re("(^|[^\u4e00-\u9fa5])", _NC["shibaTail"])
+# #220：「张三三点钟」——句首或非汉字后面的名字 + 中文钟点
+NAME_TIME_RE = _nc_re("(^|[^\u4e00-\u9fa5])", _NC["timeTail"])
+NAME_CONTEXT_RES = (NAME_CONTEXT_RE, NAME_SHIBA_RE, NAME_TIME_RE)
+_NC_ASK_AMOUNT = re.compile("(?:" + _NC["askAmount"] + ")(?:" + _NC["askTail"] + "|[^\u4e00-\u9fa5]|$)")
+
+
+def _clean_name_context(n: str, m=None, start: Optional[int] = None):
+    """姓名语境里的名字：lead 为「是」时后面必须紧跟「吗」；后面紧跟称呼（「王阿姨」「王小姐」）不算；其余同 _clean_name。"""
+    if m is None or start is None:
+        return None
+    rest = m.string[start + len(n):]
+    lead = m.group(1)
+    if lead in _NC["amountLeads"]:
+        # #220：给 / 是 引导时，名字须后面紧跟金额、整词不是常见词（「给黄金三万」「给万一」不算）；「是 + 名字 + 吗」照旧
+        ask = lead == _NC["askLead"] and rest.startswith(_NC["askTail"])
+        if not ask and (not _NC_ASK_AMOUNT.match(rest) or n in _NC["amountLeadNotNames"]):
+            return None
+    after = m.string[start + 1:]
+    if any(after.startswith(t) for t in _NC_TITLES) or rest.startswith(_NC_TITLES):
+        return None
+    c = _clean_name(n, m, start)
+    return c if c == n else None
+
+
+def find_name_context(text: Optional[str]) -> List[dict]:
+    """#222：只跑姓名语境规则，返回 [{"value", "start", "end", "lead"}]（语音 IntelProcessor 复用）。"""
+    s = str(text or "")
+    out = []
+    for rx in NAME_CONTEXT_RES:
+        for m in rx.finditer(s):
+            start = m.start(2)
+            v = _clean_name_context(m.group(2), m, start)
+            if v and not any(start < o["end"] and o["start"] < start + len(v) for o in out):
+                out.append({"value": v, "start": start, "end": start + len(v), "lead": m.group(1)})
+    return sorted(out, key=lambda o: o["start"])
 
 
 def _js_number(x: str):
@@ -245,6 +333,11 @@ def extract(text: Optional[str]) -> List[dict]:
     scan(RE["mobile"], "phone", meta=lambda *a: {"kind": "mobile"})
     scan(RE["name"], "name", group=1, clean=_clean_name)
     scan(RE["nameMid"], "name", group=1, clean=_clean_name_mid)
+    # #216 P0：人设回复「对方叫李四是吧」「他叫王志强」——人称 + 叫 后面的姓名（必须以常见姓氏开头，规则同 nameMid）
+    scan(RE["namePerson"], "name", group=1, clean=_clean_name_mid)
+    # #222 P0：「转给 / 打给 / 汇给 + 名字」「是 + 名字 + 吗」「我叫 / 我是 + 名字」
+    for rx in NAME_CONTEXT_RES:  # #222 后续：名字 + 是吧
+        scan(rx, "name", group=2, clean=_clean_name_context)
 
     # 非敏感的上下文情报（不打码、不占用区间）
     scan(RE["amount"], "amount", sensitive=False, no_overlap=True,
@@ -274,6 +367,14 @@ def extract(text: Optional[str]) -> List[dict]:
             e["start"], e["end"] = a, b
             if e["sensitive"]:
                 e["obfuscated"] = raw_text[a:b] != e["value"]
+        # #220：规范化会把「张三1000」并成「张31000」，姓名语境再按原文跑一遍，没被占用的名字补上（与 extractors.js 一致）
+        spans = [(e["start"], e["end"]) for e in out if e["sensitive"]]
+        for h in find_name_context(raw_text):
+            if not _overlaps(spans, h["start"], h["end"]):
+                out.append({"type": "name", "label": LABELS.get("name", "name"), "value": h["value"],
+                            "masked": R.mask("name", h["value"]), "start": h["start"], "end": h["end"],
+                            "sensitive": True, "meta": {}})
+                spans.append((h["start"], h["end"]))
     out.sort(key=lambda e: e["start"])
     return out
 

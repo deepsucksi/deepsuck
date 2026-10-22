@@ -94,13 +94,45 @@
 	handle /api/traces* {
 		respond 404
 	}
+	# 自托管统计 GoatCounter（docker compose --profile stats，-base-path=/stats，只听本机）：
+	# 用 handle 而不是 handle_path，保留 /stats 前缀交给 GoatCounter 自己路由（计数 /stats/count，面板 /stats/）；
+	# Host 原样转发，GoatCounter 站点 vhost 设成 LIVE_DOMAIN。没启动 stats 时这里返回 502，网页统计脚本静默失败
+	@stats path /stats /stats/*
+	handle @stats {
+		reverse_proxy 127.0.0.1:{$STATS_PORT:8081}
+	}
 	# 其余（含 VOICE_TELEPHONY=1 时的 WS /telephony/*）都交给语音服务
 	handle {
 		reverse_proxy 127.0.0.1:7860
 	}
+	# 访问日志落盘（命名卷 caddy-logs → /var/log/caddy），10 MiB 一份、最多留 5 份、14 天；
+	# IP 脱敏：IPv4 抹掉最后一段、IPv6 只留前 48 位；不记 Cookie / Authorization / 转发头，查询串里的 token 抹掉
 	log {
-		output stdout
-		format console
+		output file /var/log/caddy/live-access.log {
+			roll_size 10MiB
+			roll_keep 5
+			roll_keep_for 336h
+		}
+		format filter {
+			wrap json
+			fields {
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>headers>Cookie delete
+				request>headers>Authorization delete
+				request>headers>X-Forwarded-For delete
+				request>headers>X-Real-Ip delete
+				request>uri query {
+					replace token REDACTED
+				}
+			}
+		}
 	}
 }
 

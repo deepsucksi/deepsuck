@@ -116,8 +116,26 @@
   var SPLIT_PRE = '(?:(?:' + SPL.spellings.slice().sort(function (a, b) { return b.length - a.length; })
     .map(function (x) { return x.slice(0, -1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|') + ')' + SPL.link + ')';
   var SPLIT_BEFORE_NAME = new RegExp(SPLIT_PRE + '(?=〔?' + NDE.name + ')', 'g');
+  // #222 后续（同 #228）：星号后面紧跟数字（阿拉伯或中文）/ 金额词时不当残名（「转给李*五百块」「汇给张*三万块」不吞「五」「三」），与 refs._NUM_TAIL_GUARD 一致
+  var NUM_TAIL_GUARD = '(?![0-9０-９]|[零一二两三四五六七八九十几][零一二两三四五六七八九十百千万亿块元]|[百千万亿块元])';
+  // #222 后续（同 #228）：打码姓名后面紧跟 1–5 位阿拉伯数字的金额（「转给李*500」「李**500块」）仍算姓名，不当号码。与 refs._AMOUNT_AFTER 一致
+  var AMOUNT_AFTER = '(?=[0-9０-９]{1,5}(?:\.[0-9]{1,2})?(?:块钱|块|元|万|千|百)?(?![0-9０-９A-Za-z*＊]))';
   var NAME_MASK_RE = new RegExp(SPLIT_PRE + '?(姓)?(' + NDE.compoundSurnames.join('|') + '|[\u4e00-\u9fff])' +
-    '(?:[*＊](?:(?![' + NDE.nameTailStop + '])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊]))', 'g');
+    '(?:[*＊](?:' + NUM_TAIL_GUARD + '(?![' + NDE.nameTailStop + '])[\u4e00-\u9fff](?![*＊]))?(?:(?![0-9A-Za-z*＊])|' + AMOUNT_AFTER + ')|[*＊]{2,4}(?:(?![0-9A-Za-z*＊])|' + AMOUNT_AFTER + ')' +
+    '(' + NUM_TAIL_GUARD + NDE.maskedNameTail + '(?![*＊0-9A-Za-z]))?)', 'g');
+  // #216 P0：姓和星号之间夹空格 / 分隔符（「张 * *」「张·*·*」「李 - * 」）先收拢成「张**」；号码里的分隔（「138 **** 1234」）不动。与 refs.collapse_spaced_stars 一致
+  var SEP = NDE.spacedStarsSep;
+  var SPACED_STARS_RE = new RegExp('(?<![0-9A-Za-z０-９])([\u4e00-\u9fff])((?:' + SEP + '*[*＊]){1,4})(?=' + SEP + '*(?:[^0-9A-Za-z０-９*＊' + SEP.slice(1, -1) + ']|$))', 'g');
+  var SEP_RE = new RegExp(SEP);
+  // #220：金额前的带空格星号（「剩余 * * 块」）先收拢成连续星号，再走金额规则。与 refs._SPACED_AMOUNT 一致
+  var SPACED_AMOUNT_RE = new RegExp('(?<![0-9A-Za-z０-９*＊])[*＊](?:' + SEP + '*[*＊]){0,3}' + SEP + '*(?=块钱|块|元)', 'g');
+  function collapseSpacedStars(text) {
+    return String(text || '').replace(SPACED_AMOUNT_RE, function (m) { return m.replace(/[^*＊]/g, ''); }).replace(SPACED_STARS_RE, function (m, lead, stars) { return SEP_RE.test(stars) && NDE.notSurname.indexOf(lead) < 0 ? lead + stars.replace(/[^*＊]/g, '') : m; }); // 星号前那个字基本不当姓（「我在 *上班」「密码 * * *」）时不收拢
+  }
+  // #216 P0：星号后紧跟的残名（「是**明吗」「，**明？」）整段算名字；星号前不是汉字时（逗号、句首）也是名字。与 refs.py 一致
+  var STARS_NAME_TAIL_RE = new RegExp('(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{1,4}' + NUM_TAIL_GUARD + NDE.maskedNameTail + '(?![*＊0-9A-Za-z０-９])', 'g');
+  // #216：已经是「那个名字」、后面紧跟的星号（「那个名字***是吧」）一并去掉，不把「字」当姓
+  var STARS_AFTER_NAME_RE = new RegExp('(〔?' + NDE.name + '〕?)\\s*[*＊]+(?:' + NUM_TAIL_GUARD + NDE.maskedNameTail + ')?(?![*＊0-9A-Za-z０-９])', 'g');
   // #158：逐字解释（「晓是知晓的晓」）整段打成 *，紧跟在打码姓名后面时算这个名字的一部分（与 engine.vagueDigits 的 MERGE_N 一致），不当成号码
   var NAME_TAIL_RE = new RegExp('(〔?' + NDE.name + '〕?)(?:[ \u3000…,，、.．·~～\\-—]{1,2}[*＊]+(?![0-9A-Za-z*＊]))+', 'g');
   // #172：逐字解释整段打成纯星号、前面没有打码姓名时（「弓长张，****」「伟是****」「****，****」）也是名字，念“那个名字”，不当号码。
@@ -134,8 +152,26 @@
   var LEAD_CHAR = '(?<![^\\s，,、。！？!?；;…:：])(?![' + NDE.notSurname + UR.notLead + '])' + HAN + '字?(?:就是|是)';
   var EXPLAIN_NAME_RE = new RegExp('(?:' + SPLIT_FULL + '(?:' + EXP.sep + SEEN_EXPLAIN + ')?' + EXP.sep + '(?:就是|是)?|' + LEAD_CHAR + ')' + STAR_CHAIN, 'g');
   var BARE_STARS_RE = new RegExp(STAR_CHAIN, 'g');
+  var CLAUSE_SEP = '，,。；;！？!?\n';
   var NUMBER_CUE = new RegExp('[0-9０-９]|' + UR.numberCue);
   var NAME_DUP_RE = new RegExp('(〔?' + NDE.name + '〕?)(?:' + EXP.sep + '(?:就是|是)?〔?' + NDE.name + '〕?)+', 'g');
+  // 打码金额（「****块钱」「**元」）：1-4 个星号后接 块/块钱/元，念量词说法，heardRefs 记 number（不当姓名）。
+  // 说法是台词，待审批；与 refs.py AMOUNT_PHRASE / _AMOUNT_STARS 一致
+  var AMOUNT_PHRASE = '那么点';
+  var AMOUNT_STARS_RE = /(?<![0-9A-Za-z*＊])[*＊]{1,4}(?:块钱|块|元)/g;
+  var AMOUNT_NAME_LEAD = /(?:叫|姓)\s*[:：]?\s*$/;
+  // 单字姓前面是句首 / 标点 / 空白，或姓名语境词，才算姓名（「剩余**块」「这包**块」的 余/包 不是姓）。与 refs._AMOUNT_SURNAME_LEAD 一致
+  var AMOUNT_SURNAME_LEAD = /(?:^|[\s\p{P}\p{S}]|(?:叫|姓|户名|收款人|付款人|联系人|对方|名字|姓名|转给|打给|汇给|给)\s*[:：]?\s*)$/u;
+  // #220 复审：号码语境（numberBefore）、姓名语境（nameBefore / nameAfter、「叫 / 姓」、星号前是常见姓或复姓）优先，不按金额算。与 refs._amount_skip 一致
+  // #220 负责人定：字段词（收款人 / 户名 / 姓名 / 账户名 / 开户名 / 收款户名 / 开户户名）一个字都不吃，后面「（姓）+ 星号 + 尾字」整段换成「那个名字」，不留尾巴：
+  // 「户名*元」「收款人马**元」「户名**明」→「字段词那个名字」；后面是数字 / 金额（「姓名*五百块」「户名李*500」）原样保留；「元宝」这类词也原样保留（「收款人那个名字元宝」）。与 refs._LABEL_STARS_YUAN 一致
+  var LABEL_END = '(?:(?![\\u4e00-\\u9fff])|(?=[了吧吗呢啊呀的]))';
+  var LABEL_STARS_YUAN_RE = new RegExp('(收款户名|开户户名|账户名|开户名|收款人|户名|姓名)(\\s*[:：]?\\s*)(?:' + NDE.compoundSurnames.join('|') + '|[' + D.extractors.SURNAMES + '])?[*＊]{1,4}' +
+    '(?:(?:块钱|块|元)' + LABEL_END + '|' + NUM_TAIL_GUARD + '(?:' + NDE.maskedNameTail + ')' + LABEL_END + ')?', 'g');  function amountSkip(str, pos) {
+    var pre = str.slice(0, pos), X = D.extractors;
+    if (X.starsName(str, pos) || X.starsNotName(str, pos) || AMOUNT_NAME_LEAD.test(pre)) return true;
+    return !!pre && ((X.SURNAMES.indexOf(pre.slice(-1)) >= 0 && AMOUNT_SURNAME_LEAD.test(pre.slice(0, -1))) || NDE.compoundSurnames.some(function (c) { return pre.slice(-c.length) === c; }));
+  }
   function maskedPhrase(tok) {
     var t = String(tok);
     if (/[A-Za-z0-9]\.\.\.[A-Za-z0-9]/.test(t) && !/[*＊]/.test(t)) return '你发的那个钱包地址';
@@ -146,12 +182,30 @@
   /** 只换打码姓名（#130 / #157）：要在再跑一遍 redactText 之前做，否则“耳东陈***”会被再打成“耳*****”、当成号码 */
   function maskNames(text, bracket) {
     var w = bracket ? '〔' + NDE.name + '〕' : NDE.name;
+    var amount = bracket ? '〔' + UR.phrase.number + '〕' : AMOUNT_PHRASE;
     // #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json（「有****」不是姓，「和*」「姓*」照样当姓名），不在表里的再看 notSurname
-    var s = String(text || '').replace(NAME_MASK_RE, function (m, xing, sur, off, str) { return D.extractors.maskedLeadNotSurname(m, sur, off, str, NDE.notSurname) ? m : w; })
+    var s = collapseSpacedStars(text) // 1) 先合并带空格的星号
+      .replace(LABEL_STARS_YUAN_RE, function (m, lab, sp) { return lab + sp + w; })
+      .replace(AMOUNT_STARS_RE, function (m, off, str) { return amountSkip(str, off) ? m : amount; }) // 2) 打码金额先换，免得「剩*块」被当成姓名
+      .replace(STARS_AFTER_NAME_RE, '$1') // 3) #221 姓名规则
+      .replace(NAME_MASK_RE, function (m, xing, sur, tail, off, str) {
+        // #216：残名（tail）不算「星号后跟着字」，只拿姓 + 星号这一段判断
+        return D.extractors.maskedLeadNotSurname(tail ? m.slice(0, m.length - tail.length) : m, sur, off, str, NDE.notSurname) ? m : w;
+      })
+      .replace(STARS_NAME_TAIL_RE, function (m, off, str) { return D.extractors.starsNotName(str, off) ? m : w; })
       .replace(SPLIT_BEFORE_NAME, '')
       .replace(NAME_TAIL_RE, '$1')
       .replace(EXPLAIN_NAME_RE, w); // #172
-    if (!NUMBER_CUE.test(s)) s = s.replace(BARE_STARS_RE, w); // #172：整句没有数字和号码字样时，单独的纯星号串也是逐字解释的名字
+    // #172：没有数字和号码字样时，单独的纯星号串也是逐字解释的名字。#214：按逗号、句号等分段看号码字样（「卡号是***，户名***」后一段是姓名）；
+    // #206 第六条探针：号码语境（「转到***」）和「我在***上班」除外，「转到**名下」「打到**的卡上」一律是姓名。与 refs.mask_names 一致
+    s = s.replace(BARE_STARS_RE, function (m, off, str) {
+      if (D.extractors.starsNotName(str, off)) return m;
+      if (D.extractors.starsName(str, off)) return w;
+      var a = 0, b = str.length, i;
+      for (i = off - 1; i >= 0; i--) if (CLAUSE_SEP.indexOf(str[i]) >= 0) { a = i + 1; break; }
+      for (i = off + m.length; i < str.length; i++) if (CLAUSE_SEP.indexOf(str[i]) >= 0) { b = i; break; }
+      return NUMBER_CUE.test(str.slice(a, b)) ? m : w;
+    });
     return s.replace(NAME_TAIL_RE, '$1').replace(NAME_DUP_RE, '$1');
   }
   /** 把文本里的打码值换成自然说法；bracket=true 时加〔〕（给模型看的代称） */
@@ -407,7 +461,7 @@
     DEFAULTS: DEFAULTS, INTENT_HINTS: INTENT_HINTS,
     missingDirectConfig: missingDirectConfig, restoreDirectConfig: restoreDirectConfig,
     systemPrompt: systemPrompt, heardScenes: heardScenes, heardRefs: heardRefs, dropUnheard: dropUnheard, buildMessages: buildMessages, sanitizeReply: sanitizeReply, polishReply: polishReply,
-    speakMasked: speakMasked, fixQuotes: fixQuotes,
+    speakMasked: speakMasked, collapseSpacedStars: collapseSpacedStars, fixQuotes: fixQuotes,
     chatCompletions: chatCompletions, requestBody: requestBody, viaProxy: viaProxy
   };
 });

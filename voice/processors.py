@@ -45,10 +45,15 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
 from .callredact import CallRedactor, redact_digit_fragments
-from .persona import (FILLERS, GOAL_TOPIC, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
+from .persona import (FILLERS, GOAL_TOPIC, drop_unsaid, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
                       speakable, system_prompt, unmask)
+from .persona import NAME_PHRASE, drop_given_after_split, split_lead_refs  # noqa: E402  #215 拆字解释：已批说法「那个名字」；分段星号
 
 Notify = Callable[[dict], Awaitable[None]]
+
+_STAR_ONLY = re.compile(r"^[\s*＊。，,、.…!！?？]*[*＊][\s*＊。，,、.…!！?？]*$")
+_NUM_CTX = re.compile(r"[0-9０-９]|码|号|卡|位|开头|账户|账号")
+
 
 GOAL_LABEL = {"bank": "收款银行卡号", "wallet": "加密钱包地址", "phone": "联系电话", "url": "网址/下载链接", "name": "收款人姓名"}
 
@@ -106,16 +111,36 @@ async def _noop(_msg: dict) -> None:
 class GuardTextFilter(BaseTextFilter):
     """送 TTS 前的输出守卫。redactor：本通电话的 CallRedactor（#140），模型复述了已提取的姓名/号码也先打码。"""
 
-    def __init__(self, redactor: Optional[CallRedactor] = None):
+    def __init__(self, redactor: Optional[CallRedactor] = None, refs: Optional[Callable[[], set]] = None):
         self.redactor = redactor
+        self.refs = refs  # #184：IntelProcessor.heard_refs；对方没报过的代称换成直说（drop_unsaid）。None 不处理
+        self._last = ""
+        self._prev_raw = ""
 
     async def update_settings(self, settings):  # 无可调参数
         return None
 
     async def filter(self, text: str) -> str:
-        return speakable(self.redactor.apply(text) if self.redactor is not None else text)
+        prev, self._prev_raw = self._prev_raw, text
+        text = drop_given_after_split(prev, text)  # #215：上一句以拆字报姓结尾时，这一句开头的名不念
+        text = self.redactor.apply(text) if self.redactor is not None else text
+        # #184：对方没报过的代称换成直说。顺序（#219，负责人已确认）：drop_unsaid 先过，然后 speakable。
+        # 这时打码值还是星号，所以 drop_unsaid 只换模型自己写的代称；如果放在 speakable 之后，会把打码换出来的
+        # 「那个名字」「那个号」（unmask / _unmask_names / drop_name_explain 的占位）改成光秃秃的「名字」
+        # （「户名***」→「户名名字」，见 #219，用例 voice/tests/test_unsaid_placeholder.py）。不要改回。
+        if self.refs is not None:
+            text = drop_unsaid(text, self.refs())
+        out = speakable(text)
+        # #215：TTS 按分句送，「收款人是弓长张，伟大的伟对吧」被切成两句，各自换成「那个名字」；
+        # 上一句以「那个名字」结尾、这一句又以它开头时去掉这一个，合起来仍是「收款人是那个名字对吧」
+        if self._last.endswith(NAME_PHRASE) and out.startswith(NAME_PHRASE):
+            out = out[len(NAME_PHRASE):].lstrip("，, ")
+        if out:
+            self._last = out
+        return out
 
     async def handle_interruption(self):
+        self._last = self._prev_raw = ""
         return None
 
     async def reset_interruption(self):
@@ -356,8 +381,8 @@ class IntelProcessor(FrameProcessor):
             return False
         fixed = redact_digit_fragments([msgs[i]["content"] for i in idx])
         changed = False
-        for i, t in zip(idx, fixed):
-            t = unmask(self.redactor.apply(t))
+        for k, (i, t) in enumerate(zip(idx, fixed)):
+            t = unmask(self.redactor.apply(t), prev=fixed[k - 1] if k else "")  # #214 复审：分段开头的星号看上一段
             if t != msgs[i]["content"]:
                 msgs[i] = {**msgs[i], "content": t}
                 changed = True
@@ -372,7 +397,20 @@ class IntelProcessor(FrameProcessor):
     def heard_refs(self) -> set:
         """#173：对方到现在报过的代称种类（"name" / "number" / "url" / "wallet"…）：对方的话里出现过的打码值（共享核心
         deepsuck.refs.heard_refs，与网页 llm.js 同一套）加上已提取的情报。从 session 算，和上下文截断无关。"""
-        out = heard_refs(m.get("text", "") for m in getattr(self.session, "messages", []) or [] if m.get("role") == "scammer")
+        texts = [m.get("text", "") for m in getattr(self.session, "messages", []) or [] if m.get("role") == "scammer"]
+        # #186 之后号码片段会单独成一段纯星号（「卡号是********。」「******。」）；共享核心按 #172 把没有号码提示的纯星号段
+        # 读成名字。紧跟在号码段后面的纯星号段算号码（这一串都算），不交给 heard_refs 判断。
+        keep, num, prev_num = [], False, False
+        for t in texts:
+            if _STAR_ONLY.match(t or "") and prev_num:
+                num = True
+                continue
+            keep.append(t)
+            prev_num = bool(_NUM_CTX.search(t or ""))
+        keep, extra = split_lead_refs(keep)
+        out = heard_refs(keep) | extra  # #214 复审：分段开头的星号按上一段结尾算（「卡号是」/「***，户名***」）
+        if num:
+            out.add("number")
         for goal, kind in (("bank", "number"), ("phone", "number"), ("name", "name"), ("url", "url"), ("wallet", "wallet")):
             if self.session.have_goal(goal):
                 out.add(kind)
@@ -458,7 +496,8 @@ class IntelProcessor(FrameProcessor):
         self.update_prompt()
         # 与网页版一致：只把脱敏后的文本交给大模型（卡号等原值只留在本进程内存）
         # 打码值（130****8600）改成“尾号8600”再给模型，免得模型照着念出星号
-        frame.text = unmask(a["redacted"])
+        scam = [m.get("text", "") for m in getattr(self.session, "messages", []) or [] if m.get("role") == "scammer"]
+        frame.text = unmask(a["redacted"], prev=scam[-2] if len(scam) > 1 else "", refs=self.heard_refs())  # #214 复审：分段开头的星号看上一段
         await self.push_frame(frame, direction)
 
     async def _check_blocklist(self):
@@ -506,7 +545,10 @@ class BotTextTap(FrameProcessor):
         elif isinstance(frame, LLMTextFrame):
             self._buf.append(frame.text)
         elif isinstance(frame, LLMFullResponseEndFrame) and self._buf:
-            text = guard_output(self.intel.redactor.apply("".join(self._buf)))
+            # #184 顺序（#219，负责人已确认）：drop_unsaid 先过，然后 guard_output。这时打码值还是星号，所以 drop_unsaid
+            # 只换模型自己写的代称；如果放在 guard_output 之后，会把打码 / 逐字解释换出来的「那个名字」「那个号」改成光秃秃的
+            # 「名字」（见 #219，用例 voice/tests/test_unsaid_placeholder.py）。不要改回。
+            text = guard_output(drop_unsaid(self.intel.redactor.apply("".join(self._buf)), self.intel.heard_refs()))
             self._buf = []
             if text:
                 msg = self.intel.session.record_bot(text, self.intel.intent)

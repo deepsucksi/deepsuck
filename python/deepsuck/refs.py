@@ -10,7 +10,7 @@ import re
 from typing import Iterable
 
 from .core import load
-from .extractors import extract_sensitive, masked_lead_not_surname
+from .extractors import extract_sensitive, masked_lead_not_surname, stars_name, stars_not_name
 from .redact import redact_text
 
 _P = load("personas")
@@ -22,8 +22,58 @@ NAME = _DE["name"]
 
 _SPLIT_PRE = "(?:(?:" + "|".join(re.escape(x[:-1]) for x in sorted(_SPL["spellings"], key=len, reverse=True)) + ")" + _SPL["link"] + ")"
 _SPLIT_BEFORE_NAME = re.compile(_SPLIT_PRE + "(?=〔?" + NAME + ")")
+# #222 后续（同 #228）：星号后面紧跟数字（阿拉伯或中文）/ 金额词时不当残名（「转给李*五百块」不吞「五」），与 llm.js NUM_TAIL_GUARD 一致
+_NUM_TAIL_GUARD = "(?![0-9０-９]|[零一二两三四五六七八九十几][零一二两三四五六七八九十百千万亿块元]|[百千万亿块元])"
+# #222 后续（同 #228）：打码姓名后面紧跟 1–5 位阿拉伯数字的金额（「转给李*500」）仍算姓名，不当号码。与 llm.js AMOUNT_AFTER 一致
+_AMOUNT_AFTER = r"(?=[0-9０-９]{1,5}(?:\.[0-9]{1,2})?(?:块钱|块|元|万|千|百)?(?![0-9０-９A-Za-z*＊]))"
 _NAME_MASK = re.compile(_SPLIT_PRE + "?(姓)?(" + "|".join(_DE["compoundSurnames"]) + "|[\u4e00-\u9fff])"
-                        "(?:[*＊](?:(?![" + _DE["nameTailStop"] + "])[\u4e00-\u9fff](?![*＊]))?(?![0-9A-Za-z*＊])|[*＊]{2,4}(?![0-9A-Za-z*＊]))")
+                        "(?:[*＊](?:" + _NUM_TAIL_GUARD + "(?![" + _DE["nameTailStop"] + "])[\u4e00-\u9fff](?![*＊]))?(?:(?![0-9A-Za-z*＊])|" + _AMOUNT_AFTER + ")"
+                        "|[*＊]{2,4}(?:(?![0-9A-Za-z*＊])|" + _AMOUNT_AFTER + ")"
+                        "(" + _NUM_TAIL_GUARD + _DE["maskedNameTail"] + "(?![*＊0-9A-Za-z]))?)")
+# #216 P0：姓和星号之间夹空格 / 分隔符（「张 * *」「张·*·*」「李 - * 」）先收拢成「张**」；号码里的分隔（「138 **** 1234」）不动
+_SEP = _DE["spacedStarsSep"]
+_SPACED_STARS = re.compile("(?<![0-9A-Za-z０-９])([\u4e00-\u9fff])((?:" + _SEP + "*[*＊]){1,4})(?=" + _SEP + "*(?:[^0-9A-Za-z０-９*＊" + _SEP[1:-1] + "]|$))")
+
+
+def _collapsible(m):
+    lead_ok = _DE["notSurname"].find(m.group(1)) < 0
+    return bool(re.search(_SEP, m.group(2))) and lead_ok
+
+
+# #220：金额前的带空格星号（「剩余 * * 块」）先收拢成连续星号，再走金额规则。与 llm.js SPACED_AMOUNT_RE 一致
+_SPACED_AMOUNT = re.compile("(?<![0-9A-Za-z０-９*＊])[*＊](?:" + _SEP + "*[*＊]){0,3}" + _SEP + "*(?=块钱|块|元)")
+
+
+def collapse_spaced_stars(text: str) -> str:
+    """「好，张 * *」→「好，张**」：与 llm.js collapseSpacedStars 一致。"""
+    text = _SPACED_AMOUNT.sub(lambda m: re.sub("[^*＊]", "", m.group(0)), str(text or ""))
+    # 星号前那个字基本不当姓（notSurname：「在」「号」「码」……，「我在 *上班」「密码 * * *」）时不收拢
+    return _SPACED_STARS.sub(lambda m: m.group(1) + re.sub("[^*＊]", "", m.group(2))
+                             if _collapsible(m) else m.group(0), str(text or ""))
+
+
+class _NoTail:
+    """#216：_NAME_MASK 带上残名后，masked_lead_not_surname 只看姓 + 星号这一段（残名不算「星号后跟着字」）。"""
+
+    def __init__(self, m: re.Match, tail: str):
+        self._m, self._n = m, len(tail)
+
+    def group(self, i=0):
+        g = self._m.group(i)
+        return g[:len(g) - self._n] if i == 0 and self._n else g
+
+    def start(self, i=0):
+        return self._m.start(i)
+
+    @property
+    def string(self):
+        return self._m.string
+
+
+# #216 P0：星号后紧跟的残名（「是**明吗」「，**明？」）整段算名字；星号前不是汉字时（逗号、句首）也是名字，不念成号码
+_STARS_NAME_TAIL = re.compile("(?<![0-9A-Za-z０-９*＊\u4e00-\u9fff])[*＊]{1,4}" + _NUM_TAIL_GUARD + _DE["maskedNameTail"] + "(?![*＊0-9A-Za-z０-９])")
+# #216：已经是「那个名字」、后面紧跟的星号（「那个名字***是吧」）一并去掉，不把「字」当姓
+_STARS_AFTER_NAME = re.compile("(〔?" + NAME + "〕?)\\s*[*＊]+(?:" + _NUM_TAIL_GUARD + _DE["maskedNameTail"] + ")?(?![*＊0-9A-Za-z０-９])")
 _NAME_TAIL = re.compile("(〔?" + NAME + "〕?)(?:[ \u3000…,，、.．·~～\\-—]{1,2}[*＊]+(?![0-9A-Za-z*＊]))+")
 # #172：纯星号的逐字解释（「弓长张，****」「伟是****」「****，****」）
 _HAN = "[\u4e00-\u9fff]"
@@ -34,28 +84,70 @@ _SEEN_EXPLAIN = "(?:(?:就是|是)?" + _HAN + "{1,4}" + _EXP["link"] + _HAN + _E
 _LEAD_CHAR = "(?<![^\\s，,、。！？!?；;…:：])(?![" + _DE["notSurname"] + UR["notLead"] + "])" + _HAN + "字?(?:就是|是)"
 _EXPLAIN_NAME = re.compile("(?:" + _SPLIT_FULL + "(?:" + _EXP["sep"] + _SEEN_EXPLAIN + ")?" + _EXP["sep"] + "(?:就是|是)?|" + _LEAD_CHAR + ")" + _STAR_CHAIN)
 _BARE_STARS = re.compile(_STAR_CHAIN)
+_CLAUSE_SEP = "，,。；;！？!?\n"
 _NUMBER_CUE = re.compile("[0-9０-９]|" + UR["numberCue"])
 _NAME_DUP = re.compile("(〔?" + NAME + "〕?)(?:" + _EXP["sep"] + "(?:就是|是)?〔?" + NAME + "〕?)+")
 _MASKED = re.compile(r"(?:[A-Za-z0-9]+…)?(?:[0-9]{2,6}[ \u00a0](?=[*＊]))*[A-Za-z0-9_.:/@+#?=&%~\-]*[*＊][A-Za-z0-9_.:/@+#?=&%~\-*＊]*(?:[ \u00a0][0-9*＊]+)*"
                      r"|[A-Za-z0-9]{2,}\.\.\.[A-Za-z0-9]{2,}")
 REF_ORDER = ("name", "number", "url", "wallet", "email")
+# 打码金额（「****块钱」「**元」）：1-4 个星号后接 块/块钱/元，念量词说法，heard_refs 记 number（不当姓名）。
+# 说法是台词，待审批；与 llm.js AMOUNT_STARS_RE / AMOUNT_PHRASE 一致
+AMOUNT_PHRASE = "那么点"
+_AMOUNT_STARS = re.compile("(?<![0-9A-Za-z*＊])[*＊]{1,4}(?:块钱|块|元)")
+_SURNAMES = load("extractors")["nameRules"]["surnames"]
+_AMOUNT_NAME_LEAD = re.compile("(?:叫|姓)\\s*[:：]?\\s*$")
+# 单字姓前面是句首 / 标点 / 空白，或姓名语境词，才算姓名（「剩余**块」「这包**块」的 余/包 不是姓）。与 llm.js AMOUNT_SURNAME_LEAD 一致
+_AMOUNT_SURNAME_LEAD = re.compile(r"(?:^|[\s\W_]|(?:叫|姓|户名|收款人|付款人|联系人|对方|名字|姓名|转给|打给|汇给|给)\s*[:：]?\s*)$")
+
+
+# #220 负责人定：字段词（收款人 / 户名 / 姓名 / 账户名 / 开户名 / 收款户名 / 开户户名）一个字都不吃，后面「（姓）+ 星号 + 尾字」整段换成「那个名字」，不留尾巴：
+# 「户名*元」「收款人马**元」「户名**明」→「字段词那个名字」；后面是数字 / 金额（「姓名*五百块」「户名李*500」）原样保留；「元宝」这类词也原样保留（「收款人那个名字元宝」）。与 llm.js LABEL_STARS_YUAN_RE 一致
+_LABEL_END = "(?:(?![\u4e00-\u9fff])|(?=[了吧吗呢啊呀的]))"
+_LABEL_STARS_YUAN = re.compile("(收款户名|开户户名|账户名|开户名|收款人|户名|姓名)(\\s*[:：]?\\s*)(?:" + "|".join(_DE["compoundSurnames"]) + "|[" + _SURNAMES + "])?[*＊]{1,4}"
+                               "(?:(?:块钱|块|元)" + _LABEL_END + "|" + _NUM_TAIL_GUARD + "(?:" + _DE["maskedNameTail"] + ")" + _LABEL_END + ")?")
+
+
+def _amount_skip(s: str, pos: int) -> bool:
+    """#220 复审：号码语境（numberBefore）、姓名语境（nameBefore / nameAfter、「叫 / 姓」、星号前是常见姓或复姓）优先，不按金额算。"""
+    pre = s[:pos]
+    if stars_name(s, pos) or stars_not_name(s, pos) or _AMOUNT_NAME_LEAD.search(pre):
+        return True
+    return bool(pre) and ((pre[-1] in _SURNAMES and _AMOUNT_SURNAME_LEAD.search(pre[:-1])) or any(pre.endswith(c) for c in _DE["compoundSurnames"]))
 _REF_KIND = {UR["phrase"][k]: k for k in REF_ORDER}
 
 
 def mask_names(text: str, bracket: bool = False) -> str:
     """打码姓名换成“那个名字”（#130 / #157 / #158 / #172），与 llm.js maskNames 一致。"""
     w = "〔" + NAME + "〕" if bracket else NAME
+    amount = "〔" + UR["phrase"]["number"] + "〕" if bracket else AMOUNT_PHRASE
 
     def rep(m: re.Match) -> str:
         # #201：星号前的字是不是姓先查共用字表 core/name_stopchars.json，不在表里的再看 notSurname
-        return m.group(0) if masked_lead_not_surname(m, m.group(2), _DE["notSurname"]) else w
+        return m.group(0) if masked_lead_not_surname(_NoTail(m, m.group(3) or ""), m.group(2), _DE["notSurname"]) else w
 
-    s = _NAME_MASK.sub(rep, str(text or ""))
+    s = collapse_spaced_stars(text)  # 1) 先合并带空格的星号
+    s = _LABEL_STARS_YUAN.sub(lambda m: m.group(1) + m.group(2) + w, s)
+    s = _AMOUNT_STARS.sub(lambda m: m.group(0) if _amount_skip(m.string, m.start()) else amount, s)  # 2) 打码金额先换，免得「剩*块」被当成姓名
+    s = _STARS_AFTER_NAME.sub(r"\1", s)  # 3) #221 姓名规则
+    s = _NAME_MASK.sub(rep, s)
+    s = _STARS_NAME_TAIL.sub(lambda m: m.group(0) if stars_not_name(m.string, m.start()) else w, s)
     s = _SPLIT_BEFORE_NAME.sub("", s)
     s = _NAME_TAIL.sub(r"\1", s)
     s = _EXPLAIN_NAME.sub(lambda _m: w, s)
-    if not _NUMBER_CUE.search(s):
-        s = _BARE_STARS.sub(lambda _m: w, s)
+    # #172：没有数字和号码字样时，单独的纯星号串也是逐字解释的名字。#214：按逗号、句号等分段看号码字样
+    # （「卡号是***，户名***」后一段是姓名）；#206 第六条探针：号码语境（「转到***」）和「我在***上班」除外，
+    # 「转到**名下」「打到**的卡上」一律是姓名
+    def bare(m: re.Match) -> str:
+        st, pos = m.string, m.start()
+        if stars_not_name(st, pos):
+            return m.group(0)
+        if stars_name(st, pos):
+            return w
+        a = max(st.rfind(c, 0, pos) for c in _CLAUSE_SEP) + 1
+        b = min([i for i in (st.find(c, m.end()) for c in _CLAUSE_SEP) if i >= 0] or [len(st)])
+        return m.group(0) if _NUMBER_CUE.search(st[a:b]) else w
+
+    s = _BARE_STARS.sub(bare, s)
     return _NAME_DUP.sub(r"\1", _NAME_TAIL.sub(r"\1", s))
 
 

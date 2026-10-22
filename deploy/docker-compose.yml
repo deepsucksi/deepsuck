@@ -91,13 +91,28 @@ services:
       LIVE_DOMAIN: ${LIVE_DOMAIN:?在 deploy/.env 设置 LIVE_DOMAIN（你自己的域名）}
       ACME_EMAIL: ${ACME_EMAIL:?在 deploy/.env 设置 ACME_EMAIL（证书邮箱）}
       TURN_PORT: ${TURN_PORT:-3478}
+      # 统计 GoatCounter 的本机端口（Caddy 把 {LIVE_DOMAIN}/stats* 反代过去）
+      STATS_PORT: ${STATS_PORT:-8081}
     volumes:
       # 挂整个目录而不是单个文件：git pull 替换 Caddyfile 后容器能看到新内容（单文件挂载绑的是旧 inode）
       - ./caddy:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
+      # 访问日志（IP 已脱敏，按大小轮转，见 Caddyfile 的 log 段）：docker compose exec caddy ls /var/log/caddy
+      - caddy-logs:/var/log/caddy
     mem_limit: 128m
     depends_on: [ proxy, voice ]
+
+  # 可选：自托管访问统计 GoatCounter（单个 Go 程序 + SQLite，约 30-60 MB 内存）。默认不启动：docker compose --profile stats up -d stats
+  # 无 cookie、不存 IP（只用 IP+UA+每日轮换盐算当天去重哈希）；只听本机，公网经 Caddy 反代在 {LIVE_DOMAIN}/stats/ 路径下（不需要新子域）。
+  # 首次建站点与管理员（密码交互输入，不写进仓库）：docs/DEPLOY.md「访问统计」。
+  stats:
+    <<: *common
+    profiles: [ "stats" ]
+    image: arp242/goatcounter:2.7
+    command: [ "serve", "-listen=127.0.0.1:${STATS_PORT:-8081}", "-tls=proxy", "-base-path=/stats", "-automigrate" ]
+    volumes: [ "stats-data:/home/goatcounter/goatcounter-data" ]
+    mem_limit: ${STATS_MEM_LIMIT:-96m}
 
   # 可选：给 UDP 被封的访客（公司网络、代理/VPN）走 TURN 中继。默认不启动：docker compose --profile turn up -d coturn
   # 只听本机 127.0.0.1:${TURN_PORT}（TCP），公网经 Caddy 443 转进来（turn:域名:443?transport=tcp、turns:域名:443?transport=tcp）。
@@ -165,3 +180,5 @@ volumes:
   voice-traces: {}
   caddy-data: {}
   caddy-config: {}
+  caddy-logs: {}
+  stats-data: {}

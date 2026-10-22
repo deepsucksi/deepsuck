@@ -31,6 +31,7 @@
     'e3': '<b>No real data:</b> personas never give real OTPs, card numbers, passwords or IDs; LLM output is safety-filtered.',
     'e4': '<b>No vigilantism:</b> no harassment, doxxing, revenge, "reverse scamming" or attacking any system.',
     'e5': '<b>Leave it to professionals:</b> report fraud to 110 or the national anti-fraud hotline 96110 (China). Intel is only a lead.',
+    'e7': '<b>Analytics without tracking:</b> we use self-hosted, cookie-free analytics (GoatCounter) that records page path, title, the referring site\'s domain (scheme and domain only, no page path or query) and the number of sandbox sessions, de-duplicated per session for up to 8 hours. Browser/OS, screen size, country/region and language are not collected. No cookies, no stored IP addresses, no chat content or input; browsers with Do Not Track / GPC are not counted at all. Access logs of the voice demo keep only masked IPs (last IPv4 octet and last 80 bits of IPv6 removed), rotated by size with a few files kept.',
     'e6': '<b>Compliance first:</b> before connecting real channels (phone, IM), assess PIPL, the Anti-Telecom-Fraud Law and obtain authorization.',
     'cb.qs': 'Quick start',
     'cb.qs1': '# 1) Static only, no key needed',
