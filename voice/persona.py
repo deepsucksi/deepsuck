@@ -13,7 +13,7 @@ if str(_PY) not in sys.path:
 
 from deepsuck import extract_sensitive, redact_text  # noqa: E402
 from deepsuck.core import load  # noqa: E402
-from deepsuck.redact import mask  # noqa: E402  #227
+from deepsuck.redact import find_name_spans, mask  # noqa: E402  #227；#163 find_name_spans
 from deepsuck.extractors import find_name_context, masked_lead_not_surname, stars_not_name  # noqa: E402  #201 共用字表 core/name_stopchars.json
 from deepsuck.refs import _NoTail, collapse_spaced_stars  # noqa: E402  #216
 from deepsuck.refs import AMOUNT_PHRASE, _AMOUNT_STARS, _amount_skip  # noqa: E402  #222：打码金额与文本端共用同一规则
@@ -878,8 +878,13 @@ def drop_given_after_split(prev: str, cur: str) -> str:
 def drop_name_explain(text: str) -> str:
     """#215：拆字报姓、逐字解释（连同被解释的姓名）整体换成已批的「那个名字」，相邻几段合成一个。没有命中时原样返回。"""
     s = str(text or "")
+    # #163：共享核心认出的偏旁说法（「单人旁一个韦」「三点水的江」）和逐字解释前面的姓名（「张伟晨，伟大的伟」）也换成「那个名字」
+    for sp in sorted(find_name_spans(s, extract_sensitive(s)), key=lambda e: e["start"], reverse=True):
+        if sp.get("kind") in ("radical", "nameBefore"):
+            a = sp["start"] - (1 if sp["kind"] == "nameBefore" else 0)
+            s = s[:a] + NAME_PHRASE + s[sp["end"]:]
     if "的" not in s and not any(c in s for c in "".join(_SPLIT_SPELLINGS) + "".join(_SPLIT_HOMOPHONES.values())):
-        return s
+        return _NAME_RUN.sub(NAME_PHRASE, s)
     s = _SPLIT_SAY.sub(NAME_PHRASE, s)
     spans = _explain_spans(s)
     for a, b in reversed(spans):

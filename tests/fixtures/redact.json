@@ -1134,15 +1134,27 @@
   },
   {
    "text": "李子的李",
-   "expect": "keep",
-   "spans": [],
-   "redacted": "李子的李"
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 4,
+     "masked": "****"
+    }
+   ],
+   "redacted": "****"
   },
   {
    "text": "伟大的那个伟字",
-   "expect": "keep",
-   "spans": [],
-   "redacted": "伟大的那个伟字"
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 7,
+     "masked": "*******"
+    }
+   ],
+   "redacted": "*******"
   },
   {
    "text": "收款人叫张伟明，弓长张，伟大的伟，明天的明。",
@@ -2209,6 +2221,281 @@
    "redacted": "伟大的伟人对吧"
   }
  ],
+ "radicalExplain": [
+  {
+   "text": "弓长张，单人旁一个韦",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 10,
+     "masked": "******",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "弓长张，******"
+  },
+  {
+   "text": "弓长张，单人旁一个韦，日字旁一个月的明",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 10,
+     "masked": "******",
+     "kind": "radical"
+    },
+    {
+     "start": 11,
+     "end": 19,
+     "masked": "********",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "弓长张，******，********"
+  },
+  {
+   "text": "户名张伟，单人旁一个韦",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 5,
+     "end": 11,
+     "masked": "******",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "户名张*，******"
+  },
+  {
+   "text": "三点水的江",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 5,
+     "masked": "*****",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "*****"
+  },
+  {
+   "text": "三点水一个工的江",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 8,
+     "masked": "********",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "********"
+  },
+  {
+   "text": "三点水加个工",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 6,
+     "masked": "******",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "******"
+  },
+  {
+   "text": "弓长张，三点水的江",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 9,
+     "masked": "*****",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "弓长张，*****"
+  },
+  {
+   "text": "木子李，草字头的花",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 4,
+     "end": 9,
+     "masked": "*****",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "木子李，*****"
+  },
+  {
+   "text": "就是单人旁一个韦",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 2,
+     "end": 8,
+     "masked": "******",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "就是******"
+  },
+  {
+   "text": "单人旁一个韦字，对吧",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 7,
+     "masked": "*******",
+     "kind": "radical"
+    }
+   ],
+   "redacted": "*******，对吧"
+  },
+  {
+   "text": "伟大的那个伟字",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 7,
+     "masked": "*******"
+    }
+   ],
+   "redacted": "*******"
+  },
+  {
+   "text": "张伟晨，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 1,
+     "end": 3,
+     "masked": "**",
+     "kind": "nameBefore"
+    },
+    {
+     "start": 4,
+     "end": 8,
+     "masked": "****"
+    }
+   ],
+   "redacted": "张**，****"
+  },
+  {
+   "text": "张伟晨，伟大的伟，早晨的晨",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 1,
+     "end": 3,
+     "masked": "**",
+     "kind": "nameBefore"
+    },
+    {
+     "start": 4,
+     "end": 8,
+     "masked": "****"
+    },
+    {
+     "start": 9,
+     "end": 13,
+     "masked": "****"
+    }
+   ],
+   "redacted": "张**，****，****"
+  },
+  {
+   "text": "我叫张伟，伟大的伟",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 5,
+     "end": 9,
+     "masked": "****"
+    }
+   ],
+   "redacted": "我叫张*，****"
+  },
+  {
+   "text": "李子的李",
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 4,
+     "masked": "****"
+    }
+   ],
+   "redacted": "****"
+  },
+  {
+   "text": "三点水很重要",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "三点水很重要"
+  },
+  {
+   "text": "单人旁的字很多",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "单人旁的字很多"
+  },
+  {
+   "text": "草字头的植物",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "草字头的植物"
+  },
+  {
+   "text": "三点水旁边那个",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "三点水旁边那个"
+  },
+  {
+   "text": "伟大的祖国",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "伟大的祖国"
+  },
+  {
+   "text": "李子熟了",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "李子熟了"
+  },
+  {
+   "text": "这是伟大的胜利",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "这是伟大的胜利"
+  },
+  {
+   "text": "早晨的晨练",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "早晨的晨练"
+  },
+  {
+   "text": "这是大家的家",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "这是大家的家"
+  },
+  {
+   "text": "明天的会别迟到",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "明天的会别迟到"
+  }
+ ],
  "splitExplainTail": [
   {
    "text": "收款人是弓长张，伟大的伟对吧",
@@ -2318,9 +2605,15 @@
   },
   {
    "text": "伟大的伟对吧",
-   "expect": "keep",
-   "spans": [],
-   "redacted": "伟大的伟对吧"
+   "expect": "mask",
+   "spans": [
+    {
+     "start": 0,
+     "end": 4,
+     "masked": "****"
+    }
+   ],
+   "redacted": "****对吧"
   },
   {
    "text": "这是大家的家对吧",
@@ -2333,6 +2626,12 @@
    "expect": "keep",
    "spans": [],
    "redacted": "伟大的伟人对吧"
+  },
+  {
+   "text": "伟大的祖国对吧",
+   "expect": "keep",
+   "spans": [],
+   "redacted": "伟大的祖国对吧"
   }
  ],
  "otpSegments": [

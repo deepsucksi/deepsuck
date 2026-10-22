@@ -535,6 +535,11 @@ def _explain_rules():
         "particle": compile_js("^(?:" + (ex.get("particle") or "(?!)") + ")$"),
         "sep": compile_js("^(?:" + (ex.get("sep") or "") + ")$"),
         "gap": compile_js(ex["anchorGap"]),
+        # #163 偏旁说法（「单人旁一个韦」「三点水的江」）：偏旁名 + (join + 部件字 + 字?)? + (link + X + tail)?，至少带一个；与 redact.js 一致
+        "radical": compile_js("(?:" + "|".join(sorted(ex["radicals"], key=len, reverse=True)) + ")(?:(?:" + (ex.get("radicalJoin") or "(?!)")
+                              + ")(" + ex["han"] + ")字?)?(?:(?:" + ex["link"] + ")(" + ex["han"] + ")(?:" + (ex.get("tail") or "") + "))?")
+        if ex.get("radicals") else None,
+        "surnames": (load("extractors").get("nameRules") or {}).get("surnames") or "",
     }
 
 
@@ -551,7 +556,32 @@ def explain_units(s: str, ents: Optional[Iterable[dict]] = None) -> List[dict]:
     leads, strong = ex.get("leads") or [], ex.get("strongLeads") or []
     han = lambda c: bool(c) and bool(E["han"].match(c))
     cands = []
+
+    def lead_of(wstart, x):
+        start = head = wstart
+        st = False
+        for ld in leads:
+            if wstart < len(ld) or s[wstart - len(ld):wstart] != ld:
+                continue
+            b = wstart - len(ld)
+            head = b
+            if b >= 1 and s[b - 1] == x:
+                start = head = b - 1
+                st = True
+            elif b >= 2 and s[b - 2:b] == x + "字":
+                start = head = b - 2
+                st = True
+            elif ld in strong:
+                st = True
+            break
+        return start, head, st
+
     for i in range(len(s)):
+        r = E["radical"].match(s, i) if E["radical"] else None
+        if r and (r.group(1) or r.group(2)):  # #163 偏旁说法：单独一段也算（strong）
+            rx = r.group(2) or r.group(1)
+            rs, rh, _ = lead_of(i, rx)
+            cands.append({"start": rs, "head": rh, "wstart": i, "end": r.end(), "x": rx, "strong": True, "rad": True})
         m = E["link"].match(s, i)
         if not m:
             continue
@@ -572,22 +602,7 @@ def explain_units(s: str, ents: Optional[Iterable[dict]] = None) -> List[dict]:
         t = E["tail"].match(s, end)
         if t:
             end = t.end()
-        start = head = wstart
-        st = False
-        for ld in leads:
-            if wstart < len(ld) or s[wstart - len(ld):wstart] != ld:
-                continue
-            b = wstart - len(ld)
-            head = b
-            if b >= 1 and s[b - 1] == x:
-                start = head = b - 1
-                st = True
-            elif b >= 2 and s[b - 2:b] == x + "字":
-                start = head = b - 2
-                st = True
-            elif ld in strong:
-                st = True
-            break
+        start, head, st = lead_of(wstart, x)
         cands.append({"start": start, "head": head, "wstart": wstart, "end": end, "x": x, "strong": st})
     heads = {c["head"] for c in cands} | {c["wstart"] for c in cands}
     ok = [c for c in cands if c["end"] >= len(s) or not han(s[c["end"]]) or E["particle"].match(s[c["end"]])
@@ -619,8 +634,12 @@ def explain_units(s: str, ents: Optional[Iterable[dict]] = None) -> List[dict]:
             if a_end <= first and E["gap"].search(s[a_end:first]):
                 anchored = True
                 sur.add(a_sur)
-        if len(chain) >= 2 or anchored or any(c["strong"] for c in chain):
-            out.extend({"start": c["start"], "end": c["end"], "x": c["x"], "keep": c["x"] in sur} for c in chain)
+        # #163：只有一段、没有锚点时，在句首或紧跟非汉字后面也算（「李子的李」「张伟晨，伟大的伟」）
+        alone = bool(ex.get("standalone")) and len(chain) == 1 and (first == 0 or not han(s[first - 1]))
+        if len(chain) >= 2 or anchored or alone or any(c["strong"] for c in chain):
+            xs = [c["x"] for c in chain]
+            out.extend({"start": c["start"], "end": c["end"], "x": c["x"], "keep": c["x"] in sur, "rad": bool(c.get("rad")),
+                        **({"head": first, "xs": xs} if j == 0 else {})} for j, c in enumerate(chain))
         chain.clear()
 
     for u in units:
@@ -680,13 +699,38 @@ def find_name_spans(text: Optional[str], entities: Optional[Iterable[dict]] = No
             continue
         claimed.append((pos, end))
         out.append({"start": pos, "end": end, "masked": _stars(len(given))})
+    # #163：一串解释前面（隔 sep）紧挨着 2–3 个汉字、以姓开头、名里含被解释的字（「张伟晨，伟大的伟」）时，按姓名打码；与 redact.js 一致
+    ER = _explain_rules()
+    for u in units:
+        if not ER or not ER["ex"].get("standalone") or "head" not in u:
+            continue
+        p = u["head"]
+        while p > 0 and ER["sep"].match(s[p - 1:u["head"]]):
+            p -= 1
+        for L in (3, 2):
+            a = p - L
+            if a < 0:
+                continue
+            cand = s[a:p]
+            if not all(ER["han"].match(c) for c in cand) or cand[0] not in ER["surnames"]:
+                continue
+            if not any(x in cand[1:] for x in u["xs"]):
+                continue
+            if any(c0 < p and a + 1 < c1 for c0, c1 in claimed):
+                break
+            claimed.append((a + 1, p))
+            out.append({"start": a + 1, "end": p, "masked": _stars(L - 1), "kind": "nameBefore"})
+            break
     joiner = ((_explain_rules() or {}).get("ex") or {}).get("joiner") or ""
     for u in units:
         if u["keep"] or any(a < u["end"] and u["start"] < b for a, b in claimed):
             continue
         glue = joiner if any(b == u["start"] for _, b in claimed) else ""
         claimed.append((u["start"], u["end"]))
-        out.append({"start": u["start"], "end": u["end"], "masked": glue + _stars(u["end"] - u["start"])})
+        sp = {"start": u["start"], "end": u["end"], "masked": glue + _stars(u["end"] - u["start"])}
+        if u.get("rad"):
+            sp["kind"] = "radical"  # #163：语音出口（persona.drop_name_explain）按 kind 换成「那个名字」
+        out.append(sp)
     out.sort(key=lambda e: e["start"])
     return out
 

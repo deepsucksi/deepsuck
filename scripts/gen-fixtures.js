@@ -102,8 +102,8 @@ const CHAR_EXPLAIN_CASES = [
   ['他说好的好处呢', 'keep'],
   ['木子李，就是李子的李', 'keep'],
   ['立早章，文章的章', 'keep'],
-  ['李子的李', 'keep'],
-  ['伟大的那个伟字', 'keep'],
+  ['李子的李', 'mask'], // #163：没有前文提示词的单段解释（nameRules.explain.standalone）
+  ['伟大的那个伟字', 'mask'], // #163
   // #185 拆字探针原句（asr-compat，四人设两种 ASR）：曾打成「**的伟」露出单字「伟」，人设念成「那个号的伟」
   ['收款人叫张伟明，弓长张，伟大的伟，明天的明。', 'mask'],
   ['收款人叫张伟明，弓长张，伟大的伟。', 'mask'],
@@ -191,6 +191,35 @@ const CHAR_EXPLAIN_CASES = [
 
 // #206 P0（部署前必须过）：拆字说法前有「是」、逐字解释后跟「对吧」等确认说法时，以前打成「弓**，**的伟对吧」露出「伟」。
 // 单独一组（redact.json 的 splitExplainTail），格式同 charExplain；不并进 charExplain，免得与 #202 改同一组用例冲突。
+// #163 偏旁说法（nameRules.explain.radicals）与没有提示词的单段解释（nameRules.explain.standalone）：单独一组（redact.json 的 radicalExplain），格式同 charExplain
+const RADICAL_EXPLAIN_CASES = [
+  ['弓长张，单人旁一个韦', 'mask'],
+  ['弓长张，单人旁一个韦，日字旁一个月的明', 'mask'],
+  ['户名张伟，单人旁一个韦', 'mask'],
+  ['三点水的江', 'mask'],
+  ['三点水一个工的江', 'mask'],
+  ['三点水加个工', 'mask'],
+  ['弓长张，三点水的江', 'mask'],
+  ['木子李，草字头的花', 'mask'],
+  ['就是单人旁一个韦', 'mask'],
+  ['单人旁一个韦字，对吧', 'mask'],
+  ['伟大的那个伟字', 'mask'],
+  ['张伟晨，伟大的伟', 'mask'],
+  ['张伟晨，伟大的伟，早晨的晨', 'mask'],
+  ['我叫张伟，伟大的伟', 'mask'],
+  ['李子的李', 'mask'],
+  ['三点水很重要', 'keep'],
+  ['单人旁的字很多', 'keep'],
+  ['草字头的植物', 'keep'],
+  ['三点水旁边那个', 'keep'],
+  ['伟大的祖国', 'keep'],
+  ['李子熟了', 'keep'],
+  ['这是伟大的胜利', 'keep'],
+  ['早晨的晨练', 'keep'],
+  ['这是大家的家', 'keep'],
+  ['明天的会别迟到', 'keep']
+];
+
 const SPLIT_EXPLAIN_TAIL_CASES = [
   ['收款人是弓长张，伟大的伟对吧', 'mask'],
   ['收款人是弓长张，伟大的伟', 'mask'],
@@ -200,9 +229,10 @@ const SPLIT_EXPLAIN_TAIL_CASES = [
   ['收款人是弓长张，伟大的伟对，你记一下', 'mask'],
   ['收款人是耳东陈，东方的东对吧', 'mask'],
   ['收款人是龚厂长，伟大的伟对吧', 'mask'], // ASR 写法：「龚厂长」被当成姓名打码，解释段也打码（#202 改 ASR 锚点后结果可能变，但不能露「伟」）
-  ['伟大的伟对吧', 'keep'], // 没有锚点的单段解释仍按原规则（#163）
+  ['伟大的伟对吧', 'mask'], // #163 第三条：没有锚点的单段解释在句首也打码（nameRules.explain.standalone）
   ['这是大家的家对吧', 'keep'],
   ['伟大的伟人对吧', 'keep'],
+  ['伟大的祖国对吧', 'keep'], // #163 后补：单段解释可以单独打码后，补一条反例保持 keep 至少 3 条
 ];
 
 // 验证码按上下文打码（#33）：[文本, 'mask' 应打码 | 'keep' 原样（卡号 / 手机号仍由实体规则打码）]，号码均为虚构
@@ -458,6 +488,13 @@ function build() {
       const spans = R.findNameSpans(text, ents);
       const redacted = R.redactText(text, ents);
       if ((expect === 'mask') !== (redacted !== text)) throw new Error('逐字解释用例与预期不符：' + text + ' -> ' + redacted);
+      return { text, expect, spans, redacted };
+    }),
+    radicalExplain: RADICAL_EXPLAIN_CASES.map(([text, expect]) => {
+      const ents = X.extractSensitive(text);
+      const spans = R.findNameSpans(text, ents);
+      const redacted = R.redactText(text, ents);
+      if ((expect === 'mask') !== (redacted !== text)) throw new Error('#163 用例与预期不符：' + text + ' -> ' + redacted);
       return { text, expect, spans, redacted };
     }),
     splitExplainTail: SPLIT_EXPLAIN_TAIL_CASES.map(([text, expect]) => {
