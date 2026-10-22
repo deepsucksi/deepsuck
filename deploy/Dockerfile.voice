@@ -22,6 +22,9 @@ RUN useradd -r -u 1000 app && mkdir -p /data /cache /traces && chown app:app /da
 # 代码版本（写进通话追踪）：构建参数 GIT_SHA 优先；没传时用 .dockerignore 放行的 .git/HEAD 与 refs（不含对象库）
 ARG GIT_SHA=
 ENV GIT_SHA=${GIT_SHA}
+# /api/voice/health 的 commit 字段：构建参数 GIT_COMMIT（只应是 git 短哈希；运行时校验 [0-9a-f]{7,12}，否则回退 .gitmeta / "unknown"）
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=${GIT_COMMIT}
 COPY .git/HEA[D] .git/packed-ref[s] /app/.gitmeta/
 COPY .git/refs/head[s] /app/.gitmeta/refs/heads/
 USER app

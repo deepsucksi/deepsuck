@@ -21,6 +21,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
+import re
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -58,6 +59,21 @@ from . import backchannel as BC  # noqa: E402
 LLM_BASE_URL = os.environ.get("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 LLM_MODEL = os.environ.get("DEEPSUCK_LLM_MODEL", G.DEFAULT_LLM_MODEL)
 
+_COMMIT_RE = re.compile(r"[0-9a-f]{7,12}")
+
+
+def _valid_commit(value: Optional[str]) -> Optional[str]:
+    v = (value or "").strip()
+    return v if _COMMIT_RE.fullmatch(v) else None
+
+
+def public_commit() -> str:
+    """公开 health 里的代码版本：只给 git 短哈希。
+
+    构建参数 GIT_COMMIT（Dockerfile ARG→ENV）优先；没注入（空/unknown）时退回镜像里 .gitmeta 读到的 HEAD；
+    任何不匹配 [0-9a-f]{7,12} 的值一律返回 "unknown"，不透出其他信息。
+    """
+    return _valid_commit(os.environ.get("GIT_COMMIT")) or _valid_commit(TR._git_sha(TR.ROOT)) or "unknown"
 
 def llm_settings_extra(env=None) -> dict:
     """大模型额外请求参数。DEEPSUCK_LLM_THINKING 默认 0：显式发 enable_thinking=false（qwen3.8-flash 等 qwen3.x 模型默认开思考，
@@ -507,10 +523,12 @@ def create_app(engine: str = "llm", limits: Optional[G.Limits] = None, budget: O
     async def config():
         return JSONResponse(public_config(engine, limits, budget), headers={"Cache-Control": "no-store"})
 
+    commit = public_commit()
+
     @app.get("/api/voice/health")
     async def health():
         return {"ok": True, "keyConfigured": has_key(), "active": len(gate.active), "maxSessions": limits.max_sessions,
-                "budget": budget.status()}
+                "budget": budget.status(), "commit": commit}
 
     @app.post("/api/offer")
     async def offer(request: Request, background: BackgroundTasks):
