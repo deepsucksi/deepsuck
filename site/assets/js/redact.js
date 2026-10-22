@@ -808,7 +808,8 @@
     spans.forEach(function (sp) { if (sp.kind === 'nameBefore') regs.push([sp.start - 1, sp.end]); });
     function endOk(pos) {
       if (pos >= s.length || !E.han.test(s.charAt(pos)) || E.particle.test(s.charAt(pos)) || E.tailWords.test(s.slice(pos)) || Q.end.test(s.slice(pos))) return true;
-      return units.some(function (u) { return u.head >= pos && E.sep.test(s.slice(pos, u.head)); });
+      // #259：只有链首 unit 带 head（undefined >= pos 恒为 false，这里显式判断，与 redact.py 一致）
+      return units.some(function (u) { return u.head !== undefined && u.head >= pos && E.sep.test(s.slice(pos, u.head)); });
     }
     var hits = [];
     var m;
@@ -819,7 +820,11 @@
       var a = h[0], b = h[1];
       var sm = R.sep.exec(s.slice(b)); // 复审建议：sep 匹配不上时不抛错
       var pos = b + (sm ? sm[0].length : 0);
-      spans.forEach(function (sp) { if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked)) b = sp.end; });
+      // #259 复审：紧跟的是逐字解释（explain unit）而不是名时不往后延，与 redact.py 一致
+      spans.forEach(function (sp) {
+        if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked) &&
+            !units.some(function (u) { return u.start === sp.start; })) b = sp.end;
+      });
       if (!endOk(b)) return;
       if (a > 0 && s.charAt(a - 1) === '姓') a--;
       regs.push([a, b]);

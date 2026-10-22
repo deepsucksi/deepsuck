@@ -842,14 +842,17 @@ def name_say_regions(text: Optional[str], entities: Optional[Iterable[dict]] = N
     def end_ok(pos):
         if pos >= len(s) or not han(s[pos]) or E["particle"].match(s[pos]) or E["tailWords"].match(s, pos) or Q["end"].match(s[pos:]):
             return True
-        return any(u["head"] >= pos and E["sep"].match(s[pos:u["head"]]) for u in units)
+        # #259：explain_units 只给一条链的第一个 unit 写 head，与 :711 一样先判断
+        return any("head" in u and u["head"] >= pos and E["sep"].match(s[pos:u["head"]]) for u in units)
 
     hits = [[m.start(), m.end()] for m in Q["variant"].finditer(s)] + [[a, b] for a, b, _ in split_hits(s, units)]
     for a, b in hits:
         sm = R["sep"].match(s[b:])  # 复审建议：sep 匹配不上时不抛错
         pos = b + (sm.end() if sm else 0)
         for sp in spans:
-            if not sp.get("kind") and sp["start"] == pos and re.fullmatch(r"\*+", sp["masked"]):
+            # #259 复审：紧跟的是逐字解释（explain unit）而不是名时不往后延，否则 end_ok 落在解释链中间判不过、拆字姓漏打
+            if not sp.get("kind") and sp["start"] == pos and re.fullmatch(r"\*+", sp["masked"]) \
+                    and not any(u["start"] == sp["start"] for u in units):
                 b = sp["end"]
         if not end_ok(b):
             continue

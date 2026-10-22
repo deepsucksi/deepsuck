@@ -308,9 +308,11 @@ class CallRedactor:
         return s
 
 
-def redact_line(text: str) -> str:
-    """转写单句打码（#250；#252 起所有出口共用：实时推送、Session.ingest 的 redacted、trace、存盘、回填）：拆字报姓、逐字解释先按 say_names 整段换成「那个名字」（与 mask_names / maskNames、
-    guard_output 同一套区间，「转给木子李1000元」不再只打名、留下拆字说法和姓），再走 redact_text 打其余敏感实体。"""
+# #259：redact_line 出任何异常时整句换成这个占位（fail-closed），日志只记异常类型、不记原文
+REDACT_FAIL_PLACEHOLDER = "***"
+
+
+def _redact_line_raw(text: str) -> str:
     from deepsuck.extractors import extract_sensitive
     from deepsuck.redact import redact_text, say_names
 
@@ -321,3 +323,23 @@ def redact_line(text: str) -> str:
             break
         t = nt
     return redact_text(t, extract_sensitive(t))
+
+
+def redact_line_checked(text: str) -> Tuple[str, bool]:
+    """与 redact_line 相同，另返回是否走了 fail-closed（出了异常）。回填（#259）据此记 error 规则类别。"""
+    try:
+        return _redact_line_raw(text), False
+    except Exception as e:  # noqa: BLE001  #259：任何异常都整句打码，绝不放原文出去
+        try:
+            from loguru import logger
+            logger.warning("redact_line failed closed: {}", type(e).__name__)
+        except Exception:  # noqa: BLE001
+            pass
+        return REDACT_FAIL_PLACEHOLDER, True
+
+
+def redact_line(text: str) -> str:
+    """转写单句打码（#250；#252 起所有出口共用：实时推送、Session.ingest 的 redacted、trace、存盘、回填）：拆字报姓、逐字解释先按 say_names 整段换成「那个名字」（与 mask_names / maskNames、
+    guard_output 同一套区间，「转给木子李1000元」不再只打名、留下拆字说法和姓），再走 redact_text 打其余敏感实体。
+    #259：fail-closed，出任何异常整句换成 REDACT_FAIL_PLACEHOLDER，日志只记异常类型。"""
+    return redact_line_checked(text)[0]

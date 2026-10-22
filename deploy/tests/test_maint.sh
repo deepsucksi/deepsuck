@@ -149,7 +149,7 @@ reset; FAKE_EXEC_RC=3 FAKE_EXEC_OUT='{"dir_exists": true, "error": "backup_exist
 grep -q 'user.err|ERROR backup file already exists in /traces/backups; nothing rewritten' "$LOGFILE" || fail "backup exists -> ERROR (#216)"
 pass "redact-backfill backup exists -> ERROR, no traceback (#216)"
 reset; FAKE_EXEC_OUT="$J0" bash "$RB"
-grep -q "^docker exec deepsuck-voice-1 sh -c mkdir -p -m 0700 \"\$1\" && chmod 0700 \"\$1\" _ /traces/backups$" "$CALLS" || fail "backup dir 0700"
+grep -q "^docker exec deepsuck-voice-1 sh -c mkdir -p -m 0700 \"\$1\" && chmod 0700 \"\$1\" && find \"\$1\" -maxdepth 1 -type f -name \"backup-\*.tar\" -exec chmod 0600 {} + _ /traces/backups$" "$CALLS" || fail "backup dir 0700, old backup tars 0600 (#216)"
 [ "$(grep -c ' find /traces/backups ' "$CALLS")" = 2 ] || fail "prune before and on exit"
 reset; FAKE_EXEC_RC=1 bash "$RB" && fail "exec failure must exit non-zero" || true
 [ "$(grep -c ' find /traces/backups .*-mmin +1440 -print -delete$' "$CALLS")" = 2 ] || fail "prune must still run (before + EXIT trap) when backfill fails"
