@@ -28,6 +28,7 @@ from typing import Callable, List, Optional
 from fastapi import WebSocket
 from loguru import logger
 
+from .. import logsetup  # noqa: F401  全局 diagnose=False（#253）
 from ..disclosure import disclosure_text
 from ..persona import voice_opening
 from .. import records as REC

@@ -170,3 +170,88 @@ def test_app_never_enables_trace_logging():
     for p in list(root.glob("*.py")) + list((root / "telephony").glob("*.py")):
         src = p.read_text(encoding="utf-8")
         assert not re.search(r"level\s*=\s*[\"']TRACE|LOGURU_LEVEL", src), p.name
+
+
+# ---- trace 直接收原文的公开入口（不经上游 IntelProcessor 打码）----
+# TR.feedback(note)、TR.client_report(reason / detail)、CallTrace.observe(未打码的 scammer / bot / filler 文本)。
+# 只回退 trace.py 时这里必须失败（#253 审核意见）。
+def _direct_trace(tmp_path):
+    env = {"TRACE_DIR": str(tmp_path / "traces"), "TRACE_MIN_FREE_MB": "0", "DATA_DIR": str(tmp_path / "data")}
+    trace = TR.CallTrace(channel="web", consent=True, persona="wang", scenario="refund", model="m", env=env,
+                         prompt_sha=lambda: "x", feedback_key="k")
+    return env, trace
+
+
+def _disk(tmp_path) -> str:
+    blob = []
+    for root, _, files in os.walk(tmp_path):
+        for f in files:
+            blob.append(open(os.path.join(root, f), "rb").read().decode("utf-8", "replace"))
+    return "\n".join(blob)
+
+
+@pytest.mark.parametrize("case", [c for c, _ in LEAK_CASES], ids=[f"LEAK_CASES[{i}]" for i in range(len(LEAK_CASES))])
+def test_trace_feedback_direct_zero_leaks(tmp_path, case):
+    env, trace = _direct_trace(tmp_path)
+    assert TR.feedback(trace.id, note=case, turn=1, env=env, key="k") == {"ok": True}
+    rows = [json.loads(x) for x in trace.path.read_text(encoding="utf-8").splitlines()]
+    assert any(r.get("type") == "feedback" and r.get("note") for r in rows)
+    assert _count(_disk(tmp_path), ALL_LEAKS) == 0
+
+
+@pytest.mark.parametrize("case", [c for c, _ in LEAK_CASES], ids=[f"LEAK_CASES[{i}]" for i in range(len(LEAK_CASES))])
+def test_trace_client_report_direct_zero_leaks(tmp_path, case):
+    env, trace = _direct_trace(tmp_path)
+    res = TR.client_report(trace.id, "media_error", reason=case, detail={"error": case, "browser": case}, env=env)
+    assert res == {"ok": True, "stored": True}
+    assert _count(_disk(tmp_path), ALL_LEAKS) == 0
+
+
+def test_trace_observe_raw_text_zero_leaks(tmp_path):
+    env, trace = _direct_trace(tmp_path)
+    for t, _ in LEAK_CASES:
+        trace.observe({"type": "bot", "intent": "opening", "text": t})
+        trace.observe({"type": "scammer", "text": t, "turn": 1})
+        trace.observe({"type": "filler", "text": t})
+        trace.observe({"type": "bot", "intent": "reply", "text": t})
+    trace.end("client_hangup")
+    assert _count(_disk(tmp_path), ALL_LEAKS) == 0
+
+
+def test_trace_redact_direct():
+    for t, ns in LEAK_CASES:
+        assert _count(TR.redact(t), ns) == 0, t
+
+
+def test_logger_exception_has_no_locals():
+    """app.py / telephony/server.py 的 logger.exception：loguru diagnose 必须关掉，堆栈里不带局部变量（#253）。"""
+    import io
+    import re
+    from pathlib import Path
+    from voice import logsetup
+    import voice.app  # noqa: F401
+    import voice.telephony.server  # noqa: F401
+
+    root = Path(__file__).resolve().parents[1]
+    for rel in ("app.py", "telephony/server.py"):
+        src = (root / rel).read_text(encoding="utf-8")
+        assert re.search(r"^from \.+ import logsetup", src, re.M), rel
+        assert "diagnose=True" not in src, rel
+    assert logsetup.sink_options()["diagnose"] is False
+    with pytest.raises(ValueError):
+        logger.remove(0)  # 默认 diagnose=True 的 handler 已被移除
+    buf = io.StringIO()
+    hid = logsetup.configure(buf)
+    try:
+        def boom(text):
+            secret = text + "_LOCAL"  # noqa: F841
+            raise RuntimeError("x")
+        try:
+            boom(LEAK_CASES[0][0])
+        except RuntimeError:
+            logger.exception("run_bot failed")
+    finally:
+        logger.remove(hid)
+    out = buf.getvalue()
+    assert "RuntimeError" in out and "run_bot failed" in out
+    assert _count(out, ALL_LEAKS) == 0 and "_LOCAL" not in out, out
