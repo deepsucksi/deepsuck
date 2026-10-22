@@ -1,8 +1,8 @@
 """用当前共享脱敏规则重新脱敏历史通话追踪（#92：跨 ASR 分段的验证码）。可重复执行。
 
 #252：每个文字字段先过 voice.records.redact_line（与实时推送 / 存盘 / trace 写盘同一入口）；--call 只处理指定通话。
-只处理已同意的通话：start 行（没有时看 end 行）的 consent 恰为 true。未同意（false）、电话线路（"sip-text-only"）、
-判断不了的文件一律不改。格式见 docs/TRACE_SCHEMA.md（v1 / v2 都认）。
+只处理存了文字的通话：start 行（没有时看 end 行）的 consent 恰为 true，或电话线路（"sip-text-only"，#254：
+电话 trace 本来就存脱敏文字，与网页同一规则回填）。未同意（false）、判断不了的文件一律不改。格式见 docs/TRACE_SCHEMA.md（v1 / v2 都认）。
 
 做法：对方（turn.asr）、人设（bot.text、turn.filler、turn.reply）各按文件里的先后顺序当作同一说话方的连续分段，
 过一遍 deepsuck.redact.redact_otp_segments（只把命中的数字换成 *，长度不变；已打码的不会再变）。
@@ -48,6 +48,14 @@ def consent_of(rows: List[Optional[dict]]):
             if isinstance(r, dict) and r.get("type") == typ and "consent" in r:
                 return r.get("consent")
     return None
+
+
+SIP_CONSENT = "sip-text-only"   # 与 voice.trace.SIP_CONSENT 一致（这里不 import trace，免得拉起整套依赖）
+
+
+def stores_text(consent) -> bool:
+    """#254：网页已同意（True）或电话线路（sip-text-only）的 trace 存了文字，需要回填。"""
+    return consent is True or consent == SIP_CONSENT
 
 
 def redact_rows(rows: List[Optional[dict]]) -> Tuple[List[Optional[dict]], int, int]:
@@ -225,7 +233,7 @@ def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Opt
         now: Optional[float] = None, transcripts: Optional[Path] = None, calls=None) -> dict:
     now = time.time() if now is None else now
     tstats, tplan = plan_transcripts(transcripts, min_age, now, calls) if transcripts is not None else (None, [])
-    stats = {"dir_exists": trace_dir.is_dir(), "dry_run": dry_run, "files_scanned": 0, "consented": 0,
+    stats = {"dir_exists": trace_dir.is_dir(), "dry_run": dry_run, "files_scanned": 0, "consented": 0, "sip": 0,
              "skipped_not_consented": 0, "skipped_unknown_consent": 0, "skipped_recent": 0, "skipped_changed": 0,
              "files_changed": 0, "rows_changed": 0, "fields_changed": 0, "backup_files": 0}
     if tstats is not None:
@@ -241,10 +249,12 @@ def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Opt
         raw_lines = p.read_text(encoding="utf-8", errors="strict").splitlines()
         rows = _parse([ln for ln in raw_lines])
         c = consent_of(rows)
-        if c is not True:
+        if not stores_text(c):
             stats["skipped_not_consented" if c is not None else "skipped_unknown_consent"] += 1
             continue
         stats["consented"] += 1
+        if c == SIP_CONSENT:
+            stats["sip"] += 1
         if now - st.st_mtime < min_age:
             stats["skipped_recent"] += 1
             continue
@@ -279,7 +289,7 @@ def run(trace_dir: Path, dry_run: bool = True, min_age: float = 600, backup: Opt
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="用当前共享脱敏规则重新脱敏已同意通话的历史追踪（只输出计数）")
+    ap = argparse.ArgumentParser(description="用当前共享脱敏规则重新脱敏已同意通话和电话线路的历史追踪（只输出计数）")
     ap.add_argument("--dir", help="追踪目录，默认 TRACE_DIR（容器里是 /traces）")
     ap.add_argument("--dry-run", action="store_true", help="只统计，不改文件")
     ap.add_argument("--min-age", type=float, default=600, help="最近多少秒内改过的文件跳过（通话可能还在进行），默认 600")

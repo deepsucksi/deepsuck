@@ -1,4 +1,4 @@
-"""#92 历史追踪重新脱敏：只改已同意通话、只改命中的数字、可重复执行、保留修改时间、输出只有计数。"""
+"""#92 历史追踪重新脱敏：只改已同意通话和电话线路（#254）、只改命中的数字、可重复执行、保留修改时间、输出只有计数。"""
 import json
 import os
 import tarfile
@@ -34,24 +34,24 @@ def test_dry_run_counts_then_rewrites_consented_only(tmp_path, capsys):
     assert BF.main(["--dir", str(d), "--dry-run", "--min-age", "0"]) == 0
     out = capsys.readouterr().out
     s = json.loads(out)
-    assert s["files_scanned"] == 6 and s["consented"] == 3 and s["skipped_not_consented"] == 2
+    assert s["files_scanned"] == 6 and s["consented"] == 4 and s["sip"] == 1 and s["skipped_not_consented"] == 1
     assert s["skipped_unknown_consent"] == 1
-    assert s["files_changed"] == 2 and s["rows_changed"] == 4 and s["fields_changed"] == 4
+    assert s["files_changed"] == 3 and s["rows_changed"] == 6 and s["fields_changed"] == 6
     assert {p.name: p.read_bytes() for p in d.iterdir()} == before          # dry-run 不改
     assert "验证码" not in out and "AAAAAAAA" not in out
 
     bk = tmp_path / "bk.tar"
     assert BF.main(["--dir", str(d), "--min-age", "0", "--backup", str(bk)]) == 0
     s = json.loads(capsys.readouterr().out)
-    assert s["files_changed"] == 2 and s["rows_changed"] == 4 and s["backup_files"] == 2
+    assert s["files_changed"] == 3 and s["rows_changed"] == 6 and s["backup_files"] == 3
     assert oct(os.stat(bk).st_mode & 0o777) == "0o600"
     with tarfile.open(bk) as tf:
-        assert sorted(tf.getnames()) == ["AAAAAAAA.jsonl", "DDDDDDDD.jsonl"]
+        assert sorted(tf.getnames()) == ["AAAAAAAA.jsonl", "CCCCCCCC.jsonl", "DDDDDDDD.jsonl"]
     rows = [json.loads(x) for x in (d / "AAAAAAAA.jsonl").read_text(encoding="utf-8").splitlines()]
     assert [r["asr"] for r in rows if r["type"] == "turn"] == ["验证码是 **", "** **", "那你先转 3000 元"]
     a = os.stat(d / "AAAAAAAA.jsonl")
     assert a.st_mtime == 1_000_000 and oct(a.st_mode & 0o777) == "0o600"
-    for n in ("BBBBBBBB.jsonl", "CCCCCCCC.jsonl", "EEEEEEEE.jsonl", "FFFFFFFF.jsonl"):
+    for n in ("BBBBBBBB.jsonl", "EEEEEEEE.jsonl", "FFFFFFFF.jsonl"):
         assert (d / n).read_bytes() == before[n]                              # 未同意 / 无改动 / 判断不了：原样
     # 未改动的行字节不变
     old = before["AAAAAAAA.jsonl"].decode().splitlines()
