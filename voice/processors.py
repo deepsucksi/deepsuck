@@ -44,7 +44,8 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.utils.text.base_text_filter import BaseTextFilter
 
-from .callredact import CallRedactor, redact_digit_fragments, redact_line
+from .callredact import (CallRedactor, REDACT_FAIL_PLACEHOLDER, TTS_REDACT_FAIL_SPEAK,
+                         redact_digit_fragments, redact_line, redact_line_checked)
 from .persona import (FILLERS, GOAL_TOPIC, drop_unsaid, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
                       speakable, system_prompt, unmask)
 from .persona import NAME_PHRASE, drop_given_after_split, split_lead_refs  # noqa: E402  #215 拆字解释：已批说法「那个名字」；分段星号
@@ -109,7 +110,11 @@ async def _noop(_msg: dict) -> None:
 
 
 class GuardTextFilter(BaseTextFilter):
-    """送 TTS 前的输出守卫。redactor：本通电话的 CallRedactor（#140），模型复述了已提取的姓名/号码也先打码。"""
+    """送 TTS 前的输出守卫。redactor：本通电话的 CallRedactor（#140），模型复述了已提取的姓名/号码也先打码。
+
+    #261：每段经 redact_line_checked 探测失败（与转写同一套 fail-closed），再 CallRedactor / drop_unsaid / speakable；
+    脱敏失败或只剩 *** 占位时念 TTS_REDACT_FAIL_SPEAK 完整兜底句，绝不把 *** 送进合成。
+    """
 
     def __init__(self, redactor: Optional[CallRedactor] = None, refs: Optional[Callable[[], set]] = None):
         self.redactor = redactor
@@ -120,24 +125,44 @@ class GuardTextFilter(BaseTextFilter):
     async def update_settings(self, settings):  # 无可调参数
         return None
 
+    def _speak_fail(self) -> str:
+        self._last = TTS_REDACT_FAIL_SPEAK
+        return TTS_REDACT_FAIL_SPEAK
+
     async def filter(self, text: str) -> str:
-        prev, self._prev_raw = self._prev_raw, text
-        text = drop_given_after_split(prev, text)  # #215：上一句以拆字报姓结尾时，这一句开头的名不念
-        text = self.redactor.apply(text) if self.redactor is not None else text
-        # #184：对方没报过的代称换成直说。顺序（#219，负责人已确认）：drop_unsaid 先过，然后 speakable。
-        # 这时打码值还是星号，所以 drop_unsaid 只换模型自己写的代称；如果放在 speakable 之后，会把打码换出来的
-        # 「那个名字」「那个号」（unmask / _unmask_names / drop_name_explain 的占位）改成光秃秃的「名字」
-        # （「户名***」→「户名名字」，见 #219，用例 voice/tests/test_unsaid_placeholder.py）。不要改回。
-        if self.refs is not None:
-            text = drop_unsaid(text, self.refs())
-        out = speakable(text)
-        # #215：TTS 按分句送，「收款人是弓长张，伟大的伟对吧」被切成两句，各自换成「那个名字」；
-        # 上一句以「那个名字」结尾、这一句又以它开头时去掉这一个，合起来仍是「收款人是那个名字对吧」
-        if self._last.endswith(NAME_PHRASE) and out.startswith(NAME_PHRASE):
-            out = out[len(NAME_PHRASE):].lstrip("，, ")
-        if out:
-            self._last = out
-        return out
+        try:
+            prev, self._prev_raw = self._prev_raw, text
+            text = drop_given_after_split(prev, text)  # #215：上一句以拆字报姓结尾时，这一句开头的名不念
+            if not (text or "").strip():
+                return ""
+            # #261：脱敏失败 / 纯 *** 占位 → 念完整兜底句（日志占位仍是 ***，不把星号送进合成）
+            # redact_line_checked 只取失败标志；成功时仍走原 CallRedactor + speakable，避免与 drop_name_explain 双重处理
+            _, failed = redact_line_checked(text)
+            if failed or text.strip() == REDACT_FAIL_PLACEHOLDER or _STAR_ONLY.match(text or ""):
+                return self._speak_fail()
+            text = self.redactor.apply(text) if self.redactor is not None else text
+            if (text or "").strip() == REDACT_FAIL_PLACEHOLDER or _STAR_ONLY.match(text or ""):
+                return self._speak_fail()
+            # #184：对方没报过的代称换成直说。顺序（#219，负责人已确认）：drop_unsaid 先过，然后 speakable。
+            # 这时打码值还是星号，所以 drop_unsaid 只换模型自己写的代称；如果放在 speakable 之后，会把打码换出来的
+            # 「那个名字」「那个号」（unmask / _unmask_names / drop_name_explain 的占位）改成光秃秃的「名字」
+            # （「户名***」→「户名名字」，见 #219，用例 voice/tests/test_unsaid_placeholder.py）。不要改回。
+            if self.refs is not None:
+                text = drop_unsaid(text, self.refs())
+            out = speakable(text)
+            # speakable 把残留星号收成停顿；若整段被收成空 / 纯停顿，仍走兜底，避免念出无意义的「……」
+            if not out.strip() or not re.sub(r"[\s.\u3002\u2026\u00b7]+", "", out):
+                return self._speak_fail()
+            # #215：TTS 按分句送，「收款人是弓长张，伟大的伟对吧」被切成两句，各自换成「那个名字」；
+            # 上一句以「那个名字」结尾、这一句又以它开头时去掉这一个，合起来仍是「收款人是那个名字对吧」
+            if self._last.endswith(NAME_PHRASE) and out.startswith(NAME_PHRASE):
+                out = out[len(NAME_PHRASE):].lstrip("，, ")
+            if out:
+                self._last = out
+            return out
+        except Exception as e:  # noqa: BLE001  #261：守卫链任何异常都不把原文 / *** 送进 TTS
+            logger.warning("GuardTextFilter failed closed: {}", type(e).__name__)
+            return self._speak_fail()
 
     async def handle_interruption(self):
         self._last = self._prev_raw = ""
