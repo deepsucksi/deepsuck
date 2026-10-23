@@ -860,9 +860,12 @@ def name_say_regions(text: Optional[str], entities: Optional[Iterable[dict]] = N
                     and not any(u["start"] == sp["start"] for u in units):
                 b = sp["end"]
                 absorbed = True
-        # #260：拆字报姓后紧跟已提取姓名（「弓长张三丰」里姓与名重叠在姓字上）时整段并入，避免留下「弓长张**」
+        # #260：拆字报姓后紧跟已提取姓名（「弓长张三丰」里姓与名重叠在姓字上）时整段并入，避免留下「弓长张**」。
+        # 提取器偶发把金额吃进姓名（「耳东陈两万」→「陈两万」）时，若拆字后紧跟 sayEnd 金额则不并入，留给「那个名字两万」。
         for e in names_early:
             if e["start"] == split_end - 1 or e["start"] == pos:
+                if Q["end"].match(s[split_end:]) or Q["end"].match(s[pos:]):
+                    continue
                 b = max(b, e["end"])
                 absorbed = True
         # #260：已打码文本（「弓长张**」「耳东陈，**」）把尾随星号并入，say_names 一次换成「那个名字」

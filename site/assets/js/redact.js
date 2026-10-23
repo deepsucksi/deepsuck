@@ -829,9 +829,13 @@
         if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked) &&
             !units.some(function (u) { return u.start === sp.start; })) { b = sp.end; absorbed = true; }
       });
-      // #260：拆字报姓后紧跟已提取姓名（「弓长张三丰」）整段并入；已打码尾随星号一并吃掉
+      // #260：拆字报姓后紧跟已提取姓名（「弓长张三丰」）整段并入；已打码尾随星号一并吃掉。
+      // 提取器偶发把金额吃进姓名（「耳东陈两万」→「陈两万」）时，拆字后紧跟 sayEnd 则不并入。
       namesEarly.forEach(function (e) {
-        if (e.start === splitEnd - 1 || e.start === pos) { b = Math.max(b, e.end); absorbed = true; }
+        if (e.start === splitEnd - 1 || e.start === pos) {
+          if (Q.end.test(s.slice(splitEnd)) || Q.end.test(s.slice(pos))) return;
+          b = Math.max(b, e.end); absorbed = true;
+        }
       });
       var sm2 = R.sep.exec(s.slice(b));
       var p2 = b + (sm2 ? sm2[0].length : 0);
