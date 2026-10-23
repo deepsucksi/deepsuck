@@ -64,3 +64,15 @@ def test_dry_run_estimates_without_client(tmp_path, monkeypatch, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "cost_cny" in out and not (tmp_path / "l.csv").exists()
+
+
+def test_item_sample_seed_gives_different_items_per_seed(tmp_path):
+    calls = C.load_calls([_ab(tmp_path)])
+
+    def goods(seed, sample):
+        key, forms, _ = C.judge_items(calls, C.GROUPS, seed, per_group=4, sample=sample)
+        return sorted((r["scammer"], r["reply"]) for r in forms["A"] if key[r["id"]]["condition"] == "good")
+    assert goods(1000, "head") == goods(1001, "head")          # 默认不变：题目不随 seed 变
+    a, b = goods(1000, "seed"), goods(1001, "seed")
+    assert len(a) == len(b) == 4 and a != b                     # 按 seed 抽样：两个 seed 评不同的题
+    assert a == goods(1000, "seed")                             # 同 seed 可复现
