@@ -165,12 +165,19 @@ def summarize_replay(rows: List[dict]) -> dict:
 
 
 # ---------------------------------------------------------------- judge
-def judge_items(calls, groups, seed, per_group: int) -> tuple:
-    """每组取前 per_group 条（台词, 回复）；同一条台词在四组里各出现一次，题号打乱组别（key 只记组别）。"""
-    key, rows, pair = {}, [], 0
-    flat = [(c, i) for c in calls for i in range(len(c["lines"]))][:per_group]
-    reps = {(id(c), g): responder_replies(c, g, seed) for c in calls for g in groups}
+def judge_items(calls, groups, seed, per_group: int, sample: str = "head") -> tuple:
+    """每组取 per_group 条（台词, 回复）；同一条台词在四组里各出现一次，题号打乱组别（key 只记组别）。
+    sample="head"（默认，与旧结果一致）取前 per_group 条，题目内容不随 seed 变；sample="seed"（#262）按 seed 抽样，
+    不同 seed 评的是不同的题，才算独立样本（评委 temperature 0，同题同回复换 seed 打分几乎不变）。"""
     import random
+    key, rows, pair = {}, [], 0
+    flat = [(c, i) for c in calls for i in range(len(c["lines"]))]
+    if sample == "seed":
+        pick = sorted(random.Random(f"items|{seed}").sample(range(len(flat)), min(per_group, len(flat))))
+        flat = [flat[k] for k in pick]
+    else:
+        flat = flat[:per_group]
+    reps = {(id(c), g): responder_replies(c, g, seed) for c in calls for g in groups}
     rng = random.Random(seed)
     items = []
     for c, i in flat:
@@ -245,6 +252,9 @@ def main(argv=None) -> int:
     ap.add_argument("--skip-replay", action="store_true")
     ap.add_argument("--skip-judge", action="store_true")
     ap.add_argument("--seed", type=int, default=1000)
+    ap.add_argument("--item-sample", choices=("head", "seed"), default="head",
+                    help="#262：head（默认）取前 --judge-n 条，题目不随 seed 变；seed 按 seed 抽样，不同 seed 是独立样本。"
+                         "两遍独立生成时再给每个 seed 各自的 --good-file")
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--max-cost", type=float, default=HARD_MAX_COST_CNY)
     ap.add_argument("--budget-tag", default=None)
@@ -265,7 +275,7 @@ def main(argv=None) -> int:
     if not a.good_file:
         a.skip_replay = a.skip_judge = True
     profiles = [x for x in a.profiles.split(",") if x]
-    res = {"date": M.date.today().isoformat(), "model": M.MODEL, "goodModel": a.good_model, "seed": a.seed,
+    res = {"date": M.date.today().isoformat(), "model": M.MODEL, "goodModel": a.good_model, "seed": a.seed, "itemSample": a.item_sample,
            "calls": len(calls), "turns": sum(len(c["lines"]) for c in calls),
            "scenarios": sorted({c["scenario"] for c in calls}), "groups": list(GROUPS)}
     log = lambda s: print(s, file=sys.stderr)  # noqa: E731
@@ -311,7 +321,7 @@ def main(argv=None) -> int:
             res["replay"] = {pr: {g: summarize_replay(rows) for g, rows in gs.items()} for pr, gs in out.items()}
             res["replayUsage"] = {k: (round(v, 6) if isinstance(v, float) else v) for k, v in meter.u.items()}
     if not a.skip_judge:
-        key, forms, npairs = judge_items(calls, GROUPS, a.seed, a.judge_n)
+        key, forms, npairs = judge_items(calls, GROUPS, a.seed, a.judge_n, a.item_sample)
         res["judgeItemsPerGroup"] = npairs
         res["judge"] = {}
         for jp in [x for x in a.judge_profiles.split(",") if x]:

@@ -1022,3 +1022,9 @@ python eval/llm_scammer.py --run --seeds 1 --max-turns 15 --scenarios police,bos
 ### 错字率校准（摘要）
 
 详见 [REALISM.md](REALISM.md)「错字率校准」（第二版）。档位来自公开、脱敏的老年人聊天样本统计（不保存、不引用原句）：日常聊天约每百字 2.6，手写输入约 11，成文随笔约 2。默认档（每百字）：王阿姨 3.0、李大爷 2.5、retiree 3.0、mom / shop_owner 2.0、graduate / 小林 1.0；手写档（`handwriting=True`，默认关闭）：老人 11、中年 6、年轻人 3。实测（原句池，60 种子 × 40 条）：王阿姨 2.96 / 10.68，李大爷 2.53 / 10.67，小林 1.20 / 3.44。
+
+## 大模型被骗方（#262，默认关）
+
+`eval/llm_scammer.py --responder llm` 让被骗方按语音管线出回复（Session → 意图门控 → `voice/persona.py` 提示词 → 大模型 → `guard_output`，不过 humanize），骗子仍是大模型。`--victim-root <worktree>` 从别的 worktree 加载 `voice/persona.py`，同一份评测代码可以对比 main 与 PR 分支的提示词（同一进程只能用一个 root）。新指标「提出转账后问出收款账户」：骗子第一次提出转账 / 付款之后，说出本场银行卡或支付宝的场次占比，分母只算本场情报含账户且提过转账的场次。费用与骗子请求合计，受同一个 `--max-cost` 与台账约束；估算按每轮多一次被骗方请求（约 1400 token 输入）计。`--seed-base` 换种子起点。
+
+`eval/discrimination_calib.py --item-sample seed`：按 seed 抽评委题目。默认 `head` 取前 `--judge-n` 条，题目内容不随 seed 变，评委 temperature 0，换 seed 打分几乎相同（#256 第二轮两个 seed 结果一样即此原因；评委缓存键本来就含 seed）。要两个独立样本：每个 seed 用各自独立生成的 `--good-file`，并加 `--item-sample seed`。
