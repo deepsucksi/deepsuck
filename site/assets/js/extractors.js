@@ -134,6 +134,9 @@
       for (var k = 2; k <= 3; k++) {
         if (k < n.length && NAME_BOUNDARY.test(m.input.slice(start + k))) { n = n.slice(0, k); break; }
       }
+      // #260：已打码「收款人叫李*」再提取时连接词「叫」被吃进名字；捕获组紧跟 * 则丢弃
+      var end = start + n.length;
+      if (end < m.input.length && (m.input.charAt(end) === '*' || m.input.charAt(end) === '＊')) return null;
     }
     return n.length >= 2 ? n : null;
   }

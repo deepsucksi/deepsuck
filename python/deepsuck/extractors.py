@@ -168,6 +168,10 @@ def _clean_name(n: str, m=None, start: Optional[int] = None):
             if k < len(n) and _NAME_BOUNDARY.match(m.string[start + k:]):
                 n = n[:k]
                 break
+        # #260：已打码「收款人叫李*」再提取时，可选连接词「叫」被吃进名字成「叫李」；捕获组紧跟 * 则丢弃
+        end = start + len(n)
+        if end < len(m.string) and m.string[end] in "*＊":
+            return None
     return n if len(n) >= 2 else None
 
 

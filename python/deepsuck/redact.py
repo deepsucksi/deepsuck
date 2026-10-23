@@ -106,6 +106,8 @@ def mask_url(v) -> str:
         return "***"
     proto = m.group(1) or ""
     host = m.group(2) or ""
+    if "*" in host or "＊" in host:  # #260：已打码网址再 mask 会把 192.*.* 打成 19***，保持原样
+        return s
     if re.match(r"^www\.", host, re.I):
         proto += host[:4]
         host = host[4:]
@@ -845,16 +847,36 @@ def name_say_regions(text: Optional[str], entities: Optional[Iterable[dict]] = N
         # #259：explain_units 只给一条链的第一个 unit 写 head，与 :711 一样先判断
         return any("head" in u and u["head"] >= pos and E["sep"].match(s[pos:u["head"]]) for u in units)
 
+    names_early = [e for e in ents if e.get("type") == "name" and e.get("value")]
     hits = [[m.start(), m.end()] for m in Q["variant"].finditer(s)] + [[a, b] for a, b, _ in split_hits(s, units)]
     for a, b in hits:
+        split_end = b
         sm = R["sep"].match(s[b:])  # 复审建议：sep 匹配不上时不抛错
         pos = b + (sm.end() if sm else 0)
+        absorbed = False
         for sp in spans:
             # #259 复审：紧跟的是逐字解释（explain unit）而不是名时不往后延，否则 end_ok 落在解释链中间判不过、拆字姓漏打
             if not sp.get("kind") and sp["start"] == pos and re.fullmatch(r"\*+", sp["masked"]) \
                     and not any(u["start"] == sp["start"] for u in units):
                 b = sp["end"]
-        if not end_ok(b):
+                absorbed = True
+        # #260：拆字报姓后紧跟已提取姓名（「弓长张三丰」里姓与名重叠在姓字上）时整段并入，避免留下「弓长张**」。
+        # 提取器偶发把金额吃进姓名（「耳东陈两万」→「陈两万」）时，若拆字后紧跟 sayEnd 金额则不并入，留给「那个名字两万」。
+        for e in names_early:
+            if e["start"] == split_end - 1 or e["start"] == pos:
+                if Q["end"].match(s[split_end:]) or Q["end"].match(s[pos:]):
+                    continue
+                b = max(b, e["end"])
+                absorbed = True
+        # #260：已打码文本（「弓长张**」「耳东陈，**」）把尾随星号并入，say_names 一次换成「那个名字」
+        sm2 = R["sep"].match(s[b:])
+        p2 = b + (sm2.end() if sm2 else 0)
+        if p2 < len(s) and s[p2] in "*＊":
+            while p2 < len(s) and s[p2] in "*＊":
+                p2 += 1
+            b = p2
+            absorbed = True
+        if not absorbed and not end_ok(b):
             continue
         if a > 0 and s[a - 1] == "姓":
             a -= 1

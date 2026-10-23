@@ -107,6 +107,7 @@
     if (!m) return '***';
     var proto = m[1] || '';
     var host = m[2] || '';
+    if (host.indexOf('*') >= 0 || host.indexOf('＊') >= 0) return s; // #260：已打码网址保持原样
     if (/^www\./i.test(host)) { proto += host.slice(0, 4); host = host.slice(4); }
     var hasPath = !!(m[4] && m[4].length > 1);
     var labels = host.split('.');
@@ -816,16 +817,33 @@
     Q.variant.lastIndex = 0;
     while ((m = Q.variant.exec(s))) hits.push([m.index, m.index + m[0].length]);
     splitHits(s, units).forEach(function (h) { hits.push([h.start, h.end]); });
+    var namesEarly = ents.filter(function (e) { return e.type === 'name' && e.value; });
     hits.forEach(function (h) {
       var a = h[0], b = h[1];
+      var splitEnd = b;
       var sm = R.sep.exec(s.slice(b)); // 复审建议：sep 匹配不上时不抛错
       var pos = b + (sm ? sm[0].length : 0);
+      var absorbed = false;
       // #259 复审：紧跟的是逐字解释（explain unit）而不是名时不往后延，与 redact.py 一致
       spans.forEach(function (sp) {
         if (!sp.kind && sp.start === pos && /^[*]+$/.test(sp.masked) &&
-            !units.some(function (u) { return u.start === sp.start; })) b = sp.end;
+            !units.some(function (u) { return u.start === sp.start; })) { b = sp.end; absorbed = true; }
       });
-      if (!endOk(b)) return;
+      // #260：拆字报姓后紧跟已提取姓名（「弓长张三丰」）整段并入；已打码尾随星号一并吃掉。
+      // 提取器偶发把金额吃进姓名（「耳东陈两万」→「陈两万」）时，拆字后紧跟 sayEnd 则不并入。
+      namesEarly.forEach(function (e) {
+        if (e.start === splitEnd - 1 || e.start === pos) {
+          if (Q.end.test(s.slice(splitEnd)) || Q.end.test(s.slice(pos))) return;
+          b = Math.max(b, e.end); absorbed = true;
+        }
+      });
+      var sm2 = R.sep.exec(s.slice(b));
+      var p2 = b + (sm2 ? sm2[0].length : 0);
+      if (p2 < s.length && (s.charAt(p2) === '*' || s.charAt(p2) === '＊')) {
+        while (p2 < s.length && (s.charAt(p2) === '*' || s.charAt(p2) === '＊')) p2++;
+        b = p2; absorbed = true;
+      }
+      if (!absorbed && !endOk(b)) return;
       if (a > 0 && s.charAt(a - 1) === '姓') a--;
       regs.push([a, b]);
     });
