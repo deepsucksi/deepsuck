@@ -34,6 +34,14 @@ time,tag,script,model,requests,prompt_tokens,completion_tokens,cached_tokens,cos
 2026-10-19T16:17:15+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,142126,3758,122880,0.037831,judgeN=60 mode=item profile=strict api=sync seed=1000 ok
 2026-10-19T16:18:01+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,29431,3962,0,0.034242,judgeN=60 mode=item profile=default api=sync seed=1001 ok
 2026-10-19T16:18:42+08:00,qwen38-baseline-2026-10-19,eval/realism_blind.py score --judge llm (sync),qwen3.8-flash,120,141991,3787,122880,0.037802,judgeN=60 mode=item profile=strict api=sync seed=1001 ok
+2026-10-22T23:35:24+08:00,corpus-194-dir-v5,eval/discrimination_calib.py judge (sync),qwen3.8-flash,34,40058,1070,33792,0.011281,profile=strict items=140 cacheHit=84.4%
+2026-10-22T23:35:39+08:00,corpus-194-dir-v5,eval/discrimination_calib.py judge (sync),qwen3.8-flash,34,40071,1052,34816,0.010526,profile=strict items=140 cacheHit=86.9%
+2026-10-22T23:35:53+08:00,corpus-194-dir-v5,eval/discrimination_calib.py judge (sync),qwen3.8-flash,33,38836,1012,33792,0.010147,profile=strict items=140 cacheHit=87.0%
+2026-10-22T23:36:07+08:00,corpus-194-dir-v5,eval/discrimination_calib.py judge (sync),qwen3.8-flash,34,40046,1064,34816,0.010538,profile=strict items=140 cacheHit=86.9%
+2026-10-22T23:40:00+08:00,corpus-194-dir-v5,voice.llm_ab (generation main-a),qwen3.8-flash,57,68058,678,0,0.05629,head=dd47c94 good-file for judge seed 1000; tokens are avg x n
+2026-10-22T23:40:00+08:00,corpus-194-dir-v5,voice.llm_ab (generation main-b),qwen3.8-flash,57,68115,695,0,0.05637,head=dd47c94 good-file for judge seed 1001; tokens are avg x n
+2026-10-22T23:40:00+08:00,corpus-194-dir-v5,voice.llm_ab (generation new-a),qwen3.8-flash,57,70794,724,0,0.0586,head=cb052e3 good-file for judge seed 1000; tokens are avg x n
+2026-10-22T23:40:00+08:00,corpus-194-dir-v5,voice.llm_ab (generation new-b),qwen3.8-flash,57,70794,724,0,0.05862,head=cb052e3 good-file for judge seed 1001; tokens are avg x n
 2026-10-22T23:44:41+08:00,corpus-baseline-v6,eval/discrimination_calib.py judge (sync),qwen3.8-flash,34,40090,1042,33792,0.011231,profile=strict items=140 cacheHit=84.3%
 2026-10-22T23:44:54+08:00,corpus-baseline-v6,eval/discrimination_calib.py judge (sync),qwen3.8-flash,33,38865,1051,33792,0.010275,profile=strict items=140 cacheHit=86.9%
 2026-10-22T23:45:00+08:00,corpus-baseline-v6,voice.llm_ab (generation c574406-a),qwen3.8-flash,57,65265,752,0,0.05426,head=c574406 good-file for judge seed 1000; tokens are avg x n
