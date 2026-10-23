@@ -42,3 +42,7 @@ time,tag,script,model,requests,prompt_tokens,completion_tokens,cached_tokens,cos
 2026-10-22T23:40:00+08:00,corpus-194-dir-v5,voice.llm_ab (generation main-b),qwen3.8-flash,57,68115,695,0,0.05637,head=dd47c94 good-file for judge seed 1001; tokens are avg x n
 2026-10-22T23:40:00+08:00,corpus-194-dir-v5,voice.llm_ab (generation new-a),qwen3.8-flash,57,70794,724,0,0.0586,head=cb052e3 good-file for judge seed 1000; tokens are avg x n
 2026-10-22T23:40:00+08:00,corpus-194-dir-v5,voice.llm_ab (generation new-b),qwen3.8-flash,57,70794,724,0,0.05862,head=cb052e3 good-file for judge seed 1001; tokens are avg x n
+2026-10-22T23:44:41+08:00,corpus-baseline-v6,eval/discrimination_calib.py judge (sync),qwen3.8-flash,34,40090,1042,33792,0.011231,profile=strict items=140 cacheHit=84.3%
+2026-10-22T23:44:54+08:00,corpus-baseline-v6,eval/discrimination_calib.py judge (sync),qwen3.8-flash,33,38865,1051,33792,0.010275,profile=strict items=140 cacheHit=86.9%
+2026-10-22T23:45:00+08:00,corpus-baseline-v6,voice.llm_ab (generation c574406-a),qwen3.8-flash,57,65265,752,0,0.05426,head=c574406 good-file for judge seed 1000; tokens are avg x n
+2026-10-22T23:45:00+08:00,corpus-baseline-v6,voice.llm_ab (generation c574406-b),qwen3.8-flash,57,65265,724,0,0.05416,head=c574406 good-file for judge seed 1001; tokens are avg x n
