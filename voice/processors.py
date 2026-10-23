@@ -46,6 +46,7 @@ from pipecat.utils.text.base_text_filter import BaseTextFilter
 
 from .callredact import (CallRedactor, REDACT_FAIL_PLACEHOLDER, TTS_REDACT_FAIL_SPEAK,
                          redact_digit_fragments, redact_line, redact_line_checked)
+from .reask import ReaskGuard
 from .persona import (FILLERS, GOAL_TOPIC, drop_unsaid, gate_intent, guard_output, heard_refs, heard_scenes, prompt_parts, session_topics,
                       speakable, system_prompt, unmask)
 from .persona import NAME_PHRASE, drop_given_after_split, split_lead_refs  # noqa: E402  #215 拆字解释：已批说法「那个名字」；分段星号
@@ -114,11 +115,14 @@ class GuardTextFilter(BaseTextFilter):
 
     #261：每段经 redact_line_checked 探测失败（与转写同一套 fail-closed），再 CallRedactor / drop_unsaid / speakable；
     脱敏失败或只剩 *** 占位时念 TTS_REDACT_FAIL_SPEAK 完整兜底句，绝不把 *** 送进合成。
+    #209：speakable 之后再过 ReaskGuard.segment（与 BotTextTap 会话记录同一套不重复追问）。
     """
 
-    def __init__(self, redactor: Optional[CallRedactor] = None, refs: Optional[Callable[[], set]] = None):
+    def __init__(self, redactor: Optional[CallRedactor] = None, refs: Optional[Callable[[], set]] = None,
+                 reask: Optional[ReaskGuard] = None):
         self.redactor = redactor
         self.refs = refs  # #184：IntelProcessor.heard_refs；对方没报过的代称换成直说（drop_unsaid）。None 不处理
+        self.reask = reask  # #209：本通电话的 ReaskGuard，接在 speakable（hold_transfer 在最前面）之后
         self._last = ""
         self._prev_raw = ""
 
@@ -157,6 +161,9 @@ class GuardTextFilter(BaseTextFilter):
             # 上一句以「那个名字」结尾、这一句又以它开头时去掉这一个，合起来仍是「收款人是那个名字对吧」
             if self._last.endswith(NAME_PHRASE) and out.startswith(NAME_PHRASE):
                 out = out[len(NAME_PHRASE):].lstrip("，, ")
+            # #209：去掉已拿到 / 上一条刚问过字段的短问（第一句已由 ReaskGuard.segment 保留）
+            if self.reask is not None:
+                out = self.reask.segment(out)
             if out:
                 self._last = out
             return out
@@ -166,6 +173,8 @@ class GuardTextFilter(BaseTextFilter):
 
     async def handle_interruption(self):
         self._last = self._prev_raw = ""
+        if self.reask is not None:
+            self.reask.reset()  # 被打断：下一条回复从头算
         return None
 
     async def reset_interruption(self):
@@ -330,6 +339,7 @@ class IntelProcessor(FrameProcessor):
         self.session = session
         # #140：本通电话已提取的姓名、号码（原值只在内存），后面每段文本进模型、记会话前按各种说法再打码
         self.redactor = redactor if redactor is not None else CallRedactor()
+        self.reask: Optional[ReaskGuard] = None  # #209：通话里由 app.build_pipeline 接上（与 GuardTextFilter 同一份）
         self.backchannel = backchannel  # voice.backchannel.Backchannel：转写到了就决定本回合说不说口头语
         self.said_first = ""            # 本回合打算先说的口头语，写进系统提示词，免得正式回复开头再"嗯"
         self.context = context
@@ -459,7 +469,9 @@ class IntelProcessor(FrameProcessor):
         固定部分每轮基本不变，历史一次截一整块，所以前面一长段在相邻两轮之间相同，可以吃百炼的前缀缓存。"""
         topics = session_topics(self.session)
         # 只提对方已经提到、但还没拿到的情报；对方没提过的（例如杀猪盘里还没说平台）不进提示词
-        missing = [GOAL_LABEL.get(g, g) for g in self.session.missing_goals() if GOAL_TOPIC.get(g) in topics]
+        # #209：上一条回复刚问过、对方还没给的字段，这一轮不列进缺项（不连着追问同一样）
+        last = self.reask.last_asked() if self.reask is not None else set()
+        missing = [GOAL_LABEL.get(g, g) for g in self.session.missing_goals() if GOAL_TOPIC.get(g) in topics and g not in last]
         first = sum(1 for m in getattr(self.session, "messages", []) if m.get("role") == "scammer") <= 1
         heard = next((m.get("text", "") for m in getattr(self.session, "messages", []) if m.get("role") == "scammer"), "")
         rest = None
@@ -587,6 +599,8 @@ class BotTextTap(FrameProcessor):
             # 只换模型自己写的代称；如果放在 guard_output 之后，会把打码 / 逐字解释换出来的「那个名字」「那个号」改成光秃秃的
             # 「名字」（见 #219，用例 voice/tests/test_unsaid_placeholder.py）。不要改回。
             text = guard_output(drop_unsaid(self.intel.redactor.apply("".join(self._buf)), self.intel.heard_refs()))
+            if self.intel.reask is not None:
+                text = self.intel.reask.text(text)  # #209：在守卫之后
             self._buf = []
             if text:
                 msg = self.intel.session.record_bot(text, self.intel.intent)

@@ -192,8 +192,10 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
 
     prof = get_profile(profile)
     pid = session.persona["id"]
+    from .reask import ReaskGuard
+    reask = ReaskGuard(session)  # #209：不重复追问，送 TTS（GuardTextFilter）和会话记录（BotTextTap）共用
     redactor = CallRedactor()  # #140：本通电话的已提取姓名/号码集合，进模型（IntelProcessor）和送 TTS（GuardTextFilter）共用
-    guard = GuardTextFilter(redactor)  # 送 TTS 前的守卫；#184：refs 等 IntelProcessor 建好后接上
+    guard = GuardTextFilter(redactor, reask=reask)  # 送 TTS 前的守卫；#184 refs / #209 reask 与 BotTextTap 共用
     stt = stt or ParaformerSTTService(model=ASR_MODEL, sample_rate=IN_RATE, meter=meter,
                                       max_sentence_silence=prof.asr_max_silence_ms)
     if tts is None:
@@ -252,6 +254,8 @@ def build_pipeline(transport, session: Session, notify, *, engine: str = "llm", 
                            redactor=redactor)
     intel.meter = meter
     guard.refs = intel.heard_refs  # #184：对方没报过的代称，送 TTS 前换成直说
+    intel.reask = reask  # #209：与 GuardTextFilter 同一份 ReaskGuard
+
     tap = BotTextTap(intel)
     # #175：本通最近 3 轮尾句去重（per-call，同 redactor），放在填充音之前：删空的一轮不发文字，填充音不会被取消
     dedupe = TailDedupeProcessor(pid, redactor=redactor)
