@@ -819,7 +819,7 @@ _EXP_END = "(?=$|[^\u4e00-\u9fff]|" + _EXP_TAIL + "|" + _EXP_PARTICLE + "|" + _E
 # 拆字报姓后面跟着 1–2 个字的名（「弓长张，三丰」「走肖赵，明。」「弓长张三丰」）一并换掉；名的字不能是共享核心
 # split.givenStop 里的字或语气词。同音变体（「龚厂长」）后面必须隔着标点才算名，免得「尔东陈列馆」「宫长张罗」被当成拆字报姓。
 _GIVEN_CHAR = "(?:(?!" + _EXR["split"]["givenStop"] + "|" + _EXP_PARTICLE + ")" + _HAN + ")"
-_GIVEN_AFTER = _GIVEN_CHAR + "{1,2}(?![\u4e00-\u9fff])"
+_GIVEN_AFTER = _GIVEN_CHAR + "{1,2}(?=" + _EXP_TAIL + "|" + _EXP_PARTICLE + "|[^\u4e00-\u9fff]|$)"  # #261：名后可直接接「对吧」等，不只非汉字
 _SPLIT_EXACT = "|".join("\\s*".join(sp) for sp in sorted(_SPLIT_SPELLINGS, key=len, reverse=True))
 # #163 复审：拆字报姓后面紧跟数字 / 中文金额（「弓长张三五百块」「转给木子李一千元」「转给弓长张500」）也算说完了，
 # 否则后面的数字过滤先把金额换掉，拆字规则就再也认不出来（以前读成「弓长张那串数没记住百块」「转给木子李那么点」）

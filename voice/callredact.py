@@ -310,6 +310,8 @@ class CallRedactor:
 
 # #259：redact_line 出任何异常时整句换成这个占位（fail-closed），日志只记异常类型、不记原文
 REDACT_FAIL_PLACEHOLDER = "***"
+# #261：TTS 路径遇到脱敏失败 / 纯星号占位时念这句完整兜底（不要直接念 ***；日志占位仍用上面的 ***）
+TTS_REDACT_FAIL_SPEAK = "刚才没听清，你再说一遍"
 
 
 def _redact_line_raw(text: str) -> str:
